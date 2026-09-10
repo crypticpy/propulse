@@ -1432,23 +1432,213 @@ function isJsxElementTextBearing(el: JsxElement): boolean {
   return isTextBearingChildren(el.children);
 }
 
+/** Every char index in `text` that is inside a quoted string ('/"/`),
+ * skipping over parens/brackets/braces depth-tracking helpers below need to
+ * treat as opaque -- kept as a small shared scanning primitive rather than
+ * duplicated inline in both `splitAtTopLevelOperators` and `findArrowBodies`
+ * (Codex, PR #874 round 21). */
+function isQuoteChar(c: string): boolean {
+  return c === '"' || c === "'" || c === "`";
+}
+
+/** Splits `text` at depth 0 (outside `()`/`[]`/`{}` and quoted strings) on
+ * the operators `?`, `:`, `&&`, `||`, `??` -- a `?` immediately followed by
+ * `.` (optional chaining, `a?.b`) is not a split point. Used to separate a
+ * ternary/logical expression's condition from its value-bearing operands
+ * (Codex, PR #874 round 21). */
+function splitAtTopLevelOperators(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let inStr: string | null = null;
+  let start = 0;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === inStr) inStr = null;
+      i++;
+      continue;
+    }
+    if (isQuoteChar(c)) {
+      inStr = c;
+      i++;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0) {
+      if (c === "?" && text[i + 1] === "?") {
+        parts.push(text.slice(start, i));
+        i += 2;
+        start = i;
+        continue;
+      }
+      if (c === "&" && text[i + 1] === "&") {
+        parts.push(text.slice(start, i));
+        i += 2;
+        start = i;
+        continue;
+      }
+      if (c === "|" && text[i + 1] === "|") {
+        parts.push(text.slice(start, i));
+        i += 2;
+        start = i;
+        continue;
+      }
+      if (c === "?" && text[i + 1] !== ".") {
+        parts.push(text.slice(start, i));
+        i += 1;
+        start = i;
+        continue;
+      }
+      if (c === ":") {
+        parts.push(text.slice(start, i));
+        i += 1;
+        start = i;
+        continue;
+      }
+    }
+    i++;
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/** Every top-level (any nesting depth, quote-aware) arrow function's
+ * expression body found in `text` -- a `.map((i) => cond ? <A /> : i.label)`
+ * callback's ternary sits inside the map call's own parens, invisible to a
+ * depth-0-only split of the whole expression, so its body is extracted and
+ * examined on its own, depth reset to 0 for that body alone (Codex, PR #874
+ * round 21). A `{ ... }` block body (statements, not a single expression) is
+ * skipped -- this scanner can't evaluate arbitrary statements. */
+function findArrowBodies(text: string): string[] {
+  const bodies: string[] = [];
+  const re = /=>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    let i = m.index + 2;
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text[i] === "{") {
+      re.lastIndex = i;
+      continue;
+    }
+    let depth = 0;
+    let inStr: string | null = null;
+    let j = i;
+    for (; j < text.length; j++) {
+      const c = text[j];
+      if (inStr) {
+        if (c === "\\") {
+          j++;
+          continue;
+        }
+        if (c === inStr) inStr = null;
+        continue;
+      }
+      if (isQuoteChar(c)) {
+        inStr = c;
+        continue;
+      }
+      if (c === "(" || c === "[" || c === "{") {
+        depth++;
+        continue;
+      }
+      if (c === ")" || c === "]" || c === "}") {
+        if (depth === 0) break;
+        depth--;
+        continue;
+      }
+      if (depth === 0 && c === ",") break;
+    }
+    bodies.push(text.slice(i, j));
+    re.lastIndex = j;
+  }
+  return bodies;
+}
+
+/** True when a single value-position operand (already isolated by
+ * `splitAtTopLevelOperators`) renders as visible text: fails closed on
+ * anything that isn't unambiguously non-text -- empty, `null`/`undefined`/
+ * `false`/`true`, an empty string/template literal, or (after an extracted
+ * JSX element's raw span has been blanked to spaces by the caller) nothing
+ * but whitespace (Codex, PR #874 round 21). */
+function isValuePositionTextBearing(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === "") return false;
+  if (/^(null|undefined|false|true)$/.test(trimmed)) return false;
+  if (/^(""|''|``)$/.test(trimmed)) return false;
+  return true;
+}
+
+/** True when `remainder` -- an expression block's text with every JSX
+ * element `extractJsxElements` found already blanked to spaces -- still
+ * renders text through a non-JSX alternative: the first operand of a
+ * `?`/`:`/`&&`/`||`/`??` chain at depth 0 is that chain's condition (ignored),
+ * every other operand is a value position judged by `isValuePositionTextBearing`
+ * (round 21's `{ready ? <span className="h-2" /> : "Loading"}` -- the only
+ * JSX is the decorative span, but the ternary's other branch is a literal
+ * string that renders when `ready` is false). An arrow function's body
+ * (`.map((i) => ...)`) is examined the same way, recursively, since its own
+ * ternary/logical operators sit inside the call's parens and are invisible
+ * to a depth-0 split of the whole block. */
+function isRemainderTextBearing(remainder: string): boolean {
+  const parts = splitAtTopLevelOperators(remainder);
+  if (parts.length > 1 && parts.slice(1).some(isValuePositionTextBearing)) return true;
+  return findArrowBodies(remainder).some(isRemainderTextBearing);
+}
+
+/** `text` with every element `extractJsxElements` found blanked out to an
+ * equal-length run of spaces (so downstream character offsets and depth
+ * tracking are unaffected), leaving only the expression's non-JSX text
+ * behind for `isRemainderTextBearing` to examine. Elements are blanked at
+ * their first occurrence from a left-to-right cursor, matching the
+ * left-to-right order `extractJsxElements` already returns them in. */
+function blankJsxElements(text: string, elements: JsxElement[]): string {
+  let out = text;
+  let cursor = 0;
+  for (const el of elements) {
+    const at = out.indexOf(el.raw, cursor);
+    if (at === -1) continue;
+    out = out.slice(0, at) + " ".repeat(el.raw.length) + out.slice(at + el.raw.length);
+    cursor = at + el.raw.length;
+  }
+  return out;
+}
+
 /** Classifies one `{...}` expression block (braces included) from a
  * child's raw JSX by what it actually emits, replacing the old `.map(`/`=>`
  * special case (Codex, PR #874 round 19). A block with no JSX in it at all
  * (`{count}`, `{label}`, `{t("x")}`, `{a ? "Loading" : "Ready"}`, a bare
  * spread `{...props}`) renders that value as text right here, so it counts
  * (fail closed -- this scanner can't evaluate the expression). A block that
- * does contain JSX (a ternary, `&&`, or a `.map()` callback) counts only
- * when the JSX inside would itself be text-bearing by `isJsxElementTextBearing`
- * -- so `{ready && <span className="h-2" />}` (decorative) and
+ * does contain JSX (a ternary, `&&`, or a `.map()` callback) counts when the
+ * JSX inside would itself be text-bearing by `isJsxElementTextBearing`, OR
+ * when the block's non-JSX remainder (the block with each found JSX
+ * element's raw span blanked out) still renders text through some other
+ * branch of the same ternary/logical expression (round 21) -- so
+ * `{ready && <span className="h-2" />}` (decorative) and
  * `{items.map((i) => <div key={i} className="h-2" />)}` (skeleton) are
- * dismissed, while `{ready ? <span>Loading</span> : null}` still counts. */
+ * dismissed, while `{ready ? <span>Loading</span> : null}` and
+ * `{ready ? <span className="h-2" /> : "Loading"}` both still count. */
 function isExpressionBlockTextBearing(block: string): boolean {
   const inner = block.slice(1, -1);
   if (!/<(?:[A-Za-z]|>)/.test(inner)) return true;
   const elements = extractJsxElements(inner);
   if (elements.length === 0) return true;
-  return elements.some(isJsxElementTextBearing);
+  if (elements.some(isJsxElementTextBearing)) return true;
+  return isRemainderTextBearing(blankJsxElements(inner, elements));
 }
 
 /** True when `children` (the raw JSX between an opening and closing tag)
@@ -1568,17 +1758,43 @@ interface Violation {
 
 /** Element scan: flags any intrinsic text-bearing element whose className carries
  * the pulse class together with a text-color class or text-bearing
- * children. `normalizedSource` must already be whitespace-normalized (see
- * `normalize`) -- `scanSourceForViolations` does this once for both scans
- * so every `Violation.index` shares one coordinate space with the anchors
- * they're compared against. */
+ * children, OR a PascalCase component (`isTextBearingTag` unconditionally
+ * excludes every capitalized tag, since a scanner with no type information
+ * can't know what an arbitrary component renders) whose className carries
+ * the pulse class AND which itself carries a text-shaped prop/spread or
+ * (non-self-closing) text-bearing children -- `<RadioBadge className=
+ * "animate-pulse" label="TX" />` forwards its own className onto whatever
+ * text-bearing element it renders internally, same as `<Icon className=
+ * "animate-pulse" />` (no text signal at all) staying skipped (Codex, PR
+ * #874 round 21). `normalizedSource` must already be whitespace-normalized
+ * (see `normalize`) -- `scanSourceForViolations` does this once for both
+ * scans so every `Violation.index` shares one coordinate space with the
+ * anchors they're compared against. */
 function findElementViolations(normalizedSource: string): Violation[] {
   const constMap = collectConstTemplateMap(normalizedSource);
   const violations: Violation[] = [];
   for (const site of findClassNameSites(normalizedSource, constMap)) {
-    if (!site.tag || !isTextBearingTag(site.tag)) continue;
+    if (!site.tag) continue;
     const pulseMatch = PULSE_CLASS_RE.exec(site.raw);
     if (!pulseMatch) continue;
+    if (/^[A-Z]/.test(site.tag)) {
+      // Reuses the same `TEXT_PROP_RE` prop list as `findSelfClosingComponentTags`
+      // (round 18) rather than duplicating it -- and the same
+      // `isTextBearingChildren` rules a non-self-closing intrinsic element
+      // is judged by, since `findClassNameSites`/`findMatchingCloseTag` are
+      // already tag-name-agnostic and populate `childrenText` for a
+      // component tag exactly the same way.
+      const textBearing =
+        TEXT_PROP_RE.test(site.openingTag ?? "") || isTextBearingChildren(site.childrenText);
+      if (textBearing) {
+        violations.push({
+          description: `<${site.tag}> pulses while forwarding its className to a text-shaped prop, spread, or text-bearing children (className: ${JSON.stringify(normalize(site.raw).slice(0, 100))})`,
+          index: site.index + pulseMatch.index,
+        });
+      }
+      continue;
+    }
+    if (!isTextBearingTag(site.tag)) continue;
     const tinted = TEXT_COLOR_CLASS_RE.test(site.raw);
     const textBearing =
       isTextBearingChildren(site.childrenText) || isValueBearingControl(site);
@@ -2070,6 +2286,23 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("catches a labeled component pulsing on its own className, not only a decorative wrapper around one", () => {
+    // The component itself (not a wrapper) carries both the pulse class and
+    // a text-shaped prop -- `isTextBearingTag` used to skip every
+    // capitalized tag before the pulse class was even checked, so this
+    // site was invisible to the scan regardless of what `RadioBadge`
+    // forwards its className onto internally (Codex, PR #874 round 21).
+    const fixture = '<RadioBadge className="animate-pulse" label="TX" />';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).not.toEqual([]);
+    expect(violations[0].description).toContain("<RadioBadge>");
+  });
+
+  it("still dismisses a pulsing component with no text-shaped prop, spread, or text-bearing children", () => {
+    const fixture = '<Icon className="animate-pulse h-4 w-4" />';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("does not lose the closing tag to a same-tag token inside a JSX comment, so trailing visible text is still seen", () => {
     const fixture =
       '<div className="animate-pulse">{/* replace <div> later */}Loading</div>';
@@ -2084,6 +2317,23 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("still catches a conditional child that renders a text-bearing element (`cond ? <span>text</span> : null`)", () => {
     const fixture = '<div className="animate-pulse">{ready ? <span>Loading</span> : null}</div>';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("catches a ternary whose only JSX branch is decorative but whose other branch is a literal string (`cond ? <span /> : \"Loading\"`)", () => {
+    // The only JSX in the block (`<span className="h-2" />`) is decorative,
+    // but the ternary's other branch is the plain string `"Loading"`, which
+    // renders as text when `ready` is false -- `isExpressionBlockTextBearing`
+    // used to judge the block only by its extracted JSX elements, missing
+    // this non-JSX alternative entirely (Codex, PR #874 round 21).
+    const fixture =
+      '<div className="animate-pulse">{ready ? <span className="h-2" /> : "Loading"}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses a ternary whose only JSX branch is decorative and whose other branch is null", () => {
+    const fixture =
+      '<div className="animate-pulse">{ready ? <span className="h-2" /> : null}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
   it("still dismisses a mapping that emits a decorative self-closing element (`.map((i) => <div … />)`)", () => {

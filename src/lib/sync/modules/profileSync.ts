@@ -103,6 +103,12 @@ export const profileSync: SyncModule = {
     // Pulled unconditionally rather than behind `since`: a Stripe webhook moves
     // this row without touching `profiles.updated_at`, so a delta on the
     // profile cursor would never see the change.
+    //
+    // A failure here must not abort the rest of the pull (saved_locations
+    // etc. below); it's logged and treated as "unknown", which is distinct
+    // from a query that succeeded and found no row (see `billingQueried`
+    // below — that case resets to the free/inactive/null defaults instead of
+    // silently keeping whatever the previous account left behind).
     const { data: billingRow, error: billingError } = await supabase
       .from("profile_billing")
       .select("subscription_tier, subscription_status, subscription_period_end")
@@ -110,8 +116,9 @@ export const profileSync: SyncModule = {
       .maybeSingle();
 
     if (billingError) {
-      throw new Error(`Billing pull failed: ${billingError.message}`);
+      console.warn(`Billing pull failed, skipping billing update: ${billingError.message}`);
     }
+    const billingQueried = !billingError;
 
     // --- Pull saved locations (always full pull — no updated_at column) ---
     const { data: locationRows, error: locationError } = await supabase
@@ -259,15 +266,22 @@ export const profileSync: SyncModule = {
     // Subscription fields (server-authoritative via Stripe webhooks). Outside
     // the `profileRows` branch: a delta pull can skip the profile row entirely
     // and still need the current tier.
-    if (billingRow) {
-      if (billingRow.subscription_tier != null) {
+    //
+    // Only act when the query itself succeeded (`billingQueried`). A row
+    // means apply it as-is; no row means this account (e.g. a freshly signed
+    // in free account reusing a browser that last held a Pro session) has
+    // never subscribed and must read as the documented free/inactive/null
+    // defaults (`src/stores/profileStore.ts`), not whatever the persisted
+    // store happened to have — see #866 Codex round 2.
+    if (billingQueried) {
+      if (billingRow) {
         stateUpdate.subscriptionTier = billingRow.subscription_tier;
-      }
-      if (billingRow.subscription_status != null) {
         stateUpdate.subscriptionStatus = billingRow.subscription_status;
-      }
-      if (billingRow.subscription_period_end != null) {
         stateUpdate.subscriptionPeriodEnd = billingRow.subscription_period_end;
+      } else {
+        stateUpdate.subscriptionTier = "free";
+        stateUpdate.subscriptionStatus = "inactive";
+        stateUpdate.subscriptionPeriodEnd = null;
       }
     }
 

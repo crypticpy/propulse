@@ -144,3 +144,8 @@ ALTER TABLE public.profiles
   DROP COLUMN IF EXISTS subscription_status,
   DROP COLUMN IF EXISTS subscription_period_end,
   DROP COLUMN IF EXISTS stripe_customer_id;
+
+-- PostgREST reloads its schema cache asynchronously; without this a
+-- checkout.session.completed arriving right after this migration applies can
+-- hit a stale cache that doesn't know profile_billing yet.
+NOTIFY pgrst, 'reload schema';

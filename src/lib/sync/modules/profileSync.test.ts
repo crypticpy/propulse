@@ -152,6 +152,127 @@ describe("profileSync location conflict handling", () => {
     );
   });
 
+  it("resets billing state to free when the account has no profile_billing row", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+    });
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            // Query succeeded; the account (e.g. a fresh free sign-in reusing
+            // a browser that last held a Pro session) has never subscribed.
+            maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await profileSync.pull("user-1", null);
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+  });
+
+  it("keeps existing billing state and still pulls the rest of the profile when the billing query errors", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const profileRow = {
+      id: "user-1",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: "Test bio",
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: profileRow, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: null,
+              error: { message: "connection reset" },
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await expect(profileSync.pull("user-1", null)).resolves.not.toThrow();
+
+    const state = useProfileStore.getState();
+    // Billing read failed — treated as unknown, not as "no row": the previous
+    // (unrelated) tier is left untouched rather than being reset to free.
+    expect(state.subscriptionTier).toBe("pro");
+    expect(state.subscriptionStatus).toBe("active");
+    expect(state.subscriptionPeriodEnd).toBe("2026-10-01T00:00:00.000Z");
+    // The rest of the pull still ran.
+    expect(state.bio).toBe("Test bio");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Billing pull failed"),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it("clears only the dirty token that completed its push", () => {
     const first = syncMeta.markLocationDirty(CURRENT_LOCATION_ID);
     const second = syncMeta.markLocationDirty(CURRENT_LOCATION_ID);

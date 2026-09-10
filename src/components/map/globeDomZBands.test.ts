@@ -170,6 +170,15 @@ function openingTag(src: string, start: number): string {
   return src.slice(start);
 }
 
+/** `//` and block comments blanked out, positions preserved. Guards that
+ * read comments certify prose: three of the six pre-fix hits in this suite
+ * were a comment quoting the very class it forbids. */
+function withoutComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
 describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () => {
   // Positive control: proves the glob actually found the map tree rather
   // than vacuously passing over an empty file list.
@@ -1254,15 +1263,6 @@ describe("map chrome never spells a raw z-index (#930, round 8)", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 
-  /** `//` and block comments blanked out, positions preserved. Guards that
-   * read comments certify prose: three of the six pre-fix hits in this suite
-   * were a comment quoting the very class it forbids. */
-  function withoutComments(src: string): string {
-    return src
-      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
-      .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
-  }
-
   it("keeps raw numeric z-indexes out of the hosts' map stacks", () => {
     const violations: string[] = [];
     for (const host of HOSTS) {
@@ -1287,5 +1287,48 @@ describe("map chrome never spells a raw z-index (#930, round 8)", () => {
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+describe("corner rows keep their old responsive gate (#930, round 7 follow-up)", () => {
+  /**
+   * Moving a row out of a host wrapper and into `cornerSlot` moves it out of
+   * that wrapper's classes too. PropSphere's Lite band panel used to live
+   * inside the Lite HUD, which was `hidden lg:block`, so it has never
+   * appeared on phone or tablet where the 300px expanded panel would cover
+   * the compact map. The gate has to travel with the row.
+   *
+   * Census of the other rows moved into a `cornerSlot`: PropSphere's legend
+   * group came from a `bottom-2 left-2 right-2` column with no breakpoint
+   * class; HamClockView's contacts key and AtmosGlobeView's weather legend
+   * likewise came from ungated columns. This one row is the only gate.
+   */
+  function cornerSlot(file: string): string {
+    // Comments stripped: the row carries a comment naming the very class
+    // this suite asserts on, which made the first draft of the test pass
+    // against a source that had lost the gate.
+    const src = withoutComments(readFileSync(resolve(REPO_ROOT, file), "utf8"));
+    const start = src.indexOf("const mapCornerSlot = (");
+    expect(start, `${file} has no mapCornerSlot`).toBeGreaterThan(-1);
+    const end = src.indexOf("\n  );", start);
+    expect(end, `${file} mapCornerSlot is unterminated`).toBeGreaterThan(start);
+    return src.slice(start, end);
+  }
+
+  it("keeps the Lite band row hidden below lg", () => {
+    const slot = cornerSlot("src/pages/PropSphere.tsx");
+    const lite = slot.indexOf("isLiteMode &&");
+    expect(lite, "the Lite band row left the corner column").toBeGreaterThan(
+      -1,
+    );
+    const tag = slot.slice(lite, slot.indexOf("<BandConditionsPanel", lite));
+    expect(tag).toMatch(/\bhidden\b/);
+    expect(tag).toMatch(/\blg:block\b/);
+  });
+
+  it("reads a slot that really holds the panel (non-vacuity)", () => {
+    const slot = cornerSlot("src/pages/PropSphere.tsx");
+    expect(slot).toContain("<BandConditionsPanel");
+    expect(slot).toContain("<LayerLegend");
   });
 });

@@ -50,16 +50,16 @@ export function AtmosGlobeView() {
       className="relative pointer-events-auto"
       style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
     >
-      <WeatherLegend inline />
+      <WeatherLegend />
     </div>
   );
 
   return (
     <BoundViewHost slot={ATMOS_VIEW_SLOT}>
       {/* `isolate` bounds the map's overlay portal (11000) to this wrapper.
-          WeatherLegend (z-10) lives inside it, so the portal still paints
-          above the legend the way #930 requires, while nothing on the
-          AtmosPulse page below is outranked. */}
+          The weather legend is a `legend`-tier row in the globe's corner
+          column, so the portal still paints above it the way #930 requires,
+          while nothing on the AtmosPulse page below is outranked. */}
       <div data-map-stack-root className="relative w-full h-full isolate">
         <Suspense
           fallback={

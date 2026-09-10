@@ -801,8 +801,12 @@ export function PropSphere() {
   const mapCornerSlot = (
     <>
       {isLiteMode && (
+        // `hidden lg:block` is not decoration: this row used to live inside
+        // the Lite HUD wrapper, which was `hidden lg:block`, so the panel has
+        // never appeared on phone or tablet where it would cover the compact
+        // map. Moving the row into the corner column kept the gate with it.
         <div
-          className="relative pointer-events-auto"
+          className="relative hidden pointer-events-auto lg:block"
           style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
         >
           <div

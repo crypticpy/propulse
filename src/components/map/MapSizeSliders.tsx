@@ -12,15 +12,19 @@
  * anchored on top of chrome it does not know about (#930).
  */
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapChromeUiStore } from "@/stores/mapChromeUiStore";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 export function MapSizeSliders() {
   const isFullscreen = useMapStore((s) => s.isFullscreen);
-  const [expanded, setExpanded] = useState(false);
+  // Session state, not component state: this control renders inside the map
+  // view's corner column, and switching projection unmounts the view (#930).
+  const expanded = useMapChromeUiStore((s) => s.sizePanelExpanded);
+  const setExpanded = useMapChromeUiStore((s) => s.setSizePanelExpanded);
 
   const prefs = useUIInteractionPrefs();
   const spotDotScale = prefs.spotDotScale ?? 1.0;

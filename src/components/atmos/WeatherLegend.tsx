@@ -70,24 +70,14 @@ const DATA_LAYERS = [
   "sst",
 ] as const;
 
-interface WeatherLegendProps {
-  /**
-   * Render in the host's own layout instead of anchoring to the map's
-   * bottom-left corner -- the corner the shared size control owns (#930).
-   */
-  inline?: boolean;
-}
-
-export function WeatherLegend({ inline = false }: WeatherLegendProps) {
+export function WeatherLegend() {
   const layerVisibility = useAtmosStore((s) => s.layerVisibility);
 
   const anyActive = DATA_LAYERS.some((id) => layerVisibility[id]);
   if (!anyActive) return null;
 
   return (
-    <div
-      className={`${inline ? "" : "absolute bottom-4 left-4 z-10"} max-w-[200px] bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg p-2 space-y-2`}
-    >
+    <div className="max-w-[200px] bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg p-2 space-y-2">
       {layerVisibility.radar && (
         <div className="space-y-0.5">
           <div

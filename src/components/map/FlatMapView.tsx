@@ -6502,7 +6502,13 @@ export function FlatMapView({
            (docked to PathAnalysis panel in PropSphere HUD instead) */}
       {!fillContainer && !isLiteMode && <AspectRatioSlider />}
 
-      <div className="absolute bottom-1 right-1 z-20">
+      {/* Attribution carries the provider's required <a href> links, so it is
+          operable chrome: at the portal's own level a popup would paint over
+          it and swallow the click (#930). */}
+      <div
+        className="absolute bottom-1 right-1"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      >
         <ImageryAttribution
           baseSource={
             mapStyle === "standard"

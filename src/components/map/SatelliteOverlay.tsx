@@ -14,7 +14,14 @@
  * Selected satellites show their orbital ground track.
  */
 
-import { useMemo, useRef, useCallback, useEffect, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
@@ -34,6 +41,8 @@ import {
 import {
   latLonAltToVector3,
   latLonToSurface,
+  MAX_TRACK_DOTS,
+  selectTrackDotIndices,
   selectTrackLabelIndices,
 } from "@/lib/map/satelliteGeometry";
 import {
@@ -606,6 +615,11 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
       // produces ~4300 points; labeling every 30 minutes there would emit
       // ~145 Html DOM-portal labels into the per-frame occlusion batch.
       const labelIndices = new Set(selectTrackLabelIndices(track));
+      // Same bound for the every-10-minute dot markers (#1029 review round
+      // 2) — the same ~4300-point GEO track would otherwise render ~430
+      // one-mesh-per-dot draws; on a short track this reproduces the exact
+      // `minutesFromNow % 10 === 0` set unchanged.
+      const dotIndices = new Set(selectTrackDotIndices(track));
 
       const past: THREE.Vector3[][] = [];
       const future: THREE.Vector3[][] = [];
@@ -647,7 +661,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
           currentFuture.push(vec);
         }
 
-        if (point.minutesFromNow % 10 === 0) {
+        if (dotIndices.has(i)) {
           dots.push(vec);
         }
         if (labelIndices.has(i)) {
@@ -704,6 +718,34 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
     };
   }, [dotGeometry, dotMaterial]);
 
+  // All dots share one color/opacity (dotMaterial doesn't vary by
+  // past/future the way the Line segments do), so a single InstancedMesh
+  // per track — fixed at MAX_TRACK_DOTS capacity, like RepeaterOverlay3D's
+  // MAX_INSTANCES pattern, so the mesh is created once and never rebuilt —
+  // replaces the former one-mesh-per-dot loop (#1029 review round 2). A
+  // ~4300-point GEO track produced ~430 individual mesh draw submissions;
+  // instancing collapses that to one draw call. Position-only, unit-scale
+  // matrices; `selectTrackDotIndices` guarantees dotMatrices.length never
+  // exceeds the MAX_TRACK_DOTS capacity below.
+  const dotMatrices = useMemo(() => {
+    const identityQuat = new THREE.Quaternion();
+    const unitScale = new THREE.Vector3(1, 1, 1);
+    return tenMinDots.map((pos) => {
+      const matrix = new THREE.Matrix4();
+      matrix.compose(pos, identityQuat, unitScale);
+      return matrix;
+    });
+  }, [tenMinDots]);
+
+  const dotMeshRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = dotMeshRef.current;
+    if (!mesh) return;
+    dotMatrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix));
+    mesh.count = dotMatrices.length;
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [dotMatrices]);
+
   // Occlusion-gate the time-marker Html labels the same way every other DOM
   // label on the globe is gated (useGlobeOcclusion/useGlobeOcclusionBatch).
   // Html is a DOM portal with no depthTest, so far-side labels would
@@ -743,15 +785,22 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
-      {tenMinDots.map((pos, idx) => (
-        <mesh
-          key={`dot-${idx}`}
-          position={pos}
-          geometry={dotGeometry}
-          material={dotMaterial}
-          renderOrder={GLOBE_LAYER_ORDER.markers}
-        />
-      ))}
+      {
+        // Far-side dots were never CPU-occluded before this change either —
+        // depthTest on dotMaterial (above) is what hides them, tested
+        // per-fragment by the GPU against the globe/GlobeDepthDome exactly
+        // like the Line segments. Instancing doesn't change that: every
+        // instance is drawn through the same shared material and depth
+        // tested the same way, so occlusion behavior is unchanged. `count`
+        // (set in the layout effect above) hides unused capacity when
+        // dotMatrices.length < MAX_TRACK_DOTS, including the zero case.
+      }
+      <instancedMesh
+        ref={dotMeshRef}
+        args={[dotGeometry, dotMaterial, MAX_TRACK_DOTS]}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
+        dispose={null}
+      />
       {trackLabels.map(({ position, minutesFromNow, lat, lon }, idx) => {
         if (getOpacity(lat, lon) < LABEL_OCCLUSION_THRESHOLD) return null;
         return (

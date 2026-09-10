@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TRACK_DOTS,
   MAX_TRACK_LABELS,
   selectLimitedFootprints,
+  selectTrackDotIndices,
   selectTrackLabelIndices,
   type TrackLabelPoint,
 } from "./satelliteGeometry";
@@ -75,6 +77,50 @@ describe("selectTrackLabelIndices", () => {
 
   it("returns an empty array for an empty track", () => {
     expect(selectTrackLabelIndices([])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectTrackDotIndices (#1029 review round 2 — bound orbit-track dot count)
+// ---------------------------------------------------------------------------
+
+describe("selectTrackDotIndices", () => {
+  it("bounds a GEO 3-orbit track (period ~1436 min) to <= MAX_TRACK_DOTS dots", () => {
+    const periodMin = 1436;
+    const pastMin = 45;
+    const forwardMin = periodMin * 3;
+    // Geostationary: sub-satellite point barely moves.
+    const track = buildMinuteTrack(-pastMin, forwardMin, (m) => ({
+      lat: 0.01 * Math.sin(m / 500),
+      lon: -75 + 0.01 * Math.cos(m / 500),
+    }));
+
+    const indices = selectTrackDotIndices(track);
+
+    expect(indices.length).toBeGreaterThan(0);
+    expect(indices.length).toBeLessThanOrEqual(MAX_TRACK_DOTS);
+  });
+
+  it("reproduces today's every-10-minute dot set unchanged for a short (135 min) LEO track", () => {
+    // Fast-moving LEO ground track so spatial dedup never interferes.
+    const track = buildMinuteTrack(-45, 90, (m) => ({
+      lat: 10 * Math.sin(m / 10),
+      lon: -160 + m * 2,
+    }));
+
+    const indices = selectTrackDotIndices(track);
+    const minutes = indices.map((i) => track[i].minutesFromNow);
+
+    // The exact set the old `point.minutesFromNow % 10 === 0` loop produced.
+    const expectedMinutes = track
+      .map((p) => p.minutesFromNow)
+      .filter((m) => m % 10 === 0);
+
+    expect(minutes).toEqual(expectedMinutes);
+  });
+
+  it("returns an empty array for an empty track", () => {
+    expect(selectTrackDotIndices([])).toEqual([]);
   });
 });
 

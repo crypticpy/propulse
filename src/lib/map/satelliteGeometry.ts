@@ -109,55 +109,51 @@ function angularSeparationDeg(
   return centralAngleRad * (180 / Math.PI);
 }
 
+interface CadenceSelectionOptions {
+  /** Never select more densely than this, even on a short track. */
+  baseIntervalMin: number;
+  /** Upper bound on how many indices get selected. */
+  maxCount: number;
+  /** Minimum great-circle distance (degrees) between selections. */
+  minSeparationDeg: number;
+  /** The computed interval is always rounded up to a multiple of this. */
+  roundingMin: number;
+}
+
 /**
- * Choose which points of an orbit-track timeline get a time-marker label.
+ * Shared implementation behind `selectTrackLabelIndices` and
+ * `selectTrackDotIndices`: pick indices from an orbit-track timeline on a
+ * cadence that widens (never narrows) past `baseIntervalMin` so at most
+ * ~`maxCount` are selected across the whole track, then thin further with a
+ * `minSeparationDeg` great-circle spatial dedup against the last *selected*
+ * point so a slow-moving (near-GEO) track doesn't stack selections on nearly
+ * the same globe position even after the temporal thinning.
  *
- * A geostationary satellite (period ~1436 min) rendered 3 orbits ahead at a
- * 1-minute step produces ~4300 track points; labeling every 30 minutes
- * there emits ~145 labels, each a Drei `Html` DOM portal in the per-frame
- * globe occlusion batch (`SatelliteOverlay`'s `GroundTrack`, #1029 review).
- * Two independent bounds keep the count small regardless of track length:
- *
- *  1. Temporal — the label interval only ever widens past the 30-minute
- *     default (never narrows below it), chosen so at most ~`maxLabels`
- *     labels are emitted across the whole track, then rounded up to a
- *     5-minute multiple for a tidy cadence.
- *  2. Spatial — a candidate is skipped if it falls within
- *     `minSeparationDeg` great-circle degrees of the last *emitted* label,
- *     so a slow-moving (near-GEO) track doesn't stack labels on nearly the
- *     same globe position even after the temporal thinning.
- *
- * The `t = 0` ("now") point, if present in `points`, is always selected —
- * it survives both the temporal and spatial filters — since it anchors the
- * satellite's current position and is the one label a user relies on.
+ * The `t = 0` ("now") point, if present in `points`, is always selected — it
+ * survives both the temporal and spatial filters.
  *
  * `points` must be ordered by `minutesFromNow` ascending, as `buildOrbitTrack`
  * produces them.
  */
-export function selectTrackLabelIndices(
+function selectByCadence(
   points: readonly TrackLabelPoint[],
-  options: SelectTrackLabelOptions = {},
+  { baseIntervalMin, maxCount, minSeparationDeg, roundingMin }: CadenceSelectionOptions,
 ): number[] {
   if (points.length === 0) return [];
-
-  const maxLabels = options.maxLabels ?? MAX_TRACK_LABELS;
-  const minSeparationDeg =
-    options.minSeparationDeg ?? MIN_TRACK_LABEL_SEPARATION_DEG;
 
   const totalMinutes = Math.max(
     1,
     Math.abs(points[points.length - 1].minutesFromNow - points[0].minutesFromNow),
   );
   const rawIntervalMin = Math.max(
-    BASE_LABEL_INTERVAL_MIN,
-    Math.ceil(totalMinutes / Math.max(1, maxLabels)),
+    baseIntervalMin,
+    Math.ceil(totalMinutes / Math.max(1, maxCount)),
   );
   const intervalMin =
-    Math.ceil(rawIntervalMin / LABEL_INTERVAL_ROUNDING_MIN) *
-    LABEL_INTERVAL_ROUNDING_MIN;
+    Math.ceil(rawIntervalMin / roundingMin) * roundingMin;
 
   const selected: number[] = [];
-  let lastLabel: TrackLabelPoint | null = null;
+  let lastSelected: TrackLabelPoint | null = null;
 
   for (let i = 0; i < points.length; i++) {
     const point = points[i];
@@ -165,10 +161,10 @@ export function selectTrackLabelIndices(
     const onInterval = point.minutesFromNow % intervalMin === 0;
     if (!isAnchor && !onInterval) continue;
 
-    if (!isAnchor && lastLabel) {
+    if (!isAnchor && lastSelected) {
       const separation = angularSeparationDeg(
-        lastLabel.lat,
-        lastLabel.lon,
+        lastSelected.lat,
+        lastSelected.lon,
         point.lat,
         point.lon,
       );
@@ -176,10 +172,81 @@ export function selectTrackLabelIndices(
     }
 
     selected.push(i);
-    lastLabel = point;
+    lastSelected = point;
   }
 
   return selected;
+}
+
+/**
+ * Choose which points of an orbit-track timeline get a time-marker label.
+ *
+ * A geostationary satellite (period ~1436 min) rendered 3 orbits ahead at a
+ * 1-minute step produces ~4300 track points; labeling every 30 minutes
+ * there emits ~145 labels, each a Drei `Html` DOM portal in the per-frame
+ * globe occlusion batch (`SatelliteOverlay`'s `GroundTrack`, #1029 review).
+ * See `selectByCadence` for the temporal + spatial bounding it applies.
+ */
+export function selectTrackLabelIndices(
+  points: readonly TrackLabelPoint[],
+  options: SelectTrackLabelOptions = {},
+): number[] {
+  return selectByCadence(points, {
+    baseIntervalMin: BASE_LABEL_INTERVAL_MIN,
+    maxCount: options.maxLabels ?? MAX_TRACK_LABELS,
+    minSeparationDeg: options.minSeparationDeg ?? MIN_TRACK_LABEL_SEPARATION_DEG,
+    roundingMin: LABEL_INTERVAL_ROUNDING_MIN,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Orbit-track dot marker selection (#1029 review round 2)
+// ---------------------------------------------------------------------------
+
+/** Target upper bound on the every-10-minute dot markers per orbit track. */
+export const MAX_TRACK_DOTS = 60;
+
+/** Default minimum great-circle separation between two emitted dots. */
+export const MIN_TRACK_DOT_SEPARATION_DEG = 1;
+
+/** Never dot more densely than this, even on a short track (today's cadence). */
+const BASE_DOT_INTERVAL_MIN = 10;
+
+/** Dot interval is always rounded up to a multiple of this many minutes. */
+const DOT_INTERVAL_ROUNDING_MIN = 5;
+
+export interface SelectTrackDotOptions {
+  /** Upper bound on emitted dots. Defaults to `MAX_TRACK_DOTS`. */
+  maxDots?: number;
+  /**
+   * Minimum great-circle distance (degrees) between consecutive emitted
+   * dots. Defaults to `MIN_TRACK_DOT_SEPARATION_DEG`.
+   */
+  minSeparationDeg?: number;
+}
+
+/**
+ * Choose which points of an orbit-track timeline get a 10-minute dot
+ * marker.
+ *
+ * The every-10-minute dot loop rendered one `THREE.Mesh` per dot; a
+ * geostationary satellite at 3 orbits ahead with a 1-minute step produces
+ * ~4300 track points, i.e. ~430 dot meshes per track (#1029 review round
+ * 2). See `selectByCadence` for the temporal + spatial bounding it applies
+ * — on a short (e.g. 135-minute LEO) track the 10-minute base cadence is
+ * never widened, so the selected dots are identical to the plain
+ * `minutesFromNow % 10 === 0` set this replaces.
+ */
+export function selectTrackDotIndices(
+  points: readonly TrackLabelPoint[],
+  options: SelectTrackDotOptions = {},
+): number[] {
+  return selectByCadence(points, {
+    baseIntervalMin: BASE_DOT_INTERVAL_MIN,
+    maxCount: options.maxDots ?? MAX_TRACK_DOTS,
+    minSeparationDeg: options.minSeparationDeg ?? MIN_TRACK_DOT_SEPARATION_DEG,
+    roundingMin: DOT_INTERVAL_ROUNDING_MIN,
+  });
 }
 
 // ---------------------------------------------------------------------------

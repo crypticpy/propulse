@@ -284,20 +284,33 @@ export const ISS_NORAD_ID = "25544";
  *
  * NORAD 25544 can also have a store-driven "Map orbit" track
  * (`satelliteTracks["25544"]`, set via `SatelliteDetailModal`'s orbit
- * controls) alongside the dedicated ISS tracker. The store track wins: once
- * it exists, `SatelliteOverlay`'s `GroundTrack` renders it like any other
- * satellite's orbit, and `ISSTrackerOverlay`'s own always-on ring/track
- * would otherwise draw a second, un-configurable path underneath it —
- * "1/2/3 orbits", "past track" and "Clear orbit" would update the store but
- * have no visible effect on the ISS (#1029 review round 4). The dedicated
- * tracker's default ring/track only returns once the store track is
- * cleared.
+ * controls) alongside the dedicated ISS tracker. The store track only wins
+ * when its renderer can actually draw it: `SatelliteOverlay` (and the
+ * `GroundTrack` inside it) only mounts while the Satellites layer
+ * (`satellitesLayerVisible`) is on (#1029 review round 5) — with Satellites
+ * off and the ISS tracker on, suppressing the default here would leave the
+ * ISS with no orbit drawn anywhere. There is no other gate that hides
+ * `SatelliteOverlay`/`GroundTrack` once the Satellites layer is on: track
+ * entries are capped at `MAX_SATELLITE_TRACKS` by the store itself before
+ * they're ever written, not by a post-hoc slice inside the renderer (unlike
+ * footprints' `selectLimitedFootprints`), and there is no separate "show
+ * tracks" sub-toggle or display-density cap on satellite orbit tracks.
+ *
+ * So: suppress the default ring/track only when a store track exists *and*
+ * the Satellites layer is visible — "1/2/3 orbits", "past track" and "Clear
+ * orbit" would otherwise update the store but have no visible effect on the
+ * ISS (#1029 review round 4). The dedicated tracker's default ring/track
+ * returns as soon as either condition stops holding — the store track is
+ * cleared, or the Satellites layer is turned off.
  */
 export function shouldRenderIssDefaultTrack(
   satelliteTracks: Readonly<Record<string, unknown>>,
   issTrackerActive: boolean,
+  satellitesLayerVisible: boolean,
 ): boolean {
-  return issTrackerActive && !(ISS_NORAD_ID in satelliteTracks);
+  if (!issTrackerActive) return false;
+  const hasStoreTrack = ISS_NORAD_ID in satelliteTracks;
+  return !(hasStoreTrack && satellitesLayerVisible);
 }
 
 // ---------------------------------------------------------------------------

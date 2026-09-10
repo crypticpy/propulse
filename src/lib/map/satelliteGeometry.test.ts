@@ -193,33 +193,53 @@ describe("selectByCadence boundary enforcement", () => {
 
 describe("shouldRenderIssDefaultTrack", () => {
   it("renders the default ring/track when the ISS tracker is active and there is no store track", () => {
-    expect(shouldRenderIssDefaultTrack({}, true)).toBe(true);
+    expect(shouldRenderIssDefaultTrack({}, true, true)).toBe(true);
   });
 
-  it("suppresses the default ring/track once a store track exists for the ISS", () => {
+  it("suppresses the default ring/track once a store track exists for the ISS and the Satellites layer is on", () => {
     const tracks = { [ISS_NORAD_ID]: { orbitsAhead: 2, showPast: true, showFootprint: false } };
-    expect(shouldRenderIssDefaultTrack(tracks, true)).toBe(false);
+    expect(shouldRenderIssDefaultTrack(tracks, true, true)).toBe(false);
   });
 
   it("is unaffected by store tracks for other satellites", () => {
     const tracks = { "44713": { orbitsAhead: 1, showPast: false, showFootprint: false } };
-    expect(shouldRenderIssDefaultTrack(tracks, true)).toBe(true);
+    expect(shouldRenderIssDefaultTrack(tracks, true, true)).toBe(true);
   });
 
   it("returns false when the ISS tracker isn't active, regardless of store state", () => {
-    expect(shouldRenderIssDefaultTrack({}, false)).toBe(false);
-    expect(shouldRenderIssDefaultTrack({ [ISS_NORAD_ID]: {} }, false)).toBe(
-      false,
-    );
+    expect(shouldRenderIssDefaultTrack({}, false, true)).toBe(false);
+    expect(
+      shouldRenderIssDefaultTrack({ [ISS_NORAD_ID]: {} }, false, true),
+    ).toBe(false);
   });
 
   it("returns true again once the ISS store track is cleared (Clear orbit / Clear all)", () => {
     const withTrack = { [ISS_NORAD_ID]: { orbitsAhead: 3, showPast: true, showFootprint: false } };
-    expect(shouldRenderIssDefaultTrack(withTrack, true)).toBe(false);
+    expect(shouldRenderIssDefaultTrack(withTrack, true, true)).toBe(false);
 
     const { [ISS_NORAD_ID]: _cleared, ...afterClear } = withTrack;
     void _cleared;
-    expect(shouldRenderIssDefaultTrack(afterClear, true)).toBe(true);
+    expect(shouldRenderIssDefaultTrack(afterClear, true, true)).toBe(true);
+  });
+
+  // #1029 review round 5: SatelliteOverlay (and the GroundTrack that would
+  // render the store track) only mounts while the Satellites layer is on --
+  // suppressing the ISS tracker's own default here while Satellites is off
+  // would leave the ISS with no orbit drawn anywhere.
+  it("keeps rendering the default when a store track exists but the Satellites layer is off", () => {
+    const tracks = { [ISS_NORAD_ID]: { orbitsAhead: 2, showPast: true, showFootprint: false } };
+    expect(shouldRenderIssDefaultTrack(tracks, true, false)).toBe(true);
+  });
+
+  it("suppresses the default only once the Satellites layer is turned back on", () => {
+    const tracks = { [ISS_NORAD_ID]: { orbitsAhead: 2, showPast: true, showFootprint: false } };
+    expect(shouldRenderIssDefaultTrack(tracks, true, false)).toBe(true);
+    expect(shouldRenderIssDefaultTrack(tracks, true, true)).toBe(false);
+  });
+
+  it("renders the default regardless of the Satellites layer when there is no store track", () => {
+    expect(shouldRenderIssDefaultTrack({}, true, false)).toBe(true);
+    expect(shouldRenderIssDefaultTrack({}, true, true)).toBe(true);
   });
 });
 
@@ -272,6 +292,35 @@ describe("selectLimitedFootprints", () => {
 
     expect(limited.length).toBe(5);
     expect(limited.some((fp) => fp.satelliteId === "tracked")).toBe(true);
+  });
+
+  // #1029 review round 5: GlobeView used to slice its global footprint
+  // candidates to 5 before this selector ever ran, so a selected satellite
+  // sitting past the first 5 of a larger candidate list never reached the
+  // rescue logic below and stayed dropped. This test exercises the selector
+  // against the full (unsliced) candidate list GlobeView now passes.
+  it("rescues a selected satellite that sits past the first five of a ten-item candidate list", () => {
+    const footprints: FootprintFixture[] = [
+      { satelliteId: "t1" },
+      { satelliteId: "t2" },
+      { satelliteId: "t3" },
+      { satelliteId: "t4" },
+      { satelliteId: "t5" },
+      { satelliteId: "g1" },
+      { satelliteId: "g2" },
+      { satelliteId: "selected" },
+      { satelliteId: "g3" },
+      { satelliteId: "g4" },
+    ];
+
+    const limited = selectLimitedFootprints(footprints, {
+      maxFootprints: 5,
+      trackedSatelliteIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
+      selectedSatelliteId: "selected",
+    });
+
+    expect(limited.length).toBe(5);
+    expect(limited.some((fp) => fp.satelliteId === "selected")).toBe(true);
   });
 
   it("is a no-op slice when there is nothing to rescue", () => {

@@ -1506,9 +1506,14 @@ const GlobeScene = React.memo(function GlobeScene({
 
   // ── Satellite footprints (derived from satellite positions) ───────────
   // Shown either via the global `satelliteFootprints` layer toggle (visible
-  // satellites only, capped at 5) or per-satellite via a "Footprint" track
-  // opted into from SatelliteDetailModal (#994) — the latter bypasses the
-  // isVisible/cap restrictions since the user explicitly asked for it.
+  // satellites only) or per-satellite via a "Footprint" track opted into
+  // from SatelliteDetailModal (#994) — the latter bypasses the isVisible
+  // restriction since the user explicitly asked for it. The MAX_FOOTPRINTS
+  // cap of 5 is applied downstream by `SatelliteFootprint3D` via
+  // `selectLimitedFootprints`, not here — capping the candidate list before
+  // it reaches the selector would drop a selected visible satellite that
+  // isn't among the first 5 in `satelliteData`, defeating the selector's
+  // selected-satellite guarantee entirely (#1029 review round 5).
   const satelliteFootprints = useMemo(() => {
     if (!satelliteData || satelliteData.length === 0) return [];
 
@@ -1521,7 +1526,7 @@ const GlobeScene = React.memo(function GlobeScene({
     };
 
     const globalSats = layers.satelliteFootprints
-      ? satelliteData.filter((s) => s.isVisible && s.position).slice(0, 5)
+      ? satelliteData.filter((s) => s.isVisible && s.position)
       : [];
     const trackedSats = satelliteData.filter(
       (s) => trackedFootprintIds.has(String(s.noradId)) && s.position,

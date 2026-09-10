@@ -963,18 +963,23 @@ export function ISSTrackerOverlay() {
 
   // The ISS can also have a store-driven "Map orbit" track set via
   // SatelliteDetailModal, rendered by SatelliteOverlay's GroundTrack
-  // exactly like any other satellite. When one exists, it wins: this
-  // overlay's own fixed ±45-minute ring/ground-track is suppressed so
-  // "1/2/3 orbits", "past track" and "Clear orbit" have a visible effect on
-  // the ISS instead of being shadowed by an always-on duplicate path
-  // (#1029 review round 4). Marker, info-card label, footprint and the
+  // exactly like any other satellite. When one exists AND SatelliteOverlay
+  // can actually render it (it only mounts while the Satellites layer is
+  // on -- #1029 review round 5), the store track wins: this overlay's own
+  // fixed ±45-minute ring/ground-track is suppressed so "1/2/3 orbits",
+  // "past track" and "Clear orbit" have a visible effect on the ISS instead
+  // of being shadowed by an always-on duplicate path (#1029 review round
+  // 4). With Satellites off, GroundTrack can't render regardless of the
+  // store, so the default stays. Marker, info-card label, footprint and the
   // connector line are unaffected -- they reflect the ISS's live position,
   // not its orbit-track configuration.
   const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const satellitesLayerVisible = useMapStore((s) => s.layers.satellites);
   const satelliteTracks = useMapStore((s) => s.satelliteTracks);
   const showDefaultTrack = shouldRenderIssDefaultTrack(
     satelliteTracks,
     issTrackerActive,
+    satellitesLayerVisible,
   );
 
   if (!tracker.iss) return null;

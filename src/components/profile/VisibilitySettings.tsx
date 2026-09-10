@@ -5,7 +5,7 @@
  * Persists to profileStore via visibilitySettings field.
  */
 
-import { useCallback } from "react";
+import { useCallback, type KeyboardEvent } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProfileStore } from "@/stores/profileStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -32,6 +32,32 @@ const LEVELS: { value: VisibilityLevel; label: string }[] = [
   { value: "private", label: "Private" },
 ];
 
+function radioGroupLabel(sectionLabel: string): string {
+  return `${sectionLabel} visibility`;
+}
+
+function radioOptionLabel(sectionLabel: string, levelLabel: string): string {
+  return `${sectionLabel}: ${levelLabel}`;
+}
+
+function moveRadioSelection(
+  current: VisibilityLevel,
+  key: string,
+): VisibilityLevel | null {
+  const index = LEVELS.findIndex((level) => level.value === current);
+  if (index < 0) return null;
+
+  if (key === "ArrowRight" || key === "ArrowDown") {
+    return LEVELS[(index + 1) % LEVELS.length].value;
+  }
+  if (key === "ArrowLeft" || key === "ArrowUp") {
+    return LEVELS[(index - 1 + LEVELS.length) % LEVELS.length].value;
+  }
+  if (key === "Home") return LEVELS[0].value;
+  if (key === "End") return LEVELS[LEVELS.length - 1].value;
+  return null;
+}
+
 // ── Component ───────────────────────────────────────────────────────────
 
 export function VisibilitySettings() {
@@ -50,38 +76,71 @@ export function VisibilitySettings() {
     [setVisibilitySettings, requireAuth],
   );
 
+  const handleRadioKeyDown = useCallback(
+    (
+      event: KeyboardEvent<HTMLElement>,
+      section: SectionKey,
+      selected: VisibilityLevel,
+    ) => {
+      const next = moveRadioSelection(selected, event.key);
+      if (!next || next === selected) return;
+      event.preventDefault();
+      handleChange(section, next);
+    },
+    [handleChange],
+  );
+
   // ── Mobile: stacked cards ───────────────────────────────────────────
 
   if (isMobile) {
     return (
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Visibility Settings
         </h3>
 
         {SECTIONS.map((section) => (
           <div
             key={section.key}
-            className="bg-panel/30 border border-su-line/20 rounded-lg p-3 space-y-2"
+            className="bg-panel/30 border border-white/5 rounded-lg p-3 space-y-2"
           >
-            <span className="text-sm font-medium text-su-muted">
+            <span className="text-sm font-medium text-gray-300">
               {section.label}
             </span>
-            <div className="flex gap-2">
-              {LEVELS.map((level) => (
-                <button
-                  key={level.value}
-                  onClick={() => handleChange(section.key, level.value)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
-                    settings[section.key] === level.value
-                      ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
-                      : "bg-su-line/10 text-su-muted border border-su-line/40 hover:text-su-text"
-                  }`}
-                >
-                  <RadioDot active={settings[section.key] === level.value} />
-                  {level.label}
-                </button>
-              ))}
+            <div
+              role="radiogroup"
+              aria-label={radioGroupLabel(section.label)}
+              className="flex gap-2"
+              onKeyDown={(event) =>
+                handleRadioKeyDown(
+                  event,
+                  section.key,
+                  settings[section.key],
+                )
+              }
+            >
+              {LEVELS.map((level) => {
+                const selected = settings[section.key] === level.value;
+                return (
+                  <button
+                    key={level.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={radioOptionLabel(section.label, level.label)}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => handleChange(section.key, level.value)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
+                      selected
+                        ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
+                        : "bg-white/5 text-gray-500 border border-white/10 hover:text-gray-300"
+                    }`}
+                  >
+                    <RadioDot active={selected} />
+                    {level.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -93,20 +152,20 @@ export function VisibilitySettings() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
         Visibility Settings
       </h3>
 
       <table className="w-full">
         <thead>
-          <tr className="border-b border-su-line/20">
-            <th className="text-left text-xs font-medium text-su-muted pb-2 pr-4">
+          <tr className="border-b border-white/5">
+            <th className="text-left text-xs font-medium text-gray-500 pb-2 pr-4">
               Section
             </th>
             {LEVELS.map((level) => (
               <th
                 key={level.value}
-                className="text-center text-xs font-medium text-su-muted pb-2 px-4"
+                className="text-center text-xs font-medium text-gray-500 pb-2 px-4"
               >
                 {level.label}
               </th>
@@ -117,25 +176,38 @@ export function VisibilitySettings() {
           {SECTIONS.map((section) => (
             <tr
               key={section.key}
-              className="border-b border-su-line/20 last:border-0"
+              role="radiogroup"
+              aria-label={radioGroupLabel(section.label)}
+              onKeyDown={(event) =>
+                handleRadioKeyDown(
+                  event,
+                  section.key,
+                  settings[section.key],
+                )
+              }
+              className="border-b border-white/5 last:border-0"
             >
-              <td className="text-sm text-su-muted py-3 pr-4">
+              <td className="text-sm text-gray-300 py-3 pr-4">
                 {section.label}
               </td>
-              {LEVELS.map((level) => (
-                <td key={level.value} className="text-center py-3 px-4">
-                  <button
-                    onClick={() => handleChange(section.key, level.value)}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-su-line/10 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
-                    aria-label={`Set ${section.label} to ${level.label}`}
-                  >
-                    <RadioDot
-                      active={settings[section.key] === level.value}
-                      large
-                    />
-                  </button>
-                </td>
-              ))}
+              {LEVELS.map((level) => {
+                const selected = settings[section.key] === level.value;
+                return (
+                  <td key={level.value} className="text-center py-3 px-4">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-label={radioOptionLabel(section.label, level.label)}
+                      tabIndex={selected ? 0 : -1}
+                      onClick={() => handleChange(section.key, level.value)}
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                    >
+                      <RadioDot active={selected} large />
+                    </button>
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -152,8 +224,9 @@ function RadioDot({ active, large }: { active: boolean; large?: boolean }) {
 
   return (
     <span
+      aria-hidden="true"
       className={`inline-flex items-center justify-center rounded-full border-2 transition-colors ${size} ${
-        active ? "border-plasma-orange" : "border-su-line"
+        active ? "border-plasma-orange" : "border-gray-600"
       }`}
     >
       {active && <span className={`rounded-full bg-plasma-orange ${inner}`} />}

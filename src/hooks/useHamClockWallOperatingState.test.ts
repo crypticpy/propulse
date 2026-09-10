@@ -160,9 +160,10 @@ describe("useHamClockWallOperatingState", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    const published = channel.postMessage.mock.calls
+    const mapSnapshots = channel.postMessage.mock.calls
       .map(([message]) => message as { domain: string; sender: string })
-      .findLast((message) => message.domain === "map");
+      .filter((message) => message.domain === "map");
+    const published = mapSnapshots[mapSnapshots.length - 1];
     expect(published).toBeDefined();
 
     // Rewind this window to where it stood before that write, so the snapshot

@@ -298,7 +298,7 @@ export interface SettingsState {
 
   // ─── Workspace (persisted) ─────────────────────────────────────────────────
 
-  /** Gates `/workspace` (the rails + space container, #656). Default off — nothing changes until this flips. */
+  /** Formerly gated `/workspace` (#656). Nothing reads it since #855 made the route live; kept only so no persist migration is needed. */
   workspaceEnabled: boolean;
 }
 

@@ -118,6 +118,7 @@ describe("foE against the ITU reference dumps", () => {
         utcHours: row.hour_utc,
         r12: row.ssn,
         solar: rowSolar(row),
+        clock: "reference",
       });
       expect(Math.abs(result.foEMHz - row.foE_mhz)).toBeLessThan(1e-3);
     },
@@ -140,6 +141,7 @@ describe("foE branches and seams", () => {
         utcHours: hour,
         r12: 80,
         solar,
+        clock: "reference",
       }),
     };
   };
@@ -194,6 +196,7 @@ describe("foE branches and seams", () => {
       utcHours: hour,
       r12: 80,
       solar: solarParameters(latitude * D2R, 0, month, hour),
+      clock: "reference",
     });
 
   it("keeps the reference's small twilight kink at a zenith angle of 73 degrees", () => {

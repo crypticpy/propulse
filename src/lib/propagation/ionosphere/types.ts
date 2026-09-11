@@ -8,6 +8,20 @@
  * change of import path and nothing else.
  */
 
+/**
+ * A numeric array a consumer may read but not write.
+ *
+ * `Float64Array` is assignable to it, so no copy is needed at a call site, but
+ * an assignment through a value of this type is a compile error. The coefficient
+ * asset is handed out this way: it is verified once against the manifest digest,
+ * and a caller that could write into it would keep the verified artifact hash
+ * while feeding the model different numbers.
+ */
+export interface ReadonlyFloat64Array {
+  readonly length: number;
+  readonly [index: number]: number;
+}
+
 // swap to @/lib/propagation/contracts after #1099
 /** `sha256:` followed by exactly 64 lowercase hex digits. */
 export type ArtifactHash = string;
@@ -30,8 +44,35 @@ export type Instant = string;
 const INSTANT_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 
+/**
+ * Parse an instant, rejecting the calendar dates `Date` silently rolls over.
+ *
+ * `new Date("2026-02-30T12:00:00Z")` is 2 March and
+ * `new Date("2026-01-01T24:00:00Z")` is 2 January: neither is `NaN`, so a
+ * `NaN` check alone lets an impossible timestamp through and answers a
+ * different instant from the one the caller named. The written calendar fields
+ * are therefore round-tripped: they are applied to a UTC probe date, read back,
+ * and compared. Comparing against the parsed instant's own UTC components would
+ * be wrong for a non-UTC offset, where the two legitimately differ.
+ */
 export function parseInstant(value: string): Date | null {
-  if (!INSTANT_PATTERN.test(value)) return null;
+  const match = INSTANT_PATTERN.exec(value);
+  if (match === null) return null;
+  const [, year, month, day, hour, minute, second, fraction] = match;
+  const milliseconds = fraction ? Number(fraction.slice(1).padEnd(3, "0")) : 0;
+  // setUTCFullYear rather than Date.UTC: Date.UTC maps years 0..99 into 1900.
+  const probe = new Date(0);
+  probe.setUTCFullYear(Number(year), Number(month) - 1, Number(day));
+  probe.setUTCHours(Number(hour), Number(minute), Number(second), milliseconds);
+  const roundTrips =
+    probe.getUTCFullYear() === Number(year) &&
+    probe.getUTCMonth() === Number(month) - 1 &&
+    probe.getUTCDate() === Number(day) &&
+    probe.getUTCHours() === Number(hour) &&
+    probe.getUTCMinutes() === Number(minute) &&
+    probe.getUTCSeconds() === Number(second) &&
+    probe.getUTCMilliseconds() === milliseconds;
+  if (!roundTrips) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

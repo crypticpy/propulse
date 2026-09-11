@@ -16,7 +16,10 @@
  *     by an observed F10.7: the constants of A were fitted against this
  *     derivation.
  *  2. The night branch advances the clock by one hour before comparing against
- *     sunset, matching the hour-ending convention of the F2 grid.
+ *     sunset, matching the hour-ending convention of the F2 grid. It also
+ *     truncates that clock to the integer hour, which turns the `exp(-1.4 h)`
+ *     decay into a step function; `clock: "continuous"` keeps the hour-ending
+ *     offset but not the truncation, and is what enhanced mode asks for.
  *  3. The southern polar-winter test is `latitude < 72.5622 degrees`, not
  *     `latitude < -72.5622 degrees`. As written it selects the polar-winter
  *     formula for every latitude below +72.5622 in May, June and July, which is
@@ -42,10 +45,23 @@ export interface FoEInputs {
   readonly latitudeRad: number;
   /** 0 = January. */
   readonly monthIndex: number;
-  /** UTC hour, 0..23. The reference indexes hourly and this branch is hourly. */
+  /** UTC hour. Fractional in continuous mode; the reference truncates it. */
   readonly utcHours: number;
   readonly r12: number;
   readonly solar: SolarParameters;
+  /**
+   * How the night-decay clock advances.
+   *
+   * `"reference"` truncates to the integer hour, as P.533 does, which makes
+   * `exp(-1.4 h)` a step function: at 45 N in January the foE curve jumps by
+   * about 0.34 MHz across the 18:00 UTC boundary. `"continuous"` keeps the
+   * fractional hour, so the same curve is C0.
+   *
+   * The hour-ending `+1` is applied either way. It is the grid convention the
+   * F2 map is read with in both modes, and keeping it here is what lets the
+   * two modes still meet at an integer hour on an anchor day.
+   */
+  readonly clock: "reference" | "continuous";
 }
 
 /** Result of the P.1239-2 foE calculation, with the branch actually taken. */
@@ -98,7 +114,8 @@ export function foE(inputs: FoEInputs): FoEResult {
     const dsza = 6.27e-13 * (sza * R2D - 50.0) ** 8 * D2R;
     d = Math.cos(sza - dsza) ** p;
   } else {
-    const clock = (Math.floor(utcHours) + 1) % 24;
+    const hour = inputs.clock === "reference" ? Math.floor(utcHours) : utcHours;
+    const clock = (hour + 1) % 24;
     const { sunriseUtcHours: lsr, sunsetUtcHours: lss } = solar;
     let hoursAfterSunset: number;
     if (lss >= lsr && clock >= lss && clock >= lsr) {

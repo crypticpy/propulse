@@ -36,6 +36,7 @@ import {
 import {
   IonosphereAssetError,
   type ArtifactHash,
+  type ReadonlyFloat64Array,
   isArtifactHash,
 } from "../types";
 
@@ -52,10 +53,18 @@ const LEVEL_BLOCK = FOF2_BLOCK + M3000F2_BLOCK;
 export const ASSET_URL = manifest.asset.served_at;
 export const ASSET_SHA256 = manifest.asset.sha256 as ArtifactHash;
 
-/** One month at one solar-index level. */
+/**
+ * One month at one solar-index level.
+ *
+ * The arrays are read-only views over storage this module owns. They are never
+ * views over the bytes the caller supplied: those bytes are what the manifest
+ * digest was checked against, and a caller who kept a reference to them could
+ * otherwise rewrite the coefficients after verification while every state still
+ * reported the verified artifact hash.
+ */
 export interface CoefficientBlock {
-  readonly foF2: Float64Array;
-  readonly m3000F2: Float64Array;
+  readonly foF2: ReadonlyFloat64Array;
+  readonly m3000F2: ReadonlyFloat64Array;
 }
 
 export interface NumericalMapAsset {
@@ -137,16 +146,19 @@ function decode(bytes: ArrayBuffer, hash: ArtifactHash): NumericalMapAsset {
   for (let month = 0; month < MONTHS; month += 1) {
     const levels: CoefficientBlock[] = [];
     for (let level = 0; level < SOLAR_LEVELS; level += 1) {
-      // The header is a multiple of 8 bytes, so these views are always aligned.
-      const foF2 = new Float64Array(bytes, offset, FOF2_BLOCK);
+      // The header is a multiple of 8 bytes, so these views are always
+      // aligned. `.slice()` copies into a buffer this module owns, so the
+      // caller's `ArrayBuffer` is read exactly once, here, under the digest
+      // that was just checked.
+      const foF2 = new Float64Array(bytes, offset, FOF2_BLOCK).slice();
       offset += FOF2_BLOCK * 8;
-      const m3000F2 = new Float64Array(bytes, offset, M3000F2_BLOCK);
+      const m3000F2 = new Float64Array(bytes, offset, M3000F2_BLOCK).slice();
       offset += M3000F2_BLOCK * 8;
-      levels.push({ foF2, m3000F2 });
+      levels.push(Object.freeze({ foF2, m3000F2 }));
     }
-    blocks.push([levels[0], levels[1]] as const);
+    blocks.push(Object.freeze([levels[0], levels[1]] as const));
   }
-  return { artifactHash: hash, blocks };
+  return Object.freeze({ artifactHash: hash, blocks: Object.freeze(blocks) });
 }
 
 let cached: Promise<NumericalMapAsset> | null = null;

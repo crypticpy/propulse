@@ -31,6 +31,7 @@
  */
 
 import { D2R, modifiedDipLatitudeRad } from "./modip";
+import type { ReadonlyFloat64Array } from "./types";
 
 /** Latitude-term counts per longitude harmonic, foF2 (K = 76) and M(3000)F2 (K = 49). */
 export const QF = [11, 11, 8, 4, 1, 0, 0, 0, 0] as const;
@@ -145,7 +146,7 @@ export function referenceMapHour(utcHours: number): number {
 
 /** Evaluate one parameter from its coefficient block and a prepared basis. */
 export function evaluateMap(
-  coefficients: Float64Array,
+  coefficients: ReadonlyFloat64Array,
   geographic: Float64Array,
   time: Float64Array,
 ): number {

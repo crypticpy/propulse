@@ -75,7 +75,7 @@ import {
   timeTerms,
   type GridNode,
 } from "./numericalMap";
-import { MONTH_ANCHOR_DAY_OF_YEAR, solarParameters } from "./solar";
+import { solarParameters } from "./solar";
 import {
   canonicalCoordinates,
   deepFreeze,
@@ -167,15 +167,32 @@ export interface IonosphereProvider {
 }
 
 interface TimePoint {
+  readonly year: number;
   readonly monthIndex: number;
   readonly dayOfYear: number;
   readonly utcHours: number;
 }
 
-const DAYS_IN_YEAR = 365;
+/** Midnight UTC of a calendar date, safe for years below 100. */
+function utcDay(year: number, monthIndex: number, day: number): number {
+  const date = new Date(0);
+  date.setUTCFullYear(year, monthIndex, day);
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+/** 1 on 1 January. Leap-aware, because it is derived from the calendar. */
+function dayOfYearOf(year: number, monthIndex: number, day: number): number {
+  const elapsed = utcDay(year, monthIndex, day) - utcDay(year, 0, 1);
+  return Math.round(elapsed / 86_400_000) + 1;
+}
+
+function daysInYear(year: number): number {
+  return dayOfYearOf(year, 11, 31);
+}
 
 function timePoint(instant: Date): TimePoint {
-  const startOfYear = Date.UTC(instant.getUTCFullYear(), 0, 1);
+  const startOfYear = utcDay(instant.getUTCFullYear(), 0, 1);
   const dayOfYear =
     Math.floor((instant.getTime() - startOfYear) / 86_400_000) + 1;
   const utcHours =
@@ -183,27 +200,47 @@ function timePoint(instant: Date): TimePoint {
     instant.getUTCMinutes() / 60 +
     instant.getUTCSeconds() / 3600 +
     instant.getUTCMilliseconds() / 3_600_000;
-  return { monthIndex: instant.getUTCMonth(), dayOfYear, utcHours };
+  return {
+    year: instant.getUTCFullYear(),
+    monthIndex: instant.getUTCMonth(),
+    dayOfYear,
+    utcHours,
+  };
 }
 
 /**
  * The two monthly anchors that bracket a day of year, and the weight of the
- * later one. Wraps through the December-to-January seam, which is the only
- * place a naive month index would produce a discontinuity.
+ * later one.
+ *
+ * The anchors are the calendar 15th of each month of `year`, not a fixed table.
+ * In a leap year every anchor after February moves by a day, so a fixed table
+ * would put the enhanced-mode weight at 1/31 instead of 0 on the calendar
+ * anchor and the two modes would stop meeting there. The December-to-January
+ * wrap spans 15 December of `year` to 15 January of `year + 1` using the real
+ * length of `year`, so the weight reaches 1 exactly at the seam instead of
+ * overshooting and falling back a day at midnight.
  */
-export function monthAnchorBracket(dayOfYear: number): {
+export function monthAnchorBracket(
+  dayOfYear: number,
+  year: number,
+): {
   earlier: number;
   later: number;
   weight: number;
 } {
-  const anchors = MONTH_ANCHOR_DAY_OF_YEAR;
+  const anchors = Array.from({ length: 12 }, (_, month) =>
+    dayOfYearOf(year, month, 15),
+  );
   if (dayOfYear < anchors[0]) {
-    // Between 15 December of the previous year and 15 January.
-    const span = anchors[0] + DAYS_IN_YEAR - anchors[11];
+    // Between 15 December of the previous year and 15 January, in this year's
+    // day numbering, so the previous December anchor is a negative day.
+    const previousDecember =
+      dayOfYearOf(year - 1, 11, 15) - daysInYear(year - 1);
+    const span = anchors[0] - previousDecember;
     return {
       earlier: 11,
       later: 0,
-      weight: (dayOfYear + DAYS_IN_YEAR - anchors[11]) / span,
+      weight: (dayOfYear - previousDecember) / span,
     };
   }
   for (let month = 0; month < 11; month += 1) {
@@ -216,7 +253,8 @@ export function monthAnchorBracket(dayOfYear: number): {
       };
     }
   }
-  const span = anchors[0] + DAYS_IN_YEAR - anchors[11];
+  const nextJanuary = daysInYear(year) + dayOfYearOf(year + 1, 0, 15);
+  const span = nextJanuary - anchors[11];
   return { earlier: 11, later: 0, weight: (dayOfYear - anchors[11]) / span };
 }
 
@@ -346,7 +384,7 @@ function buildState(
   const { latitude, longitude } = query.coordinates;
   const latitudeRad = latitude * D2R;
   const longitudeRad = longitude * D2R;
-  const { monthIndex, dayOfYear, utcHours } = timePoint(instant);
+  const { year, monthIndex, dayOfYear, utcHours } = timePoint(instant);
   // The month blend must move with the clock, not in daily steps, or enhanced
   // mode would be discontinuous at every midnight instead of only looking it.
   const fractionalDayOfYear = dayOfYear + utcHours / 24;
@@ -388,6 +426,7 @@ function buildState(
       utcHours: referenceHour,
       r12: solarIndex.r12,
       solar,
+      clock: "reference",
     });
     assumptions.push(
       "Reference mode: month is taken as its 15th, the UTC hour is truncated, " +
@@ -403,7 +442,10 @@ function buildState(
         "offset is the reference's, reproduced for parity.",
     );
   } else {
-    const { earlier, later, weight } = monthAnchorBracket(fractionalDayOfYear);
+    const { earlier, later, weight } = monthAnchorBracket(
+      fractionalDayOfYear,
+      year,
+    );
     const mapHour = referenceMapHour(utcHours);
     const a = evaluateMonth(
       asset.blocks[earlier],
@@ -431,7 +473,13 @@ function buildState(
     );
     // foE depends on the month only through the polar-winter branch, so the
     // same two-anchor blend keeps it continuous across the seam.
-    const foEArgs = { latitudeRad, utcHours, r12: solarIndex.r12, solar };
+    const foEArgs = {
+      latitudeRad,
+      utcHours,
+      r12: solarIndex.r12,
+      solar,
+      clock: "continuous",
+    } as const;
     const foEEarlier = foE({ ...foEArgs, monthIndex: earlier });
     const foELater = foE({ ...foEArgs, monthIndex: later });
     foEResult = {
@@ -442,10 +490,11 @@ function buildState(
     };
     assumptions.push(
       "Enhanced mode: the same numerical map evaluated continuously in UTC and " +
-        `interpolated between the ${MONTH_ANCHOR_DAY_OF_YEAR[earlier]} and ` +
-        `${MONTH_ANCHOR_DAY_OF_YEAR[later]} day-of-year anchors of P.533's own ` +
-        "monthly medians. Positive physical values are interpolated, never " +
-        "logarithms or category labels. It agrees with reference mode at every " +
+        `interpolated between the calendar 15th of month ${earlier + 1} ` +
+        `(day ${dayOfYearOf(year, earlier, 15)} of ${year}) and month ` +
+        `${later + 1}, the anchors of P.533's own monthly medians. ` +
+        "Positive physical values are interpolated, never logarithms or " +
+        "category labels. It agrees with reference mode at every " +
         "grid node on an anchor day and integer hour.",
     );
   }
@@ -498,13 +547,38 @@ function buildState(
 export async function createCcirIonosphereProvider(
   byteSource?: AssetByteSource,
 ): Promise<IonosphereProvider> {
-  const asset = await loadNumericalMapAsset(byteSource);
+  const asset = privateCopy(await loadNumericalMapAsset(byteSource));
   return Object.freeze({
     id: PROVIDER_ID,
     version: PROVIDER_VERSION,
     artifactHash: asset.artifactHash,
     capabilities: CAPABILITIES,
     state: (query: IonosphereQuery) => buildState(asset, query),
+  });
+}
+
+/**
+ * Take the provider's own copy of the coefficients.
+ *
+ * The loader hands out read-only views, but a caller holding the asset can cast
+ * that away, and the loader caches one asset for every provider. A provider that
+ * closed over the shared arrays could therefore have its coefficients rewritten
+ * after the digest was checked. 274 kB per provider buys the guarantee that a
+ * state is a function of the artifact hash it reports.
+ */
+function privateCopy(asset: NumericalMapAsset): NumericalMapAsset {
+  const copyBlock = (block: CoefficientBlock): CoefficientBlock =>
+    Object.freeze({
+      foF2: Float64Array.from(block.foF2),
+      m3000F2: Float64Array.from(block.m3000F2),
+    });
+  return Object.freeze({
+    artifactHash: asset.artifactHash,
+    blocks: Object.freeze(
+      asset.blocks.map((levels) =>
+        Object.freeze([copyBlock(levels[0]), copyBlock(levels[1])] as const),
+      ),
+    ),
   });
 }
 

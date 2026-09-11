@@ -19,6 +19,14 @@ Usage (needs a completed `scripts/propagation-reference-fetch` build):
 
     python -m ml.propagation_validation.ionosphere_coefficients \
         --cache /tmp/prop07-cache --emit --validate --fixtures
+
+``--validate`` and ``--fixtures`` both certify their output with the pinned ITU
+commit, so both run ``ReferenceBuild.require()`` first: pinned HEAD, clean
+tracked tree, artifacts matching the receipt the checked build wrote. The gate
+has its own test in this module (it is one test, so it lives here rather than in
+a fourteenth file):
+
+    python3 -m unittest ml.propagation_validation.ionosphere_coefficients -v
 """
 
 from __future__ import annotations
@@ -32,10 +40,18 @@ import struct
 import subprocess
 import sys
 import tempfile
+import unittest
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:  # run as a package module: python -m ml.propagation_validation....
+    from .reference import runner
+    from .reference.runner import ReferenceBuild
+except ImportError:  # run from inside ml/propagation_validation (unittest discover)
+    from reference import runner  # type: ignore[no-redef]
+    from reference.runner import ReferenceBuild  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_PATH = REPO_ROOT / "public/propagation/ionosphere/ccir-numerical-map-v1.bin"
@@ -605,6 +621,22 @@ def parse_silso(text: str) -> list[dict]:
     return entries[-12:]
 
 
+def require_reference_build(source: Path) -> ReferenceBuild:
+    """Refuse to read a reference build that cannot prove what it is.
+
+    ``--validate`` and ``--fixtures`` stamp the pinned ITU commit into
+    ``manifest.json`` and ``reference-parity.json``. Reading a directory merely
+    because it holds files with the right names would let a stale, locally
+    patched or hand-assembled build certify residuals and goldens under that
+    commit's name. ``ReferenceBuild.require()`` is the existing gate: git HEAD
+    equals the pinned commit, the tracked tree is clean, and the three linked
+    artifacts match the receipt written by the checked build.
+    """
+    build = ReferenceBuild(source)
+    build.require()
+    return build
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/prop07-cache"))
@@ -639,7 +671,7 @@ def main() -> int:
         build = args.build_dir
         if build is None:
             raise SystemExit("--validate needs --build-dir pointing at ITU-R-HF")
-        report = validate(months, build / "P372/Data")
+        report = validate(months, require_reference_build(build).data_path)
         print(json.dumps(report, indent=2))
         if not (report["foF2_pass"] and report["m3000f2_pass"]):
             return 1
@@ -648,7 +680,10 @@ def main() -> int:
         build = args.build_dir
         if build is None:
             raise SystemExit("--fixtures needs --build-dir pointing at ITU-R-HF")
-        rows = run_native_dumps(build) + grid_node_fixtures(build / "P372/Data")
+        verified = require_reference_build(build)
+        rows = run_native_dumps(verified.source) + grid_node_fixtures(
+            verified.data_path
+        )
         FIXTURE_PATH.parent.mkdir(parents=True, exist_ok=True)
         FIXTURE_PATH.write_text(
             json.dumps(
@@ -732,6 +767,51 @@ def main() -> int:
         MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         print(f"asset {len(asset)} bytes sha256:{asset_digest}")
     return 0
+
+
+class ReferenceBuildGateTests(unittest.TestCase):
+    """The gate on --validate and --fixtures.
+
+    No test here shells out to git. A directory without ``.git`` is refused
+    before ``require_pinned_checkout`` runs a subprocess, and the second case
+    stubs that function out, so nothing can reach the ambient repository through
+    an inherited GIT_DIR.
+    """
+
+    @staticmethod
+    def _looks_like_a_build(root: Path) -> Path:
+        source = root / "ITU-R-HF"
+        for relative in (
+            "ITURHFProp/Linux/ITURHFProp",
+            "P533/Linux/libp533.so",
+            "P372/Linux/libp372.so",
+            "P372/Data/ionos01.bin",
+        ):
+            (source / relative).parent.mkdir(parents=True, exist_ok=True)
+            (source / relative).write_bytes(b"\0")
+        return source
+
+    def test_a_directory_with_the_right_files_but_no_checkout_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = self._looks_like_a_build(Path(tmp))
+            with self.assertRaisesRegex(RuntimeError, "not a git checkout"):
+                require_reference_build(source)
+
+    def test_a_checkout_without_a_build_receipt_is_refused(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = self._looks_like_a_build(Path(tmp))
+            with mock.patch.object(
+                runner, "require_pinned_checkout", lambda _source: None
+            ):
+                with self.assertRaisesRegex(RuntimeError, "no build receipt"):
+                    require_reference_build(source)
+
+    def test_an_absent_build_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "absent"):
+                require_reference_build(Path(tmp) / "ITU-R-HF")
 
 
 if __name__ == "__main__":

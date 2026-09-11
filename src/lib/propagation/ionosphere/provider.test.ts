@@ -36,6 +36,7 @@ import {
   IonosphereAssetError,
   known,
   nmF2FromFoF2,
+  parseInstant,
   unknown,
   type IonosphereQuery,
 } from "./types";
@@ -251,6 +252,52 @@ describe("query canonicalisation", () => {
     expect(() => provider.state(bad)).toThrow(RangeError);
   });
 
+  it("rejects an impossible calendar date that Date silently normalises", () => {
+    // `new Date("2026-02-30T12:00:00Z")` is 2 March and
+    // `new Date("2026-01-01T24:00:00Z")` is 2 January: the parser rolls the
+    // overflow over instead of refusing it. Accepting either would answer a
+    // different instant from the one the caller named while echoing the
+    // impossible `validAt` back in the state.
+    const query = (validAt: string): IonosphereQuery => ({
+      coordinates: canonicalCoordinates(0, 0),
+      validAt,
+      r12: known(80),
+      mode: "reference",
+    });
+    expect(parseInstant("2026-02-30T12:00:00Z")).toBeNull();
+    expect(parseInstant("2026-01-01T24:00:00Z")).toBeNull();
+    expect(() => provider.state(query("2026-02-30T12:00:00Z"))).toThrow(
+      RangeError,
+    );
+    expect(() => provider.state(query("2026-01-01T24:00:00Z"))).toThrow(
+      RangeError,
+    );
+    expect(parseInstant("2026-04-31T00:00:00Z")).toBeNull();
+    expect(parseInstant("2026-06-15T12:60:00Z")).toBeNull();
+  });
+
+  it("accepts a real leap day and a non-UTC offset", () => {
+    expect(parseInstant("2028-02-29T12:00:00Z")?.toISOString()).toBe(
+      "2028-02-29T12:00:00.000Z",
+    );
+    // The offset shifts the instant, so the round-trip check must compare the
+    // written calendar fields, not the UTC components of the parsed instant.
+    expect(parseInstant("2026-03-08T12:00:00+05:30")?.toISOString()).toBe(
+      "2026-03-08T06:30:00.000Z",
+    );
+    expect(parseInstant("2026-03-08T00:30:00-05:00")?.toISOString()).toBe(
+      "2026-03-08T05:30:00.000Z",
+    );
+    expect(
+      provider.state({
+        coordinates: canonicalCoordinates(0, 0),
+        validAt: "2028-02-29T12:00:00Z",
+        r12: known(80),
+        mode: "reference",
+      }).foF2MHz,
+    ).toBeGreaterThan(0);
+  });
+
   it("gives the same answer at every meridian at a pole", () => {
     const at = (longitude: number) =>
       provider.state({
@@ -386,11 +433,15 @@ describe("time modes", () => {
   });
 
   it("wraps the December to January anchor seam without a jump", () => {
-    const bracket = monthAnchorBracket(1);
+    const bracket = monthAnchorBracket(1, 2026);
     expect(bracket.earlier).toBe(11);
     expect(bracket.later).toBe(0);
-    expect(monthAnchorBracket(15)).toEqual({ earlier: 0, later: 1, weight: 0 });
-    expect(monthAnchorBracket(349)).toEqual({
+    expect(monthAnchorBracket(15, 2026)).toEqual({
+      earlier: 0,
+      later: 1,
+      weight: 0,
+    });
+    expect(monthAnchorBracket(349, 2026)).toEqual({
       earlier: 11,
       later: 0,
       weight: 0,
@@ -400,12 +451,64 @@ describe("time modes", () => {
     expect(Math.abs(after.foF2MHz - before.foF2MHz)).toBeLessThan(1e-4);
   });
 
+  it("anchors on the calendar 15th in a leap year", () => {
+    // 15 March 2028 is day 75, not the fixed-table 74: after February a leap
+    // year shifts every anchor by a day. With a fixed table the enhanced month
+    // weight would be 1/31 instead of 0 on the calendar anchor and the two
+    // modes would no longer meet.
+    expect(monthAnchorBracket(75, 2028)).toEqual({
+      earlier: 2,
+      later: 3,
+      weight: 0,
+    });
+    const reference = at("2028-03-15T00:00:00Z", "reference");
+    const enhanced = at("2028-03-15T00:00:00Z", "enhanced");
+    expect(enhanced.foF2MHz).toBeCloseTo(reference.foF2MHz, 7);
+    expect(enhanced.m3000F2).toBeCloseTo(reference.m3000F2, 7);
+    expect(enhanced.foEMHz).toBeCloseTo(reference.foEMHz, 7);
+  });
+
+  it("wraps the leap-year December to January seam without a jump", () => {
+    // 2028 has 366 days. A 365-day wrap runs the weight past 1 on 31 December
+    // and then drops it back by a day's worth at midnight.
+    const before = at("2028-12-31T23:59:59.999Z", "enhanced");
+    const after = at("2029-01-01T00:00:00Z", "enhanced");
+    expect(Math.abs(after.foF2MHz - before.foF2MHz)).toBeLessThan(1e-4);
+    expect(Math.abs(after.m3000F2 - before.m3000F2)).toBeLessThan(1e-4);
+  });
+
   it("interpolates monotonically between two monthly anchors", () => {
     const january = at("2026-01-15T12:00:00Z", "enhanced").foF2MHz;
     const february = at("2026-02-15T12:00:00Z", "enhanced").foF2MHz;
     const between = at("2026-01-31T12:00:00Z", "enhanced").foF2MHz;
     expect(between).toBeGreaterThan(Math.min(january, february) - 1e-9);
     expect(between).toBeLessThan(Math.max(january, february) + 1e-9);
+  });
+
+  it("advances the night foE clock continuously in enhanced mode", () => {
+    // 45 N 0 E in mid-January: the sun set around 16:20 UTC, so at 18:00 the
+    // E layer is on the exp(-1.4 h) decay and the hour is what drives it.
+    const night = (validAt: string, mode: IonosphereQuery["mode"]) =>
+      provider.state({
+        coordinates: canonicalCoordinates(45, 0),
+        validAt,
+        r12: known(80),
+        mode,
+      });
+    const before = night("2026-01-15T17:59:59.999Z", "enhanced");
+    const after = night("2026-01-15T18:00:00Z", "enhanced");
+    expect(before.solar.zenithAngleDeg).toBeGreaterThan(90);
+    expect(before.foEMHz).toBeGreaterThan(0);
+    expect(Math.abs(after.foEMHz - before.foEMHz)).toBeLessThan(1e-6);
+
+    // Reference mode keeps P.533's integer, hour-ending clock, so the same
+    // millisecond is a real step there. Pinned so the truncation cannot leak
+    // back into enhanced mode unnoticed.
+    const referenceBefore = night("2026-01-15T17:59:59.999Z", "reference");
+    const referenceAfter = night("2026-01-15T18:00:00Z", "reference");
+    expect(
+      Math.abs(referenceAfter.foEMHz - referenceBefore.foEMHz),
+    ).toBeGreaterThan(1e-3);
   });
 
   it("labels the mode in the state and in the digest", async () => {
@@ -536,6 +639,33 @@ describe("fail-loud asset handling", () => {
     await expect(loadNumericalMapAsset(assetBytes)).resolves.toMatchObject({
       artifactHash: manifest.asset.sha256,
     });
+  });
+});
+
+describe("coefficient ownership", () => {
+  it("ignores mutation of the caller's buffer and of the returned arrays", async () => {
+    const buffer = await assetBytes(manifest.asset.served_at);
+    const provider = await freshProvider(async () => buffer);
+    const before = provider.state(DETERMINISM_PROBE_QUERY);
+    const beforeDigest = await ionosphereStateDigest(before);
+
+    // The hash was checked over these bytes; everything after that point must
+    // come from storage the provider owns, or a caller could keep the verified
+    // artifact hash while feeding the model different coefficients.
+    new Float64Array(buffer, 64).fill(1);
+    const asset = await loadNumericalMapAsset(async () => buffer);
+    for (const level of asset.blocks[3]) {
+      // A read-only view at the type level; this cast is the escape a
+      // determined caller would use.
+      (level.foF2 as unknown as Float64Array).fill(2);
+      (level.m3000F2 as unknown as Float64Array).fill(2);
+    }
+
+    const after = provider.state(DETERMINISM_PROBE_QUERY);
+    expect(after.foF2MHz).toBe(before.foF2MHz);
+    expect(after.m3000F2).toBe(before.m3000F2);
+    expect(await ionosphereStateDigest(after)).toBe(beforeDigest);
+    resetNumericalMapAssetCache();
   });
 });
 

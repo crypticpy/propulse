@@ -702,6 +702,7 @@ export interface PredictionHeadBase {
   effectiveModelId: string;
   effectiveModelVersion: string;
   effectiveModelKind: ModelKind;
+  effectiveModeProfileId: string | null;
   modelHash: string | null;
   preprocessingHash: string | null;
   featureHash: string | null;
@@ -785,6 +786,16 @@ const predictionHead = z
      * produce.
      */
     effectiveModelKind: z.enum(MODEL_KINDS),
+    /**
+     * M07/M11: the mode profile this head actually evaluated.
+     *
+     * A profile is a routing dimension, and a result that does not echo it
+     * cannot be checked against the profile that was asked for: a head
+     * reporting a WSJT-X decoder would answer a request for FM voice. Null is
+     * for a head that evaluated no profile at all; the binder refuses it
+     * whenever the request named one, which every request does.
+     */
+    effectiveModeProfileId: identifier.nullable(),
     /**
      * M24: the exact artefacts this head was produced by, so the answer can be
      * replayed rather than merely attributed. A model id and version name a

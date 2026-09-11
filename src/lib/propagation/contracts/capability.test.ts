@@ -1577,6 +1577,9 @@ describe("parseResultForRequest binds a result to its request", () => {
       (requestCases as unknown as Record<string, Mutable>).fixedRelay,
     ) as Mutable;
     (draft.mechanismPolicy as Mutable).family = "auto";
+    // The repeater fixture asks for FM voice, and a decode head answers a
+    // profile that has a decoder: the target event here is conditional_decode.
+    draft.modeProfileId = "ft8-wsjtx-2.7.0-15s";
     if (relayKind === "orbital") {
       draft.relay = {
         kind: "orbital",
@@ -1599,6 +1602,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     const head = structuredClone((draft.heads as Mutable[])[2]) as Mutable;
     head.domain = "configured_two_leg_path";
     head.mechanismFamily = family;
+    head.effectiveModeProfileId = "ft8-wsjtx-2.7.0-15s";
     head.contextId = contextId;
     draft.contextId = contextId;
     draft.heads = [head];
@@ -1638,6 +1642,64 @@ describe("parseResultForRequest binds a result to its request", () => {
     (draft.provenance as Mutable).requestedModelId = null;
     (draft.provenance as Mutable).requestedModelVersion = null;
   }
+
+  it("rejects a served head that answers another mode profile (M07, M11)", async () => {
+    // The residual: the profile was exempt from binding, so a head evaluated
+    // on FT4 could answer an FT8 request as long as the row matched.
+    const result = boundResult((draft) => {
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.effectiveModeProfileId = "ft4-wsjtx-2.7.0-7.5s";
+    });
+    expect(await bind(result)).toEqual([
+      {
+        path: "heads[1].effectiveModeProfileId",
+        reason:
+          "A served head answers the requested mode profile ft8-wsjtx-2.7.0-15s, not ft4-wsjtx-2.7.0-7.5s (M07, M11)",
+      },
+    ]);
+  });
+
+  it("rejects a decode head whose decoder is not the profile's (M07, M11)", async () => {
+    // The reviewer's case: a wsjtx-ft8 decoder reported against a profile the
+    // registry says is decoded by something else, or by nothing at all.
+    const request = relayRequest("fixed");
+    const wrongDecoder = relayResult("relay");
+    ((wrongDecoder.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((wrongDecoder.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      decoderId: "wsjtx-ft4",
+    };
+    expect(
+      (await bind(wrongDecoder, request)).map((issue) => issue.path),
+    ).toEqual(["heads[0].state.value.decoderId"]);
+
+    // The duration is part of the same claim: one FT8 attempt is 15 s.
+    const wrongDuration = relayResult("relay");
+    ((wrongDuration.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((wrongDuration.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      observationSeconds: 7.5,
+    };
+    expect(
+      (await bind(wrongDuration, request)).map((issue) => issue.reason).join(),
+    ).toMatch(
+      /One ft8-wsjtx-2.7.0-15s attempt lasts 15 s, and this head reports 7.5 s/,
+    );
+  });
+
+  it("refuses a decode head on a profile that carries no decoder (M07, M11)", async () => {
+    const request = relayRequest("fixed");
+    request.modeProfileId = "fm-16k0-voice-v1";
+    const result = relayResult("relay");
+    (result.heads as Mutable[])[0].effectiveModeProfileId = "fm-16k0-voice-v1";
+    expect(
+      (await bind(result, request)).map((issue) => issue.reason).join(),
+    ).toMatch(
+      /Mode profile fm-16k0-voice-v1 carries no decoder, so no decode probability is defined for it/,
+    );
+  });
 
   it("rejects a learned head answering a physics_only request (M11, M19)", async () => {
     // The residual on the result side: the digest matches, the row is frozen,
@@ -1756,6 +1818,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     head.uncertainty = { kind: "none" };
     head.contextId = satellite.contextId;
     head.validAt = satellite.validAt;
+    head.effectiveModeProfileId = satellite.modeProfileId;
     head.state = {
       availability: "available",
       value: {

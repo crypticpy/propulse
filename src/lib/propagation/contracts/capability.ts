@@ -44,6 +44,7 @@ import {
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
   MIN_REQUEST_FREQUENCY_HZ,
+  modeProfileEntry,
   MODEL_KINDS,
   MODEL_KINDS_BY_POLICY,
   type ModelKind,
@@ -1148,9 +1149,16 @@ interface ResultBinding {
   exemption: string | null;
   /** The head field a violation is reported on. */
   path: string | ((head: PredictionHead) => string);
-  /** The violation reason, or null when the head satisfies the request. */
+  /**
+   * The violation, or null when the head satisfies the request. A reason on
+   * its own is reported at the row's `path`; a row that can fail on more than
+   * one field returns the path with it.
+   */
   check:
-    | ((head: PredictionHead, request: PredictionRequest) => string | null)
+    | ((
+        head: PredictionHead,
+        request: PredictionRequest,
+      ) => string | { path: string; reason: string } | null)
     | null;
 }
 
@@ -1339,10 +1347,47 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
     field: "modeProfileIds",
     onUnavailableTarget: false,
     appliesTo: "served",
-    exemption:
-      "A head carries the mode ids it evaluated, not the profile that selected them; the profile enters the request key and the capability head declares it.",
-    path: "quantity",
-    check: null,
+    exemption: null,
+    path: "effectiveModeProfileId",
+    check: (head, request) => {
+      // M07/M11: the profile is a routing dimension, so a served head answers
+      // the profile that was asked for and no other.
+      if (head.effectiveModeProfileId !== request.modeProfileId) {
+        return `A served head answers the requested mode profile ${request.modeProfileId}, not ${head.effectiveModeProfileId ?? "none"} (M07, M11)`;
+      }
+      if (head.quantity !== "conditional_decode") return null;
+      if (!("value" in head.state)) return null;
+      // A decode probability is conditioned on a decoder and on the length of
+      // one attempt. Both are properties of the profile, so a head that
+      // reports its own belongs to a different profile than the one requested.
+      const entry = modeProfileEntry(request.modeProfileId);
+      if (entry === null) {
+        return `Mode profile ${request.modeProfileId} is not registered, so the decoder a decode head reports cannot be checked against it (M07, M11)`;
+      }
+      const payload = head.state.value as {
+        decoderId: string;
+        observationSeconds: number;
+      };
+      if (entry.decoderId === null) {
+        return {
+          path: "state.value.decoderId",
+          reason: `Mode profile ${request.modeProfileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
+        };
+      }
+      if (payload.decoderId !== entry.decoderId) {
+        return {
+          path: "state.value.decoderId",
+          reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId}, and this head reports ${payload.decoderId} (M07, M11)`,
+        };
+      }
+      if (payload.observationSeconds !== entry.observationSeconds) {
+        return {
+          path: "state.value.observationSeconds",
+          reason: `One ${request.modeProfileId} attempt lasts ${entry.observationSeconds} s, and this head reports ${payload.observationSeconds} s (M07, M11)`,
+        };
+      }
+      return null;
+    },
   },
   {
     field: "sourceModes",
@@ -1457,10 +1502,14 @@ export async function bindResult(
       // gap is attributed to: a gap copied from another route or interval is a
       // misattribution. Only the checks that read a value are skipped.
       if (!served && !(isTarget && binding.onUnavailableTarget)) continue;
-      const reason = binding.check(head, request);
-      if (reason === null) continue;
-      const path =
+      const violation = binding.check(head, request);
+      if (violation === null) continue;
+      const fallback =
         typeof binding.path === "string" ? binding.path : binding.path(head);
+      const path =
+        typeof violation === "string" ? fallback : `${violation.path}`;
+      const reason =
+        typeof violation === "string" ? violation : violation.reason;
       add(`heads[${index}].${path}`, reason);
     }
   });

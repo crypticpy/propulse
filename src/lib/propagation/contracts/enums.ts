@@ -1442,6 +1442,66 @@ export const MODEL_KINDS_BY_POLICY: Record<ModelPolicy, readonly ModelKind[]> =
     physics_only: ["physics"],
   };
 
+/**
+ * M07/M11: the mode profiles a request may name, and what each one actually
+ * is. A profile id is otherwise an opaque string, which is how a decode head
+ * reporting a WSJT-X decoder could answer a request for an FM voice profile:
+ * nothing in the contract said the two were different.
+ *
+ * A profile that carries a decoder names it and the duration of one decode
+ * attempt, which is what a `conditional_decode` payload has to agree with. A
+ * voice profile carries neither, and therefore no decode head can answer it.
+ *
+ * This is the minimal registry the contracts need to check the claims they
+ * already carry. It is deliberately a table and not a service: the binder is
+ * offline and pure. A richer profile catalogue (audio bandwidths, symbol
+ * rates, per-version decoder behaviour) belongs to the mode layer, and the
+ * seam is this table: the mode layer owns the catalogue and publishes these
+ * three fields per profile.
+ */
+export interface ModeProfileEntry {
+  readonly profileId: string;
+  /** The decoder a decode head must report, or null for a voice profile. */
+  readonly decoderId: string | null;
+  /** The length of one decode attempt in seconds, null where there is none. */
+  readonly observationSeconds: number | null;
+  readonly note: string;
+}
+
+export const MODE_PROFILE_REGISTRY: readonly ModeProfileEntry[] = [
+  {
+    profileId: "ft8-wsjtx-2.7.0-15s",
+    decoderId: "wsjtx-ft8",
+    observationSeconds: 15,
+    note: "FT8 as decoded by WSJT-X 2.7.0: one 15 s transmit/receive sequence per attempt.",
+  },
+  {
+    profileId: "ft4-wsjtx-2.7.0-7.5s",
+    decoderId: "wsjtx-ft4",
+    observationSeconds: 7.5,
+    note: "FT4 as decoded by WSJT-X 2.7.0: a 7.5 s sequence, which is a different event from FT8.",
+  },
+  {
+    profileId: "fm-voice-12k5",
+    decoderId: null,
+    observationSeconds: null,
+    note: "Narrow FM voice. There is no decoder, so no decode probability is defined for it.",
+  },
+  {
+    profileId: "fm-16k0-voice-v1",
+    decoderId: null,
+    observationSeconds: null,
+    note: "16 kHz FM voice through a repeater. As above: audible or not, never decoded.",
+  },
+];
+
+/** The registry entry for a profile id, or null when it is not registered. */
+export function modeProfileEntry(profileId: string): ModeProfileEntry | null {
+  return (
+    MODE_PROFILE_REGISTRY.find((entry) => entry.profileId === profileId) ?? null
+  );
+}
+
 /** M06 great-circle leg. */
 export const ROUTE_LEGS = ["short", "long"] as const;
 export type RouteLeg = (typeof ROUTE_LEGS)[number];

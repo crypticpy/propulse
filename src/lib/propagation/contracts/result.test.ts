@@ -984,6 +984,7 @@ describe("parseResult fails closed", () => {
       effectiveModelId: "propulse-physics-v1",
       effectiveModelVersion: "1.0.0",
       effectiveModelKind: "physics",
+      effectiveModeProfileId: "ft8-wsjtx-2.7.0-15s",
       modelHash: MODEL_HASH,
       preprocessingHash: PREPROCESSING_HASH,
       featureHash: FEATURE_HASH,

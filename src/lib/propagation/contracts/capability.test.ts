@@ -1829,7 +1829,11 @@ describe("parseResultForRequest binds a result to its request", () => {
       const head = (draft.heads as Mutable[]).find(
         (candidate) => candidate.quantity === "snr2500",
       ) as Mutable;
+      // A learned head is a head another model served, which is the only way
+      // one result carries two kinds: one artefact has one kind.
       head.effectiveModelKind = "learned";
+      head.effectiveModelId = "propulse-learned-v1";
+      head.fallbackReason = "requested_model_unavailable";
     });
     const issues = await bind(result, request);
     expect(issues.map((issue) => issue.path)).toContain(
@@ -1855,6 +1859,8 @@ describe("parseResultForRequest binds a result to its request", () => {
         (candidate) => candidate.quantity === "circuit_support",
       ) as Mutable;
       head.effectiveModelKind = "observation_assisted";
+      head.effectiveModelId = "propulse-observation-assisted-v1";
+      head.fallbackReason = "requested_model_unavailable";
     });
     const issues = await bind(result, request);
     expect(issues.map((issue) => issue.path)).toContain(

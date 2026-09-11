@@ -1877,6 +1877,37 @@ export const predictionResultSchema = z
         );
       }
     });
+    // M11/M19: one model artefact has one declared kind. The heads carry the
+    // kind rather than the provenance, because a fallback serves one head from
+    // another model, so nothing else in the result says that two heads naming
+    // the same model must agree about what that model is. Without this a
+    // result could answer an auto or named request with a physics head and a
+    // learned head produced, on their own account, by the same model id and
+    // version, and the model policy binding would have nothing to catch: each
+    // head is admissible alone. Identity here is the pair the rest of this
+    // refinement uses, id and version; the artefact hashes are nullable on a
+    // head and are not what the fallback check groups on.
+    const kindByModel = new Map<string, { kind: ModelKind; index: number }>();
+    value.heads.forEach((head, index) => {
+      const identity = JSON.stringify([
+        head.effectiveModelId,
+        head.effectiveModelVersion,
+      ]);
+      const seen = kindByModel.get(identity);
+      if (seen === undefined) {
+        kindByModel.set(identity, {
+          kind: head.effectiveModelKind,
+          index,
+        });
+        return;
+      }
+      if (seen.kind === head.effectiveModelKind) return;
+      reject(
+        ctx,
+        ["heads", index, "effectiveModelKind"],
+        `Model ${head.effectiveModelId} ${head.effectiveModelVersion} is a ${seen.kind} model at heads[${seen.index}].effectiveModelKind and a ${head.effectiveModelKind} model here; one model artefact has one kind (M11, M19)`,
+      );
+    });
     crossCheckDecodeMargin(value.heads, ctx);
     crossCheckCircuitSupport(value.heads, ctx);
   });

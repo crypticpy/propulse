@@ -1044,6 +1044,28 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("gives one effective model one kind across the heads it served (M11, M19)", () => {
+    // The residual: the kind sits on the head, so two heads naming the same
+    // model id and version could disagree about what that model is, and each
+    // head is admissible on its own. A learned answer would then ride into an
+    // auto or named result behind a physics identity.
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").effectiveModelKind = "learned";
+    expect(reasonsAt(bad, "heads[1].effectiveModelKind").join()).toMatch(
+      /Model propulse-physics-v1 1\.0\.0 is a physics model at heads\[0\]\.effectiveModelKind and a learned model here; one model artefact has one kind \(M11, M19\)/,
+    );
+
+    // The same two kinds are legitimate when they are two models, which is
+    // what a fallback is; the head then names its own reason.
+    const fallback = candidate("fullHfCircuit");
+    const head = headFor(fallback, "snr2500");
+    head.effectiveModelKind = "learned";
+    head.effectiveModelId = "propulse-learned-v1";
+    head.fallbackReason = "requested_model_unavailable";
+    const outcome = parseResult(fallback);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("requires a fallback reason when only the head's model version differs (M19)", () => {
     const bad = candidate("fullHfCircuit");
     headFor(bad, "snr2500").effectiveModelVersion = "1.1.0";

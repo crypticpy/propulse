@@ -498,6 +498,119 @@ describe("operatingStateStore", () => {
     a.disconnect();
   });
 
+  it("treats a re-delivery of the held write as a replay, authorless or from its author", async () => {
+    // #859 round 14. Two of the three arrivals at the held `(at, value)` are
+    // the same write coming round again: one stripped of its author by a
+    // relay, one naming the screen the write is already keyed on. Neither is
+    // an application, so neither takes a number — round 5's guard.
+    const bus = createMemoryBus();
+    const a = await openScreen(bus, "a");
+
+    // Held: an authorless first-hand write from the phone.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000 } },
+    });
+    const seq = a.store.getState().stamps.band.appliedSeq;
+    expect(a.store.getState().stamps.band.by).toBeUndefined();
+
+    // No author: a relay, and indistinguishable from the original. Replay.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzz-relay",
+      sentAt: 2,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000 } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq).toBe(seq);
+
+    // An upgraded relay naming the screen this write is already keyed on:
+    // still a replay, and the one thing it may add is the author itself.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzz-relay",
+      sentAt: 3,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000, by: "phone" } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq).toBe(seq);
+    expect(a.store.getState().stamps.band.by).toBe("phone");
+
+    // And the author's own re-announcement of it, once more.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone",
+      sentAt: 4,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000, by: "phone" } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq).toBe(seq);
+
+    a.disconnect();
+  });
+
+  it("applies another screen's same-millisecond write of the same value", async () => {
+    // #859 round 14, the third row of the table. Two screens writing the same
+    // value in the same millisecond are two writes, not one: collapsing them
+    // left the winner's write unnumbered here, so a wall that had picked
+    // something else in between kept its own target on remount.
+    const bus = createMemoryBus();
+    const a = await openScreen(bus, "a");
+
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "aaa-phone",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "20m", at: 5_000, by: "aaa-phone" } },
+    });
+    const seq = a.store.getState().stamps.band.appliedSeq;
+
+    // A different author, same instant, same value, id sorting above: a
+    // distinct write that wins the tie — and `main` agrees on the winner.
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "zzz-other" },
+        { at: 5_000, by: "aaa-phone" },
+      ),
+    ).toBe(true);
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzz-other",
+      sentAt: 2,
+      kind: "state",
+      patch: { band: { value: "20m", at: 5_000, by: "zzz-other" } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq as number).toBeGreaterThan(
+      seq as number,
+    );
+    expect(a.store.getState().stamps.band.by).toBe("zzz-other");
+
+    // A different author sorting below loses the tie, and loses it silently:
+    // no number, or a write that did not win would still climb the order.
+    const winner = a.store.getState().stamps.band.appliedSeq;
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "aaa-low" },
+        { at: 5_000, by: "zzz-other" },
+      ),
+    ).toBe(false);
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "aaa-low",
+      sentAt: 3,
+      kind: "state",
+      patch: { band: { value: "20m", at: 5_000, by: "aaa-low" } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq).toBe(winner);
+    expect(a.store.getState().stamps.band.by).toBe("zzz-other");
+
+    a.disconnect();
+  });
+
   it("settles two same-millisecond authorless writes the same way in either order", async () => {
     // #859 round 13, thread 5. The key an authorless entry won on used to be
     // borrowed for the comparison and dropped, so the *next* authorless write

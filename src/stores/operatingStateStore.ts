@@ -77,6 +77,12 @@ export const REGISTRATION_HEARTBEAT_MS = REGISTRATION_TTL_MS / 3;
  *   the stamp forward, and peers must move with it. The only exception is one
  *   message arriving twice (same `at`, same value), which is not a second
  *   write at all.
+ * - The one thing that is not a write is a write arriving twice: an
+ *   *identical value at an identical stamp* is a replay, and a replay never
+ *   takes a number — not here, and not on the workspace channel, where a
+ *   joining window makes every peer republish what it holds. Recognising it
+ *   comes before any tie-break, or a relay would win the tie and mint on
+ *   behalf of a write nobody made (#859 round 14).
  * - "Unstamped" means *no stamp exists* — `at === 0` here,
  *   `targetSetAt === undefined` on the map store — and nothing else. A stamp
  *   whose value is null, empty, or unchanged is still a stamp, and still
@@ -486,42 +492,42 @@ function mergePatch(
     const current = stamps[field];
     const incoming = { at: entry.at, by: entry.by };
     // One logical wire write, delivered twice — a `hello` reply, or a relay
-    // keyed on its deliverer that `beats()` now lets through (#859 round 12).
-    // Identity is `at` *and* value: the same instant carrying the same value
-    // is the same write taking a second route here. There is nothing to
-    // apply, so nothing is applied: no new application number and no fresh
-    // `appliedAt`. Re-stamping a write already held is what let a replay
-    // outrank a map target chosen in between (round 5), and that guard has to
-    // survive the tie rule getting more permissive, not depend on it.
+    // that `beats()` would otherwise let through (#859 rounds 12-14). There
+    // is nothing to apply, so nothing is applied: no new application number
+    // and no fresh `appliedAt`. Re-stamping a write already held is what let
+    // a replay outrank a map target chosen in between (round 5), and that
+    // guard has to survive the tie rule getting more permissive rather than
+    // depend on it.
     //
-    // Round 13 narrowed this from "the value is equal" to "the same write":
-    // an operator who re-picks the target they picked before produces a
-    // genuinely newer write that happens to carry an equal value, and it has
-    // to land with its new `at`/`appliedAt`/`appliedSeq` or every peer keeps
-    // the old stamp and a wall that picked something else in between never
-    // gives it up. Equal values do not short-circuit ordering; only a
-    // re-delivery of one message does. Deliberately keyed on `at` + value
-    // rather than also on the key: a legacy relay strips `by`, so the same
-    // message can arrive under two different keys, and demanding key equality
-    // would re-stamp it and bring round 5's bug back. Taking the higher key
-    // instead is order-independent and converges.
+    // Identity is the same instant, the same value, *and* a key that says
+    // this is the same write rather than a second one. Three cases, and the
+    // middle column is the whole rule:
     //
-    // Two things such a delivery can add: an author this screen never knew
-    // (the write arrived first from a tab too old to name one, and the relay
-    // states it — learned, not guessed, so the chip can name the screen the
-    // operator actually used), and a higher tie key for the next equal-`at`
-    // comparison.
-    const tieKey = entry.by ?? senderId;
+    // | arrival at the held `at` with the held value | is it a replay? | why |
+    // | --- | --- | --- |
+    // | no author (`by` undefined) | **yes** | a relay, legacy or upgraded, stripped of its author. It cannot be told apart from the original, so the safe reading is replay — that is round 5's guard. |
+    // | `by` equals the held `tieKey` | **yes** | an upgraded relay naming the screen this write is already keyed on. |
+    // | `by` names a *different* screen | **no** | a distinct write that happens to carry an equal value in the same millisecond. It goes through `beats()` like anything else and, if it wins, lands with its own `appliedAt`/`appliedSeq`. |
+    //
+    // The third row is round 14: collapsing two screens' same-millisecond
+    // writes into one left the winner's re-pick unnumbered here, so a wall
+    // that had picked something else in between kept its own target on
+    // remount. And equal values never short-circuit ordering in the first
+    // place (round 13): a *newer* `at` is always a new write, whatever it
+    // carries.
+    //
+    // What a replay can add is an author this screen never knew: the write
+    // arrived first from a tab too old to name one and the relay states it.
+    // That is learned, not guessed — it is on the entry — so it is recorded,
+    // and only it. The tie key is untouched: it is the key this write won on,
+    // and a second delivery did not win anything.
     if (
       entry.at === current.at &&
-      sameCursorValue(cursor[field], entry.value)
+      sameCursorValue(cursor[field], entry.value) &&
+      (entry.by === undefined || entry.by === current.tieKey)
     ) {
-      const learnedBy = current.by ?? entry.by;
-      // The higher of the two keys, so the result does not depend on which
-      // route delivered the message first.
-      const raised = tieKey > current.tieKey ? tieKey : current.tieKey;
-      if (learnedBy === current.by && raised === current.tieKey) continue;
-      stamps[field] = { ...current, by: learnedBy, tieKey: raised };
+      if (current.by !== undefined || entry.by === undefined) continue;
+      stamps[field] = { ...current, by: entry.by };
       changed = true;
       continue;
     }
@@ -543,7 +549,7 @@ function mergePatch(
     Object.assign(cursor, { [field]: entry.value });
     stamps[field] = {
       ...incoming,
-      tieKey,
+      tieKey: entry.by ?? senderId,
       appliedAt: Date.now(),
       // This window's application order, minted here for every accepted
       // entry whatever its origin (#859 round 11). Carrying the writer's

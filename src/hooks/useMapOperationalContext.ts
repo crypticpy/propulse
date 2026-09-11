@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useDXStore } from "@/stores/dxStore";
-import { useMapStore } from "@/stores/mapStore";
+import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
@@ -193,6 +193,23 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
     },
   };
+}
+
+/**
+ * Is this the target already held? A `TargetLocation` is four primitives, so
+ * a field compare is exact. Used to recognise a *replay* of the target this
+ * window holds — see the ordering rule in `operatingStateStore` (#859 round
+ * 14): identical value plus identical stamp is one write coming round again,
+ * never a new one.
+ */
+function sameTarget(
+  a: TargetLocation | null | undefined,
+  b: TargetLocation | null | undefined,
+): boolean {
+  if (!a || !b) return !a && !b;
+  return (
+    a.lat === b.lat && a.lon === b.lon && a.name === b.name && a.grid === b.grid
+  );
 }
 
 /**
@@ -453,8 +470,20 @@ export function useOperationalWorkspaceSync(): void {
               if (held.targetSetAt !== undefined) {
                 const heldAt = held.targetSetAt;
                 if (senderAt < heldAt) break;
-                if (senderAt === heldAt && message.sender <= targetTieKey) {
-                  break;
+                if (senderAt === heldAt) {
+                  // The same value at the same stamp is this window's own
+                  // held write coming back, not a new one (#859 round 14).
+                  // When a third window joins, *every* peer republishes what
+                  // it holds, and none of those snapshots names the original
+                  // writer; keying the tie on whoever relayed it would let a
+                  // high-id relay of an unchanged target mint a fresh
+                  // sequence and pass for the newest thing this window did —
+                  // outranking a cursor that arrived while the wall was
+                  // unmounted. A replay mints nothing and moves no key.
+                  if (sameTarget(held.target, map.target)) break;
+                  // Genuinely different values at one instant: the tie falls
+                  // to the higher sender, as below.
+                  if (message.sender <= targetTieKey) break;
                 }
               }
               targetTieKey = message.sender;

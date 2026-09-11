@@ -371,6 +371,55 @@ describe("map target synchronization", () => {
     expect(settled).toEqual(["zzz-window", "zzz-window"]);
   });
 
+  it("settles equal stamps from two senders on the higher one in either order", async () => {
+    // #859 round 14, thread 2, the negative. Recognising a replay must not
+    // cost the tie-break: two senders at one stamp carrying *different*
+    // targets still converge on the higher sender's, whichever arrives
+    // first.
+    const settled: string[] = [];
+    for (const order of [
+      ["aaa-other", "zzz-other"],
+      ["zzz-other", "aaa-other"],
+    ]) {
+      vi.stubGlobal("BroadcastChannel", TestChannel);
+      vi.stubGlobal("crypto", { randomUUID: () => "mmm-this-window" });
+      useMapStore.setState({
+        target: null,
+        targetSetAt: undefined,
+        targetSeq: undefined,
+      });
+      const view = render(<SyncOnly />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const channel = TestChannel.instances.at(-1) as TestChannel;
+
+      order.forEach((sender, index) => {
+        act(() => {
+          channel.onmessage?.({
+            data: {
+              kind: "snapshot",
+              sender,
+              domain: "map",
+              revision: index + 1,
+              state: {
+                target: { lat: index, lon: index, name: sender },
+                targetSetAt: 7_000,
+              },
+            },
+          } as MessageEvent);
+        });
+      });
+
+      settled.push(useMapStore.getState().target?.name as string);
+      view.unmount();
+      vi.unstubAllGlobals();
+      TestChannel.instances = [];
+    }
+
+    expect(settled).toEqual(["zzz-other", "zzz-other"]);
+  });
+
   it("leaves a legacy snapshot that carries no write time unstamped", async () => {
     // Unknown, not new (#859 round 9). A window on an older bundle answers
     // the handshake with whatever target it has had up all along; stamping

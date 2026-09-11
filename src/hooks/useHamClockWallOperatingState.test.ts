@@ -913,6 +913,96 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
   });
 
+  it("applies another screen's same-millisecond pick after the wall picked its own", () => {
+    // #859 round 14, thread 1. The phone and a second screen pick the same
+    // target in the same millisecond, and the wall picks something else
+    // between the two deliveries. The second pick is a distinct write: if it
+    // is collapsed into the first as a replay it takes no application
+    // number, and the wall keeps its own target for good.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+    const at = Date.now();
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("aaa-phone", "K1ABC", "EM10", null, null, at),
+      );
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    // Same instant on the wire, same value, a different screen: a second
+    // write that wins the tie on its id.
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("zzz-phone", "K1ABC", "EM10", null, null, at),
+      );
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+  });
+
+  it("does not renumber a target when peers republish it for a joining window", async () => {
+    // #859 round 14, thread 2. A third window asking for state makes *every*
+    // peer republish what it holds, and a workspace snapshot names no
+    // original writer — so keying the equal-stamp tie on whoever relayed it
+    // let a high-id relay of an unchanged target mint a fresh sequence and
+    // pass for the newest thing this window did, outranking a cursor that
+    // arrived while the wall was unmounted. Identical value plus identical
+    // stamp is a replay: no number, no key change.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    const t0 = new Date("2026-09-10T00:00:00Z").getTime();
+    vi.setSystemTime(t0);
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    const aTarget = {
+      kind: "snapshot",
+      domain: "map",
+      state: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: t0 },
+    };
+
+    // Window A picks a target; it syncs in here and is numbered here.
+    act(() => {
+      channel.onmessage?.({
+        data: { ...aTarget, sender: "aaa-window", revision: 1 },
+      } as MessageEvent);
+    });
+    const syncedSeq = useMapStore.getState().targetSeq as number;
+
+    // A newer cursor lands while the wall is unmounted.
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone", "W2XYZ", "FN20", null, null, t0));
+    });
+    expect(
+      useOperatingStateStore.getState().stamps.target.appliedSeq as number,
+    ).toBeGreaterThan(syncedSeq);
+
+    // Window C joins: A and B both republish A's target, unchanged, with A's
+    // stamp. B's id sorts above this window's and above A's.
+    act(() => {
+      channel.onmessage?.({
+        data: { ...aTarget, sender: "aaa-window", revision: 2 },
+      } as MessageEvent);
+      channel.onmessage?.({
+        data: { ...aTarget, sender: "zzz-window", revision: 1 },
+      } as MessageEvent);
+    });
+    expect(useMapStore.getState().targetSeq).toBe(syncedSeq);
+
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ" });
+    sync.unmount();
+  });
+
   it("applies a non-null cursor on mount when the map has no target yet", () => {
     useOperatingStateStore
       .getState()

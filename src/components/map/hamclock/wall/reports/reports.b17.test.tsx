@@ -8,6 +8,10 @@ import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
+import {
+  assertReportDoesNotOverflow,
+  withReportLayout,
+} from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -538,5 +542,37 @@ describe("BestBandReport keeps NowCast on the ladder's own path (finding 7)", ()
     expect(mocks.nowCast).toHaveBeenCalled();
     const call = mocks.nowCast.mock.calls[0][0] as { target: unknown };
     expect(call.target).toEqual({ grid: "PM95", lat: 35.68, lon: 139.69 });
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the MUF report body or boxes", () => {
+    render(<MufReport open onClose={vi.fn()} />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "MUF");
+    });
+  });
+
+  it("does not clip the Best band report body or boxes", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandEntry({
+          band: "20m",
+          stable: "verified",
+          physicsOpen: true,
+          physicsScore: 0.8,
+          obs20m: 12,
+          reporters20m: 6,
+          surprise: false,
+        }),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    render(<BestBandReport open onClose={vi.fn()} />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Best band");
+    });
   });
 });

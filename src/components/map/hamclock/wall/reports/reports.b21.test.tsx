@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MoonReport } from "./MoonReport";
 import { MoonTile } from "../tiles/MoonTile";
+import {
+  assertReportDoesNotOverflow,
+  withReportLayout,
+} from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   location: vi.fn(),
@@ -303,5 +307,15 @@ describe("MoonTile", () => {
     expect(
       await screen.findByRole("dialog", { name: /moon report/i }),
     ).toBeTruthy();
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the Moon report body or boxes", () => {
+    vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
+    render(<MoonReport open onClose={vi.fn()} />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Moon");
+    });
   });
 });

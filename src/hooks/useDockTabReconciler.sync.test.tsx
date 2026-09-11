@@ -1,6 +1,9 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useOperationalWorkspaceSync } from "@/hooks/useMapOperationalContext";
+import {
+  useOperationalWorkspaceSync,
+  WORKSPACE_CHANNEL,
+} from "@/hooks/useMapOperationalContext";
 import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
 import { useContestStore } from "@/stores/contestStore";
 import {
@@ -26,7 +29,9 @@ class TestChannel {
   closed = false;
   onmessage: ((event: MessageEvent<Message>) => void) | null = null;
   postMessage = vi.fn();
-  constructor() {
+  readonly name: string;
+  constructor(name: string) {
+    this.name = name;
     TestChannel.instances.push(this);
   }
   close() {
@@ -307,11 +312,12 @@ describe("dock tab across the /map/ops popout", () => {
     expect(echoed[0]?.state).toMatchObject({ dockTabIntent: null });
   });
 
-  // #884 round 8 (Codex P2, useMapOperationalContext.ts:392): the channel name
-  // has not changed, so during a deploy a window on the previous bundle answers
-  // the startup request with a contestUi snapshot that has no dockTabIntent at
-  // all. Storing that `undefined` made the reconciler dereference it and throw
-  // inside the effect.
+  // #884 round 8 (Codex P2, useMapOperationalContext.ts:392): a peer on the
+  // same channel can send a contestUi snapshot with no dockTabIntent at all,
+  // and storing that `undefined` made the reconciler dereference it and throw
+  // inside the effect. Since round 9 bumped the channel to v3 the sender is no
+  // longer a window on an older bundle — this now covers a malformed payload
+  // from a peer on the *same* version, which the normalizers still guard.
   it("survives a legacy contestUi snapshot with no dock-tab intent", async () => {
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
@@ -339,5 +345,20 @@ describe("dock tab across the /map/ops popout", () => {
       await Promise.resolve();
     });
     expect(dockTab()).toBe("log");
+  });
+
+  // #884 round 9 (Codex, useMapOperationalContext.ts:208): normalizing only
+  // protects new-from-old. An old receiver on the same channel ignores
+  // dockTabIntent entirely, reconciles the dock from the scope change the click
+  // caused, and broadcasts that reversal back. The version in the channel name
+  // is what keeps mixed-version windows apart, so it is asserted here: a future
+  // payload change that would mean something different to an existing receiver
+  // has to bump it consciously.
+  it("talks on the versioned workspace channel", async () => {
+    expect(WORKSPACE_CHANNEL).toBe("propulse-operating-workspace-v3");
+    render(<Window />);
+    await flush();
+    const channel = TestChannel.instances.at(-1) as TestChannel;
+    expect(channel.name).toBe(WORKSPACE_CHANNEL);
   });
 });

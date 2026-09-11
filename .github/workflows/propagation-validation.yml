@@ -1,0 +1,35 @@
+name: Propagation candidate protocol checks
+
+on:
+  pull_request:
+    paths:
+      - "ml/propagation_validation/**"
+      - "docs/designs/propagation/**"
+      - ".github/workflows/propagation-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ml/propagation_validation/**"
+      - "docs/designs/propagation/**"
+      - ".github/workflows/propagation-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-protocol:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Exercise protocol, fixture and malformed-input regressions
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ml/propagation_validation -p 'test_*.py' -v
+      - name: Check the candidate protocol and fixture manifest for consistency
+        run: PYTHONDONTWRITEBYTECODE=1 python3 ml/propagation_validation/validate.py

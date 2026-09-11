@@ -459,8 +459,11 @@ This machine runs exactly one dev server, on port 5173, owned by the human or th
 orchestrator session. Agents never start one; check `npm run dev:session -- status`
 first, and also check for a human-started server with
 `ps -axo pid=,command= | grep '[v]ite'` (plain `npm run dev` has no session entry).
-Use the shared server if either check finds one. If neither does, report that and
-stop. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
+Before reusing a server either check found, confirm it is this checkout's:
+`curl --fail --silent <url>/__propulse_dev_session` must report this repo's root
+and the same URL (a Vite process from another checkout or project is not the
+shared server). If neither check finds one, or the identity does not match, report
+that and stop. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
 `CLAUDE.md`.
 Supabase credentials are optional for local development; without them the app runs
 unauthenticated and the physics engine still works.

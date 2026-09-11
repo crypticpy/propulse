@@ -36,10 +36,13 @@ Focused tests cover multiple child callbacks sharing one subscription, current
 callbacks after rerender, disabling/re-enabling, and cleanup. Existing ray tracing
 and spot-layer policy tests cover path geometry and isolation policy.
 
-To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md`, check
-`npm run dev:session -- status` and use the shared server if it is running
-(agents never start one), then run from the same checkout, passing the exact
-URL that status reports (5173 unless `DEV_SERVER_ALLOW_EXTRA=1` moved it):
+To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md` and check
+`npm run dev:session -- status` (agents never start a server). The script only
+accepts a session whose profile is `local` and whose root is the checkout you run
+it from; if the one shared server reports another profile or another root, ask
+the owner or orchestrator for a matching session instead of using it. Then run
+from that checkout, passing the exact URL that status reports (5173 unless
+`DEV_SERVER_ALLOW_EXTRA=1` moved it):
 
 ```sh
 node scripts/profile-map-animation.mjs http://127.0.0.1:5173

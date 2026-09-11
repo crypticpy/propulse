@@ -44,6 +44,10 @@ import {
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
   MIN_REQUEST_FREQUENCY_HZ,
+  MODEL_KINDS,
+  MODEL_KINDS_BY_POLICY,
+  type ModelKind,
+  type ModelPolicy,
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
@@ -357,6 +361,12 @@ export const modelCapabilitySchema = z
     /** Hashes that pin the trained artefact and its preprocessing (M19). */
     modelHash: artifactHash.nullable(),
     preprocessingHash: artifactHash.nullable(),
+    /**
+     * M11/M19: what the model is made of. A request may ask for physics only,
+     * and "physics" is not something a router can read off a model id, so the
+     * declaration says it and routing matches on it like any other dimension.
+     */
+    modelKind: z.enum(MODEL_KINDS),
     sourcePolicyVersion: identifier,
     /** Empty is legal and meaningful: a no-op capability declares no heads. */
     heads: z.array(capabilityHead),
@@ -420,7 +430,7 @@ export const modelCapabilitySchema = z
       if (!ROUTABLE_CAPABILITY_STATES.includes(head.state)) return;
       for (const dimension of ROUTING_DIMENSIONS) {
         if (!dimension.gates(head)) continue;
-        if (dimension.values(head).length > 0) continue;
+        if (dimension.values(head, value).length > 0) continue;
         // M19: routing matches this dimension by membership, so an empty list
         // matches no request at all. A head that declares one is advertised as
         // an active capability while being silently routed past, which shows up
@@ -465,7 +475,7 @@ export const modelCapabilitySchema = z
       for (let other = 0; other < index; other += 1) {
         const earlier = value.heads[other];
         if (!ROUTABLE_CAPABILITY_STATES.includes(earlier.state)) continue;
-        if (!headsOverlap(earlier, head)) continue;
+        if (!headsOverlap(earlier, head, value)) continue;
         reject(
           ctx,
           ["heads", index, "frequencyRangeHz"],
@@ -707,6 +717,11 @@ export interface CapabilityQuery {
   rxReceiverClass: ReceiverClass;
   /** M11/M19: the routing/source policy version the request was issued under. */
   policyVersion: string;
+  /**
+   * M11/M19: the model policy the request was issued under. `physics_only` is
+   * a routing constraint, not a preference: a learned model may not answer it.
+   */
+  modelPolicy: ModelPolicy;
   /** The source posture the request was issued under (M11). */
   sourceMode: SourceMode;
   /** The input identifiers the request actually carries (M11/M19). */
@@ -723,6 +738,11 @@ export interface CapabilityQuery {
  * not both answer one request. Three rules written by hand would drift apart;
  * one table cannot.
  */
+/** The declaration-level facts a routing dimension may read (M11, M19). */
+interface DeclaredModelKind {
+  modelKind: ModelKind;
+}
+
 interface RoutingDimension {
   /** The head field, used for the issue path and the message. */
   field:
@@ -732,9 +752,17 @@ interface RoutingDimension {
     | "modeProfileIds"
     | "sourceModes"
     | "antennaClasses"
-    | "receiverClasses";
-  /** The populations the head declares on this dimension. */
-  values: (head: ModelCapabilityHead) => readonly string[];
+    | "receiverClasses"
+    | "modelKind";
+  /**
+   * The populations the head declares on this dimension. Most live on the head;
+   * the model kind is a property of the whole declaration, which is why the
+   * declaration it belongs to is passed alongside.
+   */
+  values: (
+    head: ModelCapabilityHead,
+    declaration: DeclaredModelKind,
+  ) => readonly string[];
   /** Whether this dimension gates this head's quantity at all. */
   gates: (head: ModelCapabilityHead) => boolean;
   /** The query values that must all be declared; read only when it gates. */
@@ -779,6 +807,19 @@ export const ROUTING_DIMENSIONS: readonly RoutingDimension[] = [
     // every quantity, so both ends always gate (A01).
     gates: () => true,
     required: (query) => [query.txAntennaClass, query.rxAntennaClass],
+  },
+  {
+    field: "modelKind",
+    values: (_head, declaration) => [declaration.modelKind],
+    gates: () => true,
+    // The declaration names exactly one kind, so a policy that admits the whole
+    // vocabulary demands nothing and a policy that narrows demands the one kind
+    // it admits. `MODEL_KINDS_BY_POLICY` is the only place that distinction is
+    // written down.
+    required: (query) => {
+      const admitted = MODEL_KINDS_BY_POLICY[query.modelPolicy];
+      return admitted.length === MODEL_KINDS.length ? [] : admitted;
+    },
   },
   {
     field: "receiverClasses",
@@ -879,6 +920,7 @@ function intersects(
 function headsOverlap(
   left: ModelCapabilityHead,
   right: ModelCapabilityHead,
+  declaration: DeclaredModelKind,
 ): boolean {
   if (left.quantity !== right.quantity || left.domain !== right.domain) {
     return false;
@@ -892,7 +934,10 @@ function headsOverlap(
   if (!rangesMeet) return false;
   return ROUTING_DIMENSIONS.every((dimension) => {
     if (!dimension.gates(left) && !dimension.gates(right)) return true;
-    return intersects(dimension.values(left), dimension.values(right));
+    return intersects(
+      dimension.values(left, declaration),
+      dimension.values(right, declaration),
+    );
   });
 }
 
@@ -934,7 +979,7 @@ export function capabilityCovers(
       head.domain === query.domain &&
       ROUTING_DIMENSIONS.every((dimension) =>
         dimensionDemands(dimension, head, query).every((value) =>
-          dimension.values(head).includes(value),
+          dimension.values(head, capability).includes(value),
         ),
       ) &&
       RANGE_ROUTING_DIMENSIONS.every((dimension) =>
@@ -1178,6 +1223,24 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
       return basis === request.route.basis
         ? null
         : `The request locates its scattering region on the ${request.route.basis} basis and ${head.mechanismFamily} scatters on ${basis ?? "no scatter basis"} (A19, A20)`;
+    },
+  },
+  {
+    field: "modelKind",
+    appliesTo: "target",
+    onUnavailableTarget: true,
+    exemption: null,
+    path: "effectiveModelKind",
+    check: (head, request) => {
+      // M11/M19: physics_only is a constraint on what may answer, not a
+      // preference. The head names what produced it, because the capability
+      // digest beside it is opaque and this pass is offline.
+      const admitted = MODEL_KINDS_BY_POLICY[
+        request.requestedModel.policy
+      ] as readonly string[];
+      return admitted.includes(head.effectiveModelKind)
+        ? null
+        : `Model policy ${request.requestedModel.policy} admits ${admitted.join(", ")}, and this head was produced by a ${head.effectiveModelKind} model (M11, M19)`;
     },
   },
   {

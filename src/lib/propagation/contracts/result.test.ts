@@ -983,6 +983,7 @@ describe("parseResult fails closed", () => {
       validAt: bad.validAt,
       effectiveModelId: "propulse-physics-v1",
       effectiveModelVersion: "1.0.0",
+      effectiveModelKind: "physics",
       modelHash: MODEL_HASH,
       preprocessingHash: PREPROCESSING_HASH,
       featureHash: FEATURE_HASH,

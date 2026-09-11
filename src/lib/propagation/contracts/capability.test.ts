@@ -30,6 +30,11 @@ import {
   RESULT_BINDINGS,
   ROUTING_DIMENSIONS,
 } from "@/lib/propagation/contracts/capability";
+import {
+  MODEL_KINDS,
+  MODEL_KINDS_BY_POLICY,
+  MODEL_POLICIES,
+} from "@/lib/propagation/contracts/enums";
 import requestCases from "@/lib/propagation/contracts/fixtures/request.cases.json";
 import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
 import { parseRequest } from "@/lib/propagation/contracts/request";
@@ -52,6 +57,9 @@ function parsed(name: string) {
   return outcome.value;
 }
 
+/** Routing dimensions the declaration carries rather than the head. */
+const DECLARATION_DIMENSIONS: readonly string[] = ["modelKind"];
+
 /** A request shape the HF physics fixture's SNR head does declare. */
 const baseQuery = {
   quantity: "snr2500",
@@ -68,6 +76,7 @@ const baseQuery = {
   txReceiverClass: "modeled_noise_figure_chain",
   rxReceiverClass: "modeled_noise_figure_chain",
   policyVersion: "source-policy-0.1.0",
+  modelPolicy: "auto",
   sourceMode: "cached_live",
   availableInputs: [
     "station_pair",
@@ -277,6 +286,48 @@ describe("parseCapability fixtures", () => {
     expect(
       capabilityCovers(outcome.value, { ...baseQuery, frequencyHz: 14074000 }),
     ).toBe(false);
+  });
+
+  it("routes physics_only to a physics model only (M11, M19)", () => {
+    // The residual: physics_only was carried in the request and read by
+    // nobody, so a learned model answered a request that asked for physics.
+    const physics = parsed("hfPhysics");
+    expect(
+      capabilityCovers(physics, { ...baseQuery, modelPolicy: "physics_only" }),
+    ).toBe(true);
+    const learnedDraft = candidate("hfPhysics");
+    learnedDraft.modelKind = "learned";
+    const learned = parseCapability(learnedDraft);
+    if (!learned.ok) throw new Error("learned draft must parse");
+    expect(
+      capabilityCovers(learned.value, {
+        ...baseQuery,
+        modelPolicy: "physics_only",
+      }),
+    ).toBe(false);
+    // Every other policy leaves the kind to the router.
+    for (const policy of ["auto", "named"] as const) {
+      expect(
+        capabilityCovers(learned.value, { ...baseQuery, modelPolicy: policy }),
+      ).toBe(true);
+    }
+  });
+
+  it("narrows a model policy to every kind or to exactly one (M11, M19)", () => {
+    // Routing matches this dimension by membership against a declaration that
+    // names one kind, so a policy admitting two of three could never be
+    // satisfied and would silently route nothing.
+    for (const policy of MODEL_POLICIES) {
+      const admitted = MODEL_KINDS_BY_POLICY[policy];
+      expect(
+        admitted.length === MODEL_KINDS.length || admitted.length === 1,
+        `policy ${policy} admits ${admitted.join(", ")}`,
+      ).toBe(true);
+      expect(
+        admitted.length,
+        `policy ${policy} admits nothing`,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("answers coverage from the frequency range, not a band nickname", () => {
@@ -1319,6 +1370,10 @@ describe("parseCapability fails closed", () => {
 
   it("a routable head declares every dimension capabilityCovers matches on", () => {
     for (const dimension of ROUTING_DIMENSIONS) {
+      // The model kind is declared once for the whole model rather than per
+      // head, and a declaration names exactly one, so there is no empty list
+      // to leave behind on a head.
+      if (DECLARATION_DIMENSIONS.includes(dimension.field)) continue;
       const bad = candidate("hfPhysics");
       const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
       head.bandKeys = [];
@@ -1576,6 +1631,45 @@ describe("parseResultForRequest binds a result to its request", () => {
     expect(
       await bind(relayResult("satellite"), relayRequest("orbital")),
     ).toEqual([]);
+  });
+
+  /** A physics_only request names no model, so the provenance echoes none. */
+  function unnamedModel(draft: Mutable): void {
+    (draft.provenance as Mutable).requestedModelId = null;
+    (draft.provenance as Mutable).requestedModelVersion = null;
+  }
+
+  it("rejects a learned head answering a physics_only request (M11, M19)", async () => {
+    // The residual on the result side: the digest matches, the row is frozen,
+    // and the model that answered is not the kind the caller asked for.
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    const result = boundResult((draft) => {
+      unnamedModel(draft);
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.effectiveModelKind = "learned";
+    });
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[1].effectiveModelKind",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Model policy physics_only admits physics, and this head was produced by a learned model/,
+    );
+  });
+
+  it("accepts a physics head answering a physics_only request (M11, M19)", async () => {
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    expect(await bind(boundResult(unnamedModel), request)).toEqual([]);
   });
 
   it("rejects an eme head answering a spacecraft relay (A21, A22)", async () => {

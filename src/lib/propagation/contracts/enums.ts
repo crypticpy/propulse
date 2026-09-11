@@ -1404,6 +1404,44 @@ export type SourceMode = (typeof SOURCE_MODES)[number];
 export const MODEL_POLICIES = ["auto", "named", "physics_only"] as const;
 export type ModelPolicy = (typeof MODEL_POLICIES)[number];
 
+/**
+ * M11/M19: what a model is made of, declared by the model rather than inferred
+ * from its name. `physics` is a deterministic forward calculation with no
+ * fitted parameters; `learned` has parameters fitted to data; and
+ * `observation_assisted` is a calculation that assimilates current
+ * observations, which is neither pure physics nor a fitted model and behaves
+ * differently when its observations are missing.
+ */
+export const MODEL_KINDS = [
+  "physics",
+  "learned",
+  "observation_assisted",
+] as const;
+export type ModelKind = (typeof MODEL_KINDS)[number];
+
+/**
+ * The model kinds each request policy admits.
+ *
+ * - `auto` delegates the choice, so every kind is admissible.
+ * - `named` pins one model by id and version; whatever kind that model is, the
+ *   caller asked for that model, and the provenance binding already refuses a
+ *   different one.
+ * - `physics_only` is the narrowing one: a caller who asks for physics is
+ *   asking for a calculation with no fitted parameters and no assimilated
+ *   observations, so neither of the other kinds may answer.
+ *
+ * A policy narrows to the whole vocabulary or to exactly one kind; routing
+ * matches this dimension by membership over a declaration that names a single
+ * kind, and `capability.test.ts` fails if a policy is written to admit some
+ * other subset.
+ */
+export const MODEL_KINDS_BY_POLICY: Record<ModelPolicy, readonly ModelKind[]> =
+  {
+    auto: MODEL_KINDS,
+    named: MODEL_KINDS,
+    physics_only: ["physics"],
+  };
+
 /** M06 great-circle leg. */
 export const ROUTE_LEGS = ["short", "long"] as const;
 export type RouteLeg = (typeof ROUTE_LEGS)[number];

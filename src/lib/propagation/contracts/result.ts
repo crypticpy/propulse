@@ -18,6 +18,8 @@ import {
   INTERVAL_VALUED_QUANTITIES,
   isProtocolCoverage,
   MECHANISM_FAMILIES,
+  MODEL_KINDS,
+  type ModelKind,
   POLARIZATIONS,
   POWER_BEARING_SUPPORT_STATES,
   PREDICTION_DOMAINS,
@@ -699,6 +701,7 @@ export interface PredictionHeadBase {
   validAt: string;
   effectiveModelId: string;
   effectiveModelVersion: string;
+  effectiveModelKind: ModelKind;
   modelHash: string | null;
   preprocessingHash: string | null;
   featureHash: string | null;
@@ -769,6 +772,19 @@ const predictionHead = z
     validAt: instant,
     effectiveModelId: identifier,
     effectiveModelVersion: identifier,
+    /**
+     * M11/M19: what the model that actually produced this head is made of.
+     *
+     * The kind is echoed here rather than resolved from `capabilityDigest`
+     * because binding a result to its request is offline and pure: it is given
+     * a result and a request and nothing else, and the digest is an opaque
+     * sha256 with no resolver in this directory. It sits on the head rather
+     * than on `provenance` because a fallback serves one head from another
+     * model, and the heads already carry their own effective model identity;
+     * a single result-level kind would be a claim about heads it did not
+     * produce.
+     */
+    effectiveModelKind: z.enum(MODEL_KINDS),
     /**
      * M24: the exact artefacts this head was produced by, so the answer can be
      * replayed rather than merely attributed. A model id and version name a

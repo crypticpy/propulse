@@ -191,7 +191,13 @@ export interface ObservedActivityIdentity {
   readonly modelHash: string;
   readonly preprocessingHash: string;
   readonly featureHash: string;
-  /** When the aggregate rows were read; the published/captured stamp. */
+  /**
+   * When the aggregate rows were read; the published/captured stamp. It may
+   * not precede the end of the newest readable hour (an hour's row is written
+   * after that hour closes) and may not follow `issuedAt`; the contract
+   * rejects either, rather than this module papering over a stamp it was
+   * handed.
+   */
   readonly readAt: string;
 }
 

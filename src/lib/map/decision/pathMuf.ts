@@ -4,7 +4,12 @@ import {
   evaluateHopQuality,
 } from "@/lib/utils/rayTrace";
 import { getDistance } from "@/lib/utils/path";
-import type { PathMufHop, PathMufSample } from "./types";
+import type {
+  PathMufHop,
+  PathMufOutcome,
+  PathMufSample,
+  PathMufUnavailable,
+} from "./types";
 import type { OperatingMode } from "@/types/signal";
 
 const EARTH_RADIUS_KM = 6371;
@@ -52,17 +57,51 @@ function totalDistanceKm(
 }
 
 /**
+ * Angular tolerance, in kilometres of ground distance, for calling two
+ * endpoints the same place or antipodal.
+ *
+ * A kilometre is far below the precision any station record carries and far
+ * above the floating-point noise in the distance itself, so the classification
+ * is stable without being able to swallow a genuinely short circuit.
+ */
+const DEGENERATE_TOLERANCE_KM = 1;
+
+/**
+ * Classify a circuit that produced no control points.
+ *
+ * Two endpoints that are the same place, and two that are antipodal, both have
+ * infinitely many great circles through them and therefore no determined path.
+ * They are named separately because "you have selected your own QTH" is a
+ * different thing to tell an operator than "this is the far side of the
+ * Earth". Anything else is reported as-is rather than guessed at.
+ */
+function classifyMissingPath(input: SamplePathMufInput): PathMufUnavailable {
+  const shortKm = getDistance(
+    input.startLat,
+    input.startLon,
+    input.endLat,
+    input.endLon,
+  );
+  if (shortKm < DEGENERATE_TOLERANCE_KM) {
+    return "coincident_endpoints";
+  }
+  if (EARTH_CIRCUMFERENCE_KM / 2 - shortKm < DEGENERATE_TOLERANCE_KM) {
+    return "antipodal_endpoints";
+  }
+  return "no_control_points";
+}
+
+/**
  * Path MUF is the minimum hop MUF along the great-circle control points
  * from the ray-trace engine — not the midpoint-only estimate.
  *
- * Returns `null` when the ray-trace engine yields no control points, because
- * then there is no hop to take a minimum over and no limiting hop to name. A
- * circuit whose endpoints determine no great circle is the case that reaches
- * this, and it is a real answer rather than a failure: there is no path to
- * report a MUF for. Every consumer already holds the result as
- * `PathMufSample | null`, so nothing downstream changes shape.
+ * Reports `unavailable` when the ray-trace engine yields no control points,
+ * because then there is no hop to take a minimum over and no limiting hop to
+ * name. A circuit whose endpoints determine no great circle is the case that
+ * reaches this, and it is a real answer rather than a failure: there is no
+ * path to report a MUF for, and the reason says which kind of no-path it is.
  */
-export function samplePathMuf(input: SamplePathMufInput): PathMufSample | null {
+export function samplePathMuf(input: SamplePathMufInput): PathMufOutcome {
   const pathMode = input.pathMode ?? "short";
   const mode = input.mode ?? "SSB";
   const txPowerWatts = input.txPowerWatts ?? 100;
@@ -87,7 +126,7 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample | null {
   );
 
   if (points.length === 0) {
-    return null;
+    return { kind: "unavailable", reason: classifyMissingPath(input) };
   }
 
   const hops: PathMufHop[] = points.map((point) => {
@@ -134,7 +173,7 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample | null {
         ? input.date.toISOString()
         : null;
 
-  return {
+  const sample: PathMufSample = {
     muf: pathMuf,
     fot: calculateFOT(pathMuf),
     luf,
@@ -150,4 +189,5 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample | null {
       fetchedAt: input.sfiFetchedAt ?? computedIso,
     },
   };
+  return { kind: "sampled", sample };
 }

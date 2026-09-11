@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { calculateLUF, getFrequencyLimits } from "@/lib/api/muf";
 import { getMidpoint } from "@/lib/utils/path";
 import { samplePathMuf } from "./pathMuf";
+import type { PathMufSample } from "./types";
 
 /**
  * A circuit can legitimately produce no ionospheric control points: two
@@ -34,13 +35,28 @@ function withoutControlPoints<T>(run: () => T): T {
   }
 }
 
+/**
+ * `samplePathMuf` returns an outcome, not a nullable sample: the reason a
+ * circuit has no path travels with the absence. These tests assert on a real
+ * sample, so unwrap and fail loudly if the circuit did not produce one.
+ */
+function sampleOrThrow(
+  input: Parameters<typeof samplePathMuf>[0],
+): PathMufSample {
+  const outcome = samplePathMuf(input);
+  if (outcome.kind !== "sampled") {
+    throw new Error(`expected a sample, got "${outcome.reason}"`);
+  }
+  return outcome.sample;
+}
+
 const AUSTIN = { lat: 30.27, lon: -97.74 };
 const TOKYO = { lat: 35.68, lon: 139.76 };
 const NOON = new Date("2026-06-21T12:00:00Z");
 
 describe("samplePathMuf", () => {
   it("uses the minimum hop MUF, not the midpoint-only estimate", () => {
-    const sampled = samplePathMuf({
+    const sampled = sampleOrThrow({
       startLat: AUSTIN.lat,
       startLon: AUSTIN.lon,
       endLat: TOKYO.lat,
@@ -59,22 +75,22 @@ describe("samplePathMuf", () => {
       NOON,
     );
 
-    expect(sampled!.hopCount).toBeGreaterThan(1);
-    expect(sampled!.hops).toHaveLength(sampled!.hopCount);
-    const hopMufs = sampled!.hops.map((hop) => hop.muf);
+    expect(sampled.hopCount).toBeGreaterThan(1);
+    expect(sampled.hops).toHaveLength(sampled.hopCount);
+    const hopMufs = sampled.hops.map((hop) => hop.muf);
     expect(Math.max(...hopMufs) - Math.min(...hopMufs)).toBeGreaterThan(1);
-    expect(sampled!.muf).toBe(Math.min(...hopMufs));
+    expect(sampled.muf).toBe(Math.min(...hopMufs));
     // The old PathAnalysis call used this midpoint-only estimate.
-    expect(sampled!.muf).not.toBeCloseTo(midpointLimits.muf, 1);
-    expect(sampled!.evidence.basis).toMatch(/ITU-R P\.533/);
-    expect(sampled!.evidence.basis).not.toMatch(/VOACAP/i);
-    expect(sampled!.evidence.observedAt).toBe("2026-06-21T11:00:00.000Z");
-    expect(sampled!.fot).toBeCloseTo(sampled!.muf * 0.85, 5);
-    expect(sampled!.hpf).toBeCloseTo(sampled!.muf * 1.15, 5);
+    expect(sampled.muf).not.toBeCloseTo(midpointLimits.muf, 1);
+    expect(sampled.evidence.basis).toMatch(/ITU-R P\.533/);
+    expect(sampled.evidence.basis).not.toMatch(/VOACAP/i);
+    expect(sampled.evidence.observedAt).toBe("2026-06-21T11:00:00.000Z");
+    expect(sampled.fot).toBeCloseTo(sampled.muf * 0.85, 5);
+    expect(sampled.hpf).toBeCloseTo(sampled.muf * 1.15, 5);
   });
 
   it("labels assumed Kp in basis and stamps computation time", () => {
-    const sampled = samplePathMuf({
+    const sampled = sampleOrThrow({
       startLat: AUSTIN.lat,
       startLon: AUSTIN.lon,
       endLat: AUSTIN.lat + 1,
@@ -85,14 +101,14 @@ describe("samplePathMuf", () => {
       kpAssumed: true,
       computedAt: NOON,
     });
-    expect(sampled!.evidence.basis).toContain("SFI 100, Kp 0 assumed");
-    expect(sampled!.evidence.observedAt).toBeNull();
-    expect(sampled!.hopCount).toBe(1);
-    expect(sampled!.evidence.fetchedAt).toBe(NOON.toISOString());
+    expect(sampled.evidence.basis).toContain("SFI 100, Kp 0 assumed");
+    expect(sampled.evidence.observedAt).toBeNull();
+    expect(sampled.hopCount).toBe(1);
+    expect(sampled.evidence.fetchedAt).toBe(NOON.toISOString());
   });
 
   it("samples a short antimeridian path without throwing", () => {
-    const sampled = samplePathMuf({
+    const sampled = sampleOrThrow({
       startLat: 51,
       startLon: 179.5,
       endLat: 51,
@@ -102,17 +118,17 @@ describe("samplePathMuf", () => {
       kp: 0,
       computedAt: NOON,
     });
-    expect(sampled!.hopCount).toBeGreaterThanOrEqual(1);
-    expect(sampled!.muf).toBeGreaterThan(0);
+    expect(sampled.hopCount).toBeGreaterThanOrEqual(1);
+    expect(sampled.muf).toBeGreaterThan(0);
   });
 
   it("reports no sample when the circuit has no control points", () => {
     // Before the guard this threw "Cannot read properties of undefined
     // (reading 'lat')": `hops` was empty, so `hops[limitingHop]` and the
     // `?? hops[0]` fallback were both undefined and the basis string
-    // dereferenced it. Returning null is the answer the whole decision layer
-    // already understands, since every consumer holds a
-    // `PathMufSample | null`.
+    // dereferenced it. The answer carries its own reason, so the verdict can
+    // say the circuit has no path rather than reusing the missing-SFI
+    // sentinel.
     const sampled = withoutControlPoints(() =>
       samplePathMuf({
         startLat: AUSTIN.lat,
@@ -125,14 +141,56 @@ describe("samplePathMuf", () => {
         computedAt: NOON,
       }),
     );
-    expect(sampled).toBeNull();
+    expect(sampled).toEqual({
+      kind: "unavailable",
+      reason: "no_control_points",
+    });
+  });
+
+  it("names the same-place and antipodal cases apart from a bare no-path", () => {
+    // The reason is what the verdict renders, so the degenerate geometries
+    // have to be told apart from a circuit that merely produced no control
+    // points.
+    const own = withoutControlPoints(() =>
+      samplePathMuf({
+        startLat: AUSTIN.lat,
+        startLon: AUSTIN.lon,
+        endLat: AUSTIN.lat,
+        endLon: AUSTIN.lon,
+        date: NOON,
+        sfi: 120,
+        kp: 0,
+        computedAt: NOON,
+      }),
+    );
+    expect(own).toEqual({
+      kind: "unavailable",
+      reason: "coincident_endpoints",
+    });
+
+    const antipodal = withoutControlPoints(() =>
+      samplePathMuf({
+        startLat: -AUSTIN.lat,
+        startLon: AUSTIN.lon + 180,
+        endLat: AUSTIN.lat,
+        endLon: AUSTIN.lon,
+        date: NOON,
+        sfi: 120,
+        kp: 0,
+        computedAt: NOON,
+      }),
+    );
+    expect(antipodal).toEqual({
+      kind: "unavailable",
+      reason: "antipodal_endpoints",
+    });
   });
 
   it("keeps using the real control points outside that case", () => {
     // Proves the stub above is scoped: the same inputs return a real sample
-    // when the engine is left alone, so the null is the guard and not the
-    // mock leaking.
-    const sampled = samplePathMuf({
+    // when the engine is left alone, so the unavailable outcome is the guard
+    // and not the mock leaking.
+    const sampled = sampleOrThrow({
       startLat: AUSTIN.lat,
       startLon: AUSTIN.lon,
       endLat: TOKYO.lat,
@@ -142,8 +200,7 @@ describe("samplePathMuf", () => {
       kp: 0,
       computedAt: NOON,
     });
-    expect(sampled).not.toBeNull();
-    expect(sampled!.hops.length).toBeGreaterThan(0);
+    expect(sampled.hops.length).toBeGreaterThan(0);
   });
 });
 

@@ -35,7 +35,7 @@ FROZEN_SECTION_SHA256 = {
     "events": "537495bb82a28efbe86ec35ecbe530088f4064c153791aa3a304e995651d2f53",
     "resampling": "97d0014d984c6647c9e5994d61b56ef6c56f8b9441105da09b7565d66f95b7ed",
     "numerics": "9fd68dc8b9e1b9f9117ec463dafaa14e382d603ee9600839966904d421352b62",
-    "runtime_profiles": "77676549edbc3b611cbfa340e4f06e3246d19571524638f2997780f74fb51749",
+    "runtime_profiles": "c7b866630256fcfbba0b720ac29bb6899764491b7b8e1e6782fd1e1c6a199a2a",
 }
 # Record inventories (gates, coverage rows, comparators) stay order-free: they are pinned by
 # sha256 of a canonical form with records and their list fields sorted by canonical JSON.

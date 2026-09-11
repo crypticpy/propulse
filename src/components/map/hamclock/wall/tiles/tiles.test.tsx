@@ -485,6 +485,45 @@ describe("ClusterTile", () => {
     useDXStore.setState(original);
   });
 
+  it("derives the rendered row count from the measured list slot (#886)", () => {
+    const original = useDXStore.getState();
+    const spots = Array.from({ length: 30 }, (_, index) => ({
+      id: `SPOT-${index}`,
+      dx: `CALL${index}`,
+      spotter: "N0TEST",
+      frequency: 14_074,
+      comment: "",
+      time: new Date("2026-09-05T13:10:00Z"),
+      band: "20m",
+    }));
+    useDXStore.setState({
+      spots,
+      spotSource: "rest",
+      filters: { maxAge: 30 },
+    });
+
+    const slot = { height: 100 };
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains("hc-rows") ? slot.height : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      height: 30,
+    } as DOMRect);
+
+    try {
+      draw(<ClusterTile />);
+      expect(screen.getByText("CALL0")).toBeTruthy();
+      expect(screen.getByText("CALL2")).toBeTruthy();
+      expect(screen.queryByText("CALL3")).toBeNull();
+      expect(screen.getByText("TOP 3 OF 30 · CLUSTER")).toBeTruthy();
+    } finally {
+      vi.restoreAllMocks();
+      useDXStore.setState(original);
+    }
+  });
+
   it("renders without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", () => {
     // `ClusterTile` is reachable from `workspace/widgetLoaders.ts` with no
     // bound view above it. `useOptionalViewEffectiveSpots` must fall back to

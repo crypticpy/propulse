@@ -1471,7 +1471,7 @@ a.hca-row:focus-visible {
 .hcr-forecast-legend { display: flex; gap: 1vw; font: 1.3vh var(--hc-font-mono); color: var(--hc-dim); }
 .hcr-forecast-hour { display: flex; gap: 1vw; font: 1.3vh var(--hc-font-mono); color: var(--hc-dim); }
 .hcr-forecast-hour input { flex: 1; }
-.hcr-forecast-grid { display: grid; grid-template-columns: minmax(3em, 1.5fr) repeat(24, minmax(max(44px, 2.8vh), 1fr)); gap: 0.12vw; color: var(--hc-fg); font: 1.4vh / 1.2 var(--hc-font-mono); }
+.hcr-forecast-grid { display: grid; grid-template-columns: minmax(3em, 1.5fr) repeat(24, minmax(max(44px, 2.8vh), 1fr)); gap: 0.12vw; color: var(--hc-fg); font: max(1.4vh, 12px) / 1.2 var(--hc-font-mono); }
 .hcr-forecast-grid-hour,
 .hcr-forecast-grid-band { white-space: nowrap; overflow: visible; }
 .hcr-forecast-grid-hour { text-align: center; }

@@ -120,13 +120,12 @@ it("marks matrix hour headers and band labels for vh scaling", () => {
   expect(grid.querySelectorAll(".hcr-forecast-grid-band")).toHaveLength(6);
 });
 
-it("sizes forecast matrix labels in vh so 4K hour headers outgrow the 44px floor", async () => {
+it("sizes forecast matrix labels in vh above a 12px legibility floor so 4K hour headers outgrow the 44px track", async () => {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const css = readFileSync(join(process.cwd(), "src/styles/hamclock-wall-report.css"), "utf8");
   const block = css.match(/\.hcr-forecast-grid \{[^}]+\}/)?.[0];
-  expect(block).toMatch(/font:\s*1\.4vh/);
-  expect(block).not.toMatch(/12px/);
+  expect(block).toMatch(/font:\s*max\(1\.4vh, 12px\)/);
   expect(block).toMatch(/2\.8vh/);
 });
 

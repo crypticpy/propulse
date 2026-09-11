@@ -15,7 +15,11 @@ import {
   MODE_PARAMETERS,
 } from "./signal";
 import { DEFAULT_NOISE_ENVIRONMENT } from "./noiseModel";
-import { getEnhancedBandConditions, classifyPathStatus } from "./bands";
+import {
+  getEnhancedBandConditions,
+  classifyPathStatus,
+  toDisplaySNR,
+} from "./bands";
 import {
   getAlternateBands,
   getBestTimeWindows,
@@ -524,19 +528,71 @@ describe("PROP-02 the displayed centre is the classified centre", () => {
             expect(p.signalClass, where).toBe("none");
             continue;
           }
-          expect(p.expectedSNR, where).toBe(cond.snrEstimate);
+          // `snrEstimate` is the row's display value (rounded + clamped);
+          // `signalPrediction` keeps the raw engine number it was rounded
+          // from, so the two are related by `toDisplaySNR`, not equality
+          // (Codex round 7, PR #1081).
+          expect(toDisplaySNR(p.expectedSNR), where).toBe(cond.snrEstimate);
           expect(p.snrLow!, where).toBeLessThanOrEqual(p.expectedSNR);
           expect(p.snrHigh!, where).toBeGreaterThanOrEqual(p.expectedSNR);
           const effectiveMode = mode === "CW" ? "SSB" : mode;
-          expect(classifyPathStatus(p.expectedSNR, effectiveMode), where).toBe(
-            cond.status,
-          );
+          // `cond.status` is classified from the row's rounded display SNR
+          // (`toDisplaySNR(p.expectedSNR)`), not the raw `p.expectedSNR` --
+          // the two can disagree right at a class boundary once rounding
+          // moves the number across it (Codex round 7, PR #1081).
+          expect(
+            classifyPathStatus(toDisplaySNR(p.expectedSNR), effectiveMode),
+            where,
+          ).toBe(cond.status);
           expect(getSignalClass(p.expectedSNR, effectiveMode), where).toBe(
             p.signalClass,
           );
+          // `sUnit.dBm` (rounded to the nearest whole dBm, not quantized to
+          // the 6 dB S-step -- see `dBmToSUnits`) and `expectedSNR` are both
+          // derived from the same received-power budget, so their difference
+          // must track the noise floor to within the dBm rounding error
+          // (Codex round 7, PR #1081: `sUnit`/`noise` must stay consistent
+          // with `expectedSNR` on the same, un-overwritten prediction).
+          expect(
+            p.sUnit.dBm - p.noise.noiseFloorDbm,
+            where,
+          ).toBeCloseTo(p.expectedSNR, 0);
         }
       }
     }
+  });
+
+  it("a deep-fade supported circuit keeps its raw expectedSNR while snrEstimate is -30 (Codex round 7)", () => {
+    // Low transmit power widens the link budget's SNR deficit without
+    // changing the ray geometry that decides `support`, so a circuit that
+    // is still under the basic MUF (supported) can have a raw SNR well
+    // below the -30 dB display floor. The row must still show -30, but
+    // `signalPrediction.expectedSNR` must keep the real, more-negative
+    // number rather than being overwritten with the display value.
+    const conditions = getEnhancedBandConditions(
+      40,
+      0,
+      41,
+      0,
+      2,
+      150,
+      NOON,
+      0.01,
+      "SSB",
+      0,
+      "rural",
+    );
+    const deepFade = conditions.find(
+      (c) =>
+        c.signalPrediction?.support === "supported" &&
+        c.signalPrediction.expectedSNR < -30,
+    );
+    expect(
+      deepFade,
+      "expected at least one supported band with raw SNR below -30 dB",
+    ).toBeDefined();
+    expect(deepFade!.snrEstimate).toBe(-30);
+    expect(deepFade!.signalPrediction!.expectedSNR).toBeLessThan(-30);
   });
 
   it("a Kp penalty that crosses a class boundary moves the status with it", () => {
@@ -623,9 +679,12 @@ describe("PROP-02 uncertainty bounds are ordered and contain the point", () => {
         expect(p.expectedSNR, c.band).toBe(Number.NEGATIVE_INFINITY);
         continue;
       }
-      expect(p.snrLow!, c.band).toBeLessThanOrEqual(c.snrEstimate);
-      expect(p.snrHigh!, c.band).toBeGreaterThanOrEqual(c.snrEstimate);
-      expect(p.expectedSNR, c.band).toBe(c.snrEstimate);
+      // `signalPrediction` holds the raw, unrounded bounds and centre; the
+      // row's `snrEstimate` is only their display-rounded copy (Codex round
+      // 7, PR #1081).
+      expect(p.snrLow!, c.band).toBeLessThanOrEqual(p.expectedSNR);
+      expect(p.snrHigh!, c.band).toBeGreaterThanOrEqual(p.expectedSNR);
+      expect(toDisplaySNR(p.expectedSNR), c.band).toBe(c.snrEstimate);
     }
   });
 });

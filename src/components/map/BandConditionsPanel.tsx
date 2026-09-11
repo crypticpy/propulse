@@ -33,6 +33,7 @@ import {
   getEnhancedBandConditions,
   getPathStatusColor,
   getPathStatusBgColor,
+  displaySnrRange,
   type PathBandCondition,
 } from "@/lib/utils/bands";
 import {
@@ -1295,6 +1296,10 @@ const BandConditionRow = memo(function BandConditionRow({
   const sUnitColor = isUnsupported
     ? "text-su-muted"
     : getSUnitColor(condition.sUnit);
+  // `signalPrediction.snrLow`/`snrHigh` are the raw engine bounds; round and
+  // clamp them the same way as `snrEstimate` so the printed range brackets
+  // the printed centre (Codex round 7, PR #1081).
+  const snrRange = displaySnrRange(condition.signalPrediction);
 
   // Check if greyline is active for this band (low bands only)
   const isGreylineActive = isGreylineActiveForBand(
@@ -1440,10 +1445,9 @@ const BandConditionRow = memo(function BandConditionRow({
               <span className="text-su-muted" title={unsupportedTitle}>
                 Not supported
               </span>
-            ) : condition.signalPrediction?.snrLow !== undefined &&
-              condition.signalPrediction?.snrHigh !== undefined ? (
+            ) : snrRange.low !== undefined && snrRange.high !== undefined ? (
               <div
-                title={`SNR range: ${condition.signalPrediction.snrLow} to ${condition.signalPrediction.snrHigh} dB (center: ${condition.snrEstimate} dB)`}
+                title={`SNR range: ${snrRange.low} to ${snrRange.high} dB (center: ${condition.snrEstimate} dB)`}
               >
                 <span
                   className={
@@ -1452,8 +1456,8 @@ const BandConditionRow = memo(function BandConditionRow({
                       : "text-su-text"
                   }
                 >
-                  {condition.signalPrediction.snrLow} to{" "}
-                  {condition.signalPrediction.snrHigh}dB
+                  {snrRange.low} to{" "}
+                  {snrRange.high}dB
                 </span>
               </div>
             ) : (

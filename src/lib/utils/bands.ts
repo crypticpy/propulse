@@ -1019,15 +1019,6 @@ export function getEnhancedBandConditions(
       notes.push(`High absorption (${Math.round(absorptionDb)} dB)`);
     }
 
-    // One display transform for the centre and both bounds: whole-dB rounding
-    // then the [-30, +30] display clamp. Both steps are monotone
-    // non-decreasing, so low <= centre <= high survives them and the centre
-    // can never fall outside its own interval. Rounding the centre while
-    // leaving the bounds at 0.1 dB would break that containment.
-    // -Infinity (an unsupported mode) pins to the -30 floor.
-    const toDisplaySNR = (snr: number): number =>
-      Math.max(-30, Math.min(30, Math.round(snr)));
-
     let adjustedSNR = signalPred.expectedSNR;
 
     // Status and signal class are derived from the number that is actually
@@ -1037,7 +1028,6 @@ export function getEnhancedBandConditions(
     // those rules could contradict the circuit the ray solver just returned.
     adjustedSNR = toDisplaySNR(adjustedSNR);
     const status = classifyPathStatus(adjustedSNR, mode);
-    const adjustedClass = getSignalClass(adjustedSNR, mode);
 
     // Sporadic E annotation for 6m and 10m
     if (
@@ -1054,38 +1044,19 @@ export function getEnhancedBandConditions(
       }
     }
 
-    // Put the centre and both bounds through `toDisplaySNR`, so the displayed
-    // centre, range, status and class all come from one number and
-    // snrLow <= expectedSNR <= snrHigh holds by construction.
+    // `signalPrediction` on the row is the raw engine prediction, untouched:
+    // `expectedSNR`, `snrLow`, `snrHigh` and `signalClass` all come straight
+    // from `signalPred`, so `sUnit`/`noise`/`confidence` on the same object
+    // stay consistent with them and no link-budget information is lost. Only
+    // the row's own display fields (`snrEstimate`, `status`) go through
+    // `toDisplaySNR` above (Codex round 7, PR #1081).
     //
-    // An unsupported mode keeps the prediction exactly as the engine built it:
-    // expectedSNR, snrLow and snrHigh stay -Infinity and signalClass stays
-    // "none", per the `SignalPrediction` contract (M07). The -30 display floor
-    // applies only to the row's `snrEstimate`; renderers branch on `support`
-    // before formatting any of these numbers (Codex round 3, PR #1081).
-    const displayPred: SignalPrediction =
-      signalPred.support === "supported"
-        ? {
-            ...signalPred,
-            expectedSNR: adjustedSNR,
-            signalClass: adjustedClass,
-          }
-        : { ...signalPred };
-    if (signalPred.support === "supported") {
-      if (displayPred.snrLow !== undefined) {
-        displayPred.snrLow = toDisplaySNR(displayPred.snrLow);
-      }
-      if (displayPred.snrHigh !== undefined) {
-        displayPred.snrHigh = toDisplaySNR(displayPred.snrHigh);
-      }
-    }
-
     // The S-meter reading shown next to the SNR must come from the same
     // prediction object the UI renders (finding 3, PROP-02 #948). For an
     // unsupported mode it is S0 at -Infinity dBm: no power arrives. Renderers
     // must branch on `support` and print the unsupported state rather than a
     // number -- see BandConditionsPanel.
-    const { sUnit } = displayPred;
+    const { sUnit } = signalPred;
 
     return {
       band: band.name,
@@ -1094,9 +1065,9 @@ export function getEnhancedBandConditions(
       snrEstimate: adjustedSNR,
       notes: notes.length > 0 ? notes.join(", ") : getDefaultNote(status),
       sUnit,
-      pathLoss: displayPred.pathLoss,
+      pathLoss: signalPred.pathLoss,
       absorptionLoss: absorptionDb,
-      signalPrediction: displayPred,
+      signalPrediction: signalPred,
       antennaGainDbi,
     };
   });
@@ -1290,9 +1261,47 @@ export interface ForecastStationParams {
   farEndGainDbi?: number;
 }
 
-/** Display floor for forecast SNR bounds; -Infinity (unsupported mode) pins to -30. */
+/**
+ * Display transform for forecast SNR bounds: the same whole-dB round and
+ * [-30, +30] clamp as `toDisplaySNR`, since `signalPrediction.snrLow`/
+ * `snrHigh` are now the raw engine values (one decimal place) rather than an
+ * already-rounded display copy (Codex round 7, PR #1081). BandPlanner prints
+ * these bounds directly with no further rounding.
+ */
 function toForecastSNR(snr: number | undefined): number | undefined {
-  return snr === undefined ? undefined : Math.max(-30, snr);
+  return snr === undefined ? undefined : toDisplaySNR(snr);
+}
+
+/**
+ * The one display transform for an SNR number: whole-dB rounding then the
+ * [-30, +30] display clamp. Both steps are monotone non-decreasing, so
+ * low <= centre <= high survives them when applied uniformly to a range.
+ * -Infinity (an unsupported mode) pins to the -30 floor.
+ *
+ * This must never be baked into a `SignalPrediction` itself -- that object
+ * is the raw engine prediction, and `sUnit`/`noise`/`confidence` on it stay
+ * consistent with the raw `expectedSNR`/`snrLow`/`snrHigh`/`signalClass`
+ * only if those are never overwritten with a display-rounded value (Codex
+ * round 7, PR #1081). Apply this only at render/display time, e.g. for a
+ * row's `snrEstimate` or a panel's printed SNR range.
+ */
+export function toDisplaySNR(snr: number): number {
+  return Math.max(-30, Math.min(30, Math.round(snr)));
+}
+
+/**
+ * The displayed SNR range for a prediction: `snrLow`/`snrHigh` put through
+ * `toDisplaySNR`, so the printed range is rounded/clamped exactly like
+ * `snrEstimate` and still brackets the displayed centre. Returns `undefined`
+ * for either bound the prediction doesn't carry (Codex round 7, PR #1081).
+ */
+export function displaySnrRange(
+  prediction: Pick<SignalPrediction, "snrLow" | "snrHigh"> | undefined,
+): { low: number | undefined; high: number | undefined } {
+  return {
+    low: prediction?.snrLow === undefined ? undefined : toDisplaySNR(prediction.snrLow),
+    high: prediction?.snrHigh === undefined ? undefined : toDisplaySNR(prediction.snrHigh),
+  };
 }
 
 export function getForecastForPath(

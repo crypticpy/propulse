@@ -75,7 +75,7 @@ import {
   timeTerms,
   type GridNode,
 } from "./numericalMap";
-import { orbitalPhaseDay, solarParameters } from "./solar";
+import { solarParameters, MODEL_YEAR_DAYS, MONTH_PHASE_DAY } from "./solar";
 import {
   canonicalCoordinates,
   deepFreeze,
@@ -229,53 +229,111 @@ function timePoint(instant: Date): TimePoint {
 }
 
 /**
- * The two monthly anchors that bracket a day of year, and the weight of the
- * later one.
+ * Where in the model's year a calendar instant falls.
  *
- * The anchors are the calendar 15th of each month of `year`, not a fixed table.
- * In a leap year every anchor after February moves by a day, so a fixed table
- * would put the enhanced-mode weight at 1/31 instead of 0 on the calendar
- * anchor and the two modes would stop meeting there. The December-to-January
- * wrap spans 15 December of `year` to 15 January of `year + 1` using the real
- * length of `year`, so the weight reaches 1 exactly at the seam instead of
- * overshooting and falling back a day at midnight.
+ * P.533 has no day field. It evaluates the 15th of the month and reads the
+ * solar model at a fixed phase day for that month - 74 for March, whatever the
+ * calendar says - so the model's year is a sequence of twelve anchors, not a
+ * calendar. Enhanced mode has to place a real instant between them, and the
+ * mapping it uses decides two things at once: the orbital phase the solar model
+ * is read at, and the weight the numerical map blends the two bracketing months
+ * with. They are returned together because they must never disagree about where
+ * in the year an instant is; the weight is derived from the phase, not computed
+ * beside it.
+ *
+ * The mapping is piecewise linear between the anchors, with two properties:
+ *
+ *  - **The anchor day runs at the reference's own rate.** Over the whole
+ *    calendar 15th the slope is exactly one day of phase per day of calendar,
+ *    so an instant on an anchor day maps to `MONTH_PHASE_DAY[m] +
+ *    utcHours / 24`, which is bit for bit what `solarParameters` computes in
+ *    reference mode. That is the anchor-agreement guarantee: at a grid node on
+ *    an anchor day at an integer hour, the two modes emit the same solar
+ *    geometry, and the same foE wherever foE's branch does not depend on the
+ *    month. At the start of the anchor day the month weight is exactly zero, so
+ *    there the whole state agrees, foF2 and M(3000)F2 included.
+ *  - **The stretch between anchor days absorbs the calendar.** Between one
+ *    anchor day and the next the slope is
+ *    `(model span - 1) / (calendar span - 1)`, which is 27/28 from 15 February
+ *    to 15 March in a leap year and 1 from 15 March to 15 April. Month lengths
+ *    and the leap day change how fast phase advances between anchors; they
+ *    never move an anchor.
+ *
+ * A uniform scaling of the calendar year onto `MODEL_YEAR_DAYS`, which is what
+ * this replaces, preserved the year-end seam and January and moved every other
+ * anchor: 15 March 2028 landed on phase day 75.345 against the reference's
+ * 74.5, a third of a degree of declination at 45 N and 5e-3 MHz of foE.
+ *
+ * The wrap is handled by period-shifting the anchor that lies outside the year:
+ * the December anchor bracketing early January sits one `MODEL_YEAR_DAYS` below
+ * its phase day and the January anchor bracketing late December one above, so
+ * the mapping is continuous and strictly increasing through 31 December and
+ * the phase stays inside the window the reference's equation-of-time fold is
+ * single-valued over.
+ *
+ * @param fractionalDayOfYear day of year plus the fraction of the day, 1-based
+ * @param year the calendar year `fractionalDayOfYear` counts within
  */
-export function monthAnchorBracket(
-  dayOfYear: number,
+export function yearPhase(
+  fractionalDayOfYear: number,
   year: number,
 ): {
   earlier: number;
   later: number;
   weight: number;
+  phaseDay: number;
 } {
   const anchors = Array.from({ length: 12 }, (_, month) =>
     dayOfYearOf(year, month, 15),
   );
-  if (dayOfYear < anchors[0]) {
+  let earlier: number;
+  let later: number;
+  let calendarEarlier: number;
+  let calendarLater: number;
+  let phaseEarlier: number;
+  let phaseLater: number;
+  if (fractionalDayOfYear < anchors[0]) {
     // Between 15 December of the previous year and 15 January, in this year's
-    // day numbering, so the previous December anchor is a negative day.
-    const previousDecember =
-      dayOfYearOf(year - 1, 11, 15) - daysInYear(year - 1);
-    const span = anchors[0] - previousDecember;
-    return {
-      earlier: 11,
-      later: 0,
-      weight: (dayOfYear - previousDecember) / span,
-    };
+    // day numbering, so the previous December anchor is a negative day and its
+    // phase is one period below December's.
+    earlier = 11;
+    later = 0;
+    calendarEarlier = dayOfYearOf(year - 1, 11, 15) - daysInYear(year - 1);
+    calendarLater = anchors[0];
+    phaseEarlier = MONTH_PHASE_DAY[11] - MODEL_YEAR_DAYS;
+    phaseLater = MONTH_PHASE_DAY[0];
+  } else if (fractionalDayOfYear < anchors[11]) {
+    let month = 0;
+    while (fractionalDayOfYear >= anchors[month + 1]) month += 1;
+    earlier = month;
+    later = month + 1;
+    calendarEarlier = anchors[month];
+    calendarLater = anchors[month + 1];
+    phaseEarlier = MONTH_PHASE_DAY[month];
+    phaseLater = MONTH_PHASE_DAY[month + 1];
+  } else {
+    earlier = 11;
+    later = 0;
+    calendarEarlier = anchors[11];
+    calendarLater = daysInYear(year) + dayOfYearOf(year + 1, 0, 15);
+    phaseEarlier = MONTH_PHASE_DAY[11];
+    phaseLater = MONTH_PHASE_DAY[0] + MODEL_YEAR_DAYS;
   }
-  for (let month = 0; month < 11; month += 1) {
-    if (dayOfYear < anchors[month + 1]) {
-      const span = anchors[month + 1] - anchors[month];
-      return {
-        earlier: month,
-        later: month + 1,
-        weight: (dayOfYear - anchors[month]) / span,
-      };
-    }
-  }
-  const nextJanuary = daysInYear(year) + dayOfYearOf(year + 1, 0, 15);
-  const span = nextJanuary - anchors[11];
-  return { earlier: 11, later: 0, weight: (dayOfYear - anchors[11]) / span };
+  const intoSegment = fractionalDayOfYear - calendarEarlier;
+  const phaseDay =
+    intoSegment < 1
+      ? // The anchor day itself, at the reference's own rate.
+        phaseEarlier + intoSegment
+      : phaseEarlier +
+        1 +
+        ((intoSegment - 1) * (phaseLater - phaseEarlier - 1)) /
+          (calendarLater - calendarEarlier - 1);
+  return {
+    earlier,
+    later,
+    weight: (phaseDay - phaseEarlier) / (phaseLater - phaseEarlier),
+    phaseDay,
+  };
 }
 
 /** foF2 and M(3000)F2 from one month's coefficients at one point and hour. */
@@ -503,7 +561,7 @@ function buildState(
         "offset is the reference's, reproduced for parity.",
     );
   } else {
-    const { earlier, later, weight } = monthAnchorBracket(
+    const { earlier, later, weight, phaseDay } = yearPhase(
       fractionalDayOfYear,
       year,
     );
@@ -530,7 +588,7 @@ function buildState(
       longitudeRad,
       monthIndex,
       utcHours,
-      orbitalPhaseDay(fractionalDayOfYear, daysInYear(year)),
+      phaseDay,
     );
     // foE depends on the month only through the polar-winter branch, so the
     // same two-anchor blend keeps it continuous across the seam.
@@ -555,8 +613,12 @@ function buildState(
         `(day ${dayOfYearOf(year, earlier, 15)} of ${year}) and month ` +
         `${later + 1}, the anchors of P.533's own monthly medians. ` +
         "Positive physical values are interpolated, never logarithms or " +
-        "category labels. It agrees with reference mode at every " +
-        "grid node on an anchor day and integer hour.",
+        "category labels. Calendar time is mapped piecewise-linearly between " +
+        "those anchors, so the solar model is read at P.533's own phase day " +
+        `(${phaseDay.toFixed(3)}) for this instant: at a grid node on an ` +
+        "anchor day at an integer hour the solar geometry equals reference " +
+        "mode's exactly, and at the start of an anchor day the whole state " +
+        "does.",
     );
   }
 

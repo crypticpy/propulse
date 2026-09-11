@@ -28,15 +28,26 @@ const DAY_OF_YEAR = Object.freeze([
 ] as const);
 
 /**
- * Day of year of the 15th of each month: the reference's monthly anchors.
+ * The phase day the reference reads the solar model at, per month.
+ *
+ * `SolarParameters()` is called with `d = DAY_OF_YEAR[month] + 15 + hour / 24`,
+ * so these are the model's twelve anchors and they are what enhanced mode must
+ * land on for the two modes to agree. They are *not* quite the calendar 15th:
+ * the reference's cumulative table holds 152 days before June where the
+ * calendar has 151, so June's median is read at day 167, which is 16 June.
+ * Reproduced, not corrected - the same policy as the mirrored interpolation
+ * fractions and the southern polar-winter sign. Reference mode is the parity
+ * oracle for the ITU executable, and enhanced mode is defined as the continuous
+ * reading of the same model, so a tidier June here would only make the two
+ * modes disagree with each other and with the goldens.
  *
  * Frozen because it is exported: a module-level array every consumer shares is
- * a channel between them, and an edit here would move the reference model's
- * anchors for the whole process.
+ * a channel between them, and an edit here would move the model's anchors for
+ * the whole process.
  */
-export const MONTH_ANCHOR_DAY_OF_YEAR = Object.freeze([
-  15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349,
-] as const);
+export const MONTH_PHASE_DAY = Object.freeze(
+  DAY_OF_YEAR.map((dayOfYear) => dayOfYear + 15),
+);
 
 const DEGREES_PER_DAY = 0.98565327;
 const MINUTES_PER_DEGREE = 3.98891967;
@@ -67,34 +78,21 @@ export interface SolarParameters {
 /**
  * The model's own year length in days, `360 / DEGREES_PER_DAY` = 365.2322.
  *
- * Everything the reference derives from the day number - the mean anomaly, the
- * folded mean sun angle, the declination - is exactly periodic with this
- * period, so shifting the phase by it changes no output.
+ * Everything the reference derives from the day number is a function of an
+ * angle that advances by `DEGREES_PER_DAY` per day, so this is the period of
+ * the whole solar model. It is still needed for one thing: the December
+ * anchor that brackets early January has to be placed one period below its own
+ * phase day (and the January anchor that brackets late December one period
+ * above), or the mapping across the year wrap would run backwards. It is not a
+ * scale factor for the calendar year - see `yearPhase` in `provider.ts` for
+ * why a uniform scaling moves the anchors it is supposed to preserve.
+ *
+ * The period is exact for the declination and for the anomaly terms. The
+ * equation of time's fold of `epsilon` into +-90 degrees is only single-valued
+ * over one turn, so the phase must stay inside the reference's own window of
+ * roughly 1 to 366 days, which the anchor mapping keeps it in.
  */
 export const MODEL_YEAR_DAYS = 360 / DEGREES_PER_DAY;
-
-/**
- * Map a calendar day of year onto the model's orbital phase.
- *
- * The reference feeds the day number straight in as phase, which is fine for a
- * single month but not across a year boundary: the number resets to 1 while the
- * orbit does not, and in a leap year it has reached 366 first, so the phase
- * jumps by three quarters of a day in one millisecond (0.063 degrees of zenith
- * angle at 45 N). Scaling the fraction of the elapsed year onto
- * `MODEL_YEAR_DAYS` keeps the phase calendar-locked - 15 March is the same
- * fraction of every year, leap or not, which is what the leap-aware month
- * anchors assume - and makes the seam an exact multiple of the model's period,
- * so every output is continuous through it.
- *
- * @param fractionalDayOfYear day of year plus the fraction of the day, 1-based
- * @param daysInYear 365 or 366, the real length of that calendar year
- */
-export function orbitalPhaseDay(
-  fractionalDayOfYear: number,
-  daysInYear: number,
-): number {
-  return 1 + (fractionalDayOfYear - 1) * (MODEL_YEAR_DAYS / daysInYear);
-}
 
 /**
  * @param latitudeRad geographic latitude, radians

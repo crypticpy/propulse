@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures/reference-parity.json";
 import { foE, phi12FromR12 } from "./foE";
 import { D2R, magneticField, modifiedDipLatitudeRad, R2D } from "./modip";
-import { MONTH_ANCHOR_DAY_OF_YEAR, solarParameters } from "./solar";
+import { MONTH_PHASE_DAY, solarParameters } from "./solar";
 
 /**
  * Control-point dumps from the ITU reference executable, produced by running
@@ -284,20 +284,27 @@ describe("solar parameter conventions", () => {
     // Exported and shared by every caller: a writable module-level array is a
     // cross-consumer channel, and an edit here would silently move the
     // reference model's month anchors.
-    expect(Object.isFrozen(MONTH_ANCHOR_DAY_OF_YEAR)).toBe(true);
+    expect(Object.isFrozen(MONTH_PHASE_DAY)).toBe(true);
     expect(() => {
-      (MONTH_ANCHOR_DAY_OF_YEAR as unknown as number[])[0] = 1;
+      (MONTH_PHASE_DAY as unknown as number[])[0] = 1;
     }).toThrow(TypeError);
   });
 
-  it("anchors every month on its 15th, as P.533's monthly medians require", () => {
-    expect(MONTH_ANCHOR_DAY_OF_YEAR).toHaveLength(12);
-    expect(MONTH_ANCHOR_DAY_OF_YEAR[0]).toBe(15);
-    expect(MONTH_ANCHOR_DAY_OF_YEAR[11]).toBe(349);
+  it("anchors every month on the phase day the reference reads it at", () => {
+    // The reference calls SolarParameters with DAY_OF_YEAR[month] + 15, so
+    // these are the anchors enhanced mode has to land on. June is 167, not 166:
+    // the reference's cumulative table has 152 days before June where the
+    // calendar has 151, so its June median is read at 16 June. Reproduced, not
+    // corrected - a tidier table here would put the two modes on different
+    // days of the year.
+    expect([...MONTH_PHASE_DAY]).toEqual([
+      15, 46, 74, 105, 135, 167, 196, 227, 258, 288, 319, 349,
+    ]);
+    expect(MONTH_PHASE_DAY).toHaveLength(12);
+    expect(MONTH_PHASE_DAY[0]).toBe(15);
+    expect(MONTH_PHASE_DAY[11]).toBe(349);
     for (let i = 1; i < 12; i += 1) {
-      expect(MONTH_ANCHOR_DAY_OF_YEAR[i]).toBeGreaterThan(
-        MONTH_ANCHOR_DAY_OF_YEAR[i - 1],
-      );
+      expect(MONTH_PHASE_DAY[i]).toBeGreaterThan(MONTH_PHASE_DAY[i - 1]);
     }
   });
 

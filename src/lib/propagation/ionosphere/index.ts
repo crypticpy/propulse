@@ -25,7 +25,7 @@ export {
   createCcirIonosphereProvider,
   getIonosphereProvider,
   ionosphereStateDigest,
-  monthAnchorBracket,
+  yearPhase,
   registerIonosphereProvider,
   clearIonosphereProviders,
   CAPABILITIES,
@@ -85,9 +85,4 @@ export {
   GRID_LONGITUDES,
   MAX_R12,
 } from "./numericalMap";
-export {
-  orbitalPhaseDay,
-  solarParameters,
-  MODEL_YEAR_DAYS,
-  MONTH_ANCHOR_DAY_OF_YEAR,
-} from "./solar";
+export { solarParameters, MODEL_YEAR_DAYS, MONTH_PHASE_DAY } from "./solar";

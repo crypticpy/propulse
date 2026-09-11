@@ -26,7 +26,7 @@ import {
   clearIonosphereProviders,
   getIonosphereProvider,
   ionosphereStateDigest,
-  monthAnchorBracket,
+  yearPhase,
   PROVIDER_ID,
   registerIonosphereProvider,
   type IonosphereProvider,
@@ -43,6 +43,7 @@ import {
   type CanonicalCoordinates,
   type IonosphereQuery,
 } from "./types";
+import { MODEL_YEAR_DAYS } from "./solar";
 
 const assetBytes: AssetByteSource = async () => {
   const file = path.join(process.cwd(), manifest.asset.path);
@@ -495,6 +496,97 @@ describe("time modes", () => {
     expect(enhanced.foEMHz).toBeCloseTo(reference.foEMHz, 7);
   });
 
+  it("puts every monthly anchor on the reference's own phase, both years", () => {
+    // The whole point of the anchors: on the calendar 15th the two modes must
+    // describe the same instant of the year. Scaling the calendar year
+    // uniformly preserved only January, leaving 15 March 2028 on phase day
+    // 75.345 in enhanced mode against the reference's 74.5 - a third of a
+    // degree of declination at 45 N. Every solar field and the foE that reads
+    // them must agree to the digest at every anchor, in a leap year and an
+    // ordinary one.
+    const digestField = (value: number) =>
+      (Math.round(value / 1e-6) * 1e-6).toFixed(6);
+    const anchorState = (
+      year: number,
+      month: number,
+      mode: IonosphereQuery["mode"],
+    ) =>
+      provider.state({
+        // 45 N 15 E is a grid node and is in daylight at 12 UTC all year, so
+        // foE is on its day branch, which no month-dependent term reaches.
+        coordinates: canonicalCoordinates(45, 15),
+        validAt: `${year}-${String(month).padStart(2, "0")}-15T12:00:00Z`,
+        r12: known(80),
+        mode,
+      });
+    for (const year of [2027, 2028]) {
+      for (let month = 1; month <= 12; month += 1) {
+        const reference = anchorState(year, month, "reference");
+        const enhanced = anchorState(year, month, "enhanced");
+        const where = `${year}-${month}`;
+        for (const key of [
+          "zenithAngleDeg",
+          "declinationDeg",
+          "hourAngleDeg",
+          "equationOfTimeMinutes",
+          "sunriseUtcHours",
+          "sunsetUtcHours",
+          "solarNoonUtcHours",
+        ] as const) {
+          expect(`${where} ${key} ${digestField(enhanced.solar[key])}`).toBe(
+            `${where} ${key} ${digestField(reference.solar[key])}`,
+          );
+        }
+        expect(`${where} foE ${digestField(enhanced.foEMHz)}`).toBe(
+          `${where} foE ${digestField(reference.foEMHz)}`,
+        );
+      }
+    }
+  });
+
+  it("maps the year monotonically and continuously through both seams", () => {
+    // Piecewise between the anchors, so the slope changes at each one; it must
+    // never reverse and never step, including across the leap day and the
+    // period-shifted December-to-January wrap.
+    const zenith = (validAt: string) =>
+      provider.state({
+        coordinates: canonicalCoordinates(45, 15),
+        validAt,
+        r12: known(80),
+        mode: "enhanced",
+      }).solar.declinationDeg;
+    const seam = (before: string, after: string) =>
+      Math.abs(zenith(after) - zenith(before));
+    expect(
+      seam("2028-02-28T23:59:59.999Z", "2028-02-29T00:00:00Z"),
+    ).toBeLessThan(1e-6);
+    expect(
+      seam("2028-02-29T23:59:59.999Z", "2028-03-01T00:00:00Z"),
+    ).toBeLessThan(1e-6);
+    expect(
+      seam("2028-12-31T23:59:59.999Z", "2029-01-01T00:00:00Z"),
+    ).toBeLessThan(1e-6);
+    // Strict monotonicity of the phase itself, sampled every six hours for two
+    // whole years across a leap boundary.
+    let previous = Number.NEGATIVE_INFINITY;
+    let cursor = Date.UTC(2027, 10, 1);
+    const end = Date.UTC(2029, 1, 1);
+    while (cursor < end) {
+      const date = new Date(cursor);
+      const year = date.getUTCFullYear();
+      const startOfYear = Date.UTC(year, 0, 1);
+      const fractional = (cursor - startOfYear) / 86_400_000 + 1;
+      const phase = yearPhase(fractional, year);
+      // Unwrapped onto a single axis so the January reset is not a decrease.
+      const absolute = phase.phaseDay + (year - 2027) * MODEL_YEAR_DAYS;
+      expect(absolute).toBeGreaterThan(previous);
+      expect(phase.weight).toBeGreaterThanOrEqual(0);
+      expect(phase.weight).toBeLessThanOrEqual(1);
+      previous = absolute;
+      cursor += 6 * 3_600_000;
+    }
+  });
+
   it("exposes the reference implementation's mirrored western fraction", () => {
     // 52.214167 N 42.034722 W in January at 11 UTC is a control point of the
     // ITU executable's own dump, which reports foF2 = 5.202 MHz. Evaluating the
@@ -550,18 +642,20 @@ describe("time modes", () => {
   });
 
   it("wraps the December to January anchor seam without a jump", () => {
-    const bracket = monthAnchorBracket(1, 2026);
+    const bracket = yearPhase(1, 2026);
     expect(bracket.earlier).toBe(11);
     expect(bracket.later).toBe(0);
-    expect(monthAnchorBracket(15, 2026)).toEqual({
+    expect(yearPhase(15, 2026)).toEqual({
       earlier: 0,
       later: 1,
       weight: 0,
+      phaseDay: 15,
     });
-    expect(monthAnchorBracket(349, 2026)).toEqual({
+    expect(yearPhase(349, 2026)).toEqual({
       earlier: 11,
       later: 0,
       weight: 0,
+      phaseDay: 349,
     });
     const before = at("2026-12-31T23:59:59.999Z", "enhanced");
     const after = at("2027-01-01T00:00:00Z", "enhanced");
@@ -573,10 +667,13 @@ describe("time modes", () => {
     // year shifts every anchor by a day. With a fixed table the enhanced month
     // weight would be 1/31 instead of 0 on the calendar anchor and the two
     // modes would no longer meet.
-    expect(monthAnchorBracket(75, 2028)).toEqual({
+    expect(yearPhase(75, 2028)).toEqual({
       earlier: 2,
       later: 3,
       weight: 0,
+      // Day 75 of a leap year is 15 March, and the reference's phase for March
+      // is day 74 whatever the calendar says.
+      phaseDay: 74,
     });
     const reference = at("2028-03-15T00:00:00Z", "reference");
     const enhanced = at("2028-03-15T00:00:00Z", "enhanced");

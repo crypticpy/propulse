@@ -345,6 +345,26 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual((report["consistency"], report["qualification"]), ("FAIL", "BLOCKED"))
         self.assertIn("finite double range", report["error"])
 
+    def test_cli_rejects_a_309_digit_integer_above_the_float_maximum(self):
+        # Same digit count as sys.float_info.max, but larger: the digit-count
+        # pre-check passes and only the value check can reject it.
+        huge = int(sys.float_info.max) + 10**300
+        self.assertEqual(len(str(huge)), len(str(int(sys.float_info.max))))
+        text = (HERE / "fixture-manifest.json").read_text()
+        match = re.search(r'"ell_km":\s*[-0-9.eE+]+', text)
+        self.assertIsNotNone(match)
+        text = text[:match.start()] + '"ell_km": ' + str(huge) + text[match.end():]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(text)
+            completed = subprocess.run(
+                [sys.executable, str(HERE / "validate.py"), "--manifest", str(path)],
+                capture_output=True, text=True, check=False)
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual((report["consistency"], report["qualification"]), ("FAIL", "BLOCKED"))
+        self.assertIn("finite double range", report["error"])
+
     def test_cli_rejects_a_manifest_that_drops_the_geodesic_counterexample(self):
         manifest = load_json(HERE / "fixture-manifest.json")
         chordal = copy.deepcopy(manifest["fixtures"][1])

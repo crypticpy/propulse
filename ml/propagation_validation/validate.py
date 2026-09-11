@@ -141,7 +141,11 @@ def load_json(path):
         # more digits than the largest finite double cannot be finite anyway.
         require(len(value.lstrip("-")) <= MAX_FINITE_DOUBLE_DIGITS,
                 "number outside the finite double range")
-        return int(value)
+        # The digit count only bounds the magnitude coarsely: a 309-digit
+        # integer can still exceed sys.float_info.max. Check the parsed value.
+        number = int(value)
+        require(finite_number(number), "number outside the finite double range")
+        return number
 
     return json.loads(Path(path).read_text(), object_pairs_hook=pairs,
                       parse_constant=invalid_constant, parse_float=finite_float,

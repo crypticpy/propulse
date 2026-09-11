@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MapStatusChip } from "./MapStatusChip";
+import { useMapStore } from "@/stores/mapStore";
 
 vi.mock("@/components/ui/HealthStatusIndicator", () => ({
   HealthStatusIndicator: ({ compact }: { compact?: boolean }) => (
@@ -36,5 +37,33 @@ describe("MapStatusChip", () => {
     expect(screen.getByTestId("conflict-status")).toBeTruthy();
     expect(screen.getByTestId("connectivity-status")).toBeTruthy();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("surfaces the orbit-track eviction notice and lets it be dismissed (#994 PR B)", () => {
+    render(<MapStatusChip />);
+    expect(screen.queryByText(/Orbit track limit reached/)).toBeNull();
+
+    act(() => {
+      useMapStore.getState().setSatelliteTrack(1, {});
+      useMapStore.getState().setSatelliteTrack(2, {});
+      useMapStore.getState().setSatelliteTrack(3, {});
+      useMapStore.getState().setSatelliteTrack(4, {});
+      useMapStore.getState().setSatelliteTrack(5, {});
+      useMapStore.getState().setSatelliteTrack(6, {});
+    });
+
+    const badge = screen.getByText(/Orbit track limit reached/);
+    expect(badge.textContent).toMatch(/NORAD 1/);
+
+    act(() => {
+      badge.click();
+    });
+    expect(screen.queryByText(/Orbit track limit reached/)).toBeNull();
+    expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+
+    // Clean up the module-level store for later tests in this file.
+    act(() => {
+      useMapStore.getState().clearAllSatelliteTracks();
+    });
   });
 });

@@ -159,6 +159,36 @@ describe("mapStore satellite orbit tracks (#994)", () => {
       expect(Object.keys(tracks).sort()).toEqual(["1", "3", "4", "5", "6"]);
       expect(tracks["2"]).toBeUndefined();
     });
+
+    it("records a status-chip eviction notice naming the dropped satellite when a 6th track is added", async () => {
+      const useMapStore = await loadFreshStore();
+      expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+
+      for (const id of [1, 2, 3, 4, 5]) {
+        useMapStore.getState().setSatelliteTrack(id, {});
+      }
+      // No eviction yet -- the cap (5) hasn't been exceeded.
+      expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+
+      useMapStore.getState().setSatelliteTrack(6, {});
+
+      const eviction = useMapStore.getState().satelliteTrackEviction;
+      expect(eviction).not.toBeNull();
+      expect(eviction?.noradId).toBe("1");
+      expect(typeof eviction?.timestamp).toBe("number");
+    });
+
+    it("dismissSatelliteTrackEviction clears the notice", async () => {
+      const useMapStore = await loadFreshStore();
+      for (const id of [1, 2, 3, 4, 5, 6]) {
+        useMapStore.getState().setSatelliteTrack(id, {});
+      }
+      expect(useMapStore.getState().satelliteTrackEviction).not.toBeNull();
+
+      useMapStore.getState().dismissSatelliteTrackEviction();
+
+      expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+    });
   });
 
   describe("clearSatelliteTrack", () => {

@@ -695,6 +695,15 @@ export interface MapState {
   clearSatelliteTrack: (noradId: number) => void;
   clearAllSatelliteTracks: () => void;
 
+  // Ephemeral eviction notice (#994 PR B): set when `setSatelliteTrack`'s
+  // MAX_SATELLITE_TRACKS cap drops the oldest track, read by
+  // `MapStatusChip`'s eviction badge the same way `ConflictBadge` /
+  // `ConnectivityBadge` read their own store slices. Not persisted — a
+  // stale eviction message from a previous session has nothing to say on
+  // reload.
+  satelliteTrackEviction: { noradId: string; timestamp: number } | null;
+  dismissSatelliteTrackEviction: () => void;
+
   // Beacon inactive opacity (0-1, persisted)
   beaconInactiveOpacity: number;
   setBeaconInactiveOpacity: (opacity: number) => void;
@@ -1585,6 +1594,7 @@ const initialState = {
   // Per-satellite orbit track state (persisted, see #994)
   satelliteTracks: persistedSatelliteTracks.tracks,
   satelliteTrackOrder: persistedSatelliteTracks.order,
+  satelliteTrackEviction: null as { noradId: string; timestamp: number } | null,
 
   // Beacon inactive opacity (persisted)
   beaconInactiveOpacity: loadStoredNumber(
@@ -2542,14 +2552,28 @@ export const useMapStore = create<MapState>((set, get) => ({
       const tracks = { ...state.satelliteTracks, [id]: next };
 
       // Cap at MAX_SATELLITE_TRACKS, dropping the oldest by insertion order.
+      // Surface the last dropped id as a status-chip notice (#994 PR B) —
+      // normally at most one is dropped per call (one track is added at a
+      // time), but the loop still reports whichever eviction happened last
+      // if a desynced order ever needed to drop more than one to satisfy
+      // the cap.
+      let evictedId: string | undefined;
       while (order.length > MAX_SATELLITE_TRACKS) {
         const droppedId = order.shift();
-        if (droppedId !== undefined) delete tracks[droppedId];
-        // TODO(#994 PR B): status chip on eviction
+        if (droppedId !== undefined) {
+          delete tracks[droppedId];
+          evictedId = droppedId;
+        }
       }
 
       saveSatelliteTracks(tracks, order);
-      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+      return {
+        satelliteTracks: tracks,
+        satelliteTrackOrder: order,
+        satelliteTrackEviction: evictedId
+          ? { noradId: evictedId, timestamp: Date.now() }
+          : state.satelliteTrackEviction,
+      };
     }),
 
   clearSatelliteTrack: (noradId) =>
@@ -2571,6 +2595,8 @@ export const useMapStore = create<MapState>((set, get) => ({
       saveSatelliteTracks({}, []);
       return { satelliteTracks: {}, satelliteTrackOrder: [] };
     }),
+
+  dismissSatelliteTrackEviction: () => set({ satelliteTrackEviction: null }),
 
   // Beacon inactive opacity
   setBeaconInactiveOpacity: (opacity) => {

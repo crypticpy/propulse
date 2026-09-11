@@ -70,13 +70,13 @@ family owners freeze measured hardware/OS/browser configurations and workloads.
 
 ## Adopted A01–A24 specification
 
-# Propulse all-band propagation design — revision 2 extension
+### Propulse all-band propagation design — revision 2 extension
 
 10 September 2026. Requested expansion of [epic #946](https://github.com/crypticpy/propulse/issues/946) and [mathematical specification #982](https://github.com/crypticpy/propulse/issues/982). M01–M24 remain the shared/HF mathematical contract. A01–A24 below extend it to 160 m, LF/MF, VHF/UHF, microwave/millimeter-wave and specialized amateur propagation. This is a concrete design and work plan, not a claim that those engines, observations, accuracy or independent reviews already exist.
 
 **Product decision:** one application service with several physical engine families, a common station/channel interface and event-compatible learned adapters. 160 m is a required first expansion, not an optional out-of-range label. The other families have explicit implementation and measurement tasks. An unvalidated or data-limited capability remains visible as such and cannot be counted as completed scientific coverage.
 
-## 1. What “full coverage” means
+#### 1. What “full coverage” means
 
 **A01 — band × mechanism × event coverage.** A band name alone does not identify propagation physics. Record a capability for `(frequency range, mechanism, geometry, location/data domain, antenna/receiver class, output event, time horizon)`. Capability states are `planned`, `implemented_unvalidated`, `validated_climatology`, `validated_current`, `validated_forecast`, `data_limited`, and `unsupported`. Runtime input availability is separate from implementation/release status. A finite free-space calculation is not a validated terrestrial opening prediction.
 
@@ -102,7 +102,7 @@ Each family returns normalized channel components: transfer gain or basic transm
 
 Alternative complete models of the same mechanism are compared or selected, not added. P.2001 already combines its prescribed terrestrial mechanisms; do not append another complete diffraction/troposcatter loss to its result. An Earth–ionosphere mode solver containing the surface branch must not have P.368 surface power added again. Statistical time-percentile results do not supply independent simultaneous channel taps. Mixture/union probabilities need joint event definitions and shared latent state; no maximum-score cherry-picking. A directional receiving antenna and delayed/interfering modes use the same wanted-channel convention as M08/M10.
 
-## 2. Make 160 m and the lower bands scientifically real
+#### 2. Make 160 m and the lower bands scientifically real
 
 **A04 — reference boundaries.** [P.368-10](https://www.itu.int/rec/R-REC-P.368-10-202208-I/en) provides a 10 kHz–30 MHz ground-wave foundation. [P.1147-4](https://www.itu.int/rec/R-REC-P.1147/en) supplies skywave field-strength predictions around 150–1700 kHz, so it does not directly certify 160 m, and its lower boundary also does not cover 2200 m. The selected P.533 reference starts at 2 MHz. There is therefore an actual 160 m reference gap. Do not hide it by clipping frequency or by blending out-of-domain recommendations and calling the result standard-compliant.
 
@@ -136,7 +136,7 @@ The 2200 m/630 m module must test day/night transition, mixed ground, mode-searc
 
 At LF/HF the receiver may be dominated by atmospheric/man-made noise and impulsive interference, with direction-dependent receive antennas; M09's scalar external noise is only its declared equivalent-temperature representation. Preserve bandwidth/detector/measurement support. A receive loop that rejects local noise must have both signal pattern and noise-environment coupling represented. Absolute station SNR cannot be calibrated from unknown antenna/power WSPR reports without the M16 selection/station treatment.
 
-## 3. VHF/UHF, microwave and millimeter-wave terrestrial engines
+#### 3. VHF/UHF, microwave and millimeter-wave terrestrial engines
 
 **A11 — terrain geometry and data.** Terrain profiles use geodesic surface distance, geodetic coordinates and explicit orthometric/ellipsoidal conversions; antenna height AGL is not altitude AMSL. Sample at sufficient resolution for the terrain and Fresnel geometry, preserving DEM voids and vertical error. The first Fresnel radius at a point is `r1=sqrt(λ d1 d2/(d1+d2))`. The spherical effective-Earth bulge fixture is `b=d1 d2/(2kR)`. A single knife edge has `v=h sqrt[2(d1+d2)/(λ d1d2)]`; use the selected [P.526 diffraction method](https://www.itu.int/rec/R-REC-P.526/en) for complete terrain, not a sum of isolated knife-edge losses.
 
@@ -162,7 +162,7 @@ For climate availability use applicable [P.530](https://www.itu.int/rec/R-REC-P.
 
 Polarization coupling is `ηpol=|u_rx† J_pol u_tx|²` for normalized transmit/receive Jones vectors and the polarization operator with already-accounted bulk attenuation removed; `Lpol=−10log10ηpol` is its scalar-coupling diagnostic. If using the complete lossy channel Jones matrix instead, its projected power already includes those losses and receives no second scalar attenuation/polarization addition. A genuine orthogonal null is not repaired with a generic 3 dB assumption. Linear/circular handedness, basis direction and Faraday non-reciprocity need explicit fixtures. Directional source/noise patterns and terminal reference planes flow into M09/M10. Mode profiles now include FM/AM and specialized weak-signal modes such as Q65 and MSK144 with their actual decoder durations, spread tolerances, capture/interference semantics and bandwidths. An HF FT8 threshold cannot supply all-band decoder performance.
 
-## 4. Specialized propagation families
+#### 4. Specialized propagation families
 
 **A17 — sporadic E.** Implement [P.534-6](https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.534-6-202109-I!!PDF-E.pdf) as a separately named statistical Es head with its prescribed foEs distributions and geometry, not an extra Kp multiplier. Its documented data and formula domains include latitude, distance, hop and f/foEs restrictions; validate those exact predicates in the adapter. Do not treat foF2 as foEs. Regular-layer HF power and an alternative complete Es estimate cannot be blindly summed, and the method is not a universal TEP model. Physical MF/HF critical frequency, sporadic-E blanketing and cloud extent remain distinct observations.
 
@@ -190,7 +190,7 @@ Offline ground-repeater/relay scenarios can also compose two qualified legs usin
 
 The bistatic radar budget is `Pr=Pt Gt Gr λ² σmoon/[(4π)^3 Rt² Rr² L]`, with SI distances, a declared effective lunar scattering cross-section and all other losses in linear power factor L. σmoon is frequency/polarization/geometry-dependent and must be independently characterized; a single assumed lunar albedo is not a validated all-band constant. Delay is approximately `(Rt+Rr)/c` with moving-body/light-time refinement for precision, and Doppler uses both leg range rates. A free-space Earth–Moon distance loss alone misses the scattering loss. Use [WSJT-X astronomical/echo quantities](https://wsjt.sourceforge.io/wsjtx-main_en.html) as independent operational comparisons for delay, Doppler/spread, sky temperature and degradation on compatible assumptions. Offline EME opportunity is therefore possible, but personal success requires the complete station and scattering/noise model.
 
-## 5. Data, verification, delivery and benchmark claims
+#### 5. Data, verification, delivery and benchmark claims
 
 **A23 — executable data and benchmark contract.** Extend M02/M11/M23/M24 instead of creating a second logging/exposure system. Existing collectors already expose some solar/radio/weather/radar/satellite context, but that inventory is not evidence of radio-quality vertical refractivity, conductivity, phase measurements or calibrated scatter cross-sections. For each source, record existing owner, real schema, rights/redistribution, spatial/vertical resolution, measurement/issue/publication/capture times, uncertainty, archive completeness and offline packing. Reuse owners; new numerical-weather/profile/scatter sources have explicit adapters and acquisition tasks. No messages to external operators or large data-collection campaign are authorized by this planning publication.
 

@@ -9,7 +9,14 @@
  * azimuthal equidistant projection) with 2D canvas overlays for UI elements.
  */
 
-import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
@@ -56,6 +63,7 @@ import {
 } from "./GridResearchPanel";
 import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
@@ -125,8 +133,10 @@ interface AzimuthalViewProps {
   displayTime: Date;
   /** Callback when a location is clicked */
   onLocationClick?: (lat: number, lon: number) => void;
-  /** Hide the local size panel when the host docks it with other controls */
-  hideSizeSliders?: boolean;
+  /** Rows the host wants in the map's bottom-left corner. The view owns that
+   * corner and renders the one column there, so a host contributes rows
+   * instead of anchoring a second stack of its own (#930). */
+  cornerSlot?: ReactNode;
   /** Forwarded to `SpotCollectionPopover` — true only when `HamClockView` is
    * the host (#846/#871 round 3). */
   isWallCanvas?: boolean;
@@ -1651,7 +1661,7 @@ function drawAzFires(
 export function AzimuthalView({
   displayTime,
   onLocationClick,
-  hideSizeSliders = false,
+  cornerSlot,
   isWallCanvas,
 }: AzimuthalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -3127,9 +3137,6 @@ export function AzimuthalView({
           <div className="text-su-muted text-sm">Loading map...</div>
         </div>
       )}
-      {/* Spot & pin size sliders - bottom left corner */}
-      {!hideSizeSliders && <MapSizeSliders />}
-
       <GridResearchPanel
         visible={researchPanelOpen}
         grid={researchGrid}
@@ -3155,20 +3162,35 @@ export function AzimuthalView({
         }}
       />
 
-      {/* Legend overlay */}
-      <div className="absolute bottom-14 left-4 text-xs text-su-muted bg-deep-space/80 px-2 py-1 rounded">
-        <div className="flex items-center gap-2">
-          <span
-            className="w-3 h-0.5 inline-block"
-            style={{ backgroundColor: COLORS.path }}
-          />
-          <span>Great circle path (straight line = beam heading)</span>
+      {/* Bottom-left corner column. This view owns the corner: host rows
+          arrive as `cornerSlot`, the legend reads under the map's overlay
+          portal, and the shared size control sits above it, so none of the
+          three can cover another (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-col items-start gap-1">
+        {cornerSlot}
+        <div
+          className="relative text-xs text-su-muted bg-deep-space/80 px-2 py-1 rounded"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="w-3 h-0.5 inline-block"
+              style={{ backgroundColor: COLORS.path }}
+            />
+            <span>Great circle path (straight line = beam heading)</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1 text-su-muted">
+            <span>Scroll to zoom</span>
+            {zoom !== 1 && (
+              <span className="text-signal-green">({zoom.toFixed(1)}x)</span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 mt-1 text-su-muted">
-          <span>Scroll to zoom</span>
-          {zoom !== 1 && (
-            <span className="text-signal-green">({zoom.toFixed(1)}x)</span>
-          )}
+        <div
+          className="relative"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <MapSizeSliders />
         </div>
       </div>
     </MapSurface>

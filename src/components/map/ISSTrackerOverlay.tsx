@@ -19,70 +19,23 @@ import * as THREE from "three";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import type { UseISSTrackerResult } from "@/hooks/useISSTracker";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { useMapStore } from "@/stores/mapStore";
 import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
 } from "@/lib/map/globeRenderOrder";
+import {
+  latLonAltToVector3,
+  latLonToSurface,
+  shouldRenderIssDefaultTrack,
+} from "@/lib/map/satelliteGeometry";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Globe radius (matching EarthSphere) */
-const GLOBE_RADIUS = 1.0;
-
 /** Earth radius in km */
 const EARTH_RADIUS_KM = 6371.0;
-
-/**
- * Visual altitude scale factor — same as SatelliteOverlay.
- * Exaggerates altitude so satellites are clearly above the surface.
- */
-const ALT_SCALE = 3.0;
-
-/** Base surface offset to prevent z-fighting */
-const SURFACE_OFFSET = 0.015;
-
-// ---------------------------------------------------------------------------
-// Coordinate Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon/alt to a 3D position on the globe.
- * Matches the SatelliteOverlay coordinate system exactly.
- */
-function latLonAltToVector3(
-  lat: number,
-  lon: number,
-  altKm: number,
-): THREE.Vector3 {
-  const visualAlt = (altKm / EARTH_RADIUS_KM) * ALT_SCALE;
-  const radius = GLOBE_RADIUS + SURFACE_OFFSET + visualAlt;
-
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Convert lat/lon to surface position (for ground track, footprint, connector base).
- */
-function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.005;
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // ISS Ham Radio Constants
@@ -1008,6 +961,27 @@ export function ISSTrackerOverlay() {
     setIsSelected((prev) => !prev);
   }, []);
 
+  // The ISS can also have a store-driven "Map orbit" track set via
+  // SatelliteDetailModal, rendered by SatelliteOverlay's GroundTrack
+  // exactly like any other satellite. When one exists AND SatelliteOverlay
+  // can actually render it (it only mounts while the Satellites layer is
+  // on -- #1029 review round 5), the store track wins: this overlay's own
+  // fixed ±45-minute ring/ground-track is suppressed so "1/2/3 orbits",
+  // "past track" and "Clear orbit" have a visible effect on the ISS instead
+  // of being shadowed by an always-on duplicate path (#1029 review round
+  // 4). With Satellites off, GroundTrack can't render regardless of the
+  // store, so the default stays. Marker, info-card label, footprint and the
+  // connector line are unaffected -- they reflect the ISS's live position,
+  // not its orbit-track configuration.
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const satellitesLayerVisible = useMapStore((s) => s.layers.satellites);
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  const showDefaultTrack = shouldRenderIssDefaultTrack(
+    satelliteTracks,
+    issTrackerActive,
+    satellitesLayerVisible,
+  );
+
   if (!tracker.iss) return null;
 
   return (
@@ -1018,11 +992,15 @@ export function ISSTrackerOverlay() {
         onToggleSelect={handleToggleSelect}
         tracker={tracker}
       />
-      <ISSOrbitRing
-        orbitTrack={tracker.orbitTrack}
-        alt={tracker.iss.position.alt}
-      />
-      <ISSGroundTrack orbitTrack={tracker.orbitTrack} />
+      {showDefaultTrack && (
+        <>
+          <ISSOrbitRing
+            orbitTrack={tracker.orbitTrack}
+            alt={tracker.iss.position.alt}
+          />
+          <ISSGroundTrack orbitTrack={tracker.orbitTrack} />
+        </>
+      )}
       <ISSFootprint
         lat={tracker.iss.position.lat}
         lon={tracker.iss.position.lon}

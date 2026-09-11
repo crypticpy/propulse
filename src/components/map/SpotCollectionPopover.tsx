@@ -20,7 +20,7 @@ import {
   getAgeBadgeColors,
   getSpotAgeInfo,
 } from "./LiveSpotArcs";
-import { useMapSurfaceFocus } from "./MapSurfaceContext";
+import { useFocusHome } from "./hooks/useFocusHome";
 
 export interface SpotCollectionPopoverProps {
   visible: boolean;
@@ -85,19 +85,7 @@ export function SpotCollectionPopover({
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  // Whether focus actually entered this popover while it was open (#824,
-  // Codex round 3). See `PinFlyout.tsx` for the full reasoning: without this,
-  // the fallback below can't tell "focus died with the popover" from "focus
-  // was never here to die". In practice this popover always focuses its own
-  // first row on open, so the flag is set well before any close path can
-  // reach this cleanup — this exists for uniformity with the other three
-  // overlays (#848 will extract them into one hook), not because this
-  // popover has an observed body-origin-close-without-entering gap.
-  const heldFocusRef = useRef(false);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
-  const focusMapSurface = useMapSurfaceFocus();
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {
@@ -162,8 +150,7 @@ export function SpotCollectionPopover({
 
   // Rows shown when the wall's no-scroll rule caps the list instead of
   // scrolling it. `sortedSpots` itself (and its `.length`) is left untouched
-  // — the focus-restore effect below depends on the full count, not the
-  // wall-visible slice (see its dep array note).
+  // — focus-home depends on the full count, not the wall-visible slice.
   const visibleSpots = isWallCanvas
     ? sortedSpots.slice(0, wallVisibleCount)
     : sortedSpots;
@@ -216,84 +203,16 @@ export function SpotCollectionPopover({
     };
   }, [handleKeyDown, onClose, visible]);
 
+  useFocusHome(visible && sortedSpots.length > 0, panelRef);
+
   useEffect(() => {
     if (!visible || sortedSpots.length === 0) return;
-    // `document.body` is not a restore target (see `SelectedSpotCard`): every
-    // opener for this popover is a canvas hit-test or a touch tap, neither of
-    // which focuses anything, so the pre-open activeElement is body far more
-    // often than not.
-    if (fallbackTimerRef.current !== null) {
-      window.clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const root = panelRef.current;
-    const active = document.activeElement;
-    // Containment check for the same child-before-parent race as
-    // `PathPointInspector.tsx` (#824, Codex round 4). This popover's own
-    // auto-focus below runs in a zero-delay timeout, which always lands
-    // after this synchronous setup, so `active` is never already inside
-    // `root` here — a no-op today, kept for the shape's uniformity ahead of
-    // the #848 hook extraction.
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
-        ? active
-        : null;
-    heldFocusRef.current = root?.contains(active) ?? false;
-    const handleFocusIn = () => {
-      heldFocusRef.current = true;
-    };
-    root?.addEventListener("focusin", handleFocusIn);
     const timeout = window.setTimeout(() => firstSpotRef.current?.focus(), 0);
-    return () => {
-      window.clearTimeout(timeout);
-      root?.removeEventListener("focusin", handleFocusIn);
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      // Gate the whole restore on focus having actually died with this
-      // popover, not just the deferred fallback below (#824). See
-      // `PinFlyout.tsx` for the full mutation-phase reasoning: by the time
-      // this cleanup runs, `activeElement === body` means focus died with
-      // the popover; anything else means a live element legitimately owns
-      // focus and must not be yanked back.
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      // You cannot restore what was never taken (#824 round 3; moved ahead
-      // of the restore branch in round 5, Codex on PR #842): a pointer-only
-      // interaction can blur a persistent control to `<body>` without focus
-      // ever entering this popover. `<body>` here otherwise reads the same
-      // as "this popover held focus and its removal dropped it", so both the
-      // restore below and the fallback beneath it must be gated on
-      // `heldFocusRef`: cleanup only ever gives back focus it actually held.
-      if (!heldFocusRef.current) return;
-      if (previousFocus?.isConnected) {
-        previousFocus.focus();
-        return;
-      }
-      // Only when nothing else has focus (#797/#824). A row click that opens
-      // `SelectedSpotCard` clears this popover in the same commit, so this
-      // cleanup and the card's own mount effect can both run before either
-      // element repaints. If this fired synchronously here, the map surface
-      // would already hold focus by the time the card's mount effect reads
-      // `document.activeElement`, and the card would wrongly capture the
-      // surface as ITS `previousFocus` — turning its own close-time fallback
-      // guard into an unconditional restore that steals focus from whatever
-      // the user tabs to next. Deferring one tick lets every same-commit
-      // sibling's mount effect capture the real (pre-fallback) activeElement
-      // first; the sibling's own focus-in timer (also `setTimeout(0)`, always
-      // scheduled after this one) then wins.
-      // Cancelled if setup runs again (#824, found by Codex on PR #842).
-      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
-      // so the simulated cleanup schedules this timer while the overlay is
-      // in fact still open; without the cancel it fires and moves focus to
-      // the surface, and merely hovering changes keyboard focus in dev. Any
-      // re-run of setup means the overlay is open again, which makes a
-      // pending fallback stale by definition.
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (document.activeElement === document.body) focusMapSurface?.();
-      }, 0);
-    };
-  }, [focusMapSurface, portalElement, sortedSpots.length, visible]);
+    return () => window.clearTimeout(timeout);
+  // `portalElement` is a dependency so a container change re-runs the
+    // first-row focus (see its resolution above; it is stable while open,
+    // which is what keeps that from ever being needed in practice).
+  }, [portalElement, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
   const { frame, overlaySize, maxHeight, screenLeft, screenTop } = layout;

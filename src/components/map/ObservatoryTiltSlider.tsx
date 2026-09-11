@@ -8,18 +8,23 @@
  * Controls mapStore.rotation.x (tilt in degrees, 0–23.5).
  */
 
-import { useCallback } from "react";
+import { useCallback, type CSSProperties } from "react";
 import { useMapStore } from "@/stores/mapStore";
 
 interface ObservatoryTiltSliderProps {
   visible: boolean;
   /** Override wrapper positioning (default: fixed bottom-16 right-4) */
   className?: string;
+  /** Stacking for the context the caller positions this in. A caller that
+   * pulls the slider into a map stack owns that context, so it hands down a
+   * `MAP_PAGE_CHROME_Z` tier rather than letting the slider guess (#930). */
+  style?: CSSProperties;
 }
 
 export function ObservatoryTiltSlider({
   visible,
   className,
+  style,
 }: ObservatoryTiltSliderProps) {
   const rotation = useMapStore((s) => s.rotation);
   const setRotation = useMapStore((s) => s.setRotation);
@@ -35,7 +40,15 @@ export function ObservatoryTiltSlider({
 
   return (
     <div
-      className={`${className ?? "fixed bottom-16 right-4"} z-[220] pointer-events-auto
+      style={style}
+      // The z-index belongs to the default placement only: unhosted, the
+      // slider lives in FullscreenPropSphere's own overlay, a separate
+      // stacking context running a 200-series scale (205 edge docks, 215
+      // ambient bars) where observatory chrome sits at 220. A caller that
+      // passes `className` is placing this in *its* context -- PropSphere's
+      // map Card, MobileMap's map stack -- and passes the tier with it, so
+      // the slider never carries 220 into a scale that tops out at 40 (#930).
+      className={`${className ?? "fixed bottom-16 right-4 z-[220]"} pointer-events-auto
       transition-opacity duration-500
       ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
     >

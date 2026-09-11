@@ -16,6 +16,7 @@ import {
 } from "react";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 const MINI_MAP_WIDTH = 140;
 const MINI_MAP_HEIGHT = 80;
@@ -416,7 +417,8 @@ export function MiniMapNavigator({
   if (!isVisible) {
     return (
       <div
-        className={`absolute ${positionClasses[position]} z-20 pointer-events-auto ${className}`}
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        className={`absolute ${positionClasses[position]} pointer-events-auto ${className}`}
       >
         <button
           onClick={() => setIsVisible(true)}
@@ -443,7 +445,8 @@ export function MiniMapNavigator({
 
   return (
     <div
-      className={`absolute ${positionClasses[position]} z-20 pointer-events-auto ${className}`}
+      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      className={`absolute ${positionClasses[position]} pointer-events-auto ${className}`}
     >
       <div className="relative rounded-lg overflow-hidden bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
         <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-b border-su-line/20">

@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 /**
- * review-cap: count `@codex review` rounds on a PR and, once capped, require
- * an `**architecture review**` comment for the current head before the gate
- * passes. See docs/AGENT-CONSTITUTION.md, "Review cap".
+ * review-cap: count bot review rounds on a PR two ways (explicit
+ * `@codex review` requests, and distinct bot reviews that left inline
+ * findings) and, once either counter reaches the cap, evaluate whether a
+ * valid `**architecture review**` comment already covers the current head.
+ * The verdict decides whether `pr-contract` merges (`ship`), blocks
+ * (`redesign` or pending), and whether the review-cap automation still needs
+ * to run. See docs/AGENT-CONSTITUTION.md, "Review cap".
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -10,18 +14,62 @@ import { fileURLToPath } from "node:url";
 
 const REVIEW_REQUEST = /^@codex review\b/i;
 const BOT_LOGIN = /\[bot\]$/i;
+const SOURCERY_LOGIN = /^sourcery-ai\[bot\]$/i;
+const BADGE = /img\.shields\.io\/badge\/P[123]\b/i;
 const HEADING = /\*\*architecture review\*\*/i;
 const AGENT_LINE = /^-\s*agent:\s*(.+?)\s*$/im;
 const REVIEWED_LINE = /^-\s*Reviewed:\s*([0-9a-f]{7,40})\b/im;
 const VERDICT_LINE = /^Verdict:\s*(ship|redesign)\s*\(#(\d+)\)\s*$/im;
 
-export function countReviewRounds(comments) {
-  return comments.filter((comment) => {
+export const ALLOWED_REVIEWERS = [
+  "github-actions[bot]",
+  "propulse-bot[bot]",
+  "crypticpy",
+];
+
+/** `@codex review` request comments (issue-level) from non-bot accounts. */
+export function countReviewRequests(issueComments) {
+  return issueComments.filter((comment) => {
     const login = comment.user?.login ?? "";
     if (BOT_LOGIN.test(login)) return false;
     const body = (comment.body ?? "").trim();
     return REVIEW_REQUEST.test(body);
   }).length;
+}
+
+/**
+ * Distinct PR reviews that left inline findings: a Codex review is
+ * identified by the `img.shields.io/badge/P[123]` badge on at least one of
+ * its inline comments (whatever login posts it); a Sourcery review is
+ * identified by the `sourcery-ai[bot]` login with at least one inline
+ * comment (a budget-exhausted refusal has none).
+ */
+export function countFindingReviews({ reviews, reviewComments }) {
+  const commentsByReview = new Map();
+  for (const comment of reviewComments) {
+    if (comment.reviewId == null) continue;
+    if (!commentsByReview.has(comment.reviewId)) {
+      commentsByReview.set(comment.reviewId, []);
+    }
+    commentsByReview.get(comment.reviewId).push(comment);
+  }
+  const findingIds = new Set();
+  for (const review of reviews) {
+    const ownComments = commentsByReview.get(review.id) ?? [];
+    const login = review.user?.login ?? "";
+    if (ownComments.some((comment) => BADGE.test(comment.body ?? ""))) {
+      findingIds.add(review.id);
+    } else if (SOURCERY_LOGIN.test(login) && ownComments.length > 0) {
+      findingIds.add(review.id);
+    }
+  }
+  return findingIds.size;
+}
+
+export function countRounds({ issueComments, reviews, reviewComments }) {
+  const requests = countReviewRequests(issueComments);
+  const findings = countFindingReviews({ reviews, reviewComments });
+  return { requests, findings, rounds: Math.max(requests, findings) };
 }
 
 /** Returns `{ agent, reviewedSha, verdict, issue }` or `null`. */
@@ -42,93 +90,147 @@ export function parseArchitectureReview(commentBody) {
   };
 }
 
+/**
+ * `ok` is the pr-contract merge signal: true when not capped, or when capped
+ * and an allowed reviewer's comment carries a `ship` verdict for the current
+ * head. `reviewed` is true whenever such a comment exists at all (ship or
+ * redesign) — the review-cap automation uses it to avoid posting twice.
+ */
 export function evaluateReviewCap({
-  comments,
+  issueComments,
+  reviews,
+  reviewComments,
   headSha,
-  allowedReviewers,
+  allowedReviewers = ALLOWED_REVIEWERS,
   cap = 5,
 }) {
-  const rounds = countReviewRounds(comments);
+  const { requests, findings, rounds } = countRounds({
+    issueComments,
+    reviews,
+    reviewComments,
+  });
   const capped = rounds >= cap;
-  if (!capped) {
-    return { rounds, capped, verdict: null, ok: true, reason: "not capped" };
-  }
   const head = (headSha ?? "").toLowerCase();
   const allowSet = new Set(
-    (allowedReviewers ?? []).map((login) => login.toLowerCase()),
+    allowedReviewers.map((login) => login.toLowerCase()),
   );
-  for (const comment of comments) {
+  let reviewed = null;
+  for (const comment of issueComments) {
     const login = (comment.user?.login ?? "").toLowerCase();
     if (!allowSet.has(login)) continue;
     const parsed = parseArchitectureReview(comment.body);
     if (!parsed) continue;
     if (!head.startsWith(parsed.reviewedSha)) continue;
-    return {
-      rounds,
-      capped,
-      verdict: parsed.verdict,
-      ok: true,
-      reason: `architecture review by ${parsed.agent}: ${parsed.verdict} (#${parsed.issue})`,
-    };
+    reviewed = parsed;
+    break;
+  }
+  const ok = !capped || (reviewed !== null && reviewed.verdict === "ship");
+  let reason;
+  if (!capped) {
+    reason = "not capped";
+  } else if (!reviewed) {
+    reason = `capped at ${rounds} rounds (requests=${requests}, findings=${findings}); no **architecture review** comment for head ${headSha} from an allowed reviewer`;
+  } else if (reviewed.verdict === "redesign") {
+    reason = `capped and reviewed: redesign required, see #${reviewed.issue}`;
+  } else {
+    reason = `capped and reviewed: ship, follow-up #${reviewed.issue}`;
   }
   return {
     rounds,
+    requestRounds: requests,
+    findingRounds: findings,
     capped,
-    verdict: null,
-    ok: false,
-    reason: `capped at ${rounds} bot review rounds; no **architecture review** comment for head ${headSha} from an allowed reviewer`,
+    reviewed: reviewed !== null,
+    verdict: reviewed?.verdict ?? null,
+    issue: reviewed?.issue ?? null,
+    agent: reviewed?.agent ?? null,
+    ok,
+    reason,
   };
 }
 
-function fetchComments(repo, pr) {
-  const result = spawnSync(
-    "gh",
-    [
-      "api",
-      `repos/${repo}/issues/${pr}/comments`,
-      "--paginate",
-      "--jq",
-      ".[] | {login: .user.login, body: .body}",
-    ],
-    { encoding: "utf8" },
-  );
+/**
+ * Selects the follow-up issue new post-cap bot threads should be resolved
+ * against: only active once a `ship` verdict has been recorded for the head.
+ */
+export function postCapFollowup(evaluation) {
+  const active =
+    evaluation.capped && evaluation.reviewed && evaluation.verdict === "ship";
+  return { active, issue: active ? evaluation.issue : null };
+}
+
+function ghJsonLines(args) {
+  const result = spawnSync("gh", args, { encoding: "utf8" });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(
-      `gh api issues/${pr}/comments failed: ${result.stderr || result.stdout}`,
-    );
+    throw new Error(`gh ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
   }
   return result.stdout
     .split("\n")
     .filter((line) => line.trim().length > 0)
-    .map((line) => {
-      const parsed = JSON.parse(line);
-      return { user: { login: parsed.login }, body: parsed.body };
-    });
+    .map((line) => JSON.parse(line));
+}
+
+function fetchIssueComments(repo, pr) {
+  return ghJsonLines([
+    "api",
+    `repos/${repo}/issues/${pr}/comments`,
+    "--paginate",
+    "--jq",
+    ".[] | {login: .user.login, body: .body}",
+  ]).map((c) => ({ user: { login: c.login }, body: c.body }));
+}
+
+function fetchReviews(repo, pr) {
+  return ghJsonLines([
+    "api",
+    `repos/${repo}/pulls/${pr}/reviews`,
+    "--paginate",
+    "--jq",
+    ".[] | {id: .id, login: .user.login, body: .body}",
+  ]).map((r) => ({ id: r.id, user: { login: r.login }, body: r.body }));
+}
+
+function fetchReviewComments(repo, pr) {
+  return ghJsonLines([
+    "api",
+    `repos/${repo}/pulls/${pr}/comments`,
+    "--paginate",
+    "--jq",
+    ".[] | {reviewId: .pull_request_review_id, login: .user.login, body: .body}",
+  ]).map((c) => ({
+    reviewId: c.reviewId,
+    user: { login: c.login },
+    body: c.body,
+  }));
+}
+
+function fetchAll(repo, pr) {
+  return {
+    issueComments: fetchIssueComments(repo, pr),
+    reviews: fetchReviews(repo, pr),
+    reviewComments: fetchReviewComments(repo, pr),
+  };
 }
 
 async function main() {
-  const [repo, pr, headSha] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const subcommand =
+    args[0] === "status" || args[0] === "resolve-post-cap"
+      ? args.shift()
+      : "status";
+  const [repo, pr, headSha] = args;
   if (!repo || !pr || !headSha) {
     console.error(
-      "Usage: node scripts/review-cap.mjs <owner/repo> <pr> <headSha>",
+      "Usage: node scripts/review-cap.mjs [status|resolve-post-cap] <owner/repo> <pr> <headSha>",
     );
     process.exitCode = 1;
     return;
   }
-  const comments = fetchComments(repo, pr);
-  const result = evaluateReviewCap({
-    comments,
-    headSha,
-    allowedReviewers: ["crypticpy", "propulse-bot[bot]"],
-  });
-  console.log(
-    `rounds=${result.rounds} capped=${result.capped} verdict=${result.verdict ?? "none"} ok=${result.ok} — ${result.reason}`,
-  );
-  if (result.capped && !result.ok) {
-    console.log(`::error::${result.reason}`);
-    process.exitCode = 1;
-  }
+  const evaluation = evaluateReviewCap({ ...fetchAll(repo, pr), headSha });
+  const output =
+    subcommand === "resolve-post-cap" ? postCapFollowup(evaluation) : evaluation;
+  console.log(JSON.stringify(output));
 }
 
 if (

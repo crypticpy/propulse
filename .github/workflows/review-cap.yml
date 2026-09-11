@@ -1,0 +1,346 @@
+name: review-cap
+
+# No human is in this loop: counting, labelling, and the architecture review
+# itself are all done here by automation. See docs/AGENT-CONSTITUTION.md,
+# "Review cap", and the one-time owner action (ANTHROPIC_API_KEY secret) in
+# issue #1054.
+on:
+  pull_request:
+    types: [synchronize]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  count:
+    name: review-cap / count
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'pull_request_review' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: read
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+      rounds: ${{ steps.status.outputs.rounds }}
+      capped: ${{ steps.status.outputs.capped }}
+      reviewed: ${{ steps.status.outputs.reviewed }}
+      verdict: ${{ steps.status.outputs.verdict }}
+      issue: ${{ steps.status.outputs.issue }}
+    steps:
+      - name: Resolve the PR number and head sha for this event
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            PR="$ISSUE_NUMBER"
+            HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
+              || { echo "::error::could not resolve the PR head for #${PR}"; exit 1; }
+          else
+            PR="$PR_NUMBER"
+            HEAD_SHA="$PR_HEAD_SHA"
+          fi
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "::error::resolved PR number '${PR}' is not numeric"
+            exit 1
+          fi
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+      # A checkout (not just `gh api`) is needed from here on: this job runs
+      # scripts/review-cap.mjs itself. The PR head is checked out explicitly
+      # (not the default `github.sha`) because an `issue_comment` run's
+      # ambient ref is the default branch, and because the script version
+      # under test on this very PR (#1054) must be the one that runs.
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ steps.resolve.outputs.pr }}/head
+      - name: Evaluate the review cap
+        id: status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.resolve.outputs.pr }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: |
+          RESULT=$(node scripts/review-cap.mjs status "$REPO" "$PR" "$HEAD_SHA") \
+            || { echo "::error::could not evaluate the review cap"; exit 1; }
+          echo "$RESULT"
+          echo "rounds=$(printf '%s' "$RESULT" | jq -r '.rounds')" >> "$GITHUB_OUTPUT"
+          echo "capped=$(printf '%s' "$RESULT" | jq -r '.capped')" >> "$GITHUB_OUTPUT"
+          echo "reviewed=$(printf '%s' "$RESULT" | jq -r '.reviewed')" >> "$GITHUB_OUTPUT"
+          echo "verdict=$(printf '%s' "$RESULT" | jq -r '.verdict')" >> "$GITHUB_OUTPUT"
+          echo "issue=$(printf '%s' "$RESULT" | jq -r '.issue')" >> "$GITHUB_OUTPUT"
+
+  label:
+    name: review-cap / label and post the stop checklist
+    needs: count
+    if: needs.count.outputs.capped == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Add review-capped and post the stop checklist once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+        run: |
+          LABELS=$(gh api "repos/${REPO}/issues/${PR}/labels" --paginate --jq '.[].name') \
+            || { echo "::error::could not list labels; will retry on the next trigger"; exit 1; }
+          if printf '%s\n' "$LABELS" | grep -qx 'review-capped'; then
+            echo "Already labeled."
+            exit 0
+          fi
+          gh api -X POST "repos/${REPO}/issues/${PR}/labels" -f "labels[]=review-capped" >/dev/null \
+            || echo "::error::could not add the review-capped label"
+          EXISTING=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '.[].body') \
+            || { echo "::error::could not list PR comments; the stop checklist may be posted again next run"; exit 1; }
+          if printf '%s' "$EXISTING" | grep -q '<!-- review-cap -->'; then
+            echo "Stop checklist already posted."
+            exit 0
+          fi
+          printf '%s\n' \
+            '<!-- review-cap -->' \
+            'This PR has reached five bot review rounds. Per `docs/AGENT-CONSTITUTION.md`' \
+            '("Review cap"), the fix loop stops here: no fix agent is dispatched to chase' \
+            'another individual finding. Automation in `.github/workflows/review-cap.yml`' \
+            'reads the diff, the files and every review thread across all rounds, then' \
+            'posts one of the following within a few minutes — no human comments here:' \
+            '' \
+            '- `ship`: opens a follow-up issue listing the finding family and every open' \
+            '  thread, posts the `**architecture review**` comment, and resolves every' \
+            '  unresolved thread with a pointer to the follow-up.' \
+            '- `redesign`: opens an issue with the redesign plan, posts the comment with' \
+            '  that verdict, and labels this PR `needs-redesign`.' \
+            '' \
+            'New bot threads opened after this comment are answered by that automation,' \
+            'not by a fix agent.' \
+            > /tmp/review-cap-comment.md
+          gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-comment.md >/dev/null \
+            || echo "::error::could not post the review-cap stop checklist"
+
+  architect:
+    name: review-cap / architecture review
+    needs: [count, label]
+    if: needs.count.outputs.capped == 'true' && needs.count.outputs.reviewed != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.count.outputs.pr }}/head
+          fetch-depth: 0
+      - name: Check the ANTHROPIC_API_KEY secret is configured
+        id: key
+        env:
+          KEY_PRESENT: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+        run: |
+          if [ "$KEY_PRESENT" = "true" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "present=false" >> "$GITHUB_OUTPUT"
+          EXISTING=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '.[].body') || EXISTING=""
+          if ! printf '%s' "$EXISTING" | grep -q '<!-- review-cap-no-key -->'; then
+            printf '%s\n' \
+              '<!-- review-cap-no-key -->' \
+              'This PR is review-capped and needs an **architecture review**, but the' \
+              '`ANTHROPIC_API_KEY` repository secret is not set, so the automation cannot' \
+              'run. Add it under Settings -> Secrets and variables -> Actions, then' \
+              're-run this workflow (docs/AGENT-CONSTITUTION.md, "Review cap"; issue #1054).' \
+              > /tmp/review-cap-no-key.md
+            gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-no-key.md >/dev/null \
+              || echo "::error::could not post the missing-secret notice"
+          fi
+          echo "::error::ANTHROPIC_API_KEY is not set; the architecture review cannot run."
+          exit 1
+      - name: Run the architecture review
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            You are the review-cap automation for pull request #${{ needs.count.outputs.pr }}
+            in ${{ github.repository }}. It has reached ${{ needs.count.outputs.rounds }}
+            bot review rounds, the cap defined in docs/AGENT-CONSTITUTION.md ("Review
+            cap") and issue #1054. No human is in this loop: you make the ship/redesign
+            call yourself, non-interactively, in this one run. Do not ask a question and
+            wait; decide from the evidence you gather.
+
+            You may use only these tools: `gh pr view`, `gh pr diff`, `gh api`,
+            `gh issue create`, `gh pr comment`, `gh pr edit`, Read, Grep, Glob. No other
+            Bash command is available to you (no plain `git`, no write to disk outside
+            what these commands do). The PR head is already checked out in your working
+            directory, so Read/Grep/Glob see the real files.
+
+            ## 1. Gather evidence
+
+            - `gh pr view ${{ needs.count.outputs.pr }} --json title,body,files,headRefOid`
+              for the PR shape and the exact head SHA (take the first 7 characters of
+              `headRefOid` as `<head7>` below — do not guess or shorten some other way).
+            - `gh pr diff ${{ needs.count.outputs.pr }}` for the full diff.
+            - Every review thread across every round:
+              `gh api graphql -f query='query($o:String!,$r:String!,$p:Int!){ repository(owner:$o,name:$r){ pullRequest(number:$p){ reviewThreads(first:100){ nodes{ id isResolved comments(first:20){ nodes{ author{ login } body } } } } } } }' -F o=<owner> -F r=<repo> -F p=${{ needs.count.outputs.pr }}`
+              (split `${{ github.repository }}` into owner/repo yourself). Read every
+              comment in every thread, resolved or not — the whole history of findings
+              and fixes across all rounds is the evidence, not just the open threads.
+            - Read the flagged files (Read/Grep/Glob) as needed to judge the design, not
+              just the diff hunks in isolation.
+
+            ## 2. Name the finding family
+
+            State, in one or two sentences, the shape the repeated findings share (for
+            example: "a hand-rolled process-table parser keeps missing platform-specific
+            output shapes" or "a regex-based scanner keeps missing a new escaping case").
+            This sentence is required in both the follow-up/redesign issue and is the
+            basis for your answer below.
+
+            ## 3. Answer, and decide
+
+            1. Is the thing being patched round after round the right design?
+            2. Would a different structure end the whole family of findings (a real
+               parser instead of a regex, a maintained library instead of a hand-rolled
+               implementation, an OS primitive instead of a file convention, etc.), or
+               are the fixes already converging and just needed more rounds than the cap
+               allows?
+            3. Decide: `ship` or `redesign`. Default to `ship` unless the answer to (2)
+               is clearly yes and the fix already landed does not address it — the cap
+               exists to force this decision, not to block every capped PR by default.
+
+            ## 4a. If you decide `ship`
+
+            1. `gh issue create` one follow-up issue. Title: reference the PR and the
+               finding family. Body: the finding family sentence, a link to this PR, and
+               every currently-*unresolved* review thread (quote the finding and its
+               permalink or thread id) as the residual edges being deferred, not fixed
+               now.
+            2. Post exactly this shape as a PR comment (`gh pr comment`), a bare verdict
+               line with nothing after the closing parenthesis, `<head7>` the value you
+               took from `headRefOid`, `<N>` the follow-up issue number:
+
+               **architecture review**
+               - agent: Claude (review-cap automation)
+               - Reviewed: <head7>
+               Verdict: ship (#<N>)
+
+            3. For every review thread from step 1's query where `isResolved` is false:
+               reply with
+               `gh api graphql -f query='mutation($id:ID!,$b:String!){ addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$b}){ comment{ id } } }' -F id=<thread id> -F b="Review cap reached at round ${{ needs.count.outputs.rounds }} (#1054); tracked in #<N>."`,
+               then resolve it with
+               `gh api graphql -f query='mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id isResolved } } }' -F id=<thread id>`.
+
+            ## 4b. If you decide `redesign`
+
+            1. `gh issue create` one issue with the finding family sentence and a concrete
+               redesign plan (what structure replaces the patched-in-place approach, and
+               why it ends the family).
+            2. Post exactly this shape as a PR comment (`gh pr comment`), same rules as
+               above:
+
+               **architecture review**
+               - agent: Claude (review-cap automation)
+               - Reviewed: <head7>
+               Verdict: redesign (#<N>)
+
+            3. `gh pr edit ${{ needs.count.outputs.pr }} --add-label needs-redesign`.
+
+            ## Rules
+
+            - Post the `**architecture review**` comment exactly once. Before posting,
+              check the PR's existing comments (from your `gh pr view` / thread query
+              above) for one already matching this head; if you find one, stop and do
+              nothing further.
+            - The `Verdict:` line must be bare: exactly `Verdict: ship (#<N>)` or
+              `Verdict: redesign (#<N>)`, nothing before or after on that line.
+            - Never post the comment as anyone else and never claim a different agent
+              name; the `agent:` line is always `Claude (review-cap automation)`.
+          claude_args: >-
+            --model claude-opus-5 --max-turns 40 --allowedTools "Bash(gh pr
+            view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(gh issue
+            create:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Read,Grep,Glob"
+
+  post-cap-resolver:
+    name: review-cap / resolve post-cap threads
+    needs: count
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      needs.count.outputs.capped == 'true' &&
+      needs.count.outputs.verdict == 'ship'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.count.outputs.pr }}/head
+      - name: Resolve new post-cap threads against the shipped follow-up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+          HEAD_SHA: ${{ needs.count.outputs.head_sha }}
+          ROUNDS: ${{ needs.count.outputs.rounds }}
+        run: |
+          FOLLOWUP=$(node scripts/review-cap.mjs resolve-post-cap "$REPO" "$PR" "$HEAD_SHA") \
+            || { echo "::error::could not resolve the post-cap follow-up"; exit 1; }
+          echo "$FOLLOWUP"
+          ACTIVE=$(printf '%s' "$FOLLOWUP" | jq -r '.active')
+          ISSUE=$(printf '%s' "$FOLLOWUP" | jq -r '.issue')
+          if [ "$ACTIVE" != "true" ]; then
+            echo "No shipped follow-up for this head; nothing to resolve."
+            exit 0
+          fi
+          OWNER="${REPO%%/*}"
+          NAME="${REPO##*/}"
+          THREADS=$(gh api graphql -f query='
+              query($owner:String!, $name:String!, $pr:Int!) {
+                repository(owner:$owner, name:$name) {
+                  pullRequest(number:$pr) {
+                    reviewThreads(first:100) { nodes { id isResolved } }
+                  }
+                }
+              }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
+              --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | .id') \
+            || { echo "::error::could not list review threads"; exit 1; }
+          if [ -z "$THREADS" ]; then
+            echo "No unresolved threads."
+            exit 0
+          fi
+          MESSAGE="Review cap reached at round ${ROUNDS} (#1054); tracked in #${ISSUE}."
+          while IFS= read -r THREAD_ID; do
+            [ -n "$THREAD_ID" ] || continue
+            gh api graphql -f query='
+                mutation($id:ID!, $body:String!) {
+                  addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) {
+                    comment { id }
+                  }
+                }' -F id="$THREAD_ID" -F body="$MESSAGE" >/dev/null \
+              || { echo "::error::could not reply to thread ${THREAD_ID}"; continue; }
+            gh api graphql -f query='
+                mutation($id:ID!) {
+                  resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } }
+                }' -F id="$THREAD_ID" >/dev/null \
+              || echo "::error::could not resolve thread ${THREAD_ID}"
+          done <<< "$THREADS"

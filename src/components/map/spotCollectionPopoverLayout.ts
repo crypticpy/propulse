@@ -46,9 +46,28 @@ export function readRootFontPx(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : ROOT_FONT_PX_DEFAULT;
 }
 
-/** The height the wall list must reserve for `spot`, matching the row markup
- * in `SpotCollectionPopover`: the grid/comment line renders whenever either
- * field is present (it prints "Grid unavailable" for a bare comment). */
+/** One badge line's worth of wrap allowance. The badge row is `flex-wrap`,
+ * so at a clamped popover width or a large text scale the band/mode/source
+ * badges spill onto a second line and the row outgrows any single-line
+ * estimate (#879 review round 4). The estimate below is only used before the
+ * first paint, so it is deliberately conservative: it assumes one wrap, and
+ * the real heights measured from the rendered rows replace it immediately
+ * after. */
+export const SPOT_COLLECTION_WALL_WRAP_REM = 1.25;
+
+/** Whether `spot` renders the taller grid/comment variant: the third line
+ * appears whenever either field is present (it prints "Grid unavailable" for
+ * a bare comment). */
+export function wallRowIsDetail(spot: {
+  dxGrid?: string | null;
+  comment?: string | null;
+}): boolean {
+  return Boolean(spot.dxGrid || spot.comment);
+}
+
+/** The pre-paint estimate of the height `spot`'s row needs, in px at
+ * `rootFontPx`. Conservative by one wrapped badge line; see
+ * `resolveWallRowHeights` for the measured heights that supersede it. */
 export function wallRowHeight(
   spot: {
     dxGrid?: string | null;
@@ -56,11 +75,49 @@ export function wallRowHeight(
   },
   rootFontPx: number = ROOT_FONT_PX_DEFAULT,
 ): number {
-  const rem =
-    spot.dxGrid || spot.comment
-      ? SPOT_COLLECTION_WALL_DETAIL_ROW_REM
-      : SPOT_COLLECTION_WALL_ROW_REM;
-  return rem * rootFontPx;
+  const rem = wallRowIsDetail(spot)
+    ? SPOT_COLLECTION_WALL_DETAIL_ROW_REM
+    : SPOT_COLLECTION_WALL_ROW_REM;
+  return (rem + SPOT_COLLECTION_WALL_WRAP_REM) * rootFontPx;
+}
+
+/**
+ * The heights to budget the whole collection with, given the heights actually
+ * measured from the rows that are currently rendered (`measuredRowHeights`,
+ * in render order; zero or missing entries mean "not measured").
+ *
+ * A row that is not rendered cannot be measured, so it inherits the tallest
+ * measured height of its own kind -- the detail rows and the two-line rows
+ * wrap differently, and the boundary row is always one of the two kinds
+ * already on screen. Only a collection with no measured row at all falls back
+ * to the rem estimate.
+ */
+export function resolveWallRowHeights(
+  spots: readonly {
+    dxGrid?: string | null;
+    comment?: string | null;
+  }[],
+  measuredRowHeights: readonly number[],
+  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
+): number[] {
+  let detailMeasured = 0;
+  let plainMeasured = 0;
+  spots.forEach((spot, index) => {
+    const measured = measuredRowHeights[index] ?? 0;
+    if (measured <= 0) return;
+    if (wallRowIsDetail(spot)) {
+      detailMeasured = Math.max(detailMeasured, measured);
+    } else {
+      plainMeasured = Math.max(plainMeasured, measured);
+    }
+  });
+
+  return spots.map((spot, index) => {
+    const measured = measuredRowHeights[index] ?? 0;
+    if (measured > 0) return measured;
+    const kindMeasured = wallRowIsDetail(spot) ? detailMeasured : plainMeasured;
+    return kindMeasured > 0 ? kindMeasured : wallRowHeight(spot, rootFontPx);
+  });
 }
 
 export interface SpotCollectionPopoverLayout {
@@ -160,15 +217,27 @@ export function resolveSpotCollectionPortalElement(
   return isUsableHostRect(rect.width, rect.height) ? portalTarget : null;
 }
 
+/**
+ * `portalElement` is the SESSION-LOCKED container from
+ * `resolveSpotCollectionPortalElement`, not the raw `portalTarget`. The frame
+ * choice has to be locked with the portal or the two disagree: a popover
+ * opened while the host was unusable portals into `document.body` and is
+ * placed with a fixed viewport frame, and a later resize that made the host
+ * usable would otherwise recompute an absolute host-local frame while the
+ * children still hang off `body`, throwing the panel to the wrong corner
+ * (#879 review round 4). `null` means the body portal and therefore the fixed
+ * viewport frame; an element means the absolute host frame, for as long as
+ * the popover stays open.
+ */
 export function computeSpotCollectionPopoverLayout(
   position: ScreenAnchor,
-  portalTarget: Element | null | undefined,
+  portalElement: Element | null | undefined,
   boundsHost: Element | null | undefined,
   /** Bumps when host geometry changes so callers can invalidate memoized layout. */
   layoutEpoch = 0,
 ): SpotCollectionPopoverLayout {
   void layoutEpoch;
-  const measuredHost = portalTarget ?? boundsHost;
+  const measuredHost = portalElement ?? boundsHost;
   let rawFrame = resolveOverlayFrame(measuredHost);
 
   if (
@@ -177,11 +246,16 @@ export function computeSpotCollectionPopoverLayout(
     measuredHost !== document.documentElement &&
     !isUsableHostRect(rawFrame.width, rawFrame.height)
   ) {
-    rawFrame = resolveOverlayFrame(null);
+    const viewport = resolveOverlayFrame(null);
+    // A locked host that degenerates mid-session keeps its coordinate space:
+    // the children still live inside it, so viewport-sized but host-local.
+    rawFrame = portalElement
+      ? { ...viewport, left: 0, top: 0, position: "absolute" }
+      : viewport;
   }
 
   const frame: OverlayFrame =
-    !portalTarget && boundsHost ? { ...rawFrame, position: "fixed" } : rawFrame;
+    !portalElement && boundsHost ? { ...rawFrame, position: "fixed" } : rawFrame;
 
   const overlaySize = {
     width: Math.min(POPOVER_WIDTH, frame.width - EDGE_PADDING * 2),
@@ -206,8 +280,6 @@ export function computeSpotCollectionPopoverLayout(
       ? frame.top + adjustedPosition.y
       : adjustedPosition.y;
 
-  const portalElement = resolveSpotCollectionPortalElement(portalTarget);
-
   return {
     frame,
     overlaySize,
@@ -215,6 +287,6 @@ export function computeSpotCollectionPopoverLayout(
     maxHeight,
     screenLeft,
     screenTop,
-    portalElement,
+    portalElement: portalElement ?? null,
   };
 }

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { LiveSpot } from "@/types/livespot";
 import {
@@ -13,8 +20,8 @@ import {
   deriveWallVisibleSpotCount,
   readRootFontPx,
   resolveSpotCollectionPortalElement,
+  resolveWallRowHeights,
   ROOT_FONT_PX_DEFAULT,
-  wallRowHeight,
 } from "./spotCollectionPopoverLayout";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
@@ -87,6 +94,12 @@ export function SpotCollectionPopover({
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
+  const wallListRef = useRef<HTMLDivElement>(null);
+  // Real heights of the rows that are currently rendered, in render order.
+  // The rem budgets are only an estimate: the badge line is `flex-wrap`, so a
+  // clamped width or a large text scale makes a row taller than any
+  // single-line formula predicts (#879 review round 4).
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<number[]>([]);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
   // The wall row budgets are rem, so the cap has to know the real root font
   // size: the text-scale control takes it from 14.4px to 22px, and a 16px
@@ -117,22 +130,42 @@ export function SpotCollectionPopover({
     };
   }, [spots]);
 
+  // Resolved once per open session per `portalTarget` identity, NOT from
+  // `layout.portalElement`: that value is recomputed on every host resize, and
+  // a host that dips below the usability threshold mid-resize would otherwise
+  // swap the portal container, remount the popover, and drop keyboard focus to
+  // `<body>` (#879 review round). The focus effect below also lists it as a
+  // dependency so any container change that does happen re-runs focus setup.
+  const portalElement = useMemo(
+    () => (visible ? resolveSpotCollectionPortalElement(portalTarget) : null),
+    [portalTarget, visible],
+  );
+
+  // The frame is computed from the LOCKED container, never from the raw
+  // `portalTarget`: an open session that portals into `document.body` must
+  // keep the fixed viewport frame even after the host becomes usable again,
+  // or the panel is placed in host-local coordinates while its children hang
+  // off `body` (#879 review round 4).
   const layout = useMemo(
     () =>
       computeSpotCollectionPopoverLayout(
         position,
-        portalTarget,
+        portalElement,
         boundsHost,
         layoutEpoch,
       ),
-    [boundsHost, layoutEpoch, portalTarget, position],
+    [boundsHost, layoutEpoch, portalElement, position],
   );
 
   // Per-row heights, not a count: rows carrying a grid or comment render a
   // third line, so the cap has to budget them individually (#879 review).
+  // Measured heights win; an unrendered row inherits the tallest measured
+  // height of its own kind (detail vs two-line), which is why no extra probe
+  // row has to be rendered to size the boundary row. The rem estimate is the
+  // pre-paint fallback only.
   const wallRowHeights = useMemo(
-    () => sortedSpots.map((spot) => wallRowHeight(spot, rootFontPx)),
-    [rootFontPx, sortedSpots],
+    () => resolveWallRowHeights(sortedSpots, measuredRowHeights, rootFontPx),
+    [measuredRowHeights, rootFontPx, sortedSpots],
   );
 
   const wallVisibleCount = useMemo(
@@ -153,17 +186,6 @@ export function SpotCollectionPopover({
     ],
   );
 
-  // Resolved once per open session per `portalTarget` identity, NOT from
-  // `layout.portalElement`: that value is recomputed on every host resize, and
-  // a host that dips below the usability threshold mid-resize would otherwise
-  // swap the portal container, remount the popover, and drop keyboard focus to
-  // `<body>` (#879 review round). The focus effect below also lists it as a
-  // dependency so any container change that does happen re-runs focus setup.
-  const portalElement = useMemo(
-    () => (visible ? resolveSpotCollectionPortalElement(portalTarget) : null),
-    [portalTarget, visible],
-  );
-
   // Rows shown when the wall's no-scroll rule caps the list instead of
   // scrolling it. `sortedSpots` itself (and its `.length`) is left untouched
   // — focus-home depends on the full count, not the wall-visible slice.
@@ -171,6 +193,31 @@ export function SpotCollectionPopover({
     ? sortedSpots.slice(0, wallVisibleCount)
     : sortedSpots;
   const hiddenSpotCount = sortedSpots.length - visibleSpots.length;
+
+  // Measured after paint, inside the same layout epoch that placed the
+  // popover: `offsetHeight` of every rendered row. jsdom (and any pre-layout
+  // pass) reports 0, which `resolveWallRowHeights` reads as "not measured".
+  useLayoutEffect(() => {
+    if (!visible || !isWallCanvas) return;
+    const rows = wallListRef.current?.querySelectorAll<HTMLElement>(
+      "[data-spot-row]",
+    );
+    if (!rows) return;
+    const next = Array.from(rows, (row) => row.offsetHeight);
+    setMeasuredRowHeights((previous) =>
+      previous.length === next.length &&
+      previous.every((height, index) => height === next[index])
+        ? previous
+        : next,
+    );
+  }, [
+    isWallCanvas,
+    layoutEpoch,
+    rootFontPx,
+    sortedSpots,
+    visible,
+    visibleSpots.length,
+  ]);
 
   useEffect(() => {
     if (!visible) return;
@@ -298,6 +345,7 @@ export function SpotCollectionPopover({
         }
       >
         <div
+          ref={wallListRef}
           className={
             isWallCanvas ? "min-h-0 flex-1 overflow-hidden p-1" : undefined
           }
@@ -321,6 +369,7 @@ export function SpotCollectionPopover({
               ref={index === 0 ? firstSpotRef : undefined}
               key={spot.id || `${spot.dx}-${spot.frequency}-${index}`}
               onClick={() => onSpotSelect(spot)}
+              data-spot-row=""
               className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"
               aria-label={`Select ${spot.dx} and view details`}
             >

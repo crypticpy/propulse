@@ -5,11 +5,13 @@ import {
   EDGE_PADDING,
   resolveSpotCollectionPortalElement,
   readRootFontPx,
+  resolveWallRowHeights,
   ROOT_FONT_PX_DEFAULT,
   SPOT_COLLECTION_POPOVER_CHROME_REM,
   SPOT_COLLECTION_WALL_DETAIL_ROW_REM,
   SPOT_COLLECTION_WALL_MORE_ROW_REM,
   SPOT_COLLECTION_WALL_ROW_REM,
+  SPOT_COLLECTION_WALL_WRAP_REM,
   wallRowHeight,
 } from "./spotCollectionPopoverLayout";
 
@@ -18,9 +20,11 @@ import {
 const SPOT_COLLECTION_POPOVER_CHROME_HEIGHT =
   SPOT_COLLECTION_POPOVER_CHROME_REM * ROOT_FONT_PX_DEFAULT;
 const SPOT_COLLECTION_WALL_ROW_HEIGHT =
-  SPOT_COLLECTION_WALL_ROW_REM * ROOT_FONT_PX_DEFAULT;
+  (SPOT_COLLECTION_WALL_ROW_REM + SPOT_COLLECTION_WALL_WRAP_REM) *
+  ROOT_FONT_PX_DEFAULT;
 const SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT =
-  SPOT_COLLECTION_WALL_DETAIL_ROW_REM * ROOT_FONT_PX_DEFAULT;
+  (SPOT_COLLECTION_WALL_DETAIL_ROW_REM + SPOT_COLLECTION_WALL_WRAP_REM) *
+  ROOT_FONT_PX_DEFAULT;
 const SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT =
   SPOT_COLLECTION_WALL_MORE_ROW_REM * ROOT_FONT_PX_DEFAULT;
 
@@ -120,7 +124,7 @@ describe("deriveWallVisibleSpotCount (#879)", () => {
   });
 });
 
-describe("wallRowHeight (#879 review)", () => {
+describe("wallRowHeight estimate (#879 review)", () => {
   it("reserves the third line for a grid or a comment", () => {
     expect(wallRowHeight({ dxGrid: "DM79" })).toBe(
       SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
@@ -132,6 +136,49 @@ describe("wallRowHeight (#879 review)", () => {
     expect(wallRowHeight({ dxGrid: "", comment: "" })).toBe(
       SPOT_COLLECTION_WALL_ROW_HEIGHT,
     );
+  });
+});
+
+describe("the frame is locked to the portal (#879 review round 4)", () => {
+  it("keeps the viewport frame when the host becomes usable after the lock", () => {
+    // Session opened while the host was unusable: the portal is `body`, so
+    // the frame must stay fixed/viewport for the whole session even though
+    // the host now measures fine. Recomputing from the host would place the
+    // panel in host-local coordinates while its children hang off `body`.
+    const host = makeHost(8, 8);
+    const locked = resolveSpotCollectionPortalElement(host);
+    expect(locked).toBeNull();
+
+    host.getBoundingClientRect = makeHost(400, 600, 120, 80)
+      .getBoundingClientRect;
+    const layout = computeSpotCollectionPopoverLayout(
+      { x: 100, y: 300 },
+      locked,
+      undefined,
+      1,
+    );
+
+    expect(layout.frame.position).toBe("fixed");
+    expect(layout.frame.width).toBe(window.innerWidth);
+    expect(layout.portalElement).toBeNull();
+  });
+
+  it("keeps host-local coordinates when a locked host degenerates", () => {
+    const host = makeHost(400, 600, 120, 80);
+    const locked = resolveSpotCollectionPortalElement(host);
+    expect(locked).toBe(host);
+
+    host.getBoundingClientRect = makeHost(8, 8).getBoundingClientRect;
+    const layout = computeSpotCollectionPopoverLayout(
+      { x: 100, y: 300 },
+      locked,
+      undefined,
+      1,
+    );
+
+    expect(layout.frame.position).toBe("absolute");
+    expect(layout.screenLeft).toBe(layout.adjustedPosition.x);
+    expect(layout.portalElement).toBe(host);
   });
 });
 
@@ -188,6 +235,79 @@ describe("wall row budgets follow the root font size (#879 review round 3)", () 
   });
 });
 
+describe("measured row heights beat the estimate (#879 review round 4)", () => {
+  const spots = Array.from({ length: 40 }, () => ({ dxGrid: "DM79" }));
+  const maxHeight = 520;
+
+  it("reduces the count when the rendered rows are taller than the estimate", () => {
+    const estimated = deriveWallVisibleSpotCount(
+      maxHeight,
+      resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT),
+      ROOT_FONT_PX_DEFAULT,
+    );
+    // The badge line wrapped: every rendered row measures taller than the
+    // pre-paint estimate, so fewer rows fit.
+    const taller = wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT) + 24;
+    const measured = Array.from({ length: estimated }, () => taller);
+    const withMeasurements = deriveWallVisibleSpotCount(
+      maxHeight,
+      resolveWallRowHeights(spots, measured, ROOT_FONT_PX_DEFAULT),
+      ROOT_FONT_PX_DEFAULT,
+    );
+
+    expect(withMeasurements).toBeLessThan(estimated);
+  });
+
+  it("never accumulates past the budget with measured heights", () => {
+    const taller = 96;
+    let heights = resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT);
+    let visible = deriveWallVisibleSpotCount(
+      maxHeight,
+      heights,
+      ROOT_FONT_PX_DEFAULT,
+    );
+    // Two measure/derive passes, the way the layout effect re-runs when the
+    // rendered row count changes.
+    for (let pass = 0; pass < 2; pass += 1) {
+      const measured = Array.from({ length: visible }, () => taller);
+      heights = resolveWallRowHeights(spots, measured, ROOT_FONT_PX_DEFAULT);
+      visible = deriveWallVisibleSpotCount(
+        maxHeight,
+        heights,
+        ROOT_FONT_PX_DEFAULT,
+      );
+    }
+
+    const used =
+      visible * taller + SPOT_COLLECTION_WALL_MORE_ROW_REM * ROOT_FONT_PX_DEFAULT;
+    expect(used).toBeLessThanOrEqual(
+      maxHeight - SPOT_COLLECTION_POPOVER_CHROME_REM * ROOT_FONT_PX_DEFAULT,
+    );
+  });
+
+  it("gives an unmeasured row the tallest measured height of its own kind", () => {
+    const mixed = [{ dxGrid: "DM79" }, {}, { dxGrid: "DM79" }, {}];
+    const heights = resolveWallRowHeights(
+      mixed,
+      [90, 60],
+      ROOT_FONT_PX_DEFAULT,
+    );
+
+    expect(heights).toEqual([90, 60, 90, 60]);
+  });
+
+  it("falls back to the estimate only while nothing is measured", () => {
+    expect(resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT)[0]).toBe(
+      wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT),
+    );
+    // jsdom and any pre-layout pass report 0; that is "not measured", not
+    // "zero tall".
+    expect(resolveWallRowHeights(spots, [0, 0], ROOT_FONT_PX_DEFAULT)[0]).toBe(
+      wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT),
+    );
+  });
+});
+
 describe("resolveSpotCollectionPortalElement (#879 review)", () => {
   it("returns the host only when its rect is usable", () => {
     expect(resolveSpotCollectionPortalElement(makeHost(400, 600))).toBeTruthy();
@@ -200,10 +320,13 @@ describe("resolveSpotCollectionPortalElement (#879 review)", () => {
 
 describe("computeSpotCollectionPopoverLayout (#879)", () => {
   it("falls back to the viewport frame when the portal host rect is degenerate", () => {
+    // The caller passes the LOCKED container, which a degenerate host never
+    // becomes -- so the frame is the viewport one that matches the body
+    // portal the popover will actually use.
     const host = makeHost(8, 8);
     const layout = computeSpotCollectionPopoverLayout(
       { x: 100, y: 300 },
-      host,
+      resolveSpotCollectionPortalElement(host),
       undefined,
     );
 

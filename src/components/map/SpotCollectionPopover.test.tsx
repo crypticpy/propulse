@@ -195,14 +195,14 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       // at the two-line height fitted a sixth row the clipped body could not
       // show while the aria label and "+N more" still counted it (#879
       // review round).
-      expect(rows).toHaveLength(5);
-      expect(screen.getByText("+75 more")).toBeTruthy();
+      expect(rows).toHaveLength(4);
+      expect(screen.getByText("+76 more")).toBeTruthy();
 
       const panel = screen.getByRole("dialog");
       // F7: the announced count must match what is actually on screen, not
       // the full un-capped collection.
       expect(panel.getAttribute("aria-label")).toBe(
-        "Test collection: showing 5 of 80 spots",
+        "Test collection: showing 4 of 80 spots",
       );
       const list = panel.querySelector(":scope > div:nth-child(2)");
       expect(list?.className).toContain("overflow-hidden");
@@ -248,8 +248,8 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       expect(useWorkspaceStore.getState().canvasTypeOverride).toBeNull();
       expect(
         screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(5);
-      expect(screen.getByText("+75 more")).toBeTruthy();
+      ).toHaveLength(4);
+      expect(screen.getByText("+76 more")).toBeTruthy();
       host.remove();
     });
 
@@ -269,7 +269,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       );
 
       const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
-      expect(rows.length).toBeLessThan(5);
+      expect(rows.length).toBeLessThan(4);
       expect(rows.length).toBeGreaterThan(0);
       expect(screen.getByText(/\+\d+ more/)).toBeTruthy();
       host.remove();
@@ -291,7 +291,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       );
 
       const panel = screen.getByRole("dialog");
-      const moreRow = screen.getByText("+75 more");
+      const moreRow = screen.getByText("+76 more");
       const listBody = panel.querySelector(":scope > div:nth-child(2)");
       const clippedRows = listBody?.querySelector(":scope > div:first-child");
 
@@ -319,7 +319,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
 
       expect(
         screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(5);
+      ).toHaveLength(4);
 
       host.getBoundingClientRect = () =>
         ({
@@ -339,7 +339,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       await vi.waitFor(() => {
         expect(
           screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
-        ).toBeLessThan(5);
+        ).toBeLessThan(4);
       });
       host.remove();
     });
@@ -424,6 +424,96 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         document.documentElement.style.fontSize = "";
         host.remove();
       }
+    });
+
+    it("measures the rendered rows and drops the count when they are taller than the estimate (#879 review round 4)", async () => {
+      // The badge line is `flex-wrap`: at a clamped width or a large text
+      // scale a row is taller than any rem formula predicts, so the rendered
+      // rows are measured and the real heights drive the cap. jsdom does no
+      // layout, so `offsetHeight` is stubbed to stand in for the wrap.
+      const host = makeHost(400, 600);
+      const measured = vi
+        .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          return this.hasAttribute("data-spot-row") ? 140 : 0;
+        });
+
+      try {
+        render(
+          <SpotCollectionPopover
+            visible
+            isWallCanvas
+            position={{ x: 100, y: 300 }}
+            title="Test collection"
+            spots={makeSpots(80)}
+            portalTarget={host}
+            onClose={() => {}}
+            onSpotSelect={() => {}}
+          />,
+        );
+
+        const panel = screen.getByRole("dialog");
+        await vi.waitFor(() => {
+          const rows = screen.getAllByRole("button", {
+            name: /Select K\d+ABC/,
+          });
+          const listBudget =
+            Number.parseFloat(panel.style.maxHeight) -
+            SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
+          expect(rows.length * 140 + SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT).
+            toBeLessThanOrEqual(listBudget);
+        });
+
+        const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+        // Four rows fit the pre-paint estimate; 140px rows do not.
+        expect(rows.length).toBeLessThan(4);
+        expect(rows.length).toBeGreaterThan(0);
+      } finally {
+        measured.mockRestore();
+        host.remove();
+      }
+    });
+
+    it("keeps the body portal's fixed frame when the host becomes usable mid-session (#879 review round 4)", async () => {
+      // Opened while the host was unusable: the popover portals into
+      // `document.body`. A later resize that makes the host measurable must
+      // not switch the placement to absolute host-local coordinates while the
+      // children still hang off `body`.
+      const host = makeHost(8, 8);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(10)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      const panel = screen.getByRole("dialog");
+      expect(panel.closest("body")).toBe(document.body);
+      expect(host.contains(panel)).toBe(false);
+      expect(panel.style.position).toBe("fixed");
+      const before = {
+        left: panel.style.left,
+        top: panel.style.top,
+      };
+
+      host.getBoundingClientRect = makeHost(400, 600, 120, 80)
+        .getBoundingClientRect;
+      window.dispatchEvent(new Event("resize"));
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole("dialog").style.position).toBe("fixed");
+      });
+      const after = screen.getByRole("dialog");
+      expect(host.contains(after)).toBe(false);
+      expect(after.style.left).toBe(before.left);
+      expect(after.style.top).toBe(before.top);
+      host.remove();
     });
 
     it("keeps the portal container and keyboard focus when the host rect degenerates mid-resize (#879)", async () => {

@@ -94,7 +94,7 @@ export function BandPresetManager() {
             className={`text-xs px-2 py-1 rounded border transition-colors ${
               atLimit
                 ? "text-su-muted border-su-line/20 cursor-not-allowed"
-                : "text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/10"
+                : "text-su-text border-plasma-orange/30 hover:bg-plasma-orange/10"
             }`}
           >
             + Add Preset

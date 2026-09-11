@@ -11,7 +11,7 @@ import {
 } from "@/lib/map/anchoredOverlay";
 import { PathPointCard } from "./PathPointCard";
 import { PathPointList } from "./PathPointList";
-import { useMapSurfaceFocus } from "./MapSurfaceContext";
+import { useFocusHome } from "./hooks/useFocusHome";
 
 const CARD_WIDTH = 340;
 const CARD_HEIGHT = 460;
@@ -53,18 +53,6 @@ export function PathPointInspector({
   onOpenList,
 }: PathPointInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  // Whether focus actually entered this panel while it was open (#824, Codex
-  // round 3). See `PinFlyout.tsx` for the full reasoning. This one has a real
-  // body-origin path where focus never enters: clicking the path trace
-  // itself (`RayPathArc`'s `onTraceClick`) opens the panel in "path" overview
-  // mode with no `selectedId`, so `PathPointList`'s own mount-time focus
-  // effect early-returns and nothing inside ever takes focus unless the user
-  // tabs in. Closing from there without ever having done so must not move
-  // focus to the map surface.
-  const heldFocusRef = useRef(false);
-  const focusMapSurface = useMapSurfaceFocus();
   const selected = pointSet.points.find((point) => point.id === selectedId) ?? null;
   const hovered = pointSet.points.find((point) => point.id === hoveredId) ?? null;
   const showPanel = open === "card" || open === "path";
@@ -116,80 +104,11 @@ export function PathPointInspector({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onClose, showPanel]);
 
-  // Focus home (#797/#824). The panel opens from a 3D hit-test (never a DOM
-  // focus change) and does not steal focus into itself, but `PathPointList`
-  // and `PathPointCard` render real tabbable content, so a keyboard user can
-  // Tab into the panel while it is open. If `open` then leaves "card"/"path"
-  // while that content holds focus, the panel unmounts and the browser drops
-  // focus to `<body>`.
-  useEffect(() => {
-    if (!showPanel) return;
-    if (fallbackTimerRef.current !== null) {
-      window.clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const root = panelRef.current;
-    const active = document.activeElement;
-    // React runs child effects before parent effects in the same commit
-    // (#824, Codex round 4): when this panel opens with a `selectedId`
-    // already set, `PathPointList`'s own mount effect synchronously focuses
-    // the selected option before this effect runs, so `active` here can
-    // already be inside `root`. That is not "where focus came from" — it is
-    // where a child just put it — so it must be excluded from both the
-    // restore capture and the initial held-focus state below.
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
-        ? active
-        : null;
-    heldFocusRef.current = root?.contains(active) ?? false;
-    const handleFocusIn = () => {
-      heldFocusRef.current = true;
-    };
-    root?.addEventListener("focusin", handleFocusIn);
-    return () => {
-      root?.removeEventListener("focusin", handleFocusIn);
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      // Gate the whole restore on focus having actually died with this
-      // panel, not just the deferred fallback below (#824). See
-      // `PinFlyout.tsx` for the full mutation-phase reasoning: by the time
-      // this cleanup runs, `activeElement === body` means focus died with
-      // the panel; anything else means a live element legitimately owns
-      // focus and must not be yanked back.
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      // You cannot restore what was never taken (#824 round 3; moved ahead
-      // of the restore branch in round 5, Codex on PR #842): the "path"
-      // overview mode opens with no `selectedId`, so nothing inside this
-      // panel takes focus unless the user tabs in, and a pointer-only
-      // interaction can blur a persistent control to `<body>` without focus
-      // ever entering this panel either way. `<body>` here otherwise reads
-      // the same as "this panel held focus and its removal dropped it", so
-      // both the restore below and the fallback beneath it must be gated on
-      // `heldFocusRef`: cleanup only ever gives back focus it actually held.
-      if (!heldFocusRef.current) return;
-      if (previousFocus?.isConnected) {
-        previousFocus.focus();
-        return;
-      }
-      // Deferred one tick for the same reason as `SpotCollectionPopover`
-      // (#824): nothing in this component's own close paths chains into
-      // another overlay's mount today, but calling this inline would make
-      // that true for the next caller who wires one up, silently, and the
-      // deferred form costs nothing when nothing else is watching.
-      // Cancelled if setup runs again (#824, found by Codex on PR #842).
-      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
-      // so the simulated cleanup schedules this timer while the overlay is
-      // in fact still open; without the cancel it fires and moves focus to
-      // the surface, and merely hovering changes keyboard focus in dev. Any
-      // re-run of setup means the overlay is open again, which makes a
-      // pending fallback stale by definition.
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (document.activeElement === document.body) focusMapSurface?.();
-      }, 0);
-    };
-  }, [focusMapSurface, showPanel]);
+  // Focus home (#797/#824/#848). The panel opens from a 3D hit-test and
+  // does not steal focus into itself, but `PathPointList` and `PathPointCard`
+  // render real tabbable content. Closing from path-overview mode without
+  // ever tabbing in must not move focus to the map surface.
+  useFocusHome(showPanel, panelRef);
 
   const overlay = (
     <>

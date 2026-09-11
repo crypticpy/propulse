@@ -53,6 +53,14 @@ export function useDockTabReconciler(): void {
   const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const dockKey = dockKeyForSession(sessionId);
   const setDockTab = useContestUIStore((s) => s.setDockTab);
+  const markExplicitDockTab = useContestUIStore((s) => s.markExplicitDockTab);
+  // The scope under which the operator last explicitly chose this dock's tab.
+  // The intent is ephemeral, so this persisted marker is the only thing a
+  // late-joining window (or this one after a reload) has to tell an explicit
+  // tab from a stale one (#884 round 10).
+  const explicitScope = useContestUIStore(
+    (s) => s.explicitDockTabScopeByDockKey[dockKey],
+  );
   const posture = useOpsPostureStore((s) => s.posture);
   const { scope } = useMapOperationalContext();
   const dockTabIntent = useContestUIEphemeralStore((s) => s.dockTabIntent);
@@ -90,6 +98,10 @@ export function useDockTabReconciler(): void {
       }
       if (dockTabIntent.scope === scope) {
         clearDockTabIntent();
+        // The scope has settled, so this is the moment to record what the
+        // choice was made under; every window that hydrates the tab later can
+        // then tell it is explicit.
+        markExplicitDockTab(dockKey, scope);
         heldAgainst.current = null;
         reconciled.current = { scope, dockKey };
         return;
@@ -109,6 +121,14 @@ export function useDockTabReconciler(): void {
     }
     const previous = reconciled.current;
     reconciled.current = { scope, dockKey };
+    if (previous === null && explicitScope === scope) {
+      // First run in this window — a new /map/ops window, or this one after a
+      // reload. The persisted tab was explicitly chosen under the scope that is
+      // still current, so it stands exactly as it would have in the window that
+      // made the choice: until the scope changes once, or the session does (a
+      // session change is a different dock key, so the marker cannot match).
+      return;
+    }
     // An explicit scope selection is the operator speaking, exactly like a tab
     // click: it reconciles even when the resolved scope did not move (picking
     // Log while the rig is already up) and even from Contact or Desk (picking
@@ -133,6 +153,8 @@ export function useDockTabReconciler(): void {
     clearDockTabIntent,
     dockKey,
     dockTabIntent,
+    explicitScope,
+    markExplicitDockTab,
     stampDockTabIntent,
     posture,
     scope,

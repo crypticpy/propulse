@@ -104,7 +104,10 @@ beforeEach(() => {
     selectedReport: null,
   });
   useOpsPostureStore.getState().reset();
-  useContestUIStore.setState({ dockTabBySessionId: {} });
+  useContestUIStore.setState({
+    dockTabBySessionId: {},
+    explicitDockTabScopeByDockKey: {},
+  });
   useContestUIEphemeralStore.setState({
     dockTabIntent: null,
     scopeReconcileRequestId: 0,
@@ -291,7 +294,15 @@ describe("dock tab across the /map/ops popout", () => {
     // Several microtask turns: a ping-pong would keep producing messages.
     for (let turn = 0; turn < 5; turn += 1) await flush();
 
-    expect(snapshotsSince(receiver, before)).toEqual([]);
+    // The only thing this window may publish is the explicit-scope marker it
+    // recorded when it consumed the intent (#884 round 10), and never the
+    // intent itself. Nothing else, and nothing that keeps going.
+    const replies = snapshotsSince(receiver, before);
+    expect(replies.length).toBeLessThanOrEqual(1);
+    for (const reply of replies) {
+      expect(reply.domain).toBe("contestUi");
+      expect(reply.state).toMatchObject({ dockTabIntent: null });
+    }
     expect(dockTab()).toBe("contest");
     expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
 
@@ -355,10 +366,91 @@ describe("dock tab across the /map/ops popout", () => {
   // payload change that would mean something different to an existing receiver
   // has to bump it consciously.
   it("talks on the versioned workspace channel", async () => {
-    expect(WORKSPACE_CHANNEL).toBe("propulse-operating-workspace-v3");
+    expect(WORKSPACE_CHANNEL).toBe("propulse-operating-workspace-v4");
     render(<Window />);
     await flush();
     const channel = TestChannel.instances.at(-1) as TestChannel;
     expect(channel.name).toBe(WORKSPACE_CHANNEL);
+  });
+
+  // #884 round 10 (Codex, useDockTabReconciler.ts:119): the intent is
+  // ephemeral, so a window that opens *later* hydrated the persisted Contest
+  // tab, had no intent, no `previous`, and reconciled the operator's choice
+  // away — then broadcast that reversal to the window that made it.
+  it("keeps a persisted explicit tab when a late-joining window shares the scope", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+      // Chosen under Observe, which is still the derived scope here.
+      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "observe" },
+    });
+
+    render(<Window />);
+    await flush();
+    const joiner = TestChannel.instances.at(-1) as TestChannel;
+
+    expect(dockTab()).toBe("contest");
+    // Nothing was written, so there is no reversal to broadcast.
+    expect(snapshotsSince(joiner, 0)).toEqual([]);
+    // The marker stands until the scope actually changes, so a third window
+    // joining now honours it too.
+    expect(
+      useContestUIStore.getState().explicitDockTabScopeByDockKey[
+        NO_SESSION_DOCK_KEY
+      ],
+    ).toBe("observe");
+  });
+
+  // The other half of the rule: a marker from a scope that has since moved is
+  // stale, so the late joiner reconciles normally and drops it.
+  it("reconciles a persisted tab whose explicit scope has since changed", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+      // Chosen under Log; the derived scope here is Observe.
+      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+
+    render(<Window />);
+    await flush();
+
+    expect(dockTab()).toBe("dx");
+    expect(
+      useContestUIStore.getState().explicitDockTabScopeByDockKey[
+        NO_SESSION_DOCK_KEY
+      ],
+    ).toBeUndefined();
+  });
+
+  // The clicking window has `previous === null` after a reload too, so it lost
+  // its own choice the same way. One fix covers both.
+  it("keeps the tab when the window that made the choice reloads", async () => {
+    const clicking = render(<Window />);
+    await flush();
+
+    act(() => {
+      useContestUIEphemeralStore.getState().setDockTabIntent("contest");
+      useContestUIStore.getState().setDockTab(NO_SESSION_DOCK_KEY, "contest");
+    });
+    await flush();
+    // Consuming the intent is what records the scope the choice was made under.
+    expect(
+      useContestUIStore.getState().explicitDockTabScopeByDockKey[
+        NO_SESSION_DOCK_KEY
+      ],
+    ).toBe("observe");
+
+    // Reload: the document goes away with everything ephemeral in it, and the
+    // persisted stores come back.
+    clicking.unmount();
+    useContestUIEphemeralStore.setState({
+      dockTabIntent: null,
+      scopeReconcileRequestId: 0,
+    });
+
+    render(<Window />);
+    await flush();
+    const reloaded = TestChannel.instances.at(-1) as TestChannel;
+
+    expect(dockTab()).toBe("contest");
+    expect(snapshotsSince(reloaded, 0)).toEqual([]);
   });
 });

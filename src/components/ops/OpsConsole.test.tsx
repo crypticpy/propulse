@@ -60,7 +60,10 @@ describe("OpsConsole dock tabs", () => {
       selectedReport: null,
     });
     useOpsPostureStore.getState().reset();
-    useContestUIStore.setState({ dockTabBySessionId: {} });
+    useContestUIStore.setState({
+      dockTabBySessionId: {},
+      explicitDockTabScopeByDockKey: {},
+    });
     useRigStore.setState({ connected: false });
     useQSOStore.setState({ form: { ...DEFAULT_QSO_FORM } });
     useContestStore.setState({ activeSession: null });

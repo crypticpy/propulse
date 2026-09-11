@@ -116,6 +116,17 @@ const TEXT_COLOR_CLASS_RE = new RegExp(
  * round 38). */
 const PULSE_CLASS_RE = new RegExp(`(?<![\\w-])${PULSE_CLASS}(?![\\w-])`);
 
+/** A bare identifier (`base`), OR a member-access chain off one using only
+ * dot/optional-chain segments and literal-quoted bracket keys (`a.b`,
+ * `a.b.c`, `a?.b`, `a["b"]`) -- the shape a spread's source (`...name`) and a
+ * destructuring declarator's own RHS (`const { a } = name;`) share, both
+ * resolved the same way via `resolveMemberChainTarget`. A computed
+ * (non-literal) bracket key is deliberately excluded -- it can't be resolved
+ * to name a precise target, so it's treated the same as any other
+ * unrecognized shape (a call, a ternary) rather than guessed at (Codex, PR
+ * #874 round 44 thread 1). */
+const MEMBER_CHAIN_NAME_RE = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*|\[(?:"[^"]*"|'[^']*')\])*$/;
+
 /** Intrinsic elements that never carry rendered text of their own (graphics,
  * media, void and embedded content). Every other lowercase HTML tag is
  * treated as text-bearing -- `a`, headings, `label`, `li`, `td`, `input`,
@@ -561,6 +572,36 @@ function extractTemplateLiteral(source: string, start: number): string {
   return source.slice(start);
 }
 
+/** Index of the real, unescaped closing `quote` for a string body that
+ * starts at `searchStart` (`source[searchStart - 1]` is the opening quote),
+ * or `-1` if none is found before the end of `source` -- same contract as
+ * `source.indexOf(quote, searchStart)`, but a backslash-escaped character is
+ * skipped as a pair instead of being read as two independent characters, so
+ * `'don\'t'`'s own escaped apostrophe is never mistaken for the string's
+ * real closing delimiter (which would truncate the scan early and corrupt
+ * everything read after it). This is the same rule
+ * `blankCommentsAndQuotedJsx`'s own `scanQuotedString` already uses for a
+ * quoted JSX attribute -- extracted here as the one shared implementation so
+ * every other naive `indexOf(quote, ...)` quote-terminator scan in this file
+ * (there were 15 of them: `findInitializerEnd`, `extractLiteralBodies`,
+ * `scanToDepthZeroComma`, `extractObjectEntries`'s quoted-key scan,
+ * `skipTypeAnnotation`, `extractIdentifierRefs`, `findNestedFunctionBodyRange`,
+ * `findMatchingCloseBraceForward`, `findBracketClose`, `splitTopLevelTernary`,
+ * `splitTopLevelLogical`, `isTopLevelAttributePosition`,
+ * `collectExplicitClassSources`, `findTagEnd`, `extractJsxElements`) can call
+ * this instead of
+ * repeating (or worse, re-deriving slightly differently) the same
+ * escape-aware walk (Codex, PR #874 round 44 thread 2). */
+function findUnescapedQuoteEnd(source: string, quote: string, searchStart: number): number {
+  const len = source.length;
+  let j = searchStart;
+  while (j < len) {
+    if (source[j] === quote) return j;
+    j += source[j] === "\\" ? 2 : 1;
+  }
+  return -1;
+}
+
 /** Index just past the end of the `const NAME = <this>` initializer that
  * starts at `valueStart`, found by scanning forward and tracking
  * paren/bracket/brace depth (so a `;`, `,` or keyword inside a nested call,
@@ -574,7 +615,12 @@ function extractTemplateLiteral(source: string, start: number): string {
  * round 33); a missing semicolon falls back to the first `}` that would
  * close an outer block, or the start of the next top-level
  * `const`/`function`/`export`, whichever comes first -- a defensive
- * fallback a real parser wouldn't need (Codex, PR #874 round 15). */
+ * fallback a real parser wouldn't need (Codex, PR #874 round 15). A quoted
+ * string is skipped via the escape-aware `findUnescapedQuoteEnd`, not a raw
+ * `indexOf`, so an escaped quote inside an earlier declarator's own string
+ * (`const message = 'don\'t'; const classes = "animate-pulse";`) never
+ * truncates the scan early and swallows a sibling declaration whole (Codex,
+ * PR #874 round 44 thread 2). */
 function findInitializerEnd(source: string, valueStart: number): number {
   let depth = 0;
   let i = valueStart;
@@ -585,7 +631,7 @@ function findInitializerEnd(source: string, valueStart: number): number {
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return source.length;
       i = close + 1;
       continue;
@@ -642,7 +688,7 @@ function extractLiteralBodies(text: string): string[] {
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       if (close === -1) break;
       bodies.push(text.slice(i + 1, close));
       i = close + 1;
@@ -685,7 +731,10 @@ interface ConstEntry {
  * order -- `extractObjectEntries` records these as it scans left to right so
  * `collectConstTemplateMap` can replay the same order once every declaration
  * is known and a spread's source can actually be resolved (Codex, PR #874
- * round 34). */
+ * round 34). A spread's `name` is a bare identifier (`base`) OR a
+ * member-access chain off one (`theme.badge`, `theme?.badge`,
+ * `theme["badge"]`) -- resolved by `resolveSpreadSourceEntries` either way
+ * (Codex, PR #874 round 44 thread 1). */
 type ObjectEntryOp = { kind: "entry"; key: string; entry: ConstEntry } | { kind: "spread"; name: string };
 
 /** Index of the first depth-0 `,` in `text` between `start` and `end`
@@ -706,7 +755,7 @@ function scanToDepthZeroComma(text: string, start: number, end: number): number 
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       if (close === -1) return end;
       i = close + 1;
       continue;
@@ -805,7 +854,21 @@ function extractObjectEntries(
       const specStart = i + 3;
       const specEnd = scanToDepthZeroComma(text, specStart, end);
       const spec = text.slice(specStart, specEnd).trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(spec)) {
+      // A bare identifier (`...base`) OR a member-access chain off one
+      // (`...theme.badge`, `...theme.badge.dot`, `...theme?.badge`,
+      // `...theme["badge"]`) -- only a literal-quoted bracket key is
+      // accepted, since a computed key can't be resolved to name the spread
+      // source precisely. `extractObjectEntries` still has no `decls`/scope
+      // access to resolve either shape here itself, so both are carried up
+      // in `spreads`/`order` exactly the same way, for `collectConstTemplateMap`'s
+      // `spreadQueue` loop and `resolveNestedEntrySpreads` to resolve via
+      // `resolveSpreadSourceEntries` once scope is known -- a member-access
+      // spread used to fail this bare-identifier-only check and be silently
+      // DROPPED (contributing nothing to `entries`/`spreads`/`order` at all),
+      // so `const styles = { safe: "text-green", ...theme.badge }` never saw
+      // `theme.badge`'s own possibly-pulsing `safe` key overwrite the plain
+      // one (Codex, PR #874 round 44 thread 1).
+      if (MEMBER_CHAIN_NAME_RE.test(spec)) {
         spreads.push(spec);
         order.push({ kind: "spread", name: spec });
       }
@@ -818,7 +881,7 @@ function extractObjectEntries(
     let isIdentifierKey = false;
     const c = text[i];
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       if (close !== -1) {
         key = text.slice(i + 1, close);
         keyEnd = close + 1;
@@ -1185,7 +1248,7 @@ function skipTypeAnnotation(source: string, colonIndex: number): TypeAnnotationR
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return null;
       i = close + 1;
       continue;
@@ -1436,7 +1499,7 @@ function extractIdentifierRefs(text: string): string[] {
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       i = close === -1 ? text.length : close + 1;
       continue;
     }
@@ -1526,15 +1589,21 @@ function extractIdentifierRefs(text: string): string[] {
  * same way `collectConstTemplateMap`'s `spreadQueue` loop replays a
  * top-level declaration's `order` -- a resolvable spread overwrites every
  * key it carries in source order (round 34), resolved against `decls` PLUS
- * any imported bindings (round 36); an unresolvable spread fails closed onto
- * `openKeys`, but with THIS entry's own flattened `literal` as the fallback,
- * not the enclosing declaration's -- so `{ a: { safe: "text-green", ...bad }
- * }` only clouds `a.safe`, never a sibling key at the parent level. Recurses
- * into the (possibly freshly merged) child `entries` afterward so nesting of
- * any depth resolves, guarded by `visited` against revisiting the same
- * `ConstEntry` object twice -- spread merging can make two different parents
- * share one entry by reference, and a spread cycle across declarations
- * (`a = { ...b }`, `b = { ...a }`) would otherwise recurse forever. */
+ * any imported bindings (round 36), via `resolveSpreadSourceEntries` so a
+ * member-access spread source (`...theme.badge`, round 44 thread 1) resolves
+ * the same way a bare-identifier one always did; an unresolvable
+ * bare-identifier spread fails closed onto `openKeys`, but with THIS entry's
+ * own flattened `literal` as the fallback, not the enclosing declaration's --
+ * so `{ a: { safe: "text-green", ...bad } }` only clouds `a.safe`, never a
+ * sibling key at the parent level. An unresolvable MEMBER-ACCESS spread fails
+ * closed harder -- the whole nested entry is marked as pulsing, not just its
+ * already-merged keys (`isMemberChainSpreadName`'s own doc explains why).
+ * Recurses into the (possibly freshly merged) child `entries` afterward so
+ * nesting of any depth resolves, guarded by `visited` against revisiting the
+ * same `ConstEntry` object twice -- spread merging can make two different
+ * parents share one entry by reference, and a spread cycle across
+ * declarations (`a = { ...b }`, `b = { ...a }`) would otherwise recurse
+ * forever. */
 function resolveNestedEntrySpreads(
   entries: Map<string, ConstEntry> | undefined,
   decls: ConstDecl[],
@@ -1548,18 +1617,21 @@ function resolveNestedEntrySpreads(
     if (entry.spreadOrder) {
       const merged = new Map<string, ConstEntry>();
       const openKeys = new Set<string>();
+      let memberSpreadFailed = false;
       for (const op of entry.spreadOrder) {
         if (op.kind === "entry") {
           merged.set(op.key, op.entry);
           openKeys.delete(op.key);
           continue;
         }
-        const spreadDecl = visibleDecl(decls, op.name, atIndex);
-        if (spreadDecl?.entries) {
-          for (const [key, value] of spreadDecl.entries) {
+        const spreadEntries = resolveSpreadSourceEntries(op.name, decls, atIndex);
+        if (spreadEntries) {
+          for (const [key, value] of spreadEntries) {
             merged.set(key, value);
             openKeys.delete(key);
           }
+        } else if (isMemberChainSpreadName(op.name)) {
+          memberSpreadFailed = true;
         } else {
           for (const key of merged.keys()) openKeys.add(key);
         }
@@ -1567,6 +1639,12 @@ function resolveNestedEntrySpreads(
       for (const key of openKeys) {
         const existing = merged.get(key);
         merged.set(key, { literal: entry.literal, entries: existing?.entries });
+      }
+      if (memberSpreadFailed) {
+        entry.literal = [entry.literal, PULSE_CLASS].filter(Boolean).join(" ");
+        for (const [key, value] of merged) {
+          merged.set(key, { literal: PULSE_CLASS, entries: value.entries });
+        }
       }
       entry.entries = merged;
       entry.spreadOrder = undefined;
@@ -1613,7 +1691,7 @@ function findNestedFunctionBodyRange(
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1 || close >= rangeEnd) return null;
       i = close + 1;
       continue;
@@ -1651,7 +1729,7 @@ function findMatchingCloseBraceForward(source: string, openIndex: number): numbe
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return source.length - 1;
       i = close + 1;
       continue;
@@ -1740,14 +1818,18 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
       // A destructuring declarator's own type annotation/initializer still
       // has to be scanned past correctly so a LATER declarator in the same
       // list isn't lost. An object pattern (`{ a } = …`) destructured from a
-      // bare-identifier RHS is queued to `destructureQueue` and its own
-      // bindings registered once that identifier resolves (below); any other
-      // RHS shape (a call, a member access, a ternary...) can't be resolved
-      // to a declaration at all, and an array pattern (`[x] = …`) has no
-      // registrable shape either -- `ConstEntry` doesn't index an array's own
-      // elements, only flattens its literals same as round 16 -- so both keep
-      // today's prior behaviour: scanned past, but never registered (Codex,
-      // PR #874 round 35).
+      // bare-identifier OR member-access-chain RHS (`const { alert } =
+      // theme.badge;`, round 44 thread 1 -- a chain RHS used to fall into the
+      // same "can't be resolved" bucket as a call or a ternary and simply
+      // never got queued at all, silently dropping a real destructuring
+      // source the exact same way an unwidened spread name used to) is
+      // queued to `destructureQueue` and its own bindings registered once
+      // that source resolves (below); any other RHS shape (a call, a
+      // ternary...) still can't be resolved to a declaration at all, and an
+      // array pattern (`[x] = …`) has no registrable shape either --
+      // `ConstEntry` doesn't index an array's own elements, only flattens its
+      // literals same as round 16 -- so both keep today's prior behaviour:
+      // scanned past, but never registered (Codex, PR #874 round 35).
       if (source[pos] === "{" || source[pos] === "[") {
         const open = source[pos];
         const patternStart = pos;
@@ -1766,7 +1848,7 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
           after = findInitializerEnd(source, i);
           if (open === "{") {
             const rhs = source.slice(valueStart, after).trim();
-            if (/^[A-Za-z_$][\w$]*$/.test(rhs) && patternEnd !== -1) {
+            if (MEMBER_CHAIN_NAME_RE.test(rhs) && patternEnd !== -1) {
               destructureQueue.push({
                 pattern: source.slice(patternStart, patternEnd + 1),
                 sourceName: rhs,
@@ -1913,14 +1995,21 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
   // correctly ends up with `base.safe` (Codex, PR #874 round 34; round 32's
   // "an explicit key always wins" rule only ever held for a spread coming
   // FIRST, which is why every one of round 32's own fixtures still passes
-  // here). An *unresolvable* spread (an expression, a call, a name with no
-  // visible declaration, or one with no `entries` of its own) contributes
-  // nothing precise, but fails closed on every key set so far: those keys go
-  // into `openKeys` and get their precise entry replaced below with the
-  // object's own flattened `literal` (which already reached every key's text
-  // regardless of `entries`, independent of this loop) -- an unresolvable
-  // spread could, for all this scanner knows, itself carry `animate-pulse`
-  // and overwrite any of them. A key (re)defined AFTER an unresolvable
+  // here). An *unresolvable bare-identifier* spread (an expression, a call, a
+  // name with no visible declaration, or one with no `entries` of its own)
+  // contributes nothing precise, but fails closed on every key set so far:
+  // those keys go into `openKeys` and get their precise entry replaced below
+  // with the object's own flattened `literal` (which already reached every
+  // key's text regardless of `entries`, independent of this loop) -- an
+  // unresolvable spread could, for all this scanner knows, itself carry
+  // `animate-pulse` and overwrite any of them. An *unresolvable
+  // MEMBER-ACCESS* spread (`...theme.badge` where `theme` or `badge` can't be
+  // resolved) fails closed harder still, marking the WHOLE map -- every key,
+  // not just ones already merged -- as pulsing (`isMemberChainSpreadName`),
+  // since (unlike a bare spread) there is no prior round where this shape was
+  // ever safely treated as "probably clean" -- it used to be silently dropped
+  // by `extractObjectEntries` instead (Codex, PR #874 round 44 thread 1). A
+  // key (re)defined AFTER an unresolvable
   // spread is unaffected -- nothing has overwritten it yet -- and any key
   // that later gets a fresh named entry or a resolvable spread's value is
   // removed from `openKeys` again, since it's now precisely known past that
@@ -1940,18 +2029,25 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
   for (const { decl, order } of spreadQueue) {
     const entries = new Map<string, ConstEntry>();
     const openKeys = new Set<string>();
+    let memberSpreadFailed = false;
     for (const op of order) {
       if (op.kind === "entry") {
         entries.set(op.key, op.entry);
         openKeys.delete(op.key);
         continue;
       }
-      const spreadDecl = visibleDecl(declsWithImports, op.name, decl.index);
-      if (spreadDecl?.entries) {
-        for (const [key, value] of spreadDecl.entries) {
+      const spreadEntries = resolveSpreadSourceEntries(op.name, declsWithImports, decl.index);
+      if (spreadEntries) {
+        for (const [key, value] of spreadEntries) {
           entries.set(key, value);
           openKeys.delete(key);
         }
+      } else if (isMemberChainSpreadName(op.name)) {
+        // Round 44 thread 1: a member-access spread that can't be resolved
+        // fails closed on the WHOLE map, not just the keys already merged --
+        // see `isMemberChainSpreadName`'s own doc for why this is stronger
+        // than the bare-identifier fallback right below.
+        memberSpreadFailed = true;
       } else {
         for (const key of entries.keys()) openKeys.add(key);
       }
@@ -1960,38 +2056,52 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
       const existing = entries.get(key);
       entries.set(key, { literal: decl.literal, entries: existing?.entries });
     }
+    if (memberSpreadFailed) {
+      decl.literal = [decl.literal, PULSE_CLASS].filter(Boolean).join(" ");
+      for (const [key, value] of entries) {
+        entries.set(key, { literal: PULSE_CLASS, entries: value.entries });
+      }
+    }
     decl.entries = entries;
   }
   // A nested object literal's own spread(s) -- `{ a: { safe: "text-green",
-  // ...base } }` -- couldn't be resolved inside `extractObjectEntries` itself
-  // (no `decls`/scope access there), so each nested `ConstEntry` that has one
-  // carries its raw `spreadOrder` up to here instead. Walked for every
-  // top-level declaration now that `spreadQueue` above has finished (a
-  // nested spread's source name is always a plain identifier, so it can only
-  // ever resolve to a top-level/imported declaration, never to another
-  // nested key -- by the time this runs, every such declaration's own
+  // ...base } }`, or (round 44 thread 1) `{ a: { safe: "text-green",
+  // ...theme.badge } }` -- couldn't be resolved inside `extractObjectEntries`
+  // itself (no `decls`/scope access there), so each nested `ConstEntry` that
+  // has one carries its raw `spreadOrder` up to here instead. Walked for
+  // every top-level declaration now that `spreadQueue` above has finished (a
+  // nested spread's source name's own BASE identifier always resolves to a
+  // top-level/imported declaration, never to another nested key, even when
+  // the full source is a member-access chain reaching into that
+  // declaration's own nested entries -- `resolveSpreadSourceEntries` walks
+  // from there -- so by the time this runs, every such declaration's own
   // top-level `entries` are already final). Fails closed the same way
   // `spreadQueue` does, just scoped to that nested object's own flattened
-  // `literal` instead of the whole declaration's -- an unresolvable spread
-  // inside `{ a: { ...unknown } }` only clouds `a`'s own open keys, never a
-  // sibling key at the parent level (Codex, PR #874 round 36b).
+  // `literal` instead of the whole declaration's -- an unresolvable
+  // bare-identifier spread inside `{ a: { ...unknown } }` only clouds `a`'s
+  // own open keys, never a sibling key at the parent level (Codex, PR #874
+  // round 36b); an unresolvable MEMBER-ACCESS spread clouds all of `a`
+  // instead (round 44 thread 1).
   for (const decl of decls) {
     resolveNestedEntrySpreads(decl.entries, declsWithImports, decl.index);
   }
   // Runs after `spreadQueue` so a destructuring source that is itself a
   // spread-merged object (`const styles = { ...base }; const { alert } =
   // styles;`) already has its final, merged `entries` by the time it's
-  // resolved here (Codex, PR #874 round 35). Also resolved against
-  // `declsWithImports`, same reasoning as the spread merge just above --
-  // `const { alert } = STYLES;` where `STYLES` is only an imported binding
-  // (Codex, PR #874 round 36).
+  // resolved here (Codex, PR #874 round 35). Resolved via
+  // `resolveMemberChainTarget` against `declsWithImports`, same reasoning as
+  // the spread merge just above -- `const { alert } = STYLES;` where
+  // `STYLES` is only an imported binding (Codex, PR #874 round 36) -- and
+  // the same resolver a spread source uses, so a member-access destructuring
+  // source (`const { alert } = theme.badge;`, round 44 thread 1) resolves
+  // too, instead of never being queued at all.
   for (const { pattern, sourceName, scopeStart, scopeEnd, index } of destructureQueue) {
-    const sourceDecl = visibleDecl(declsWithImports, sourceName, index);
-    if (!sourceDecl) continue;
+    const sourceTarget = resolveMemberChainTarget(sourceName, declsWithImports, index);
+    if (!sourceTarget) continue;
     registerDestructuringBindings(
       parseDestructuringPattern(pattern),
-      sourceDecl.entries,
-      sourceDecl.literal,
+      sourceTarget.entries,
+      sourceTarget.literal,
       scopeStart,
       scopeEnd,
       index,
@@ -2030,6 +2140,85 @@ function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDe
   return best;
 }
 
+/** True when a spread's source `name` -- one side of an `ObjectEntryOp`'s
+ * `{kind: "spread"}` variant -- is a member-access chain (`theme.badge`,
+ * `theme?.badge`, `theme["badge"]`) rather than a bare identifier (`base`).
+ * Used only to pick the STRONGER fail-closed behaviour an unresolvable
+ * member-access spread gets, versus an unresolvable bare-identifier spread's
+ * existing, older convention: a bare spread that fails to resolve (a call, a
+ * ternary, an out-of-scope name) clouds only the keys already merged so far
+ * (round 34's `openKeys`), because a bare spread that fails this way has
+ * always been captured and always fell into that path. A member-access
+ * spread used to be silently DROPPED by `extractObjectEntries` before it
+ * could even reach either fallback -- there is no equivalent long-standing
+ * "probably wasn't pulsing" precedent for it -- so once it IS captured but
+ * still can't be resolved, it fails closed harder: the whole map it spreads
+ * into is marked as pulsing, not just the keys already known (Codex, PR
+ * #874 round 44 thread 1). */
+function isMemberChainSpreadName(name: string): boolean {
+  return !/^[A-Za-z_$][\w$]*$/.test(name);
+}
+
+/** Resolves a bare identifier or member-access chain (`name`) to the single
+ * `ConstEntry` it names -- the same declaration lookup plus
+ * segment-by-segment narrowing `resolveMemberAccess` uses for a
+ * class-expression reference, except simplified for the narrower grammar a
+ * spread source or a destructuring source shares: it's always a single
+ * expression, never a set of union/ternary branches, so each step must
+ * resolve to exactly one candidate rather than `resolveMemberAccess`'s
+ * candidate *set*, and only a literal-quoted bracket key is accepted (a
+ * computed key can't be resolved to name the target precisely, so it's
+ * treated as unresolvable rather than guessed). A bare identifier resolves
+ * in one step, to `{ literal: decl.literal, entries: decl.entries }` --
+ * exactly the two fields `visibleDecl(decls, name, atIndex)` itself exposed
+ * before this function replaced it at every call site that only ever read
+ * those two fields anyway (a spread's `...name`, and a destructuring
+ * declarator's own `const { a } = name;` source). Returns `undefined` --
+ * unresolvable -- when the base identifier has no visible declaration, an
+ * intermediate segment names a key the candidate doesn't have, or a segment
+ * shape isn't recognized (Codex, PR #874 round 44 thread 1). */
+function resolveMemberChainTarget(
+  name: string,
+  decls: ConstDecl[],
+  atIndex: number,
+): ConstEntry | undefined {
+  const baseMatch = /^[A-Za-z_$][\w$]*/.exec(name);
+  if (!baseMatch) return undefined;
+  const decl = visibleDecl(decls, baseMatch[0], atIndex);
+  if (!decl) return undefined;
+  let candidate: ConstEntry = { literal: decl.literal, entries: decl.entries };
+  let pos = baseMatch[0].length;
+  const segRe = /^(?:\??\.([A-Za-z_$][\w$]*)|\[(?:"([^"]*)"|'([^']*)')\])/;
+  while (pos < name.length) {
+    const segMatch = segRe.exec(name.slice(pos));
+    if (!segMatch) return undefined;
+    const key = segMatch[1] ?? segMatch[2] ?? segMatch[3];
+    const next = candidate.entries?.get(key);
+    if (!next) return undefined;
+    candidate = next;
+    pos += segMatch[0].length;
+  }
+  return candidate;
+}
+
+/** Resolves a spread's source `name` -- bare identifier or member-access
+ * chain alike -- to the `entries` map it contributes, via
+ * `resolveMemberChainTarget`. This replaces the direct
+ * `visibleDecl(decls, name, atIndex)?.entries` call at both places a spread
+ * is replayed (`collectConstTemplateMap`'s own `spreadQueue` loop, and
+ * `resolveNestedEntrySpreads`), so a member-access spread source resolves
+ * through the identical path a bare-identifier one always used. Returns
+ * `undefined` -- unresolvable -- whenever `resolveMemberChainTarget` does,
+ * or when the resolved target isn't itself an object (no `entries` to
+ * spread) (Codex, PR #874 round 44 thread 1). */
+function resolveSpreadSourceEntries(
+  name: string,
+  decls: ConstDecl[],
+  atIndex: number,
+): Map<string, ConstEntry> | undefined {
+  return resolveMemberChainTarget(name, decls, atIndex)?.entries;
+}
+
 /** Matches a bare identifier that could name a resolved const, the same
  * hyphen-adjacency exclusion `resolveConstRefs`'s generic pass uses so a
  * hyphenated Tailwind token (`text-red`) is never mistaken for one. Also
@@ -2060,7 +2249,7 @@ function findBracketClose(source: string, openIndex: number): number {
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return -1;
       i = close;
       continue;
@@ -2478,6 +2667,43 @@ function findEnclosingFunctionScope(source: string, index: number): { start: num
   return null;
 }
 
+/** Number of consecutive `\` characters immediately before `index` in
+ * `source` -- used to tell a genuine quote delimiter apart from one that's
+ * itself escaped (an odd count means the character at `index` is escaped;
+ * an even count, including zero, means it's a real, unescaped character).
+ * Shared by `findOpeningTag`'s backward quote walk and
+ * `findUnescapedQuoteStart` below (Codex, PR #874 round 44 thread 2
+ * sweep). */
+function countPrecedingBackslashes(source: string, index: number): number {
+  let count = 0;
+  let k = index - 1;
+  while (k >= 0 && source[k] === "\\") {
+    count++;
+    k--;
+  }
+  return count;
+}
+
+/** Index of the real, unescaped `quote` delimiter at or before
+ * `beforeIndex`, walking BACKWARDS -- the mirror image of
+ * `findUnescapedQuoteEnd`'s forward walk, needed here because
+ * `findOpeningTag` has to find a quoted attribute value's own OPENING quote
+ * starting from its closing one. A candidate `quote` character preceded by
+ * an odd number of `\` is itself escaped (part of a `\"`/`\'` pair, not a
+ * real delimiter) and is skipped rather than accepted, so `title="it\"s
+ * odd" {...props}` doesn't have its escaped inner quote mistaken for the
+ * value's own opening delimiter -- same bug family as the naive
+ * `source.lastIndexOf(c, i - 1)` this replaces (Codex, PR #874 round 44
+ * thread 2 sweep). `-1` when no unescaped `quote` is found. */
+function findUnescapedQuoteStart(source: string, quote: string, beforeIndex: number): number {
+  let j = beforeIndex;
+  while (j >= 0) {
+    if (source[j] === quote && countPrecedingBackslashes(source, j) % 2 === 0) return j;
+    j--;
+  }
+  return -1;
+}
+
 /** The opening tag an attribute at `before` belongs to, found by walking
  * backwards structurally: `{…}` attribute expressions are skipped as
  * blocks (quote/template-aware, so a brace character quoted inside one
@@ -2487,7 +2713,16 @@ function findEnclosingFunctionScope(source: string, index: number): { start: num
  * outside them (other than an arrow's `=>`) means the attribute is not
  * inside a tag, and the first `<Tag` reached is the element. No fixed-width
  * window, so verbose prop lists cannot push the tag out of reach (Codex, PR
- * #874 round 13). */
+ * #874 round 13). The backward quote walk is escape-aware: a quote
+ * character reached mid-walk that is itself escaped (`\"` inside
+ * `title="it\"s odd"`) is skipped rather than treated as this value's own
+ * opening delimiter -- `source.lastIndexOf(c, i - 1)` used to find the
+ * nearest `"` at all, escaped or not, which for an odd number of quote
+ * characters in one attribute value walked backward from its real closing
+ * quote into the escaped one, then out past the real opening quote entirely
+ * looking for a second "opener" that was never there, returning `null` and
+ * dropping a genuinely top-level spread right after it (Codex, PR #874
+ * round 44 thread 2 sweep). */
 function findOpeningTag(source: string, before: number): { tag: string; index: number } | null {
   let i = before - 1;
   while (i >= 0) {
@@ -2499,7 +2734,13 @@ function findOpeningTag(source: string, before: number): { tag: string; index: n
       continue;
     }
     if (c === '"' || c === "'") {
-      const openQuote = source.lastIndexOf(c, i - 1);
+      if (countPrecedingBackslashes(source, i) % 2 === 1) {
+        // This quote character is itself escaped -- not a real delimiter,
+        // just another character inside whatever value contains it.
+        i--;
+        continue;
+      }
+      const openQuote = findUnescapedQuoteStart(source, c, i - 1);
       if (openQuote === -1) return null;
       i = openQuote - 1;
       continue;
@@ -2612,7 +2853,7 @@ function splitTopLevelTernary(text: string): { ifTrue: string; ifFalse: string }
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       i = close === -1 ? text.length : close + 1;
       continue;
     }
@@ -2664,7 +2905,7 @@ function splitTopLevelLogical(text: string): { left: string; right: string; op: 
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       i = close === -1 ? text.length : close + 1;
       continue;
     }
@@ -2861,7 +3102,7 @@ function isTopLevelAttributePosition(source: string, tagStart: number, index: nu
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return false;
       i = close + 1;
       continue;
@@ -2944,7 +3185,7 @@ function collectExplicitClassSources(source: string, constMap: ConstDecl[]): Cla
       raw = resolveConstRefs(text.slice(1, -1), constMap, m.index);
       afterIndex = endIndex + 1;
     } else {
-      const closeIndex = source.indexOf(delim, contentStart);
+      const closeIndex = findUnescapedQuoteEnd(source, delim, contentStart);
       raw = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
       afterIndex = closeIndex === -1 ? contentStart : closeIndex + 1;
     }
@@ -3092,7 +3333,7 @@ function findTagEnd(source: string, from: number): number {
       continue;
     }
     if (c === '"' || c === "'") {
-      const close = source.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(source, c, i + 1);
       if (close === -1) return -1;
       i = close + 1;
       continue;
@@ -3278,7 +3519,7 @@ function extractJsxElements(text: string): JsxElement[] {
   while (i < text.length) {
     const c = text[i];
     if (c === '"' || c === "'" || c === "`") {
-      const close = text.indexOf(c, i + 1);
+      const close = findUnescapedQuoteEnd(text, c, i + 1);
       i = close === -1 ? text.length : close + 1;
       continue;
     }
@@ -4240,13 +4481,14 @@ function blankCommentsAndQuotedJsx(source: string): string {
    * end of source if unterminated). Every quote reached in JS mode is
    * unambiguously a real string -- there is no JSX-text-apostrophe ambiguity
    * left to resolve, since JSX text is its own mode that never calls this at
-   * all (Codex, PR #874 round 33). */
+   * all (Codex, PR #874 round 33). The escape-aware terminator walk itself
+   * now lives in the module-level `findUnescapedQuoteEnd` (round 44 thread
+   * 2) so every other quote-terminated scan in the file can share this exact
+   * implementation instead of re-deriving it. */
   function scanQuotedString(i: number, quote: string): number {
-    let j = i + 1;
-    while (j < len && source[j] !== quote) {
-      j += source[j] === "\\" ? 2 : 1;
-    }
-    const closed = source[j] === quote;
+    const closeIdx = findUnescapedQuoteEnd(source, quote, i + 1);
+    const closed = closeIdx !== -1;
+    const j = closed ? closeIdx : len;
     const body = source.slice(i + 1, Math.min(j, len));
     const end = closed ? j + 1 : j;
     if (/<[A-Za-z]/.test(body)) {
@@ -7532,6 +7774,286 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       'export function A({ active }: { active: boolean }) {\n' +
       '  return <span className="text-red animate-pulse" {...(active ? alertProps : getSafeStuff())}>Loading</span>;\n' +
       '}';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+});
+
+describe("resolves a member-access spread's source through the shared chain resolver instead of dropping it (#874 round 44 thread 1)", () => {
+  it("resolves `...theme.badge` and lets it override an earlier plain key with a pulsing one", () => {
+    // Before round 44, `extractObjectEntries`'s spread-capture regex only
+    // accepted a bare identifier -- `...theme.badge` failed that check and
+    // was silently DROPPED, so `styles.safe` kept the earlier plain
+    // "text-green" entry and never saw `theme.badge.safe`'s own
+    // "animate-pulse" override it at runtime.
+    const fixture =
+      'const theme = { badge: { safe: "animate-pulse" } };\n' +
+      'const styles = { safe: "text-green", ...theme.badge };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves `...theme.badge` and correctly overrides an earlier pulsing key with a clean one (control)", () => {
+    // Same shape, opposite direction -- proves the fix doesn't just fail
+    // closed unconditionally on a member-chain spread, it actually replays
+    // the resolved source's own keys precisely, the same way a bare
+    // `...base` spread already did.
+    const fixture =
+      'const theme = { badge: { safe: "text-green" } };\n' +
+      'const styles = { safe: "text-red animate-pulse", ...theme.badge };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("fails closed on an UNRESOLVABLE member-access spread -- the whole map it spreads into is treated as pulsing", () => {
+    // `unknownTheme` names no declaration anywhere in the file. Before round
+    // 44 this spread's non-bare-identifier name failed the old capture check
+    // and was dropped entirely, so `styles.safe` stayed at its own precise
+    // "text-green" entry -- clean, even though a real `unknownTheme.badge`
+    // could carry anything, including its own `safe` override. Once a
+    // member-access spread IS captured but still can't be resolved, it fails
+    // closed HARDER than an unresolvable bare-identifier spread always has
+    // (which only clouds keys already merged so far): the whole map is
+    // marked pulsing, since there's no long-standing "probably wasn't
+    // pulsing" precedent for a shape that used to be silently dropped.
+    const fixture =
+      'const styles = { safe: "text-green", ...unknownTheme.badge };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves a two-level member chain (`...app.theme.badge`), not just one `.key`", () => {
+    const fixture =
+      'const app = { theme: { badge: { safe: "text-green" } } };\n' +
+      'const styles = { safe: "text-red animate-pulse", ...app.theme.badge };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("resolves an optional-chain spread source (`...theme?.badge`)", () => {
+    const fixture =
+      'const theme = { badge: { safe: "animate-pulse" } };\n' +
+      'const styles = { safe: "text-green", ...theme?.badge };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves a quoted-bracket spread source (`...theme[\"badge\"]`)", () => {
+    const fixture =
+      'const theme = { badge: { safe: "animate-pulse" } };\n' +
+      'const styles = { safe: "text-green", ...theme["badge"] };\n' +
+      'export function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves a destructuring declarator whose RHS is a member-access chain (`const { alert } = theme.badge;`), not just a bare identifier (round 44 thread 1 sweep)", () => {
+    // The destructuring-declarator RHS check had the exact same bare-
+    // identifier-only regex as the spread-capture check -- `theme.badge`
+    // failed it and the whole destructure was never queued at all, so
+    // `alert` never got its own entry no matter what `theme.badge.alert`
+    // resolved to.
+    const fixture =
+      'const theme = { badge: { alert: "text-red animate-pulse" } };\n' +
+      'const { alert } = theme.badge;\n' +
+      'export function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+});
+
+describe("scans past an escaped quote instead of terminating a string early on it (#874 round 44 thread 2)", () => {
+  it("does not close `'don\\'t'` early on its own escaped apostrophe and swallow the sibling declaration after it (the exact reported case)", () => {
+    // Before round 44, `findInitializerEnd`'s naive `indexOf(quote, ...)`
+    // closed `message`'s own string at the escaped apostrophe, and the real
+    // closing quote right after it then opened a PHANTOM string with no
+    // real terminator anywhere else in the source -- `findInitializerEnd`
+    // fell back to `source.length`, so `message`'s own "initializer" ate
+    // `classes`'s entire declaration whole. `classes` was never registered
+    // at all, so `className={classes}` had nothing to resolve against.
+    const fixture =
+      'const message = \'don\\\'t\';\nconst classes = "animate-pulse";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("does not close a string early on its own escaped double quote either (regression control, non-discriminating -- reported honestly)", () => {
+    // This one is NOT red on 11d1a522, unlike the apostrophe case above: on
+    // the old naive scan, `message`'s string still closes early at the
+    // escaped `\"`, but the leftover `hi\""` happens to contain its own
+    // adjacent, immediately-closing `""` pair, which coincidentally
+    // re-balances the (wrongly resumed) top-level quote state right back to
+    // "not in a string" before `classes`'s own declaration is reached -- so
+    // `classes` still parses normally on old code by accident of this
+    // fixture's own text, not because the underlying bug wasn't present.
+    // Verified in isolation against the 11d1a522 baseline (hybrid revert):
+    // passes on both.
+    const fixture =
+      'const message = "she said \\"hi\\"";\nconst classes = "animate-pulse";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("still handles an escaped backtick and a `${\"}\"}` expression inside a template literal (regression control)", () => {
+    // `extractTemplateLiteral` itself already tracked both a backslash
+    // escape and `${...}` brace depth before this round -- unlike the 15
+    // sites that shared the naive `indexOf` pattern, it was never part of
+    // this bug family, so this fixture is NOT expected to be red on
+    // 11d1a522 (reported transparently, per this file's own convention for
+    // a non-discriminating fixture): it just confirms the round 44 fix
+    // doesn't regress a template literal sitting right next to a now-
+    // escape-aware `findInitializerEnd` quote scan.
+    const fixture =
+      'const message = `a\\`b${"}"}c`;\nconst classes = "animate-pulse";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("still terminates a normal, unescaped string exactly as before (regression control)", () => {
+    const fixture =
+      'const message = "hello";\nconst classes = "animate-pulse";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+});
+
+describe("sweeps every other naive quote-scan and bare-identifier-only site in the same two bug families (#874 round 44 sweep)", () => {
+  it("extractLiteralBodies: an escaped quote in an earlier call argument no longer hides a later `animate-pulse` argument", () => {
+    const fixture =
+      'const classes = cn("it\\"s fine", "animate-pulse");\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("scanToDepthZeroComma: an escaped quote inside one object-entry value no longer corrupts where that value ends", () => {
+    const fixture =
+      'const styles = { alert: "it\\"s" + "animate-pulse", safe: "text-green" };\nexport function A() { return <span className={styles.alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("extractObjectEntries's quoted-key scan: an escaped quote in one quoted KEY no longer corrupts a sibling key's own parsing", () => {
+    const fixture =
+      'const styles = { "can\\"t": "text-green", safe: "animate-pulse" };\nexport function A() { return <span className={styles.safe}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("skipTypeAnnotation: an escaped quote inside a string-literal type no longer swallows the whole declaration", () => {
+    // Before round 44, the escaped apostrophe in the first literal-type
+    // member closed that quote scan early, the real closing quote opened an
+    // unterminated phantom string, and `skipTypeAnnotation` returned `null`
+    // -- the whole `classes` declaration was abandoned, never registered.
+    const fixture =
+      "const classes: 'don\\'t' | 'animate-pulse' = 'animate-pulse';\nexport function A() { return <span className={classes}>Loading</span>; }";
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("extractIdentifierRefs: an escaped quote in a preceding string literal no longer hides a later identifier reference", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst classes = "can\\"t" + pulse;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("findNestedFunctionBodyRange / findMatchingCloseBraceForward: an escaped quote next to a literal `}` inside a swallowed arrow-function body no longer truncates that body's own bounds", () => {
+    // This pair is escape-aware for the same defensive reason as the other
+    // 15 sites, AND (corrected after empirical hybrid-revert testing) this
+    // fixture IS red on 11d1a522: `findMatchingCloseBraceForward` is what
+    // locates the closing `}` of `Outer`'s own arrow-function initializer in
+    // the first place, so on the old naive scan the literal `}` inside
+    // `"a\"}"` (immediately after the escaped quote) is misread as the REAL
+    // closing brace, truncating `Outer`'s recorded declaration text before
+    // `const inner = "animate-pulse"` is ever reached. That truncation
+    // starves every downstream flat scan over `Outer`'s initializer
+    // (`extractLiteralBodies`/`extractIdentifierRefs`), so `styles.safe`-style
+    // resolution of the bare `Outer` identifier in `className={Outer}` never
+    // sees "animate-pulse" on old code -- it is NOT independent of recursion
+    // bounds the way a same-shaped fixture without the adjacent literal `}`
+    // would be. Verified in isolation against the 11d1a522 baseline (hybrid
+    // revert): fails as expected (`expected [] to not deeply equal []`).
+    const fixture =
+      'const Outer = () => {\n  const label = "a\\"}";\n  const inner = "animate-pulse";\n  return inner;\n};\nexport function A() { return <span className={Outer}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("findBracketClose: an escaped quote next to a literal `]` inside a computed object key no longer corrupts a sibling key's own parsing", () => {
+    const fixture =
+      'const styles = { ["a\\"]b"]: "text-green", safe: "animate-pulse" };\nexport function A() { return <span className={styles.safe}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("splitTopLevelTernary: an escaped quote inside one branch's own inline object no longer hides the ternary's real `:` split", () => {
+    // Before round 44, the escaped quote in `{ title: "it\"s odd" }` closed
+    // early, the true closing quote after "odd" then opened an unterminated
+    // phantom string with no later quote anywhere in the fixture to close
+    // it, so the scan jumped straight to the end without ever seeing the
+    // real `}`, ` : `, or `alertProps` -- `splitTopLevelTernary` returned
+    // `null`, and the whole spread fell into the unresolvable/no-known-
+    // className catch-all instead of being recognised as a ternary whose
+    // false branch (`alertProps`) genuinely pulses.
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'export function A({ active }: { active: boolean }) {\n' +
+      '  return <span {...(active ? { title: "it\\"s odd" } : alertProps)}>Loading</span>;\n' +
+      '}';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("splitTopLevelLogical: an escaped quote inside one operand's own inline object no longer hides the real `||`", () => {
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'export function A({ active }: { active: boolean }) {\n' +
+      '  return <span {...({ title: "it\\"s odd" } || alertProps)}>Loading</span>;\n' +
+      '}';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("findOpeningTag / isTopLevelAttributePosition: an escaped quote in an EARLIER attribute's value no longer hides a later top-level spread", () => {
+    // `findOpeningTag` walks BACKWARDS from the spread's own `{` to find its
+    // enclosing tag, and had its own naive, un-escape-aware backward quote
+    // scan (`source.lastIndexOf(c, i - 1)`) -- a 16th instance of this same
+    // bug family, found empirically while verifying this exact fixture, not
+    // by the original source read of the 15 forward-scanning sites. Walking
+    // backward from `data-note`'s real closing quote, the naive scan landed
+    // on the ESCAPED quote inside `it\"s ok` as if it were the value's own
+    // opening delimiter, then kept walking backward past the REAL opening
+    // quote looking for a second "opener" that was never there, and
+    // returned `null` -- `collectSpreadClassSources` then rejected the
+    // genuinely top-level `{...alertProps}` spread as belonging to no tag at
+    // all, dropping it entirely. Also exercises `isTopLevelAttributePosition`'s
+    // own forward escape-aware walk through the same attribute, now that
+    // `findOpeningTag` can reach it at all (Codex, PR #874 round 44 thread 2
+    // sweep).
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span data-note="it\\"s ok" {...alertProps}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("collectExplicitClassSources: an escaped quote inside a single-quoted `className=` attribute's own value no longer truncates it", () => {
+    const fixture =
+      "export function A() { return <span className='it\\'s alert animate-pulse'>Loading</span>; }";
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("findTagEnd: an escaped quote in an EARLIER attribute's value no longer hides where the opening tag actually ends", () => {
+    // Before round 44, the escaped quote in `data-note`'s value closed
+    // early, the real closing quote after it opened an unterminated phantom
+    // string with no later quote in the fixture to close it, and
+    // `findTagEnd` returned `-1` -- `extractJsxElements` then skipped this
+    // whole `<span>` rather than adding it to `elements`, so nothing could
+    // confirm it renders visible text ("Loading").
+    const fixture =
+      'export function A() { return <span data-note=\'it\\\'s clean\' className="text-red animate-pulse">Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("extractJsxElements: an escaped quote (plus an embedded `<`) in an UNRELATED earlier string no longer swallows the real JSX tag after it (regression control, non-discriminating -- reported honestly)", () => {
+    // `extractJsxElements`'s own quote-skip now shares `findUnescapedQuoteEnd`
+    // (round 44 thread 2), so this fixture proves that sharing didn't break
+    // anything. It is NOT red on 11d1a522, though: the top-level scan path
+    // runs source through `blankCommentsAndQuotedJsx` before
+    // `extractJsxElements` ever sees it, and that function's own
+    // `scanQuotedString` already had its own separate escape-aware
+    // terminator walk pre-round-44 (round 44 only replaced that duplicate
+    // implementation with a call to the new shared `findUnescapedQuoteEnd`,
+    // per the dispatch's own instruction to reuse the comment/JSX scanner's
+    // approach rather than add a second one). So on old code `note`'s string
+    // is already correctly blanked (including its embedded `<`) before the
+    // naive quote-skip in old `extractJsxElements` would ever have mattered,
+    // and the real `<span>` tag is found either way. Verified in isolation
+    // against the 11d1a522 baseline (hybrid revert): passes on both.
+    const fixture =
+      'const note = "it\\"s < 5 chars";\nexport function A() { return <span className="text-red animate-pulse">Loading</span>; }';
     expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
   });
 });

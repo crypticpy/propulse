@@ -9,29 +9,58 @@ export const POPOVER_WIDTH = 330;
 export const POPOVER_HEIGHT = 430;
 export const EDGE_PADDING = 10;
 
-/** Header, footer, and borders — excludes the scrollable/capped list body. */
-export const SPOT_COLLECTION_POPOVER_CHROME_HEIGHT = 96;
+/** Root font size when nothing has been measured yet (Tailwind default). */
+export const ROOT_FONT_PX_DEFAULT = 16;
+
+/* Row budgets are expressed in rem, never in px: the popover rows are built
+ * from rem-based type and padding, and the app scales the document root font
+ * size with the text-scale control (`:root[data-text-scale]`, 14.4px at sm up
+ * to 22px at xl, `src/styles/globals.css`). Fixed pixel budgets derived the
+ * row count for a 16px root and overfilled the `overflow-hidden` wall body at
+ * lg/xl (#879 review round 3). Callers multiply by the measured root font
+ * size and re-derive when the scale changes. */
+
+/** Header, footer, and borders -- excludes the scrollable/capped list body. */
+export const SPOT_COLLECTION_POPOVER_CHROME_REM = 6;
 /** A two-line row: callsign/frequency line plus the badge line. */
-export const SPOT_COLLECTION_WALL_ROW_HEIGHT = 54;
+export const SPOT_COLLECTION_WALL_ROW_REM = 3.375;
 /** The same row with the grid/comment third line (and its `mt-1`). A spot
  * carrying `dxGrid` or `comment` renders this taller variant, so a cap that
- * budgeted every row at 54px over-rendered the list: the wall body is
- * `overflow-hidden`, so the extra rows were silently clipped while the aria
+ * budgeted every row at the short height over-rendered the list: the wall body
+ * is `overflow-hidden`, so the extra rows were silently clipped while the aria
  * label and the `+N more` count still claimed them as visible (#879 review
  * round). Rows are budgeted individually at their own height instead. */
-export const SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT = 72;
-export const SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT = 36;
+export const SPOT_COLLECTION_WALL_DETAIL_ROW_REM = 4.5;
+export const SPOT_COLLECTION_WALL_MORE_ROW_REM = 2.25;
+
+/** The document root font size in px, or the default when it cannot be read.
+ * This is what turns the rem budgets above into real pixels at the operator's
+ * current text scale. */
+export function readRootFontPx(): number {
+  if (typeof document === "undefined" || typeof getComputedStyle !== "function") {
+    return ROOT_FONT_PX_DEFAULT;
+  }
+  const parsed = parseFloat(
+    getComputedStyle(document.documentElement).fontSize,
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : ROOT_FONT_PX_DEFAULT;
+}
 
 /** The height the wall list must reserve for `spot`, matching the row markup
  * in `SpotCollectionPopover`: the grid/comment line renders whenever either
  * field is present (it prints "Grid unavailable" for a bare comment). */
-export function wallRowHeight(spot: {
-  dxGrid?: string | null;
-  comment?: string | null;
-}): number {
-  return spot.dxGrid || spot.comment
-    ? SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT
-    : SPOT_COLLECTION_WALL_ROW_HEIGHT;
+export function wallRowHeight(
+  spot: {
+    dxGrid?: string | null;
+    comment?: string | null;
+  },
+  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
+): number {
+  const rem =
+    spot.dxGrid || spot.comment
+      ? SPOT_COLLECTION_WALL_DETAIL_ROW_REM
+      : SPOT_COLLECTION_WALL_ROW_REM;
+  return rem * rootFontPx;
 }
 
 export interface SpotCollectionPopoverLayout {
@@ -66,21 +95,26 @@ function countRowsThatFit(
 
 /**
  * The wall never scrolls, so the list is capped instead. Rows are measured
- * one by one from their own predicted height (see `wallRowHeight`) rather
- * than from a single average: a collection of grid-carrying spots is 72px a
- * row, and budgeting it at 54px rendered rows the clipped body could not
- * show while still counting them as visible.
+ * one by one from their own height (see `wallRowHeight`) rather than from a
+ * single average: a collection of grid-carrying spots is a third taller a row,
+ * and budgeting it at the short height rendered rows the clipped body could
+ * not show while still counting them as visible.
+ *
+ * `rootFontPx` scales the chrome and "+N more" budgets to the operator's text
+ * scale; `rowHeights` must already be in the same pixel space (pass heights
+ * from `wallRowHeight(spot, rootFontPx)` or real measured row heights).
  */
 export function deriveWallVisibleSpotCount(
   maxHeight: number,
   rowHeights: readonly number[],
+  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
 ): number {
   const totalSpots = rowHeights.length;
   if (totalSpots <= 0) return 0;
 
   const listBudget = Math.max(
     0,
-    maxHeight - SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
+    maxHeight - SPOT_COLLECTION_POPOVER_CHROME_REM * rootFontPx,
   );
 
   if (countRowsThatFit(rowHeights, listBudget) >= totalSpots) {
@@ -95,7 +129,7 @@ export function deriveWallVisibleSpotCount(
       totalSpots,
       countRowsThatFit(
         rowHeights,
-        listBudget - SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
+        listBudget - SPOT_COLLECTION_WALL_MORE_ROW_REM * rootFontPx,
       ),
     ),
   );

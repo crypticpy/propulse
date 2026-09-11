@@ -23,10 +23,20 @@ import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import {
-  SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
-  SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
-  SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
+  ROOT_FONT_PX_DEFAULT,
+  SPOT_COLLECTION_POPOVER_CHROME_REM,
+  SPOT_COLLECTION_WALL_DETAIL_ROW_REM,
+  SPOT_COLLECTION_WALL_MORE_ROW_REM,
 } from "./spotCollectionPopoverLayout";
+
+/* Pixel values of the rem budgets at the default root font size. The
+ * text-scale case below re-derives them at the xl root instead. */
+const SPOT_COLLECTION_POPOVER_CHROME_HEIGHT =
+  SPOT_COLLECTION_POPOVER_CHROME_REM * ROOT_FONT_PX_DEFAULT;
+const SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT =
+  SPOT_COLLECTION_WALL_DETAIL_ROW_REM * ROOT_FONT_PX_DEFAULT;
+const SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT =
+  SPOT_COLLECTION_WALL_MORE_ROW_REM * ROOT_FONT_PX_DEFAULT;
 
 // Round 3 (#871 review again): the wall row cap used to be driven by
 // `useEffectiveCanvasType()`, which reads `workspaceStore`. `HamClockView`
@@ -365,6 +375,55 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
 
       expect(needed).toBeLessThanOrEqual(listBudget);
       host.remove();
+    });
+
+    it("re-derives the row cap when the text scale raises the root font size (#879 review round 3)", async () => {
+      // `:root[data-text-scale="xl"]` sets the document font size to 22px
+      // (src/styles/globals.css), so every rem-sized row grows by ~37%. A
+      // fixed-pixel budget kept rendering the 16px row count and the extra
+      // rows were clipped by the `overflow-hidden` wall body.
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      const panel = screen.getByRole("dialog");
+      const before = screen.getAllByRole("button", {
+        name: /Select K\d+ABC/,
+      }).length;
+
+      document.documentElement.style.fontSize = "22px";
+      document.documentElement.setAttribute("data-text-scale", "xl");
+
+      try {
+        await vi.waitFor(() => {
+          expect(
+            screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+          ).toBeLessThan(before);
+        });
+
+        const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+        const listBudget =
+          Number.parseFloat(panel.style.maxHeight) -
+          SPOT_COLLECTION_POPOVER_CHROME_REM * 22;
+        const needed =
+          rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_REM * 22 +
+          SPOT_COLLECTION_WALL_MORE_ROW_REM * 22;
+        expect(needed).toBeLessThanOrEqual(listBudget);
+      } finally {
+        document.documentElement.removeAttribute("data-text-scale");
+        document.documentElement.style.fontSize = "";
+        host.remove();
+      }
     });
 
     it("keeps the portal container and keyboard focus when the host rect degenerates mid-resize (#879)", async () => {

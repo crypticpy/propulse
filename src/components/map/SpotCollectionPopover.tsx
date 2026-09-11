@@ -11,7 +11,9 @@ import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import {
   computeSpotCollectionPopoverLayout,
   deriveWallVisibleSpotCount,
+  readRootFontPx,
   resolveSpotCollectionPortalElement,
+  ROOT_FONT_PX_DEFAULT,
   wallRowHeight,
 } from "./spotCollectionPopoverLayout";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
@@ -86,6 +88,10 @@ export function SpotCollectionPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
+  // The wall row budgets are rem, so the cap has to know the real root font
+  // size: the text-scale control takes it from 14.4px to 22px, and a 16px
+  // assumption over-rendered the clipped wall body at lg/xl (#879 round 3).
+  const [rootFontPx, setRootFontPx] = useState(ROOT_FONT_PX_DEFAULT);
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {
@@ -125,16 +131,26 @@ export function SpotCollectionPopover({
   // Per-row heights, not a count: rows carrying a grid or comment render a
   // third line, so the cap has to budget them individually (#879 review).
   const wallRowHeights = useMemo(
-    () => sortedSpots.map((spot) => wallRowHeight(spot)),
-    [sortedSpots],
+    () => sortedSpots.map((spot) => wallRowHeight(spot, rootFontPx)),
+    [rootFontPx, sortedSpots],
   );
 
   const wallVisibleCount = useMemo(
     () =>
       isWallCanvas
-        ? deriveWallVisibleSpotCount(layout.maxHeight, wallRowHeights)
+        ? deriveWallVisibleSpotCount(
+            layout.maxHeight,
+            wallRowHeights,
+            rootFontPx,
+          )
         : sortedSpots.length,
-    [isWallCanvas, layout.maxHeight, sortedSpots.length, wallRowHeights],
+    [
+      isWallCanvas,
+      layout.maxHeight,
+      rootFontPx,
+      sortedSpots.length,
+      wallRowHeights,
+    ],
   );
 
   // Resolved once per open session per `portalTarget` identity, NOT from
@@ -159,7 +175,12 @@ export function SpotCollectionPopover({
   useEffect(() => {
     if (!visible) return;
 
-    const bumpLayout = () => setLayoutEpoch((epoch) => epoch + 1);
+    const measureRootFontPx = () => setRootFontPx(readRootFontPx());
+    const bumpLayout = () => {
+      measureRootFontPx();
+      setLayoutEpoch((epoch) => epoch + 1);
+    };
+    measureRootFontPx();
     const observedHosts = [portalTarget, boundsHost].filter(
       (host): host is Element =>
         host instanceof Element &&
@@ -173,9 +194,21 @@ export function SpotCollectionPopover({
       for (const host of observedHosts) observer.observe(host);
     }
 
+    // The text-scale control rewrites `data-text-scale` on the root element,
+    // which changes the root font size without any resize of the host.
+    let scaleObserver: MutationObserver | undefined;
+    if (typeof MutationObserver !== "undefined") {
+      scaleObserver = new MutationObserver(measureRootFontPx);
+      scaleObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-text-scale", "style", "class"],
+      });
+    }
+
     window.addEventListener("resize", bumpLayout);
     return () => {
       observer?.disconnect();
+      scaleObserver?.disconnect();
       window.removeEventListener("resize", bumpLayout);
     };
   }, [boundsHost, portalTarget, visible]);

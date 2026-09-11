@@ -4,12 +4,25 @@ import {
   deriveWallVisibleSpotCount,
   EDGE_PADDING,
   resolveSpotCollectionPortalElement,
-  SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
-  SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
-  SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
-  SPOT_COLLECTION_WALL_ROW_HEIGHT,
+  readRootFontPx,
+  ROOT_FONT_PX_DEFAULT,
+  SPOT_COLLECTION_POPOVER_CHROME_REM,
+  SPOT_COLLECTION_WALL_DETAIL_ROW_REM,
+  SPOT_COLLECTION_WALL_MORE_ROW_REM,
+  SPOT_COLLECTION_WALL_ROW_REM,
   wallRowHeight,
 } from "./spotCollectionPopoverLayout";
+
+/* The budgets are rem; these are their pixel values at the default root font
+ * size, which is what the cases below reason in. */
+const SPOT_COLLECTION_POPOVER_CHROME_HEIGHT =
+  SPOT_COLLECTION_POPOVER_CHROME_REM * ROOT_FONT_PX_DEFAULT;
+const SPOT_COLLECTION_WALL_ROW_HEIGHT =
+  SPOT_COLLECTION_WALL_ROW_REM * ROOT_FONT_PX_DEFAULT;
+const SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT =
+  SPOT_COLLECTION_WALL_DETAIL_ROW_REM * ROOT_FONT_PX_DEFAULT;
+const SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT =
+  SPOT_COLLECTION_WALL_MORE_ROW_REM * ROOT_FONT_PX_DEFAULT;
 
 /** `count` plain two-line rows. */
 function plainRows(count: number): number[] {
@@ -119,6 +132,59 @@ describe("wallRowHeight (#879 review)", () => {
     expect(wallRowHeight({ dxGrid: "", comment: "" })).toBe(
       SPOT_COLLECTION_WALL_ROW_HEIGHT,
     );
+  });
+});
+
+describe("wall row budgets follow the root font size (#879 review round 3)", () => {
+  const XL_ROOT_PX = 22; // :root[data-text-scale="xl"] in src/styles/globals.css
+
+  it("derives fewer rows at the xl text scale than at the default root", () => {
+    // One fixed popover budget, two text scales.
+    const maxHeight = 520;
+    const spots = Array.from({ length: 40 }, () => ({ dxGrid: "DM79" }));
+
+    const atDefault = deriveWallVisibleSpotCount(
+      maxHeight,
+      spots.map((spot) => wallRowHeight(spot, ROOT_FONT_PX_DEFAULT)),
+      ROOT_FONT_PX_DEFAULT,
+    );
+    const atXl = deriveWallVisibleSpotCount(
+      maxHeight,
+      spots.map((spot) => wallRowHeight(spot, XL_ROOT_PX)),
+      XL_ROOT_PX,
+    );
+
+    expect(atDefault).toBeGreaterThan(atXl);
+  });
+
+  it("never accumulates past the list budget at either root size", () => {
+    const maxHeight = 520;
+    for (const rootPx of [ROOT_FONT_PX_DEFAULT, XL_ROOT_PX]) {
+      const rowHeights = Array.from({ length: 40 }, () =>
+        wallRowHeight({ dxGrid: "DM79" }, rootPx),
+      );
+      const visible = deriveWallVisibleSpotCount(
+        maxHeight,
+        rowHeights,
+        rootPx,
+      );
+      const used =
+        visible * wallRowHeight({ dxGrid: "DM79" }, rootPx) +
+        SPOT_COLLECTION_WALL_MORE_ROW_REM * rootPx;
+      expect(used).toBeLessThanOrEqual(
+        maxHeight - SPOT_COLLECTION_POPOVER_CHROME_REM * rootPx,
+      );
+    }
+  });
+
+  it("reads the live root font size", () => {
+    expect(readRootFontPx()).toBe(ROOT_FONT_PX_DEFAULT);
+    document.documentElement.style.fontSize = "22px";
+    try {
+      expect(readRootFontPx()).toBe(22);
+    } finally {
+      document.documentElement.style.fontSize = "";
+    }
   });
 });
 

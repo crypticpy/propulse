@@ -9328,4 +9328,3 @@ describe("untinted pulsing loading text at the 0.5 opacity trough (#878)", () =>
     expect(Math.min(...ratios)).toBeCloseTo(2.31, 2);
   });
 });
-

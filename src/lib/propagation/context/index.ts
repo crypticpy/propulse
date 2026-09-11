@@ -31,6 +31,7 @@ export {
 export {
   ContextStampError,
   ContextVariableError,
+  eligibleAsOf,
   inactiveBarrierAsOf,
   selectAsOf,
   type SelectOptions,

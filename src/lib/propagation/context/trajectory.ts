@@ -182,6 +182,27 @@ function bucketKey(bucket: BucketWindow): string {
 }
 
 /**
+ * Whether this record may stand as the prior for `variable`.
+ *
+ * The same rule the forecast histories pass: a record filed under a driver its
+ * own source never declared is dropped, and a declared record filed under the
+ * wrong driver is a caller bug rather than an absent sample. A prior is also a
+ * standing bundled product by definition, so a forecast bin read as one would
+ * label a prediction as climatology (M11, M14).
+ */
+function priorBinds(prior: SourceRecord, variable: string): boolean {
+  const entry = getLedgerEntry(prior.sourceId);
+  if (!entry.variables.includes(prior.variable)) return false;
+  if (prior.variable !== variable) {
+    throw new ContextForecastError(
+      prior.sourceId,
+      `carries "${prior.variable}" but was filed as the prior for "${variable}"`,
+    );
+  }
+  return entry.kind === "bundled";
+}
+
+/**
  * Whether a bundled prior was available at `issuedAt` and describes `at`.
  *
  * A climatology is still a dated product. One bundled after the issue instant
@@ -236,6 +257,13 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
     ...Object.keys(options.observations ?? {}),
     ...Object.keys(options.priors ?? {}),
   ]);
+
+  // Priors are bound to their driver before the grid is walked, so a caller
+  // bug is reported whether or not a forecast happens to cover every sample.
+  const priorByVariable = new Map<string, SourceRecord>();
+  for (const [variable, prior] of Object.entries(options.priors ?? {})) {
+    if (priorBinds(prior, variable)) priorByVariable.set(variable, prior);
+  }
 
   const placedByVariable = new Map<string, PlacedForecast[]>();
   for (const variable of variables) {
@@ -306,7 +334,7 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
         continue;
       }
 
-      const prior = options.priors?.[variable];
+      const prior = priorByVariable.get(variable);
       if (prior !== undefined && priorAppliesAt(prior, options, issued, at)) {
         drivers[variable] = {
           origin: "climatological_prior",

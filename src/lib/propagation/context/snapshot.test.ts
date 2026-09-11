@@ -69,7 +69,6 @@ async function snapshot(
     issuedAt: ISSUED,
     mode: "cached_live",
     histories: historiesFrom(ROW),
-    forecasts: {},
     ...overrides,
   });
 }
@@ -273,7 +272,6 @@ describe("buildContextSnapshot: a forecast source never stands in for an observa
   it("drives horizon zero from the measurement, not from the prediction", async () => {
     const built = await snapshot({
       histories: { ...historiesFrom(ROW), kp_forecast: [predictedKp] },
-      forecasts: { kp: [predictedKp] },
       trajectoryHours: 2,
     });
     const first = built.trajectory[0].drivers.kp;
@@ -327,5 +325,126 @@ describe("buildContextSnapshot: a multi-variable source keeps every variable", (
         "observed_at_issue",
       );
     }
+  });
+});
+
+describe("buildContextSnapshot: an outage row acts as a barrier", () => {
+  /** A row with no readings at all, recording only that a feed went dark. */
+  const outage: SolarSnapshotRow = {
+    ...ROW,
+    captured_at: "2026-09-11T17:55:00.000Z",
+    kp_index: null,
+    sfi: null,
+    bt: null,
+    bx_gsm: null,
+    by_gsm: null,
+    bz_gsm: null,
+    solar_wind_speed: null,
+    solar_wind_temperature: null,
+    solar_wind_density: null,
+    sunspot_number: null,
+    proton_flux_10mev: null,
+    dst_index: null,
+    hp60: null,
+    source_observed_at: { solar_wind: "2026-09-11T17:50:00.000Z" },
+    source_status: { solar_wind: { active: false } },
+  };
+
+  function merged(): Record<string, ReturnType<typeof recordsFromSnapshotRow>> {
+    const histories = historiesFrom(ROW);
+    for (const record of recordsFromSnapshotRow(outage)) {
+      histories[record.sourceId] = [
+        ...(histories[record.sourceId] ?? []),
+        record,
+      ];
+    }
+    return histories;
+  }
+
+  it("reports the outage, not the older reading, once a feed goes dark", async () => {
+    const built = await snapshot({ histories: merged() });
+    expect(built.sources.solar_wind).toMatchObject({
+      state: "excluded",
+      reason: "source_inactive",
+    });
+    expect(valueKeys(built.sources.solar_wind)).toEqual([]);
+    // The outage belongs to one feed; the rest of the census is untouched.
+    expect(built.sources.magnetic_field.state).toBe("selected");
+  });
+});
+
+describe("buildContextSnapshot: the trajectory reads the censused records", () => {
+  const bin = (value: number, from: string, to: string) => ({
+    sourceId: "kp_forecast",
+    variable: "kp",
+    units: "dimensionless (Kp, thirds)",
+    value,
+    stamps: {
+      observedIntervalStartAt: null,
+      observedIntervalEndAt: "2026-09-11T17:55:00.000Z",
+      publication: {
+        kind: "bounded_by_capture" as const,
+        publishedAt: "2026-09-11T17:55:00.000Z",
+      },
+      capturedAt: "2026-09-11T17:55:00.000Z",
+      forecastIssuedAt: "2026-09-11T17:55:00.000Z",
+      validFrom: from,
+      validTo: to,
+      intervalSeconds: 10800,
+      revision: `kp-forecast ${from}`,
+      archiveClass: "capture_bounded" as const,
+    },
+    origin: "network" as const,
+    activity: "not_reported" as const,
+    qualityFlags: ["predicted"],
+  });
+
+  const bins = (later: number) => [
+    bin(3, "2026-09-11T18:00:00.000Z", "2026-09-11T21:00:00.000Z"),
+    bin(later, "2026-09-11T21:00:00.000Z", "2026-09-12T00:00:00.000Z"),
+  ];
+
+  it("cannot be driven by a forecast the census never saw", async () => {
+    const smuggled = {
+      issuedAt: ISSUED,
+      mode: "cached_live",
+      histories: historiesFrom(ROW),
+      trajectoryHours: 2,
+      forecasts: { kp: bins(5) },
+      priors: {},
+    } as unknown as Parameters<typeof buildContextSnapshot>[0];
+    const built = await buildContextSnapshot(smuggled);
+    expect(built.sources.kp_forecast.state).toBe("absent");
+    expect(built.trajectory[1].drivers.kp.origin).toBe("absent");
+  });
+
+  it("drives the trajectory from the forecast records in the histories", async () => {
+    const built = await snapshot({
+      histories: { ...historiesFrom(ROW), kp_forecast: bins(5) },
+      trajectoryHours: 2,
+    });
+    expect(built.sources.kp_forecast.state).toBe("selected");
+    expect(built.trajectory[1].drivers.kp).toMatchObject({
+      origin: "issued_forecast",
+      value: 3,
+    });
+  });
+
+  it("pins every eligible record, so a later bin cannot change unnoticed", async () => {
+    const base = await snapshot({
+      histories: { ...historiesFrom(ROW), kp_forecast: bins(5) },
+      trajectoryHours: 1,
+    });
+    const moved = await snapshot({
+      histories: { ...historiesFrom(ROW), kp_forecast: bins(8) },
+      trajectoryHours: 1,
+    });
+    // The grid is one sample long, so the changed bin drives nothing: only
+    // the pin of the product itself can carry the difference.
+    expect(base.trajectory).toEqual(moved.trajectory);
+    expect(moved.sources.kp_forecast.sourceVersion).not.toBe(
+      base.sources.kp_forecast.sourceVersion,
+    );
+    expect(moved.contextId).not.toBe(base.contextId);
   });
 });

@@ -16,7 +16,7 @@ import {
   type SolarSnapshotRow,
 } from "./adapters";
 import { getLedgerEntry } from "./ledger";
-import { selectAsOf } from "./selection";
+import { inactiveBarrierAsOf, selectAsOf } from "./selection";
 import { buildTrajectory } from "./trajectory";
 
 const FETCHED = "2026-09-11T12:05:00.000Z";
@@ -307,5 +307,88 @@ describe("an unreported activity flag is not an outage", () => {
     expect(field.every((record) => record.activity === "not_reported")).toBe(
       true,
     );
+  });
+});
+
+describe("a status-only outage row is still an outage marker", () => {
+  /** The collector writes a row with no readings when a feed goes dark. */
+  const statusOnly: SolarSnapshotRow = {
+    captured_at: "2026-09-11T11:50:00.000Z",
+    kp_index: null,
+    sfi: null,
+    bt: null,
+    bx_gsm: null,
+    by_gsm: null,
+    bz_gsm: null,
+    solar_wind_speed: null,
+    solar_wind_temperature: null,
+    solar_wind_density: null,
+    sunspot_number: null,
+    proton_flux_10mev: null,
+    dst_index: null,
+    hp60: null,
+    source_observed_at: { solar_wind: "2026-09-11T11:45:00.000Z" },
+    source_status: { solar_wind: { active: false } },
+  };
+
+  it("keeps a marker for every declared variable of the dark source", () => {
+    const records = recordsFromSnapshotRow(statusOnly);
+    const wind = records.filter((record) => record.sourceId === "solar_wind");
+    expect(wind.map((record) => record.variable).sort()).toEqual(
+      [...getLedgerEntry("solar_wind").variables].sort(),
+    );
+    for (const record of wind) {
+      expect(record.activity).toBe("inactive");
+      expect(record.qualityFlags).toContain("status_only_marker");
+      expect(Number.isFinite(record.value)).toBe(false);
+    }
+    expect(
+      records.some((record) => record.sourceId !== "solar_wind"),
+      "a value-less row invented a reading for another source",
+    ).toBe(false);
+  });
+
+  it("dates the marker by the row capture when the feed reported no observation time", () => {
+    const records = recordsFromSnapshotRow({
+      ...statusOnly,
+      source_observed_at: {},
+    });
+    const wind = records.filter((record) => record.sourceId === "solar_wind");
+    expect(wind.length).toBeGreaterThan(0);
+    for (const record of wind) {
+      expect(record.stamps.observedIntervalEndAt).toBe(
+        "2026-09-11T11:50:00.000Z",
+      );
+    }
+  });
+
+  it("reports the outage rather than the missing number", () => {
+    const active: SolarSnapshotRow = {
+      ...statusOnly,
+      captured_at: "2026-09-11T11:40:00.000Z",
+      solar_wind_speed: 420,
+      solar_wind_temperature: 90000,
+      solar_wind_density: 5,
+      source_observed_at: { solar_wind: "2026-09-11T11:35:00.000Z" },
+      source_status: { solar_wind: { active: true } },
+    };
+    const records = [
+      ...recordsFromSnapshotRow(active),
+      ...recordsFromSnapshotRow(statusOnly),
+    ].filter((record) => record.sourceId === "solar_wind");
+    const issuedAt = "2026-09-11T11:55:00.000Z";
+    const selected = selectAsOf(
+      records.filter((record) => record.variable === "wind_speed"),
+      {
+        issuedAt,
+        entry: getLedgerEntry("solar_wind"),
+        mode: "cached_live",
+        barrier: inactiveBarrierAsOf(records, { issuedAt }),
+      },
+    );
+    expect(selected).toMatchObject({
+      state: "excluded",
+      reason: "source_inactive",
+    });
   });
 });

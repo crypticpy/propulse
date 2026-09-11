@@ -158,6 +158,103 @@ export function inactiveBarrierAsOf(
   return barrier;
 }
 
+type ExclusionOf = Extract<Selected, { state: "excluded" }>["reason"];
+
+/**
+ * Validate one record against its ledger entry and return its observed instant.
+ *
+ * A record filed under another source, or carrying a variable its source never
+ * declared, is a caller bug rather than an eligibility outcome (M11), and one
+ * whose stamps describe an impossible history is rejected here too, so every
+ * later test reads stamps that could have existed.
+ */
+function admit(record: SourceRecord, options: SelectOptions): number {
+  if (
+    record.sourceId !== options.entry.sourceId ||
+    !options.entry.variables.includes(record.variable)
+  ) {
+    throw new ContextVariableError(record.sourceId, record.variable);
+  }
+  assertCausalStamps(record);
+  return instantMs(
+    record.stamps.observedIntervalEndAt,
+    "observedIntervalEndAt",
+  );
+}
+
+/**
+ * Why this record was not usable at `issuedAt`, or `null` if it was.
+ *
+ * Order matters. Each test answers a different question, and the first one a
+ * record fails is the reason reported, so "it arrived too late" is never
+ * reported as "it was too old". An outage is named before the missing number
+ * it causes: a source that went dark reports no reading, and reporting that as
+ * a non finite value would describe the symptom instead of the cause.
+ */
+function exclusionFor(
+  record: SourceRecord,
+  options: SelectOptions,
+  issued: number,
+  barrierAt: number | null,
+): ExclusionOf | null {
+  const { entry, mode } = options;
+  const observed = instantMs(
+    record.stamps.observedIntervalEndAt,
+    "observedIntervalEndAt",
+  );
+  const published = instantMs(
+    record.stamps.publication.publishedAt,
+    "publishedAt",
+  );
+  const captured = instantMs(record.stamps.capturedAt, "capturedAt");
+
+  if (!eligibleInMode(record, mode)) return "offline_mode";
+  if (observed > issued) return "not_yet_observed";
+  if (published > issued) return "not_yet_published";
+  if (captured > issued) return "not_yet_captured";
+  if (
+    options.requireVerifiedArchive === true &&
+    record.stamps.archiveClass !== "verified_as_issued"
+  ) {
+    return "unknown_publication_history";
+  }
+  if (
+    entry.maxAgeSeconds !== null &&
+    (issued - observed) / 1000 > entry.maxAgeSeconds
+  ) {
+    return "beyond_age_bound";
+  }
+  if (record.activity === "inactive") return "source_inactive";
+  if (barrierAt !== null && observed < barrierAt) return "inactive_barrier";
+  if (!Number.isFinite(record.value)) return "non_finite_value";
+  return null;
+}
+
+/**
+ * Every record of this history that was usable at `issuedAt`.
+ *
+ * `selectAsOf` keeps the one a driver reads; this keeps all of them, which is
+ * what pins a product whose answer is more than one number. A forecast course
+ * whose later bin moved is a different product even when the bin a caller reads
+ * today did not change, and the source version has to say so (M24).
+ */
+export function eligibleAsOf(
+  history: SourceHistory,
+  options: SelectOptions,
+): readonly SourceRecord[] {
+  const issued = instantMs(options.issuedAt, "issuedAt");
+  const barrier = options.barrier ?? null;
+  const barrierAt = barrier === null ? null : instantMs(barrier, "barrier");
+  const eligible: SourceRecord[] = [];
+  for (const record of history) {
+    admit(record, options);
+    if (exclusionFor(record, options, issued, barrierAt) === null) {
+      eligible.push(record);
+    }
+  }
+  return eligible;
+}
+
 /**
  * The record from `history` that was usable at `issuedAt`, or why none was.
  *
@@ -169,7 +266,6 @@ export function selectAsOf(
   history: SourceHistory,
   options: SelectOptions,
 ): Selected {
-  const { entry, mode } = options;
   const issued = instantMs(options.issuedAt, "issuedAt");
   const barrier = options.barrier ?? null;
   const barrierAt = barrier === null ? null : instantMs(barrier, "barrier");
@@ -181,60 +277,18 @@ export function selectAsOf(
   ];
   let latest: SourceRecord | null = null;
   let latestAt = Number.NEGATIVE_INFINITY;
-  type ExclusionOf = Extract<Selected, { state: "excluded" }>["reason"];
   let excluded: ExclusionOf | null = null;
   let excludedAt = Number.NEGATIVE_INFINITY;
 
   for (const record of history) {
-    if (record.sourceId !== entry.sourceId) {
-      throw new ContextVariableError(record.sourceId, record.variable);
-    }
-    if (!entry.variables.includes(record.variable)) {
-      throw new ContextVariableError(record.sourceId, record.variable);
-    }
-    assertCausalStamps(record);
-
-    const observed = instantMs(
-      record.stamps.observedIntervalEndAt,
-      "observedIntervalEndAt",
-    );
+    const observed = admit(record, options);
     if (observed > latestAt) {
       latest = record;
       latestAt = observed;
     }
 
-    const published = instantMs(
-      record.stamps.publication.publishedAt,
-      "publishedAt",
-    );
     const captured = instantMs(record.stamps.capturedAt, "capturedAt");
-
-    let failure: ExclusionOf | null = null;
-    if (!eligibleInMode(record, mode)) {
-      failure = "offline_mode";
-    } else if (observed > issued) {
-      failure = "not_yet_observed";
-    } else if (published > issued) {
-      failure = "not_yet_published";
-    } else if (captured > issued) {
-      failure = "not_yet_captured";
-    } else if (
-      options.requireVerifiedArchive === true &&
-      record.stamps.archiveClass !== "verified_as_issued"
-    ) {
-      failure = "unknown_publication_history";
-    } else if (
-      entry.maxAgeSeconds !== null &&
-      (issued - observed) / 1000 > entry.maxAgeSeconds
-    ) {
-      failure = "beyond_age_bound";
-    } else if (!Number.isFinite(record.value)) {
-      failure = "non_finite_value";
-    } else if (record.activity === "inactive") {
-      failure = "source_inactive";
-    } else if (barrierAt !== null && observed < barrierAt) {
-      failure = "inactive_barrier";
-    }
+    const failure = exclusionFor(record, options, issued, barrierAt);
 
     if (failure !== null) {
       // The reason reported for the source is the one belonging to its newest

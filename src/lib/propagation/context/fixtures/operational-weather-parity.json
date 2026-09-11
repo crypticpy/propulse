@@ -649,6 +649,121 @@
       }
     },
     {
+      "name": "a status only outage row still invalidates older rows",
+      "issuedAt": "2026-09-11T18:00:00Z",
+      "rows": [
+        {
+          "captured_at": "2026-09-11T17:40:00Z",
+          "source_observed_at": {
+            "kp": "2026-09-11T17:35:00Z",
+            "f107": "2026-09-11T00:00:00Z",
+            "magnetic_field": "2026-09-11T17:35:00Z",
+            "solar_wind": "2026-09-11T17:35:00Z",
+            "sunspot_number": "2026-09-11T00:00:00Z",
+            "proton_flux_10mev": "2026-09-11T17:35:00Z",
+            "dst": "2026-09-11T17:00:00Z",
+            "hp60": "2026-09-11T16:00:00Z"
+          },
+          "source_status": {},
+          "kp_index": 3.0,
+          "sfi": 150.0,
+          "bt": 6.0,
+          "bx_gsm": 1.0,
+          "by_gsm": 2.0,
+          "bz_gsm": -3.0,
+          "solar_wind_speed": 420.0,
+          "solar_wind_temperature": 90000.0,
+          "solar_wind_density": 5.0,
+          "sunspot_number": 60.0,
+          "proton_flux_10mev": 0.2,
+          "dst_index": -12.0,
+          "hp60": 2.7
+        },
+        {
+          "captured_at": "2026-09-11T17:50:00Z",
+          "source_observed_at": {
+            "solar_wind": "2026-09-11T17:45:00Z"
+          },
+          "source_status": {
+            "solar_wind": {
+              "active": false
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kp": {
+          "kp": {
+            "value": 3.0,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "f107": {
+          "f107": {
+            "value": 150.0,
+            "observedIntervalEndAt": "2026-09-11T00:00:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "magnetic_field": {
+          "bx_gsm": {
+            "value": 1.0,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          },
+          "by_gsm": {
+            "value": 2.0,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          },
+          "bz_gsm": {
+            "value": -3.0,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          },
+          "bt": {
+            "value": 6.0,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "solar_wind": {
+          "wind_speed": null,
+          "temperature_k": null,
+          "density_cm3": null
+        },
+        "sunspot_number": {
+          "sunspot_number": {
+            "value": 60.0,
+            "observedIntervalEndAt": "2026-09-11T00:00:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "proton_flux_10mev": {
+          "proton_flux_10mev": {
+            "value": 0.2,
+            "observedIntervalEndAt": "2026-09-11T17:35:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "dst": {
+          "dst": {
+            "value": -12.0,
+            "observedIntervalEndAt": "2026-09-11T17:00:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        },
+        "hp60": {
+          "hp60": {
+            "value": 2.7,
+            "observedIntervalEndAt": "2026-09-11T16:00:00Z",
+            "capturedAt": "2026-09-11T17:40:00Z"
+          }
+        }
+      }
+    },
+    {
       "name": "an exact boundary observation is inside the bound",
       "issuedAt": "2026-09-11T18:00:00Z",
       "rows": [

@@ -578,3 +578,62 @@ describe("a forecast history is bound to the variable it is filed under", () => 
     expect(samples[0].drivers.kp).toMatchObject({ origin: "issued_forecast" });
   });
 });
+
+describe("a bundled prior is bound to its key and to a bundled product", () => {
+  const bundled = (overrides: Partial<ForecastOptions> = {}): SourceRecord => ({
+    ...forecast({
+      sourceId: "r12_climatology",
+      variable: "r12",
+      value: 96.4,
+      issuedAt: "2026-08-01T00:00:00.000Z",
+      validFrom: "2026-08-01T00:00:00.000Z",
+      validTo: "2026-10-01T00:00:00.000Z",
+      intervalSeconds: 86400 * 30,
+      revision: "silso-2026-08",
+      ...overrides,
+    }),
+    origin: "bundled",
+  });
+
+  it("never reports a smoothed sunspot prior as Kp", () => {
+    // r12_climatology declares r12 and nothing else, so filing its record
+    // under the kp driver is a caller bug, not an absent sample.
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 1,
+        forecasts: {},
+        priors: { kp: bundled() },
+        mode: "offline",
+      }),
+    ).toThrow(ContextForecastError);
+  });
+
+  it("drops a prior carrying a variable its own source never declared", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 1,
+      forecasts: {},
+      priors: { invented: { ...bundled(), variable: "invented" } },
+      mode: "offline",
+    });
+    expect(samples[0].drivers.invented.origin).toBe("absent");
+    expect(samples[0].drivers.invented).not.toHaveProperty("value");
+  });
+
+  it("refuses a prior from a source the ledger does not call bundled", () => {
+    // kp_forecast is a forecast product. Reading one of its bins as a
+    // climatology would label a prediction as a standing prior.
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 1,
+      forecasts: {},
+      priors: {
+        kp: { ...bundled(), sourceId: "kp_forecast", variable: "kp" },
+      },
+      mode: "offline",
+    });
+    expect(samples[0].drivers.kp.origin).toBe("absent");
+    expect(samples[0].drivers.kp).not.toHaveProperty("value");
+  });
+});

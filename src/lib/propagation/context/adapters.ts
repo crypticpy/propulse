@@ -286,6 +286,17 @@ const SNAPSHOT_FIELDS: readonly (readonly [
   ["hp60", "hp60", "hp60", "dimensionless (Hp, thirds)"],
 ];
 
+/** source -> the [variable, units] pairs a row can carry for it. */
+const MARKER_VARIABLES: Readonly<
+  Record<string, readonly (readonly [string, string])[]>
+> = SNAPSHOT_FIELDS.reduce<Record<string, (readonly [string, string])[]>>(
+  (table, [, sourceId, variable, units]) => {
+    table[sourceId] = [...(table[sourceId] ?? []), [variable, units] as const];
+    return table;
+  },
+  {},
+);
+
 export function recordsFromSnapshotRow(
   row: SolarSnapshotRow,
 ): readonly SourceRecord[] {
@@ -334,6 +345,53 @@ export function recordsFromSnapshotRow(
             : "not_reported",
       qualityFlags: [],
     });
+  }
+
+  // A row can report an outage while carrying no readings at all. The oracle's
+  // `inactive_source_barrier` still reads such a row as the marker that
+  // invalidates everything older, so dropping it for want of a number would let
+  // a stale reading survive the outage that ended it (M11). The marker carries
+  // no value, which is why it can never be selected as one.
+  for (const [sourceId, status] of Object.entries(row.source_status ?? {})) {
+    if (status?.active !== false) continue;
+    const declared = MARKER_VARIABLES[sourceId];
+    if (declared === undefined) continue;
+    const observed = row.source_observed_at[sourceId];
+    const observedAt =
+      typeof observed === "string" && observed.length > 0
+        ? new Date(instantMs(observed, "source_observed_at")).toISOString()
+        : capturedAt;
+    for (const [variable, units] of declared) {
+      if (
+        records.some(
+          (record) =>
+            record.sourceId === sourceId && record.variable === variable,
+        )
+      ) {
+        continue;
+      }
+      records.push({
+        sourceId,
+        variable,
+        units,
+        value: Number.NaN,
+        stamps: {
+          observedIntervalStartAt: null,
+          observedIntervalEndAt: observedAt,
+          publication: captureBounded(capturedAt),
+          capturedAt,
+          forecastIssuedAt: null,
+          validFrom: null,
+          validTo: null,
+          intervalSeconds: null,
+          revision: `${sourceId} inactive ${observedAt} ${capturedAt}`,
+          archiveClass: "capture_bounded",
+        },
+        origin: "cached",
+        activity: "inactive",
+        qualityFlags: ["status_only_marker"],
+      });
+    }
   }
 
   return records;

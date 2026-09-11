@@ -25,6 +25,7 @@ import {
 } from "@/lib/propagation/context/ledger";
 import {
   ContextVariableError,
+  eligibleAsOf,
   inactiveBarrierAsOf,
   selectAsOf,
 } from "@/lib/propagation/context/selection";
@@ -58,12 +59,16 @@ export const CENSUS_SOURCE_IDS: readonly string[] = LEDGER_SOURCE_IDS;
 export interface ContextSnapshotOptions {
   readonly issuedAt: Instant;
   readonly mode: SourceMode;
-  /** Every record the caller holds, keyed by ledger source id. */
+  /**
+   * Every record the caller holds, keyed by ledger source id.
+   *
+   * This is the only input. Observations, forecast bins and bundled priors all
+   * arrive here and are censused together, so the trajectory is driven by the
+   * same records `toEvidenceSources` reports on. There is no second channel a
+   * record can reach the trajectory through, which is what makes the census and
+   * the trajectory incapable of disagreeing (M24).
+   */
   readonly histories: Readonly<Record<string, SourceHistory>>;
-  /** As-issued forecast records, keyed by the variable they drive. */
-  readonly forecasts: Readonly<Record<string, SourceHistory>>;
-  /** Bundled climatological priors, keyed by variable. */
-  readonly priors?: Readonly<Record<string, SourceRecord>>;
   readonly trajectoryHours?: number;
   readonly requireVerifiedArchive?: boolean;
 }
@@ -169,10 +174,21 @@ function published(outcome: Selected): PublishedOutcome {
  * once per source would keep whichever record happened to sort first and drop
  * the rest, so each declared variable gets its own history and its own answer.
  */
+interface SourceCensus {
+  /** The record a driver may read, one answer per declared variable. */
+  readonly outcomes: Record<string, Selected>;
+  /**
+   * Every record of this source that passed the as-of test, not only the one
+   * each variable settled on. A forecast product answers with a course rather
+   * than a number, and its pin has to cover all of it.
+   */
+  readonly eligible: readonly SourceRecord[];
+}
+
 function selectSource(
   sourceId: string,
   options: ContextSnapshotOptions,
-): Record<string, Selected> {
+): SourceCensus {
   const entry = getLedgerEntry(sourceId);
   const history = options.histories[sourceId] ?? [];
   for (const record of history) {
@@ -186,22 +202,39 @@ function selectSource(
   const barrier = inactiveBarrierAsOf(history, { issuedAt: options.issuedAt });
 
   const outcomes: Record<string, Selected> = {};
+  const eligible: SourceRecord[] = [];
   for (const variable of entry.variables) {
     const forVariable = history.filter(
       (record) => record.variable === variable,
     );
-    outcomes[variable] =
-      forVariable.length === 0
-        ? { state: "absent", reason: "no_record_in_history" }
-        : selectAsOf(forVariable, {
-            issuedAt: options.issuedAt,
-            entry,
-            mode: options.mode,
-            barrier,
-            requireVerifiedArchive: options.requireVerifiedArchive,
-          });
+    if (forVariable.length === 0) {
+      outcomes[variable] = { state: "absent", reason: "no_record_in_history" };
+      continue;
+    }
+    const selectOptions = {
+      issuedAt: options.issuedAt,
+      entry,
+      mode: options.mode,
+      barrier,
+      requireVerifiedArchive: options.requireVerifiedArchive,
+    };
+    outcomes[variable] = selectAsOf(forVariable, selectOptions);
+    eligible.push(...eligibleAsOf(forVariable, selectOptions));
   }
-  return outcomes;
+  return { outcomes, eligible };
+}
+
+/**
+ * The pin of a product that answered with more than one record.
+ *
+ * The digest covers every eligible record, sorted so it does not depend on the
+ * order a caller happened to hand them in. A forecast course whose later bin
+ * moved is a different product, and a reader comparing two pins has to be able
+ * to see that even when the bin it reads today is unchanged (M24).
+ */
+async function versionOfAll(records: readonly SourceRecord[]): Promise<string> {
+  const serialized = records.map((record) => canonical(record)).sort();
+  return `sha256:${await sha256Hex(`[${serialized.join(",")}]`)}`;
 }
 
 export async function buildContextSnapshot(
@@ -209,13 +242,14 @@ export async function buildContextSnapshot(
 ): Promise<ContextSnapshot> {
   const { issuedAt, mode } = options;
 
-  const selections = new Map<string, Record<string, Selected>>();
+  const selections = new Map<string, SourceCensus>();
   for (const sourceId of CENSUS_SOURCE_IDS) {
     selections.set(sourceId, selectSource(sourceId, options));
   }
 
   const sources: Record<string, SnapshotEntry> = {};
-  for (const [sourceId, outcomes] of selections) {
+  for (const [sourceId, sourceCensus] of selections) {
+    const { outcomes } = sourceCensus;
     const variables: Record<string, PublishedOutcome> = {};
     for (const [variable, outcome] of Object.entries(outcomes)) {
       variables[variable] = published(outcome);
@@ -224,7 +258,6 @@ export async function buildContextSnapshot(
     // The source is dated by its newest selected record, and pinned by the
     // digest of every record it contributed, so a change in any one component
     // changes the source version and with it the context identity.
-    const selectedRecords: SourceRecord[] = [];
     let representative: { record: SourceRecord; ageSeconds: number } | null =
       null;
     let excluded: {
@@ -235,7 +268,6 @@ export async function buildContextSnapshot(
 
     for (const outcome of Object.values(outcomes)) {
       if (outcome.state === "selected") {
-        selectedRecords.push(outcome.record);
         const at = instantMs(outcome.record.stamps.observedIntervalEndAt);
         if (
           representative === null ||
@@ -266,7 +298,7 @@ export async function buildContextSnapshot(
         variables,
         record: representative.record,
         ageSeconds: representative.ageSeconds,
-        sourceVersion: `sha256:${await sha256Hex(canonical(selectedRecords))}`,
+        sourceVersion: await versionOfAll(sourceCensus.eligible),
       };
       continue;
     }
@@ -299,20 +331,35 @@ export async function buildContextSnapshot(
   // at, and labelling one `observed_at_issue` would report a guess as a
   // measurement (M14).
   const observations: Record<string, Selected> = {};
-  for (const [sourceId, outcomes] of selections) {
-    if (getLedgerEntry(sourceId).kind !== "observation") continue;
-    for (const [variable, outcome] of Object.entries(outcomes)) {
+  // As-issued forecast bins, and the bundled priors that stand where no
+  // forecast speaks, both read out of the same census. A record the census
+  // never saw has no way into the trajectory.
+  const forecasts: Record<string, SourceRecord[]> = {};
+  const priors: Record<string, SourceRecord> = {};
+  for (const [sourceId, sourceCensus] of selections) {
+    const { kind } = getLedgerEntry(sourceId);
+    if (kind === "forecast") {
+      for (const record of sourceCensus.eligible) {
+        forecasts[record.variable] = [
+          ...(forecasts[record.variable] ?? []),
+          record,
+        ];
+      }
+      continue;
+    }
+    for (const [variable, outcome] of Object.entries(sourceCensus.outcomes)) {
       if (outcome.state !== "selected") continue;
-      observations[variable] = outcome;
+      if (kind === "observation") observations[variable] = outcome;
+      if (kind === "bundled") priors[variable] = outcome.record;
     }
   }
 
   const trajectory = buildTrajectory({
     issuedAt,
     hours: options.trajectoryHours ?? DEFAULT_GRID_HOURS,
-    forecasts: options.forecasts,
+    forecasts,
     observations,
-    priors: options.priors,
+    priors,
     mode,
     requireVerifiedArchive: options.requireVerifiedArchive,
   });

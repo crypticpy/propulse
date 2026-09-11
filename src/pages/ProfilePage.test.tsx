@@ -3,8 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
 
+const VIEWER_ID = "viewer-1";
+
 const fixture = vi.hoisted(() => ({
   authenticated: true,
+  viewerId: "viewer-1",
+  followingLoadedForUserId: "viewer-1" as string | null,
+  followingLoadError: null as { userId: string; at: number } | null,
+  fetchFollowing: vi.fn(),
   mobile: false,
   profile: {} as Record<string, unknown>,
   following: [] as { id: string }[],
@@ -30,13 +36,31 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/stores/authStore", () => ({
   selectIsAuthenticated: (state: { authenticated: boolean }) =>
     state.authenticated,
-  useAuthStore: (selector: (state: { authenticated: boolean }) => unknown) =>
-    selector({ authenticated: fixture.authenticated }),
+  useAuthStore: (
+    selector: (state: {
+      authenticated: boolean;
+      user: { id: string } | null;
+    }) => unknown,
+  ) =>
+    selector({
+      authenticated: fixture.authenticated,
+      user: fixture.authenticated ? { id: fixture.viewerId } : null,
+    }),
 }));
-vi.mock("@/stores/socialStore", () => ({
+vi.mock("@/stores/socialStore", async (importOriginal) => ({
+  // The real predicate: the page's follow state is what it computes, so a
+  // hand-written stand-in here would test nothing.
+  viewerFriendship: (
+    await importOriginal<typeof import("@/stores/socialStore")>()
+  ).viewerFriendship,
+  followLoadFailedForViewer: (
+    await importOriginal<typeof import("@/stores/socialStore")>()
+  ).followLoadFailedForViewer,
   useSocialStore: (
     selector: (state: {
       following: { id: string }[];
+      followingLoadedForUserId: string | null;
+      followingLoadError: { userId: string; at: number } | null;
       fetchFollowing: () => void;
       followUser: typeof fixture.follow;
       unfollowUser: typeof fixture.unfollow;
@@ -44,7 +68,9 @@ vi.mock("@/stores/socialStore", () => ({
   ) =>
     selector({
       following: fixture.following,
-      fetchFollowing: () => {},
+      followingLoadedForUserId: fixture.followingLoadedForUserId,
+      followingLoadError: fixture.followingLoadError,
+      fetchFollowing: fixture.fetchFollowing,
       followUser: fixture.follow,
       unfollowUser: fixture.unfollow,
     }),
@@ -142,8 +168,12 @@ function openProfile(path = "/profile/N0TEST") {
 }
 beforeEach(() => {
   fixture.authenticated = true;
+  fixture.viewerId = VIEWER_ID;
   fixture.mobile = false;
   fixture.following = [];
+  fixture.followingLoadedForUserId = VIEWER_ID;
+  fixture.followingLoadError = null;
+  fixture.fetchFollowing.mockClear();
   fixture.follow.mockClear();
   fixture.unfollow.mockClear();
   fixture.query.mockClear();
@@ -233,6 +263,32 @@ describe("redesigned visitor profile preservation", () => {
     expect(fixture.follow).not.toHaveBeenCalled();
   });
 
+  // #995 round 4: socialStore.following is a cache with an owner. A set that
+  // has not been confirmed to belong to the signed-in account must not unlock
+  // a friends-only location, however "following" it looks.
+  it("keeps a friends-only location closed while the follow set is unconfirmed", async () => {
+    fixture.mobile = true;
+    fixture.following = [{ id: "synthetic-operator" }];
+    fixture.followingLoadedForUserId = null;
+    (fixture.profile.visibility_settings as Record<string, string>).location =
+      "friends";
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+    expect(screen.queryByText("DM79")).toBeNull();
+  });
+
+  it("opens a friends-only location once the follow set is confirmed for this account", async () => {
+    fixture.mobile = true;
+    fixture.following = [{ id: "synthetic-operator" }];
+    fixture.followingLoadedForUserId = VIEWER_ID;
+    (fixture.profile.visibility_settings as Record<string, string>).location =
+      "friends";
+
+    openProfile();
+    expect(await screen.findByText("DM79")).toBeTruthy();
+  });
+
   it("requires the existing confirmation before unfollowing an operator", async () => {
     fixture.following = [{ id: "synthetic-operator" }];
     openProfile();
@@ -243,5 +299,85 @@ describe("redesigned visitor profile preservation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Following" }));
     fireEvent.click(screen.getByRole("button", { name: "Unfollow" }));
     expect(fixture.unfollow).toHaveBeenCalledWith("synthetic-operator");
+  });
+
+  // #995 round 6: a failed initial load left the relation unknown with no way
+  // back, so the follow control sat disabled for the life of the mount.
+  it("offers a retry instead of a dead Follow button when the follow set failed to load", async () => {
+    fixture.followingLoadedForUserId = null;
+    fixture.followingLoadError = { userId: VIEWER_ID, at: Date.now() };
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+
+    expect(
+      screen.queryByRole("button", { name: "Follow operator" }),
+    ).toBeNull();
+    const retry = screen.getByRole("button", { name: "Retry follow status" });
+    expect((retry as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(retry);
+    expect(fixture.fetchFollowing).toHaveBeenCalled();
+    // The relation is still unknown, so nothing was followed by that click.
+    expect(fixture.follow).not.toHaveBeenCalled();
+  });
+
+  // #995 round 9: a session that goes straight from account A to account B
+  // keeps `isAuthenticated` true, so an effect keyed on that boolean never
+  // re-ran. authStore drops A's cache at the boundary and nothing refilled
+  // it, leaving the relation unknown for the life of the mount: friends-only
+  // sections hidden, Follow disabled, and no Retry because a cleared cache
+  // is not a load error.
+  it("reloads the follow set when the session switches straight to another account", async () => {
+    // A fresh element each time: React bails out of re-rendering a subtree
+    // whose element is referentially identical to the last one.
+    const tree = () => (
+      <MemoryRouter initialEntries={["/profile/N0TEST"]}>
+        <Routes>
+          <Route path="/profile/:callsign/*" element={<ProfilePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const { rerender } = render(tree());
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(1);
+
+    // A to B: still authenticated, but authStore has cleared A's set.
+    fixture.viewerId = "viewer-2";
+    fixture.followingLoadedForUserId = null;
+    rerender(tree());
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(2);
+
+    // That reload lands and the relation ends known for B, not stuck.
+    fixture.followingLoadedForUserId = "viewer-2";
+    rerender(tree());
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Follow operator",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+
+    // B back to A refetches again rather than trusting B's cache.
+    fixture.viewerId = VIEWER_ID;
+    fixture.followingLoadedForUserId = null;
+    rerender(tree());
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps Follow disabled while the relation is unknown with no recorded failure", async () => {
+    fixture.followingLoadedForUserId = null;
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+
+    expect(
+      screen.queryByRole("button", { name: "Retry follow status" }),
+    ).toBeNull();
+    const follow = screen.getByRole("button", {
+      name: "Follow operator",
+    }) as HTMLButtonElement;
+    expect(follow.disabled).toBe(true);
   });
 });

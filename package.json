@@ -6,7 +6,7 @@
   "description": "Ham radio operator toolset - solar weather and propagation visualization",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-session.mjs vite",
     "dev:session": "node scripts/dev-session.mjs",
     "test:dev-session": "node --test scripts/dev-session.test.mjs",
     "test:review-cap": "node --test scripts/review-cap.test.mjs",
@@ -41,7 +41,7 @@
     "verify:radio": "npm run lint && npm run test && npm run test:bridge && npm run test:radio-daemon && npm run build",
     "hooks:install": "bash scripts/setup-git-hooks.sh",
     "worktree:new": "bash scripts/new-worktree.sh",
-    "preview": "vite preview",
+    "preview": "node scripts/dev-session.mjs vite preview",
     "import:sherwood": "node scripts/import-sherwood.mjs",
     "bridge": "cd bridge && npm run dev",
     "bridge:build": "cd bridge && npm run build",

@@ -28,9 +28,28 @@ import { OperatingHoursMini } from "./OperatingHoursMini";
 
 interface VisitorProfileCardProps {
   profile: PublicProfile;
+  /**
+   * Whether the target's published location may be shown to this viewer.
+   * Decided once on ProfilePage with `isSectionVisibleToViewer` so the grid,
+   * the coordinates and the contact panel cannot disagree.
+   */
+  locationDisclosed: boolean;
   /** Viewer's own interest tags — used to highlight shared interests */
   viewerInterests?: InterestTag[];
   isFollowing: boolean;
+  /**
+   * Whether the viewer's follow relation to this profile is known yet. While
+   * it is not, neither action is offered: "Follow" would risk a duplicate
+   * write on the follows primary key, "Following" would claim a relation we
+   * cannot see.
+   */
+  relationshipKnown: boolean;
+  /**
+   * Present when the follow set failed to load for this viewer: the gated
+   * control becomes a spelled-out retry rather than a permanently disabled
+   * Follow.
+   */
+  onRetryRelationship?: () => void;
   onFollow: () => void;
   onUnfollow: () => void;
 }
@@ -60,8 +79,11 @@ function resolveRank(raw: string | undefined): RankTier {
 
 export function VisitorProfileCard({
   profile,
+  locationDisclosed,
   viewerInterests,
   isFollowing,
+  relationshipKnown,
+  onRetryRelationship,
   onFollow,
   onUnfollow,
 }: VisitorProfileCardProps) {
@@ -74,15 +96,14 @@ export function VisitorProfileCard({
 
   const totalQSOs = (profile.statsCache?.totalQSOs as number) || 0;
   const uniqueCountries = (profile.statsCache?.uniqueCountries as number) || 0;
-  const displayGrid = profile.grid || "\u2014";
+  const displayGrid = locationDisclosed ? profile.grid || "\u2014" : "\u2014";
   const interests = profile.interests ?? [];
   const operatingHours = profile.operatingHours ?? [];
 
-  // Coordinate visibility — respect the profile's visibility settings
+  // Coordinate visibility — the page decided it; a friends-only location was
+  // treated as public here before (#995 round 4).
   const showLocation =
-    profile.visibilitySettings?.location !== "private" &&
-    profile.lat != null &&
-    profile.lon != null;
+    locationDisclosed && profile.lat != null && profile.lon != null;
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
@@ -119,13 +140,15 @@ export function VisitorProfileCard({
                   alt=""
                   className={[
                     "w-16 h-16 rounded-full object-cover mx-auto mb-3",
-                    !effects.animatedBadges || !effects.glow ? "" : rank === "ethereal"
-                      ? "animate-rank-chromatic-ring"
-                      : isRankAtLeast(rank, "master")
-                        ? "animate-rank-golden-ring"
-                        : isRankAtLeast(rank, "expert")
-                          ? "animate-rank-pulse-glow"
-                          : "",
+                    !effects.animatedBadges || !effects.glow
+                      ? ""
+                      : rank === "ethereal"
+                        ? "animate-rank-chromatic-ring"
+                        : isRankAtLeast(rank, "master")
+                          ? "animate-rank-golden-ring"
+                          : isRankAtLeast(rank, "expert")
+                            ? "animate-rank-pulse-glow"
+                            : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -225,23 +248,37 @@ export function VisitorProfileCard({
 
         {/* ── Follow / Unfollow Button ───────────────────────────── */}
         <div className="mt-4 pt-4 border-t border-su-line/20">
-          {isFollowing ? (
+          {!relationshipKnown && onRetryRelationship ? (
             <button
               type="button"
+              onClick={onRetryRelationship}
+              className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
+                         bg-su-line/10 text-su-text border border-su-line/40
+                         hover:bg-su-line/20 transition-colors"
+            >
+              Retry follow status
+            </button>
+          ) : isFollowing ? (
+            <button
+              type="button"
+              disabled={!relationshipKnown}
               onClick={onUnfollow}
               className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
                          bg-signal-green/20 text-signal-green border border-signal-green/30
-                         hover:bg-signal-green/30 transition-colors"
+                         hover:bg-signal-green/30 transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Following
             </button>
           ) : (
             <button
               type="button"
+              disabled={!relationshipKnown}
               onClick={onFollow}
               className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
                          bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30
-                         hover:bg-plasma-orange/25 transition-colors"
+                         hover:bg-plasma-orange/25 transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Follow
             </button>

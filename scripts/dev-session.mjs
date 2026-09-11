@@ -191,37 +191,180 @@ async function isStaleClaim(filename) {
 // claimPort (below) performs the *entire* decide-stale + write + commit
 // sequence for a reclaim inside one held lock, so no second caller can ever
 // observe the same stale record and race a commit against this one.
+//
+// PR #894 round 9 P1: reclaiming the lock *directory itself* when it's aged
+// used to be check-then-`rm` — two callers could both `stat` the same aged
+// dir before either acted; the first caller's `rm` cleared the way and its
+// `mkdir` created a fresh, live lock, but the second (delayed) caller's own
+// `rm` — issued against the decision it made against the now-superseded dir,
+// and content-blind about whatever currently sits at that path — then
+// deleted that fresh lock out from under its new holder, letting both
+// callers' `mkdir` eventually succeed and enter the critical section at
+// once.
+//
+// A first fix-up (rename-to-tombstone instead of `rm`, gated by re-checking
+// staleness on the captured copy) closed the destructive half of that race
+// but not all of it, for a reason specific to a bare `mkdir` lock: `mkdir`
+// and the ownership marker written inside it afterward are two separate
+// syscalls, so for the gap between them a live, legitimately-held lock is
+// observably indistinguishable from an abandoned one — empty, no marker
+// yet. A challenger's aged-check can catch exactly that gap, capture the
+// live (but momentarily marker-less) directory, and — even after correctly
+// restoring it once it notices — a *third* caller can `mkdir` the
+// momentarily-empty path in between, entering alongside the original,
+// now-orphaned holder (reproduced empirically, ~1 run in 30, once the more
+// obviously destructive half of the race was fixed).
+//
+// The actual fix: never let a lock be observable in a half-built state at
+// all. A claim is fully assembled — directory plus its `owner.json` marker
+// — in a uniquely-named temp directory first, then published with a single
+// `rename(tempDir, lockPath)`. Rename is atomic, so `lockPath` can only ever
+// be seen as "doesn't exist" or "exists, complete with its marker" — never
+// in between. This also gives mutual exclusion on the publish step itself
+// for free: renaming onto a *non-empty* directory fails (`EEXIST`/
+// `ENOTEMPTY`), and a claim's directory is never empty by the time it's
+// rename-targeted at `lockPath`, so at most one racing publish can land;
+// every loser's rename fails and it falls through to the aged-check-and-
+// retry path below, the same as an ordinary contested lock.
+//
+// Reclaiming an aged lock still moves it out of the way with
+// `rename(lockPath, tombstone)` rather than `rm`ing it directly, and still
+// re-verifies staleness against the captured copy before deciding to delete
+// vs. restore it (see reclaimIfAged) — that half of the round 9 fix-up is
+// unchanged and still matters for the reclaim side, which the publish-side
+// fix above doesn't touch.
+//
+// A successful publish alone still isn't a safe-enough ownership proof at
+// *release* time: if this call's own `fn()` runs long enough for a later
+// caller to legitimately see this lock as aged and reclaim it (rename it
+// away, then publish a fresh one of its own), this call's `finally` block
+// would otherwise `rm` whatever now sits at `lockPath` — the later caller's
+// live lock, not the one this call created. Re-checking the marker's pid
+// and token before that `rm` (the same rule releaseStartupLock applies to
+// the file-based lock) is what makes that safe.
 const LOCK_STALE_MS = 10_000;
 const MAX_LOCK_ATTEMPTS = 40;
 const LOCK_RETRY_DELAY_MS = 50;
 
-async function removeAbandonedLock(lockPath) {
+async function readReclaimLockMarker(lockPath) {
   try {
-    const info = await stat(lockPath);
-    if (Date.now() - info.mtimeMs > LOCK_STALE_MS) {
-      await rm(lockPath, { recursive: true, force: true });
-    }
+    return JSON.parse(
+      await readFile(path.join(lockPath, "owner.json"), "utf8"),
+    );
   } catch {
-    // Already gone, or a transient stat error — the next mkdir attempt
-    // will surface anything that still matters.
+    return null;
   }
 }
 
-async function withReclaimLock(filename, fn) {
+// PR #894 round 9 P1 (fix-up): an mtime-only staleness verdict is itself the
+// TOCTOU this round set out to close, one level up — deciding "aged" against
+// `lockPath`'s current mtime and then acting on that decision moments later
+// is exactly the check-then-act gap that let a legitimate, freshly
+// `mkdir`ed live lock get swept up and destroyed (reproduced empirically as
+// an intermittent double-entry in the N=8 stress test). Once a lock has an
+// owner marker, pid liveness is the same fix isStaleStartupLock already
+// applies to the file-based lock, for the same reason: a live pid can't
+// stop being alive and then alive again in the gap between two checks the
+// way an mtime comparison against a mutable path can flip. Only a marker
+// that can't be read at all — the `mkdir` and the marker's own
+// `open("wx")` are two separate syscalls, so a caller can observe a
+// directory mid-creation — falls back to the same generous, timestamp-only
+// bound the file lock uses for the same "ambiguous, not abandoned" reason.
+// reclaimIfAged (below) re-runs this exact check against the *captured*
+// copy after renaming it, so the same non-racy pid signal also backstops
+// the rare cross-process case where this check's own aged verdict was made
+// against a lock that gets legitimately replaced before this call's rename
+// executes.
+async function isAgedReclaimLock(lockPath) {
+  const marker = await readReclaimLockMarker(lockPath);
+  if (marker && typeof marker.pid === "number") {
+    return !isAlive(marker.pid);
+  }
+  try {
+    const info = await stat(lockPath);
+    return Date.now() - info.mtimeMs > LOCK_STALE_MS;
+  } catch {
+    return false;
+  }
+}
+
+// PR #894 round 9 P1 (fix-up): even a pid-liveness-based verdict is decided
+// against `lockPath` and then acted on a moment later — still a check-then-
+// act gap, just a much narrower one. As a backstop for the rare case where a
+// legitimate reclaim-and-recreate cycle by someone else lands in that gap,
+// re-run the *exact same* isAgedReclaimLock check against the captured copy
+// once it's safely parked under a tombstone name nobody else can reach —
+// rename preserves both the marker file and the directory's mtime, so the
+// recheck sees the true, unchanged verdict for whatever was actually
+// captured, not for whatever currently happens to sit at `lockPath`. Only
+// delete on a confirmed-aged verdict; a live lock scooped up by mistake is
+// handed back immediately so its rightful holder's release still finds its
+// own lock and marker in place.
+async function reclaimIfAged(lockPath, renameFn) {
+  const tombstone = `${lockPath}.stale-${process.pid}-${Date.now()}`;
+  try {
+    await renameFn(lockPath, tombstone);
+  } catch (renameError) {
+    if (renameError.code !== "ENOENT") throw renameError;
+    // Lost the race to another caller's rename (or the owner's own
+    // concurrent release) — the lock at this path is gone either way, so
+    // fall through and retry `mkdir`.
+    return;
+  }
+  if (await isAgedReclaimLock(tombstone)) {
+    // The tombstone path is unique to this pid+timestamp, so no other
+    // caller could have produced or be racing to touch it — always safe to
+    // remove.
+    await rm(tombstone, { recursive: true, force: true }).catch(() => {});
+    return;
+  }
+  // We captured a live lock by mistake. Put it back immediately so its
+  // rightful holder's eventual release still finds its own lock (and
+  // ownership marker) at `lockPath`. If something else has already claimed
+  // `lockPath` in the meantime, leave the tombstone rather than clobber
+  // that new claim.
+  await renameFn(tombstone, lockPath).catch(() => {});
+}
+
+export async function withReclaimLock(filename, fn, { renameFn = rename } = {}) {
   const lockPath = `${filename}.lock`;
+  const markerPath = path.join(lockPath, "owner.json");
   for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
+    // Build the claim fully — directory plus its ownership marker — under a
+    // uniquely-named temp path *before* it's ever published at `lockPath`,
+    // so no other caller can ever observe it half-built (see the comment
+    // above this function).
+    const token = randomUUID();
+    const tempDir = `${lockPath}.claim-${process.pid}-${randomUUID()}`;
+    await mkdir(tempDir);
+    const handle = await open(path.join(tempDir, "owner.json"), "wx", 0o600);
     try {
-      await mkdir(lockPath);
+      await handle.writeFile(JSON.stringify({ pid: process.pid, token }));
+    } finally {
+      await handle.close();
+    }
+    try {
+      await renameFn(tempDir, lockPath);
     } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      await removeAbandonedLock(lockPath);
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      if (error.code !== "EEXIST" && error.code !== "ENOTEMPTY") throw error;
+      // Someone else holds (or abandoned) the lock — never true of the temp
+      // dir we just cleaned up, since its name is unique to this attempt.
+      if (await isAgedReclaimLock(lockPath)) {
+        await reclaimIfAged(lockPath, renameFn);
+      }
       await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY_MS));
       continue;
     }
     try {
       return await fn();
     } finally {
-      await rm(lockPath, { recursive: true, force: true }).catch(() => {});
+      const marker = await readFile(markerPath, "utf8")
+        .then(JSON.parse)
+        .catch(() => null);
+      if (marker && marker.pid === process.pid && marker.token === token) {
+        await rm(lockPath, { recursive: true, force: true }).catch(() => {});
+      }
     }
   }
   throw new Error(
@@ -570,19 +713,63 @@ export async function findLiveSession(registry = REGISTRY) {
   );
 }
 
+// Node runtime options that can appear before the entry script in
+// `node <options...> <entry-script> <args...>`, and must be skipped rather
+// than mistaken for the script itself. `-r`/`--require`, `--loader`,
+// `--import`, `-C`/`--conditions`, and `--title` each take a separate
+// following value that must be skipped too; every other runtime/V8 flag
+// here (`--inspect[-brk][=...]`, `--experimental-*`, `--no-warnings`,
+// `--max-old-space-size=...`, `--enable-source-maps`, `--env-file=...`, and
+// any other `-`/`--` flag) is self-contained. `-e`/`--eval`/`-p` mean Node
+// runs an inline expression with no script at all.
+const NODE_VALUE_OPTIONS = new Set([
+  "-r",
+  "--require",
+  "--loader",
+  "--import",
+  "-C",
+  "--conditions",
+  "--title",
+]);
+const NODE_NO_SCRIPT_OPTIONS = new Set(["-e", "--eval", "-p"]);
+
+// PR #894 round 9 P2: this used to scan *every* token after `node` for
+// something vite-path-shaped, so `node watcher.js /tmp/vite` — a script
+// merely passed a path named "vite" as one of its own arguments — was
+// misclassified as a Vite server. Only the actual Node entry script (the
+// first token that isn't a runtime option) determines what Node will run;
+// everything after it is the script's own argv and is never inspected.
+// Returns null when there is no entry script at all (`-e`/`--eval`/`-p`, or
+// the option list runs out without finding one).
+function findNodeEntryScript(tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (NODE_NO_SCRIPT_OPTIONS.has(token)) return null;
+    if (NODE_VALUE_OPTIONS.has(token)) {
+      i++; // also skip this option's separate value
+      continue;
+    }
+    if (token.startsWith("-")) continue;
+    return token;
+  }
+  return null;
+}
+
 // Matches only actual Vite invocations, never a command that merely mentions
 // "vite" (`vim vite.config.ts`, `tail -f vite.log`, `grep vite package.json`).
 // `command` is the command line with the leading pid already stripped.
 // Recognized forms: a path segment ending in `/vite` or `/vite.js` (covers
 // `node_modules/.bin/vite` and `vite/bin/vite.js`), a bare `vite` or
-// `vite preview` as the first token, `node <path>/vite[.js] ...`, and
-// `npm exec vite` / `npx vite`.
+// `vite preview` as the first token, `node [options] <path>/vite[.js] ...`
+// (options skipped via findNodeEntryScript, never scanned for a vite-ish
+// path), and `npm exec vite` / `npx vite`.
 export function isViteExecutableCommand(command) {
   const tokens = command.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return false;
   const isVitePath = (token) => /(^|\/)vite(\.js)?$/.test(token);
   if (tokens[0] === "node" || /\/node$/.test(tokens[0])) {
-    return tokens.slice(1).some(isVitePath);
+    const entry = findNodeEntryScript(tokens.slice(1));
+    return entry !== null && isVitePath(entry);
   }
   if (isVitePath(tokens[0])) return true;
   if (tokens[0] === "npm" && tokens[1] === "exec" && tokens[2] === "vite") {

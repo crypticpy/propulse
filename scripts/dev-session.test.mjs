@@ -35,6 +35,7 @@ import {
   runManagedVite,
   SHARED_PORT,
   startSession,
+  withReclaimLock,
 } from "./dev-session.mjs";
 
 async function registry(t) {
@@ -484,6 +485,119 @@ test("a held reclaim lock makes a second claimant wait rather than proceed", asy
   assert.equal(session.port, port);
 });
 
+// PR #894 round 9 P1: reclaiming an aged lock dir used to be check-then-`rm`
+// — two callers could both `stat` the same aged dir before either acted,
+// and the second (delayed) caller's `rm` could then delete the *first*
+// caller's already-fresh (`mkdir`-recreated) lock, letting both enter the
+// critical section at once. Stress this directly against withReclaimLock.
+test("withReclaimLock: N=8 concurrent entries against one aged lock dir — exactly one holder at a time, and every caller eventually enters", async (t) => {
+  const dir = await registry(t);
+  const filename = path.join(dir, "target");
+  const lockPath = `${filename}.lock`;
+  await mkdir(lockPath);
+  const old = new Date(Date.now() - 60_000);
+  await utimes(lockPath, old, old);
+  const N = 8;
+  let holders = 0;
+  let sawOverlap = false;
+  const finished = [];
+
+  async function run(i) {
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
+    await withReclaimLock(filename, async () => {
+      holders++;
+      if (holders > 1) sawOverlap = true;
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
+      holders--;
+      finished.push(i);
+    });
+  }
+
+  await Promise.all(Array.from({ length: N }, (_, i) => run(i)));
+  assert.equal(sawOverlap, false);
+  assert.equal(finished.length, N);
+  const leftover = (await readdir(dir)).filter((name) =>
+    name.startsWith("target."),
+  );
+  assert.deepEqual(leftover, []);
+});
+
+// PR #894 round 9 P1: a caller that loses the reclaim rename race on an aged
+// lock dir (another caller already renamed it away first) must see ENOENT,
+// treat it as "the lock is gone either way", and retry its own publish
+// rather than propagating the ENOENT or giving up.
+test("withReclaimLock retries and succeeds after losing a reclaim rename race on an aged lock dir (ENOENT)", async (t) => {
+  const dir = await registry(t);
+  const filename = path.join(dir, "target");
+  const lockPath = `${filename}.lock`;
+  await mkdir(lockPath);
+  // Non-empty and marked with a definitely-dead pid: non-empty so a
+  // publish's rename-into-place genuinely fails (ENOTEMPTY) and falls
+  // through to the reclaim path instead of silently succeeding onto an
+  // empty directory; a dead pid so isAgedReclaimLock reads it as aged
+  // immediately, without waiting out the mtime bound.
+  await writeFile(
+    path.join(lockPath, "owner.json"),
+    JSON.stringify({ pid: 999999, token: "dead-holder" }),
+  );
+  let reclaimCalls = 0;
+  const renameFn = async (from, to) => {
+    // Only the reclaim side (`lockPath` -> tombstone) is what this test
+    // simulates losing; a publish attempt (tempDir -> lockPath) always runs
+    // for real, or the lock could never actually be freed for a retry to
+    // find.
+    if (from === lockPath) {
+      reclaimCalls++;
+      if (reclaimCalls === 1) {
+        const error = new Error(
+          "simulated: another caller won the rename race",
+        );
+        error.code = "ENOENT";
+        throw error;
+      }
+    }
+    return rename(from, to);
+  };
+  const result = await withReclaimLock(filename, async () => "done", {
+    renameFn,
+  });
+  assert.equal(result, "done");
+  assert.ok(reclaimCalls >= 2, "expected the lost race to trigger a retry");
+});
+
+// PR #894 round 9 P1: if this call's own `fn()` runs long enough that
+// another caller legitimately reclaims this lock as aged (renames it away,
+// then `mkdir`s a fresh one of its own) before this call's `finally` block
+// runs, that `finally` must not blow away the later caller's live lock — the
+// marker file's pid+token comparison is what prevents that.
+test("withReclaimLock's release does not remove a lock dir a later caller legitimately reclaimed", async (t) => {
+  const dir = await registry(t);
+  const filename = path.join(dir, "target");
+  const lockPath = `${filename}.lock`;
+
+  await withReclaimLock(filename, async () => {
+    // Simulate a second caller legitimately reclaiming this lock as aged
+    // while the first is still "running" fn(): perform the same
+    // rename+mkdir+marker sequence a real reclaiming caller would.
+    const tombstone = `${lockPath}.stale-${process.pid}-${Date.now()}-sim`;
+    await rename(lockPath, tombstone);
+    await rm(tombstone, { recursive: true, force: true });
+    await mkdir(lockPath);
+    await writeFile(
+      path.join(lockPath, "owner.json"),
+      JSON.stringify({ pid: process.pid, token: "later-holder-token" }),
+    );
+  });
+
+  // The original holder's release must have found its own marker replaced
+  // by the "later holder"'s and skipped the rm — the later holder's
+  // directory and marker must still be there.
+  const marker = JSON.parse(
+    await readFile(path.join(lockPath, "owner.json"), "utf8"),
+  );
+  assert.equal(marker.token, "later-holder-token");
+});
+
 // F10(a): startSession must thread { registry } through to the guard and
 // refuse — with a message matching /already running/ — before it ever
 // imports vite. Uses a throwaway port (never 5173) so this never touches a
@@ -529,6 +643,37 @@ test("isViteExecutableCommand matches only real vite invocations, not lookalikes
     "grep vite package.json",
     "node scripts/dev-session.mjs guard",
     "",
+  ];
+  for (const command of negative) {
+    assert.ok(
+      !isViteExecutableCommand(command),
+      `expected no match: ${command}`,
+    );
+  }
+});
+
+// PR #894 round 9 P2: `node <script> <args...>` used to scan *every* token
+// after `node` for something vite-path-shaped, so a script that merely
+// passed a path named "vite" as one of its own arguments (or after a
+// runtime option like `--loader`) was misclassified as a Vite server. Only
+// the actual Node entry script — the first token that isn't a runtime
+// option — decides this now; everything else is skipped or ignored.
+test("isViteExecutableCommand identifies the real Node entry script, not any vite-ish token", () => {
+  const positive = [
+    "node --inspect node_modules/vite/bin/vite.js",
+    "node -r dotenv/config ./node_modules/.bin/vite --port 5173",
+    "node --inspect-brk=9229 node_modules/.bin/vite",
+    "node --loader tsx node_modules/.bin/vite",
+  ];
+  for (const command of positive) {
+    assert.ok(isViteExecutableCommand(command), `expected match: ${command}`);
+  }
+  const negative = [
+    "node watcher.js /tmp/vite",
+    "node --loader tsx scripts/x.ts vite",
+    'node -e "require(\'/tmp/vite\')"',
+    "node -p 1",
+    "node --experimental-vm-modules watcher.js vite",
   ];
   for (const command of negative) {
     assert.ok(

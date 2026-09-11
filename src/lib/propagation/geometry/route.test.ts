@@ -35,6 +35,19 @@ function haversineKm(a: GeodeticPoint, b: GeodeticPoint): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Initial bearing from `a` to `b`, degrees, independent of `resolveRoute`. */
+function initialBearingDeg(a: GeodeticPoint, b: GeodeticPoint): number {
+  const d2r = Math.PI / 180;
+  const dLon = (b.longitudeDeg - a.longitudeDeg) * d2r;
+  const lat1 = a.latitudeDeg * d2r;
+  const lat2 = b.latitudeDeg * d2r;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return ((Math.atan2(y, x) / d2r) + 360) % 360;
+}
+
 const TOKYO = { latitudeDeg: 35.0, longitudeDeg: 139.0 };
 const HONOLULU = { latitudeDeg: 21.0, longitudeDeg: -158.0 };
 const NEW_YORK = { latitudeDeg: 40.7, longitudeDeg: -74.0 };
@@ -171,6 +184,31 @@ describe("short and long routes (R6)", () => {
       short.initialAzimuthDeg - long.initialAzimuthDeg,
     );
     expect(difference).toBeCloseTo(180, 9);
+  });
+
+  it("does not reverse a tangent the caller supplied as an azimuth", () => {
+    // For an antipodal pair the azimuth *is* the route: the caller named the
+    // direction to leave on because the geometry names none. Reversing it for
+    // the long route sends the circuit out on the reciprocal of the bearing
+    // that was asked for. Short and long differ for a degenerate pair in the
+    // arc they cover, which `arcAngleRad` already expresses, not in where
+    // they start.
+    const tx = { latitudeDeg: 40, longitudeDeg: -74 };
+    const antipode = { latitudeDeg: -40, longitudeDeg: 106 };
+    const long = resolved(tx, antipode, {
+      azimuthDeg: 30,
+      direction: "long",
+    });
+    const short = resolved(tx, antipode, {
+      azimuthDeg: 30,
+      direction: "short",
+    });
+
+    expect(long.tangentFromAzimuth).toBe(true);
+    expect(long.initialAzimuthDeg).toBeCloseTo(30, 9);
+    expect(long.initialAzimuthDeg).not.toBeCloseTo(210, 3);
+    expect(initialBearingDeg(tx, routeSample(long, 100))).toBeCloseTo(30, 6);
+    expect(short.initialAzimuthDeg).toBeCloseTo(30, 9);
   });
 
   it("keeps long-route control points exactly on the great circle", () => {

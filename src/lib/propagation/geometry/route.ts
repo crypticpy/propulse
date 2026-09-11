@@ -256,9 +256,14 @@ export function resolveRoute(
     tangent = normalise(subtract(v, scale(u, dot(u, v))));
   }
 
-  const shortTangent = tangent;
+  // Only a tangent derived from the endpoints has a reciprocal to take. When
+  // the caller supplied the azimuth, the azimuth *is* the route's starting
+  // direction, chosen precisely because a degenerate pair determines none;
+  // negating it would send the circuit out on the reciprocal of the bearing
+  // that was asked for. What separates the long route from the short one for
+  // such a pair is the arc it covers, which `arcAngleRad` below expresses.
   const routeTangent =
-    direction === "long" ? scale(shortTangent, -1) : shortTangent;
+    direction === "long" && !tangentFromAzimuth ? scale(tangent, -1) : tangent;
 
   // A coincident pair has theta = 0, so its "short" arc is zero length and its
   // "long" arc is the full circumference. An antipodal pair splits pi / pi.

@@ -202,6 +202,13 @@ function useSpotFocusState(
 }
 
 /** Camera focus for this view's selection only. Shared DX rows stay shared. */
+function spotsFocusKey(spots: readonly DXSpot[]): string {
+  if (spots.length === 0) return "";
+  return spots
+    .map((spot) => `${spot.id}:${spot.dxLat ?? ""}:${spot.dxLon ?? ""}:${spot.dxGrid ?? ""}`)
+    .join("|");
+}
+
 export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
   const runtime = useViewRuntime();
   const selectedId = useSyncExternalStore(
@@ -212,32 +219,49 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.target,
   );
-  // Resolved outside the memo so the memo keys on the row itself, not on
-  // `spots`' array identity — a cluster poll produces a new `spots` array
-  // every cycle even when the selected row is unchanged, and keying on the
-  // array previously rebuilt `selectedSpot` (and re-armed the focus timer,
-  // see useSpotFocusState's [selectedSpot] effect) on every poll.
-  const row = selectedId
-    ? spots.find((spot) => spot.id === selectedId)
-    : undefined;
+  // Keep the previous array when contents are equivalent so a fresh inline
+  // `[]` or a cluster poll cannot rebuild `selectedSpot` and re-arm the 5s
+  // focus timer. `row` object identity is not a dep.
+  const listKey = spotsFocusKey(spots);
+  const listCache = useRef({ key: listKey, spots });
+  if (listCache.current.key !== listKey) {
+    listCache.current = { key: listKey, spots };
+  }
+  const stableSpots = listCache.current.spots;
   const selectedSpot = useMemo(() => {
-    if (!selectedId) return null;
-    if (!target || (target.reportId !== null && target.reportId !== selectedId)) return null;
-    const hadCoordinates = hasValidSpotCoordinates(row);
-    return {
-      ...(row ?? {
-        id: selectedId,
+    if (selectedId) {
+      if (!target || (target.reportId !== null && target.reportId !== selectedId)) return null;
+      const row = stableSpots.find((spot) => spot.id === selectedId);
+      const hadCoordinates = hasValidSpotCoordinates(row);
+      return {
+        ...(row ?? {
+          id: selectedId,
+          spotter: "",
+          dx: "",
+          frequency: 0,
+          comment: "",
+          time: new Date(0),
+        }),
+        dxLat: target.lat,
+        dxLon: target.lon,
+        dxLocApprox: hadCoordinates ? row?.dxLocApprox === true : !row?.dxGrid,
+      };
+    }
+    if (target?.origin === "manual") {
+      return {
+        id: "manual-target",
         spotter: "",
         dx: "",
         frequency: 0,
         comment: "",
         time: new Date(0),
-      }),
-      dxLat: target.lat,
-      dxLon: target.lon,
-      dxLocApprox: hadCoordinates ? row?.dxLocApprox === true : !row?.dxGrid,
-    };
-  }, [row, selectedId, target]);
+        dxLat: target.lat,
+        dxLon: target.lon,
+        dxLocApprox: false,
+      };
+    }
+    return null;
+  }, [selectedId, target, stableSpots]);
   const onClear = useCallback(() => runtime.clearSelection(), [runtime]);
   return useSpotFocusState(selectedSpot, onClear);
 }

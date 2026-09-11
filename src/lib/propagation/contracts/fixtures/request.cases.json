@@ -253,6 +253,7 @@
     "relay": {
       "kind": "orbital",
       "relayId": "so-50",
+      "body": "spacecraft",
       "ephemerisId": "celestrak-tle-2026-09-11",
       "ephemerisEpoch": "2026-09-11T06:14:02Z"
     },

@@ -158,6 +158,62 @@ export type RelayKind = "orbital" | "fixed";
  * no relay leg of its own. Every other family is a direct path and admits no
  * relay at all.
  */
+/**
+ * A21/A22: which body an orbital relay is. An element set parses the same way
+ * for a cubesat and for the Moon, so "orbital" alone lets an earth-moon-earth
+ * request be answered from a spacecraft TLE and a satellite request from a
+ * lunar ephemeris. The body is what the two cases actually differ by, so it is
+ * declared rather than inferred.
+ */
+export const RELAY_BODIES = ["moon", "spacecraft"] as const;
+export type RelayBody = (typeof RELAY_BODIES)[number];
+
+/**
+ * The body an orbital relay must be for each geometry class, or null where the
+ * geometry admits no orbital relay at all. Earth-moon-earth reflects off the
+ * Moon by definition; an earth-space path and the orbital form of a two-leg
+ * relay circuit are both flown by a spacecraft.
+ */
+export const ORBITAL_RELAY_BODY: Record<GeometryClass, RelayBody | null> = {
+  terrestrial_great_circle: null,
+  ground_wave: null,
+  bistatic_scatter: null,
+  waveguide_mode: null,
+  two_leg_relay: "spacecraft",
+  earth_space: "spacecraft",
+  earth_moon_earth: "moon",
+};
+
+/**
+ * The bodies each mechanism family may answer over. A family that admits no
+ * orbital relay declares an empty list, which is also what makes a mismatched
+ * pair refusable on the capability side: `eme` physics is lunar, and satellite
+ * physics is not.
+ */
+export const ORBITAL_RELAY_BODIES_BY_MECHANISM: Record<
+  MechanismFamily,
+  readonly RelayBody[]
+> = {
+  aircraft_scatter: [],
+  atmospheric_los: [],
+  aurora: [],
+  eme: ["moon"],
+  es: [],
+  event_head: [],
+  f2_daytime: [],
+  ground_sky_coherent: [],
+  groundwave: [],
+  meteor: [],
+  rain_scatter: [],
+  refractivity_pe: [],
+  regular_ef: [],
+  relay: [],
+  satellite: ["spacecraft"],
+  tep_evening: [],
+  terrain_troposphere: [],
+  waveguide: [],
+};
+
 export const PERMITTED_RELAY_KINDS_BY_MECHANISM: Record<
   MechanismFamily,
   readonly RelayKind[]

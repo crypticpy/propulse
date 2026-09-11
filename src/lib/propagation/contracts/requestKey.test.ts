@@ -354,6 +354,7 @@ describe("contracts directory holds no mutable module state", () => {
         (draft.scope as Mutable).intervalSeconds = null;
         (draft.mechanismPolicy as Mutable).family = "eme";
         (draft.mechanismPolicy as Mutable).geometryClass = "earth_moon_earth";
+        (draft.relay as Mutable).body = "moon";
       });
     expect(requestKey(lunar("doppler"))).not.toBe(requestKey(lunar("snr2500")));
   });
@@ -498,7 +499,7 @@ describe("contracts directory holds no mutable module state", () => {
     const orbital = requestKeyProjection(buildCase("satellitePass"))
       .relay as Record<string, unknown>;
     expect(sorted(Object.keys(orbital))).toEqual(
-      sorted(["kind", "relayId", "ephemerisId", "ephemerisEpochMs"]),
+      sorted(["kind", "relayId", "body", "ephemerisId", "ephemerisEpochMs"]),
     );
   });
 });

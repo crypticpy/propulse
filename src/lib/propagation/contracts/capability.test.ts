@@ -17,9 +17,11 @@ import {
 } from "@/lib/propagation/contracts/enums";
 import {
   hasPointValue,
+  parseResult,
   RESULT_SCHEMA_VERSION,
 } from "@/lib/propagation/contracts/result";
 import {
+  bindResult,
   capabilityCovers,
   capabilityDigest,
   parseCapability,
@@ -1524,6 +1526,7 @@ describe("parseResultForRequest binds a result to its request", () => {
       draft.relay = {
         kind: "orbital",
         relayId: "sat-ao-91",
+        body: "spacecraft",
         ephemerisId: "tle-ao-91-2026-09-11",
         ephemerisEpoch: "2026-09-11T17:30:00Z",
       };
@@ -1575,6 +1578,42 @@ describe("parseResultForRequest binds a result to its request", () => {
     ).toEqual([]);
   });
 
+  it("rejects an eme head answering a spacecraft relay (A21, A22)", async () => {
+    // The lunar residual on the result side. Each object is valid on its own:
+    // a lunar Doppler result and a legal earth-space pass request, both with an
+    // orbital relay. Only the body says the pairing is wrong, which is why the
+    // pair has to be bound rather than parsed.
+    const parsedResult = parseResult(dopplerResult(145950000));
+    if (!parsedResult.ok) {
+      throw new Error(
+        `result must parse: ${JSON.stringify(parsedResult.issues)}`,
+      );
+    }
+    const parsedRequest = parseRequest(
+      structuredClone(
+        (requestCases as unknown as Record<string, Mutable>).satellitePass,
+      ),
+    );
+    if (!parsedRequest.ok) throw new Error("request must parse");
+    // No frozen row pairs lunar physics with an earth-space domain, so this
+    // pairing cannot be reached through a target head: the relay body is the
+    // backstop that refuses it, and the row is exercised where it lives.
+    const binding = RESULT_BINDINGS.find(
+      (candidate) => candidate.field === "relayKinds",
+    );
+    expect(binding?.check).toBeTypeOf("function");
+    const reason = binding?.check?.(
+      parsedResult.value.heads[0],
+      parsedRequest.value,
+    );
+    expect(typeof reason === "string" ? reason : "").toMatch(
+      /Mechanism family eme is relayed by moon, not by the spacecraft the request named/,
+    );
+    // And the whole binder still refuses the pair, on the request key.
+    const issues = await bindResult(parsedResult.value, parsedRequest.value);
+    expect(issues.length).toBeGreaterThan(0);
+  });
+
   /** The EME pair the reviewer named: a 145.95 MHz request for a Doppler shift. */
   function dopplerRequest(): Mutable {
     const draft = structuredClone(
@@ -1594,6 +1633,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     draft.relay = {
       kind: "orbital",
       relayId: "moon",
+      body: "moon",
       ephemerisId: "jpl-de440-2026-09-11",
       ephemerisEpoch: "2026-09-11T00:00:00Z",
     };

@@ -19,6 +19,7 @@ import {
   DOMAIN_GEOMETRY_CLASSES,
   isProtocolCoverage,
   isProtocolGeometry,
+  ORBITAL_RELAY_BODIES_BY_MECHANISM,
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
   permittedRelayKinds,
@@ -1200,9 +1201,19 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
           ? null
           : `Mechanism family ${head.mechanismFamily} answers over a relay leg and the request carries none (A21, A22)`;
       }
-      return permitted.includes(request.relay.kind)
+      if (!permitted.includes(request.relay.kind)) {
+        return `Mechanism family ${head.mechanismFamily} is not served by a relay of kind ${request.relay.kind}; it admits ${permitted.length === 0 ? "no relay at all" : permitted.join(", ")} (A21, A22)`;
+      }
+      if (request.relay.kind !== "orbital") return null;
+      // A21/A22: an element set parses the same for the Moon and for a
+      // cubesat, so the family that answers has to be the one whose physics
+      // the named body is: eme is lunar and satellite is not.
+      const bodies = ORBITAL_RELAY_BODIES_BY_MECHANISM[
+        head.mechanismFamily
+      ] as readonly string[];
+      return bodies.includes(request.relay.body)
         ? null
-        : `Mechanism family ${head.mechanismFamily} is not served by a relay of kind ${request.relay.kind}; it admits ${permitted.length === 0 ? "no relay at all" : permitted.join(", ")} (A21, A22)`;
+        : `Mechanism family ${head.mechanismFamily} is relayed by ${bodies.length === 0 ? "no orbiting body" : bodies.join(", ")}, not by the ${request.relay.body} the request named (A21, A22)`;
     },
   },
   {

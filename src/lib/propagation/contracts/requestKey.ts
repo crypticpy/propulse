@@ -136,6 +136,9 @@ function relayProjection(
     return {
       kind: relay.kind,
       relayId: relay.relayId,
+      // The body is part of the question: the same element set read as a
+      // spacecraft and as the Moon are two different requests (A21, A22).
+      body: relay.body,
       ephemerisId: relay.ephemerisId,
       ephemerisEpochMs: instantMs(relay.ephemerisEpoch),
     };

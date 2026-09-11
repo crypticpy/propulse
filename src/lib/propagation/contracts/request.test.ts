@@ -384,11 +384,38 @@ describe("parseRequest fails closed", () => {
     expect(reasonsAt(bad, "relay").join()).toMatch(/requires a relay/);
   });
 
+  it("rejects a spacecraft ephemeris on an earth-moon-earth path (A21, A22)", () => {
+    // The residual: an element set parses whatever body it describes, so
+    // "orbital" alone let a cubesat TLE answer a lunar request.
+    const bad = candidate("satellitePass");
+    (bad.scope as Mutable).domain = "qualified_lunar_station";
+    (bad.scope as Mutable).aggregation = "instantaneous";
+    (bad.scope as Mutable).intervalSeconds = null;
+    bad.targetEvent = "doppler";
+    (bad.mechanismPolicy as Mutable).family = "eme";
+    (bad.mechanismPolicy as Mutable).geometryClass = "earth_moon_earth";
+    expect(reasonsAt(bad, "relay.body").join()).toMatch(
+      /Geometry class earth_moon_earth is relayed by moon, not by spacecraft/,
+    );
+    (bad.relay as Mutable).body = "moon";
+    const outcome = parseRequest(bad);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a lunar ephemeris on an earth-space path (A21, A22)", () => {
+    const bad = candidate("satellitePass");
+    (bad.relay as Mutable).body = "moon";
+    expect(reasonsAt(bad, "relay.body").join()).toMatch(
+      /Geometry class earth_space is relayed by spacecraft, not by moon/,
+    );
+  });
+
   it("rejects a relay identity on a terrestrial geometry class", () => {
     const bad = candidate("hfShortPath");
     bad.relay = {
       kind: "orbital",
       relayId: "so-50",
+      body: "spacecraft",
       ephemerisId: "celestrak-tle-2026-09-11",
       ephemerisEpoch: "2026-09-11T06:14:02Z",
     };

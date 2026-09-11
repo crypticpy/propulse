@@ -287,3 +287,27 @@ class NativeBuildTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CleanCheckoutTests(unittest.TestCase):
+    """A modified tracked file in the clone must stop the build (Codex, PR #1090)."""
+
+    def test_modified_tracked_file_is_rejected(self):
+        import subprocess
+        import tempfile
+        from reference.build import require_clean_checkout
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            (repo / "COEFF.txt").write_text("1 2 3\n")
+            subprocess.run(["git", "-C", str(repo), "add", "COEFF.txt"], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "pin"], check=True)
+            require_clean_checkout(repo)  # clean: no error
+            (repo / "build.o").write_bytes(b"\0")  # untracked build product is fine
+            require_clean_checkout(repo)
+            (repo / "COEFF.txt").write_text("1 2 4\n")
+            with self.assertRaisesRegex(RuntimeError, "modified tracked files"):
+                require_clean_checkout(repo)

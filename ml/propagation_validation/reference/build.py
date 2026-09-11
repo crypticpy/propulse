@@ -112,6 +112,25 @@ def ensure_clone(source: Path) -> None:
         raise RuntimeError(
             f"pinned commit mismatch: clone is at {actual}, contract pins {COMMIT}"
         )
+    require_clean_checkout(source)
+
+
+def require_clean_checkout(source: Path) -> None:
+    """Refuse to build from a clone whose tracked files differ from the pin.
+
+    HEAD alone does not prove provenance: an edited source or coefficient
+    file would be compiled and then recorded as if it came from COMMIT.
+    Untracked build products are allowed; tracked modifications are not.
+    """
+    dirty = subprocess.check_output(
+        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
+        text=True,
+    ).strip()
+    if dirty:
+        raise RuntimeError(
+            "reference checkout has modified tracked files; restore the pinned "
+            f"tree (git -C {source} checkout -- . ) before building:\n{dirty}"
+        )
 
 
 def build_native(source: Path) -> tuple[list[list[str]], float]:

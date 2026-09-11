@@ -267,11 +267,20 @@ def run_wasm_case(module: Path, case, data_path: Path, workdir: Path) -> dict[st
     return merged
 
 
-def peak_rss_kb(command: list[str]) -> int | None:
-    """macOS/BSD `/usr/bin/time -l` peak RSS in KiB; None where unavailable."""
+def peak_rss_kb(command: list[str], env: dict[str, str] | None = None) -> int | None:
+    """macOS/BSD `/usr/bin/time -l` peak RSS in KiB; None where unavailable.
+
+    A probe that fails to launch (for example the native executable without
+    its library search path) must not be published as a measurement.
+    """
     completed = subprocess.run(
-        ["/usr/bin/time", "-l", *command], capture_output=True, text=True
+        ["/usr/bin/time", "-l", *command], capture_output=True, text=True, env=env
     )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"RSS probe exited {completed.returncode}: {' '.join(command)}\n"
+            f"{completed.stderr.strip()[-400:]}"
+        )
     match = re.search(r"(\d+)\s+maximum resident set size", completed.stderr)
     if not match:
         return None
@@ -407,7 +416,7 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
             "batch_cases": len(golden["cases"]),
             "batch_seconds_native": golden.get("native_batch_seconds"),
             "peak_rss_kb_wasm": peak_rss_kb(node_command),
-            "peak_rss_kb_native": peak_rss_kb(native_command),
+            "peak_rss_kb_native": peak_rss_kb(native_command, native.environment()),
             "note": (
                 "Each case is two process launches (two bounded report passes), "
                 "so batch numbers include 2N process starts, not just solver "

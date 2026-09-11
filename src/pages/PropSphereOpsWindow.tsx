@@ -7,6 +7,7 @@ import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
 import { useOperationalWorkspaceSync } from "@/hooks/useMapOperationalContext";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
+import { useOperatingPopoutPresence } from "@/lib/workspace/operatingPopout";
 
 /**
  * Full-window presentation of the same stores and commands as the map dock.
@@ -54,6 +55,9 @@ function OperationalWorkspaceWindow() {
   const displayTime = useMapDisplayTime(timeOffset, absoluteTime);
 
   useOperationalWorkspaceSync();
+  // Tell the window that opened this one when the document goes away, so its
+  // derived scope stops counting a popout that is gone (#884 round 15).
+  useOperatingPopoutPresence();
   // The popout mounts OpsConsole on its own, in a separate document with its
   // own store instances, so it owns the dock-tab reconciliation here (#884).
   useDockTabReconciler();

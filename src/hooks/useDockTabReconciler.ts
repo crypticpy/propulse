@@ -74,8 +74,11 @@
  *    `OperationalScopeControl` (`scopeReconcileRequestId`). Choosing Log takes
  *    the desk in the same event, so the gate would otherwise swallow the very
  *    change that was asked for (#884 round 6).
- * 4. A window's first run never writes and never clears: it adopts whatever
- *    tab is persisted for its dock (#884 round 13). Windows legitimately start
+ * 4. A window's first run never clears, and writes only to initialise a dock
+ *    that has no selection at all: it adopts whatever tab is already persisted
+ *    for its dock (#884 round 13), and if there is none it takes the tab its
+ *    startup scope implies, because no transition is coming to fix an empty
+ *    dock and the console would sit on its DX fallback forever (#884 r15). Windows legitimately start
  *    at different scopes — the popout is the workspace and starts at Log, a
  *    reloaded main window is collapsed at Observe — so a startup scope that
  *    differs from the one the operator chose the tab under proves nothing. The
@@ -86,7 +89,7 @@
  *    and it is what keeps one rule instead of a per-window negotiation.
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { dockKeyForSession, useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
@@ -98,6 +101,11 @@ export function useDockTabReconciler(): void {
   const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const dockKey = dockKeyForSession(sessionId);
   const setDockTab = useContestUIStore((s) => s.setDockTab);
+  // Whether this dock has a selection at all. An empty dock is not a choice to
+  // adopt; it is a tab that has never been set (#884 round 15).
+  const hasPersistedTab = useContestUIStore(
+    (s) => s.dockTabBySessionId[dockKey] !== undefined,
+  );
   const posture = useOpsPostureStore((s) => s.posture);
   const { scope } = useMapOperationalContext();
   const dockTabIntent = useContestUIEphemeralStore((s) => s.dockTabIntent);
@@ -118,6 +126,20 @@ export function useDockTabReconciler(): void {
   const reconciled = useRef<{ scope: MapDataScope; dockKey: string } | null>(
     null,
   );
+
+  /** The tab the current scope implies, written to the current dock. */
+  const setAutomaticDockTab = useCallback(() => {
+    if (scope === "observe") {
+      setDockTab(dockKey, "dx");
+    } else if (scope === "log") {
+      setDockTab(dockKey, "log");
+    } else {
+      // Contest scope reconciles onto whichever dock is current, including the
+      // pre-session dock: choosing Contest in the scope control before a
+      // session exists is exactly how the operator reaches Start Contest.
+      setDockTab(dockKey, "contest");
+    }
+  }, [dockKey, scope, setDockTab]);
 
   useEffect(() => {
     const previous = reconciled.current;
@@ -148,15 +170,23 @@ export function useDockTabReconciler(): void {
       if (movedToTheClickedScope) return;
     }
     if (previous === null) {
-      // First run in this window: adopt the persisted tab as it stands and
-      // write nothing (#884 round 13). A window's startup scope is its own —
-      // the popout is the workspace and runs at Log while a freshly reloaded
-      // main window is collapsed at Observe (#884 round 12) — so a startup
-      // scope that differs from the one the tab was chosen under is not
-      // evidence that the tab is stale. Only a transition this window actually
-      // observes reconciles. A tab from an old session cannot leak in: the tab
-      // is keyed by the session dock key.
       handledScopeRequestId.current = scopeReconcileRequestId;
+      // First run in this window, and this dock already has a selection: adopt
+      // it as it stands and write nothing (#884 round 13). A window's startup
+      // scope is its own — the popout is the workspace and runs at Log while a
+      // freshly reloaded main window is collapsed at Observe (#884 round 12) —
+      // so a startup scope that differs from the one the tab was chosen under
+      // is not evidence that the tab is stale. Only a transition this window
+      // actually observes reconciles. A tab from an old session cannot leak
+      // in: the tab is keyed by the session dock key.
+      if (hasPersistedTab) return;
+      // Nothing has ever been chosen for this dock, so there is no choice to
+      // respect and no transition is coming to fix it: a window that starts at
+      // Log (CAT already up, or a persisted manual Log scope) would sit on the
+      // console's DX fallback forever (#884 round 15). Initialise the tab from
+      // the scope this window starts at. It is an ordinary automatic write and
+      // may broadcast like any other.
+      setAutomaticDockTab();
       return;
     }
     // An explicit scope selection is the operator speaking, exactly like a tab
@@ -169,24 +199,16 @@ export function useDockTabReconciler(): void {
       if (previous?.scope === scope && previous.dockKey === dockKey) return;
       if (posture === "contact" || posture === "desk") return;
     }
-    if (scope === "observe") {
-      setDockTab(dockKey, "dx");
-    } else if (scope === "log") {
-      setDockTab(dockKey, "log");
-    } else {
-      // Contest scope reconciles onto whichever dock is current, including the
-      // pre-session dock: choosing Contest in the scope control before a
-      // session exists is exactly how the operator reaches Start Contest.
-      setDockTab(dockKey, "contest");
-    }
+    setAutomaticDockTab();
   }, [
     clearDockTabIntent,
     dockKey,
     dockTabIntent,
+    hasPersistedTab,
+    setAutomaticDockTab,
     stampDockTabIntent,
     posture,
     scope,
     scopeReconcileRequestId,
-    setDockTab,
   ]);
 }

@@ -523,6 +523,42 @@ describe("dock tab across the /map/ops popout", () => {
     expect(snapshotsSince(reloaded, 0)).toEqual([]);
   });
 
+  // #884 round 15 (Codex, useDockTabReconciler.ts:150): round 13's first run
+  // returned unconditionally, so a dock that had never been given a tab stayed
+  // empty and the console sat on its DX fallback. At Log scope no transition
+  // is coming to fix that: the window started there.
+  it("initialises an empty dock from a Log startup scope", async () => {
+    useRigStore.setState({ connected: true });
+
+    render(<Window />);
+    await flush();
+
+    expect(dockTab()).toBe("log");
+  });
+
+  it("initialises an empty dock from an Observe startup scope", async () => {
+    render(<Window />);
+    await flush();
+
+    expect(dockTab()).toBe("dx");
+  });
+
+  // The refinement is only about an *empty* dock: a dock that has a selection
+  // is still adopted as it stands, whatever the startup scope.
+  it("still adopts an existing selection rather than initialising it", async () => {
+    useRigStore.setState({ connected: true });
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+    });
+
+    render(<Window />);
+    await flush();
+    const window_ = TestChannel.instances.at(-1) as TestChannel;
+
+    expect(dockTab()).toBe("contest");
+    expect(snapshotsSince(window_, 0)).toEqual([]);
+  });
+
   // #884 round 14 (Codex, useDockTabReconciler.ts:125): the popout is at Log
   // because of its own `workspaceOpen`, which is per-window and not on the wire
   // (#884 round 12). A tab click there therefore sends an intent stamped `log`

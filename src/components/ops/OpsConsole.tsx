@@ -27,6 +27,7 @@ import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import type { MapDataScope } from "@/lib/map/operationalScope";
+import { openOperatingPopout } from "@/lib/workspace/operatingPopout";
 
 export interface OpsConsoleProps {
   displayTime: Date;
@@ -39,21 +40,6 @@ const SCOPE_LABELS: Record<MapDataScope, string> = {
   log: "Log",
   contest: "Contest",
 };
-
-function openOperationalWorkspaceWindow(): Window | null {
-  const workspaceWindow = window.open(
-    "/map/ops",
-    "propulse-operating-workspace",
-    "popup=yes,width=1100,height=760,resizable=yes,scrollbars=yes",
-  );
-  // A blocked popup must not change automatic scope or hide public activity.
-  // The child repeats this flag after mounting so a successful window remains
-  // authoritative even if its initial BroadcastChannel handshake is delayed.
-  if (workspaceWindow) {
-    useMapOperationalStore.getState().setWorkspaceOpen(true);
-  }
-  return workspaceWindow;
-}
 
 export interface OperationalScopeControlProps {
   compact?: boolean;
@@ -167,7 +153,7 @@ export function OperationalScopeControl({
       {showPopout && (
         <button
           type="button"
-          onClick={openOperationalWorkspaceWindow}
+          onClick={openOperatingPopout}
           className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-1 text-[9px] text-su-muted transition-colors hover:border-su-line/50 hover:text-su-text"
           title="Open synchronized operating workspace in a secondary window"
           aria-label="Open operating workspace in secondary window"

@@ -22,6 +22,8 @@ import {
   type MapDataScope,
 } from "@/lib/map/operationalScope";
 import { resolveMapPolicyScope } from "@/lib/map/contactMapPolicy";
+import { WORKSPACE_CHANNEL } from "@/lib/map/workspaceChannel";
+import { refreshOperatingPopoutLiveness } from "@/lib/workspace/operatingPopout";
 import {
   normalizeContestUiState,
   normalizeDockTabIntent,
@@ -46,6 +48,11 @@ export function useMapOperationalContext(): MapOperationalContext {
   const qsoDraftCallsign = useQSOStore((state) => state.form.callsign);
   const manualScope = useMapOperationalStore((state) => state.manualScope);
   const workspaceOpen = useMapOperationalStore((state) => state.workspaceOpen);
+  // A popout this window opened is operating too, even though the inline dock
+  // is shut (#884 round 15).
+  const workspacePopoutOpen = useMapOperationalStore(
+    (state) => state.workspacePopoutOpen,
+  );
   const opsPosture = useOpsPostureStore((state) => state.posture);
   const contestSessionId = activeSession?.id ?? null;
   const storedAssistance = useContestUIStore((state) =>
@@ -62,7 +69,8 @@ export function useMapOperationalContext(): MapOperationalContext {
   const stationOperationActive =
     rigConnected ||
     wsjtxConnected ||
-    (workspaceOpen && qsoDraftCallsign.trim().length > 0);
+    ((workspaceOpen || workspacePopoutOpen) &&
+      qsoDraftCallsign.trim().length > 0);
   const automaticScope = deriveMapDataScope({
     manualScope: null,
     contestActive: Boolean(activeSession),
@@ -170,6 +178,14 @@ const WORKSPACE_DOMAINS: readonly WorkspaceDomain[] = [
 
 type WorkspaceMessage =
   | { kind: "request"; sender: string }
+  /**
+   * A `/map/ops` popout is going away (#884 round 15). Additive: a receiver
+   * that does not know this kind falls through the `kind !== "snapshot"` guard
+   * and ignores it, and the opener's `handle.closed` check on focus still
+   * clears liveness — so this does not change the meaning of any field and
+   * does not need a channel bump.
+   */
+  | { kind: "popout-closed" }
   | {
       kind: "snapshot";
       sender: string;
@@ -184,34 +200,11 @@ type WorkspaceMessage =
       domains: Partial<WorkspaceSnapshot>;
     };
 
-/**
- * The local operating-workspace wire between the docked console and the
- * `/map/ops` popout.
- *
- * **Bump this version whenever a payload field changes meaning for an existing
- * receiver** — a new field, a removed field, or a field an older receiver would
- * act on differently. Mixed-version windows must not share a protocol they do
- * not share: during a deploy the two windows run different bundles, and a
- * receiver that does not understand the newer payload acts on the part it does
- * understand and broadcasts the result back. v3 carries `dockTabIntent`; a v2
- * receiver ignored it, reconciled the dock tab from the scope change alone and
- * broadcast that reversal to the new window (#884 round 9). The cost of a bump
- * is a brief loss of cross-window sync during the deploy overlap, which a
- * reload restores; that is cheaper than capability negotiation, and far cheaper
- * than a peer undoing the operator's choice. v4 dropped `workspaceOpen` (it is
- * per-window, #884 round 12) and, with it, any field a v3 receiver would act on
- * differently. v5 replaced the per-domain message with one batched message per
- * publish (#884 round 14): a v4 receiver would find neither `domain` nor
- * `state` and silently drop every update.
- *
- * This is the only wire that carries `contestUi` or the dock-tab intent. The
- * other BroadcastChannels are separate protocols with their own versions:
- * `propulse-operating-state-v1` (`OPERATING_CHANNEL_NAME` /
- * `OPERATING_PROTOCOL_VERSION` in `@/lib/workspace/operatingChannel`),
- * `propulse-operating-monitor-v1` (`useOperatingMonitor`) and
- * `propulse-contest-events-v1` (`contestEventBus`). None of them changed here.
- */
-export const WORKSPACE_CHANNEL = "propulse-operating-workspace-v5";
+// The channel name and its bump rule live in `@/lib/map/workspaceChannel`, so
+// the popout-liveness module can open the same wire without importing this
+// hook (#884 round 15). Re-exported here because that is where every existing
+// caller and test reads it from.
+export { WORKSPACE_CHANNEL };
 
 /**
  * Only a *stamped* intent means anything to another window: an unstamped one
@@ -394,7 +387,14 @@ export function useOperationalWorkspaceSync(): void {
 
     channel.onmessage = (event: MessageEvent<WorkspaceMessage>) => {
       const message = event.data;
-      if (!message || message.sender === sender) return;
+      if (!message) return;
+      if (message.kind === "popout-closed") {
+        // The message is only the moment to look: a reload posts it too, and
+        // there the handle is still open, so liveness (and the scope) hold.
+        refreshOperatingPopoutLiveness();
+        return;
+      }
+      if (message.sender === sender) return;
       if (message.kind === "request") {
         publish(...WORKSPACE_DOMAINS);
         return;
@@ -467,7 +467,15 @@ export function useOperationalWorkspaceSync(): void {
     };
 
     channel.postMessage({ kind: "request", sender } satisfies WorkspaceMessage);
+    // A popout killed by the browser sends nothing at all, and a real close
+    // often has not flipped `closed` yet when its `pagehide` message arrives —
+    // but focus comes back to this window either way (#884 round 15).
+    const recheckPopout = () => refreshOperatingPopoutLiveness();
+    window.addEventListener("focus", recheckPopout);
+    document.addEventListener("visibilitychange", recheckPopout);
     return () => {
+      window.removeEventListener("focus", recheckPopout);
+      document.removeEventListener("visibilitychange", recheckPopout);
       disposed = true;
       for (const unsubscribe of subscriptions) unsubscribe();
       channel.close();

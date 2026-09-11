@@ -280,11 +280,12 @@ describe("OpsConsole dock tabs", () => {
   it("writes the Log tab when the scope control picks Log from Observe", async () => {
     const user = userEvent.setup();
     renderConsole();
-    // #884 round 13: nothing is persisted and the first run does not write; the
-    // console falls back to DX for display.
+    // #884 round 15: nothing is persisted, so the first run initialises the
+    // empty dock from the startup scope (Observe -> DX) rather than leaving
+    // the console on its fallback forever.
     expect(
       useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
-    ).toBeUndefined();
+    ).toBe("dx");
 
     await user.selectOptions(
       screen.getByLabelText("PropSphere operating scope"),

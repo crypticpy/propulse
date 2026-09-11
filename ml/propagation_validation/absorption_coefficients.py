@@ -55,6 +55,12 @@ Usage::
 
     python -m propagation_validation.absorption_coefficients --emit
     python -m propagation_validation.absorption_coefficients --validate
+
+``--validate`` re-fits from the pinned build and then compares the committed
+``FIXTURE_PATH`` the TypeScript module imports against that fresh fit, so a
+stale or hand-edited fixture fails the gate. Only ``generated_at`` and the
+other names in ``VOLATILE_KEYS`` are exempt. ``--fixture`` points the
+comparison at a copy, which is how the drift path is exercised.
 """
 
 from __future__ import annotations
@@ -513,9 +519,98 @@ def evaluate_p(model: dict[str, Any], moddip_deg: float, month: int) -> float:
     return float(design @ np.array(model["branches"][branch]))
 
 
+# Metadata that is expected to differ between two runs of the same fit and so
+# is excluded from the drift comparison. Everything else is compared.
+VOLATILE_KEYS = ("generated_at",)
+
+# A fresh fit of the same pinned build is deterministic, so any real movement
+# in a coefficient is drift. The window is wide enough only for platform-level
+# floating point noise in the least-squares solve.
+COEFFICIENT_RELATIVE_TOLERANCE = 1e-9
+COEFFICIENT_ABSOLUTE_TOLERANCE = 1e-12
+
+# The fitting tolerance the whole model is accepted against, dB.
+ANCHOR_TOLERANCE_DB = 0.25
+
+
+def _compare_values(committed: Any, fresh: Any, path: str) -> list[str]:
+    """Structural and numeric comparison, deepest difference first."""
+    if isinstance(fresh, dict):
+        if not isinstance(committed, dict):
+            return [f"{path}: fixture is {type(committed).__name__}, fit is an object"]
+        problems: list[str] = []
+        for key in sorted(set(fresh) | set(committed)):
+            if key in VOLATILE_KEYS:
+                continue
+            if key not in committed:
+                problems.append(f"{path}.{key}: missing from the fixture")
+            elif key not in fresh:
+                problems.append(f"{path}.{key}: present in the fixture, absent from the fit")
+            else:
+                problems.extend(_compare_values(committed[key], fresh[key], f"{path}.{key}"))
+        return problems
+    if isinstance(fresh, list):
+        if not isinstance(committed, list):
+            return [f"{path}: fixture is {type(committed).__name__}, fit is a list"]
+        if len(committed) != len(fresh):
+            return [f"{path}: fixture has {len(committed)} entries, the fit has {len(fresh)}"]
+        problems = []
+        for index, (left, right) in enumerate(zip(committed, fresh)):
+            problems.extend(_compare_values(left, right, f"{path}[{index}]"))
+        return problems
+    if isinstance(fresh, bool) or isinstance(committed, bool):
+        return [] if committed == fresh else [f"{path}: fixture {committed!r}, fit {fresh!r}"]
+    if isinstance(fresh, (int, float)) and isinstance(committed, (int, float)):
+        if math.isclose(
+            float(committed),
+            float(fresh),
+            rel_tol=COEFFICIENT_RELATIVE_TOLERANCE,
+            abs_tol=COEFFICIENT_ABSOLUTE_TOLERANCE,
+        ):
+            return []
+        return [f"{path}: fixture {committed!r}, fit {fresh!r}"]
+    return [] if committed == fresh else [f"{path}: fixture {committed!r}, fit {fresh!r}"]
+
+
+def compare_documents(committed: dict[str, Any], fresh: dict[str, Any]) -> list[str]:
+    """Every way the committed fixture disagrees with a fresh fit.
+
+    `generated_at` and anything else named in `VOLATILE_KEYS` is ignored. The
+    coefficients and the anchors are compared value by value, and the anchors
+    are additionally re-evaluated through the fixture's own coefficients so a
+    drift that matters physically is reported in dB.
+    """
+    problems = _compare_values(committed, fresh, "document")
+
+    coefficients = committed.get("coefficients")
+    anchors = fresh.get("anchors") or []
+    if isinstance(coefficients, dict):
+        for row in anchors:
+            month = row["month_index"]
+            modelled = evaluate_at_noon(
+                coefficients["atNoon"], row["latitude_deg"], month
+            ) * evaluate_phi(coefficients["penetration"], row["fv_mhz"] / row["foE_mhz"])
+            exponent_month = (month + 6) % 12 if row["latitude_deg"] < 0.0 else month
+            exponent = evaluate_p(
+                coefficients["diurnal"], row["moddip_deg"], exponent_month
+            )
+            modelled *= f_chi(row["zenith_deg"], exponent) / f_chi(
+                row["zenith_noon_deg"], exponent
+            )
+            error_db = abs(10.0 * math.log10(modelled / row["absorption_term"]))
+            if error_db > ANCHOR_TOLERANCE_DB:
+                problems.append(
+                    f"anchor {row['case_id']}: the committed coefficients are "
+                    f"{error_db:.4f} dB from the freshly measured term, past the "
+                    f"declared {ANCHOR_TOLERANCE_DB} dB"
+                )
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
+    parser.add_argument("--fixture", type=Path, default=FIXTURE_PATH)
     parser.add_argument("--emit", action="store_true")
     parser.add_argument("--validate", action="store_true")
     args = parser.parse_args()
@@ -527,18 +622,39 @@ def main() -> int:
     document = build_document(build)
 
     if args.emit:
-        FIXTURE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        FIXTURE_PATH.write_text(
+        args.fixture.parent.mkdir(parents=True, exist_ok=True)
+        args.fixture.write_text(
             json.dumps(document, indent=2, sort_keys=False) + "\n",
             encoding="utf-8",
         )
-        print(f"wrote {FIXTURE_PATH}")
+        print(f"wrote {args.fixture}")
 
     residuals = document["residuals"]
     print(json.dumps(residuals, indent=2))
     if residuals["absorption_term_max_db"] > 0.25:
         print("FAIL: anchor residual exceeds the declared 0.25 dB", file=sys.stderr)
         return 1
+
+    if args.validate:
+        # The gate is worthless unless it reads the file the TypeScript module
+        # imports: a fresh in-memory fit can pass while the committed fixture is
+        # stale or hand-edited.
+        if not args.fixture.exists():
+            print(f"FAIL: no fixture at {args.fixture}", file=sys.stderr)
+            return 1
+        committed = json.loads(args.fixture.read_text(encoding="utf-8"))
+        problems = compare_documents(committed, document)
+        if problems:
+            print(
+                f"FAIL: {args.fixture} has drifted from a fresh fit:",
+                file=sys.stderr,
+            )
+            for problem in problems[:20]:
+                print(f"  {problem}", file=sys.stderr)
+            if len(problems) > 20:
+                print(f"  ... and {len(problems) - 20} more", file=sys.stderr)
+            return 1
+        print(f"{args.fixture} matches a fresh fit")
     return 0
 
 
@@ -550,6 +666,41 @@ class ReferenceBuildGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(Exception):
                 Harness(missing, Path(tmp))
+
+
+class FixtureDriftTests(unittest.TestCase):
+    """`--validate` compares the committed fixture, not just a fresh fit.
+
+    These run without the pinned reference build: the committed fixture stands
+    in for the fresh document, so a hand-edited copy must be reported as drift.
+    """
+
+    def setUp(self) -> None:
+        self.fresh = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+    def test_the_committed_fixture_matches_itself(self) -> None:
+        self.assertEqual(compare_documents(dict(self.fresh), self.fresh), [])
+
+    def test_volatile_metadata_is_ignored(self) -> None:
+        committed = json.loads(json.dumps(self.fresh))
+        committed["generated_at"] = "1999-01-01T00:00:00Z"
+        self.assertEqual(compare_documents(committed, self.fresh), [])
+
+    def test_one_edited_coefficient_is_drift(self) -> None:
+        committed = json.loads(json.dumps(self.fresh))
+        series = committed["coefficients"]["atNoon"]["chebyshev"][0]
+        series[0] = series[0] * 1.05
+        problems = compare_documents(committed, self.fresh)
+        self.assertTrue(problems)
+        self.assertTrue(
+            any("coefficients.atNoon.chebyshev[0][0]" in p for p in problems),
+            problems,
+        )
+
+    def test_an_edited_anchor_is_drift(self) -> None:
+        committed = json.loads(json.dumps(self.fresh))
+        committed["anchors"][0]["absorption_term"] *= 1.2
+        self.assertTrue(compare_documents(committed, self.fresh))
 
 
 if __name__ == "__main__":

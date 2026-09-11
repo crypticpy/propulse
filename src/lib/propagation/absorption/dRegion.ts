@@ -57,15 +57,17 @@
  * **Declared approximations.** Each is surfaced on the result's `assumptions`
  * rather than hidden:
  *
- *  1. `fL`, the longitudinal gyrofrequency, is the scalar 1.2 MHz. P.533-14
- *     wants `|fH sin(dip)|` evaluated at 100 km; the #953 climatology provider
- *     exposes the field at 300 km only, and its expansion is not evaluable at
- *     another height from outside the leaf. The gap this leaves is bounded by
- *     the spread of `|fH sin(dip)|` over the globe, roughly 0 to 1.6 MHz,
- *     which at 14 MHz is about 0.9 dB in `Li`.
- *  2. The modified magnetic dip that selects `p` is taken from the provider's
- *     300 km dip rather than the 100 km dip, for the same reason.
- *  3. `foE` comes from the provider, which supports it.
+ *  1. `fL`, the longitudinal gyrofrequency, is the scalar 1.2 MHz whenever a
+ *     caller supplies none. P.533-14 wants `|fH sin(dip)|` evaluated at
+ *     100 km. This module chose that default, so this module declares it. The
+ *     gap it leaves is bounded by the spread of `|fH sin(dip)|` over the
+ *     globe, roughly 0 to 1.6 MHz, which at 14 MHz is about 0.9 dB in `Li`.
+ *  2. The modified magnetic dip that selects `p`, the `foE` that scales `phi`
+ *     and the zenith angles all arrive on the caller's crossings. This module
+ *     did not choose their source and asserts nothing about it: the
+ *     assumption it emits names the dip values it was handed, and the layer
+ *     that picked them (the ray-trace engine, or the climatology provider
+ *     behind it) is the one that states where they came from.
  */
 
 import model from "./fixtures/absorption-model.json";
@@ -85,14 +87,30 @@ export const MAX_ABS_LATITUDE_DEG = 70;
 const AT_NOON_CLIP_DEG = 69.99;
 
 const FL_ASSUMPTION =
-  "Longitudinal gyrofrequency fL is the declared scalar 1.2 MHz: ITU-R " +
-  "P.533-14 wants |fH sin(dip)| at 100 km and the climatology provider " +
-  "exposes the field at 300 km only.";
+  "Longitudinal gyrofrequency fL is this module's declared 1.2 MHz scalar, " +
+  "used because the caller supplied no value: ITU-R P.533-14 wants " +
+  "|fH sin(dip)| evaluated at 100 km.";
 
-const DIP_ASSUMPTION =
-  "The modified magnetic dip selecting the diurnal absorption exponent is " +
-  "taken at 300 km, not the 100 km the recommendation specifies, because " +
-  "that is the only height the climatology provider evaluates.";
+/**
+ * The dip statement is a fact about the inputs this call was given, not about
+ * where they came from. Only the layer that chose the dip's source may say
+ * what that source is, so this names the values and stops there.
+ */
+function dipAssumption(crossings: readonly DRegionCrossing[]): string {
+  const dips = crossings.map((crossing) => crossing.modifiedDipDeg);
+  const lo = Math.min(...dips);
+  const hi = Math.max(...dips);
+  const named =
+    lo === hi
+      ? `${lo.toFixed(2)} degrees`
+      : `${lo.toFixed(2)} to ${hi.toFixed(2)} degrees`;
+  return (
+    "The diurnal absorption exponent was selected with the caller-supplied " +
+    `modified magnetic dip (${named}). ITU-R P.533-14 specifies the dip at ` +
+    "100 km; this module does not evaluate it and makes no claim about the " +
+    "height the caller used."
+  );
+}
 
 /**
  * Evaluate a Chebyshev series of the first kind at `x` in [-1, 1].
@@ -207,7 +225,10 @@ export interface DRegionCrossing {
   readonly latitudeDeg: number;
   /** 0 = January. */
   readonly monthIndex: number;
-  /** Modified magnetic dip magnitude, degrees. See assumption 2. */
+  /**
+   * Modified magnetic dip magnitude, degrees. Chosen by the caller; see
+   * assumption 2. P.533-14 evaluates it at 100 km.
+   */
   readonly modifiedDipDeg: number;
   readonly foEMHz: number;
   /** Solar zenith angle at this crossing, degrees. */
@@ -324,10 +345,11 @@ export function dRegionAbsorption(
     (hopCount * (1 + 0.0067 * ssn) * meanTerm) /
     ((frequencyMHz + gyrofrequencyMHz) ** 2 * cosIncidence);
 
+  const dipStatement = dipAssumption(crossings);
   const assumptions =
     gyrofrequencyMHz === DEFAULT_GYROFREQUENCY_MHZ
-      ? [FL_ASSUMPTION, DIP_ASSUMPTION]
-      : [DIP_ASSUMPTION];
+      ? [FL_ASSUMPTION, dipStatement]
+      : [dipStatement];
 
   return {
     absorptionDb,

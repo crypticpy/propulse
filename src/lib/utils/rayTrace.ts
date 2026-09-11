@@ -21,15 +21,20 @@
  * Declared assumptions, surfaced on `RayTraceResult.assumptions` rather than
  * buried here:
  *
- *  1. The mirror reflection height is the declared constant 300 km. The
- *     correct source is `mirrorHeightFromM3000F2` fed by the #953 climatology
- *     provider, which is asynchronous and not yet wired into this synchronous
- *     entry point. Callers may override it. The previous stand-in, a
+ *  1. The mirror reflection height. When the caller supplies
+ *     `mirrorHeightKm` the assumption names that value and claims nothing
+ *     else; when it does not, the declared 300 km stand-in is used and said
+ *     to be a stand-in. The correct source is `mirrorHeightFromM3000F2` fed
+ *     by the #953 climatology provider, which is asynchronous and not yet
+ *     wired into this synchronous entry point. The previous stand-in, a
  *     `250 + 100 (1 - cos z)` heuristic, had no physical basis and is gone.
  *  2. The modified magnetic dip that selects the diurnal absorption exponent
- *     comes from the centred-dipole geomagnetic latitude, not a field model at
- *     100 km.
- *  3. The longitudinal gyrofrequency is the declared 1.2 MHz scalar.
+ *     is computed here, by `modifiedDipAngle`, from the centred-dipole
+ *     geomagnetic latitude rather than a field model at 100 km. This module
+ *     chose that source, so this module is the layer that declares it; the
+ *     absorption leaf only reports the values it was handed.
+ *  3. The longitudinal gyrofrequency is the absorption leaf's declared
+ *     1.2 MHz scalar, declared by that leaf.
  */
 
 import { classifyTerrain, getPathTerrainLoss } from "./terrain";
@@ -74,14 +79,32 @@ const MAX_HOPS = 12;
  */
 export const DECLARED_MIRROR_HEIGHT_KM = 300;
 
-const MIRROR_HEIGHT_ASSUMPTION =
-  "Mirror reflection height is the declared constant 300 km: the #953 " +
-  "climatology provider that supplies M(3000)F2 is asynchronous and is not " +
-  "wired into this synchronous entry point yet.";
+/**
+ * What the trace actually used for the mirror height, said as a fact about
+ * the input rather than about the module's default.
+ */
+function mirrorHeightAssumption(
+  mirrorHeightKm: number,
+  supplied: boolean,
+): string {
+  if (supplied) {
+    return (
+      `Mirror reflection height is the caller-supplied ${String(mirrorHeightKm)} km. ` +
+      "This engine makes no claim about where that value came from."
+    );
+  }
+  return (
+    `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
+    "stand-in, taken because the caller supplied none: the #953 climatology " +
+    "provider that supplies M(3000)F2 is asynchronous and is not wired into " +
+    "this synchronous entry point yet."
+  );
+}
 
 const DIP_ASSUMPTION =
-  "Modified magnetic dip is derived from the centred-dipole geomagnetic " +
-  "latitude rather than a field model evaluated at 100 km.";
+  "Modified magnetic dip at every D-region crossing is computed here by " +
+  "modifiedDipAngle() from the centred-dipole geomagnetic latitude, not by a " +
+  "field model evaluated at the 100 km ITU-R P.533-14 specifies.";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -512,7 +535,10 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     mirrorHeightKm = DECLARED_MIRROR_HEIGHT_KM,
   } = params;
 
-  const assumptions = [MIRROR_HEIGHT_ASSUMPTION, DIP_ASSUMPTION];
+  const assumptions = [
+    mirrorHeightAssumption(mirrorHeightKm, params.mirrorHeightKm !== undefined),
+    DIP_ASSUMPTION,
+  ];
   const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
   if (!isResolved(route)) {
     return emptyResult(

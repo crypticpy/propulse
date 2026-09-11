@@ -173,6 +173,49 @@ describe("traceRayPath", () => {
     expect(result.assumptions.join(" ")).toContain("1.2 MHz");
   });
 
+  it("declares the mirror height it used, not the one it defaults to", () => {
+    // The assumptions used to be a constant pair, so a caller that supplied a
+    // real reflection height still got told the trace assumed 300 km.
+    const result = traceRayPath({
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: TOKYO.lat,
+      endLon: TOKYO.lon,
+      frequencyMHz: 14.074,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+      mirrorHeightKm: 265,
+    });
+    expect(result.support.kind).toBe("supported");
+    const assumptions = result.assumptions.join(" ");
+    expect(assumptions).not.toContain("300 km");
+    expect(
+      result.assumptions.some(
+        (line) => line.includes("265 km") && line.includes("caller-supplied"),
+      ),
+    ).toBe(true);
+  });
+
+  it("owns the dip provenance instead of letting the leaf invent one", () => {
+    // The dip comes from modifiedDipAngle() here, so this engine is the layer
+    // that may say where it came from. The absorption leaf used to claim the
+    // climatology provider supplied it at 300 km, which was never true.
+    const result = trace("short");
+    const dipLines = result.assumptions.filter((line) =>
+      line.toLowerCase().includes("magnetic dip"),
+    );
+    expect(dipLines.some((line) => line.includes("modifiedDipAngle()"))).toBe(
+      true,
+    );
+    expect(
+      dipLines.some(
+        (line) =>
+          line.includes("climatology provider") && line.includes("300 km"),
+      ),
+    ).toBe(false);
+  });
+
   it("keeps long-path control points on the great circle", () => {
     // The long path used to be sampled from a 20 to 40 point polyline and then
     // snapped with Math.round, so a reflection point could be tens of

@@ -291,6 +291,37 @@ describe("pass accounting", () => {
     });
     expect(supplied.assumptions.join(" ")).not.toContain("1.2 MHz");
   });
+
+  it("reports the dip it was handed and claims nothing about its source", () => {
+    // This leaf never chooses where the dip comes from, so it used to assert
+    // something false: that the climatology provider evaluated it at 300 km.
+    // A caller with a true 100 km dip was mislabelled by its own result.
+    const geometry = supported(3000, 1, 300);
+    const entry: DRegionCrossing = {
+      latitudeDeg: 40,
+      monthIndex: 2,
+      modifiedDipDeg: 55.25,
+      foEMHz: 3.4,
+      zenithAngleDeg: 20,
+      zenithNoonAngleDeg: 20,
+    };
+    const exit = { ...entry, modifiedDipDeg: 61.5 };
+    const result = dRegionAbsorption({
+      crossings: [entry, exit],
+      hopCount: 1,
+      frequencyMHz: 14,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn: 100,
+    });
+    const dipLines = result.assumptions.filter((line) =>
+      line.toLowerCase().includes("magnetic dip"),
+    );
+    expect(dipLines).toHaveLength(1);
+    expect(dipLines[0]).toContain("caller-supplied");
+    expect(dipLines[0]).toContain("55.25 to 61.50 degrees");
+    expect(dipLines[0]).not.toContain("climatology provider");
+    expect(dipLines[0]).not.toContain("taken at 300 km");
+  });
 });
 
 describe("F(chi) (equation 21)", () => {

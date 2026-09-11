@@ -32,6 +32,12 @@ import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
 import type { StationInventory } from "@/lib/station/stationChainEngine";
 import { computeInsertPosition } from "@/lib/chainOrdering";
 import { deleteImage } from "@/lib/db/imageStore";
+import {
+  enqueueGearDeletionIntent,
+  enqueueGearDeletionIntents,
+  removeAcknowledgedGearDeletions,
+  type PendingGearDeletion,
+} from "@/lib/sync/shackDeletionIntent";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -97,6 +103,9 @@ interface ShackStore {
   equipmentHistory: EquipmentHistoryEntry[];
   stationChains: StationChain[];
   activeChainId: string | null;
+  /** Server deletion intents that remain until push/pull ack (#326). */
+  pendingGearDeletions: PendingGearDeletion[];
+  acknowledgeGearDeletions: (keys: string[]) => void;
 
   // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
@@ -252,6 +261,15 @@ export const useShackStore = create<ShackStore>()(
       equipmentHistory: [],
       stationChains: [],
       activeChainId: null,
+      pendingGearDeletions: [],
+
+      acknowledgeGearDeletions: (keys) =>
+        set((state) => ({
+          pendingGearDeletions: removeAcknowledgedGearDeletions(
+            state.pendingGearDeletions,
+            keys,
+          ),
+        })),
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
@@ -417,6 +435,11 @@ export const useShackStore = create<ShackStore>()(
             ? state.activePresetId
             : null;
           return {
+            pendingGearDeletions: enqueueGearDeletionIntent(
+              state.pendingGearDeletions,
+              "user_radios",
+              radioId,
+            ),
             radios: updatedRadios,
             activeRadioId,
             stationChains,
@@ -593,6 +616,16 @@ export const useShackStore = create<ShackStore>()(
             : null;
 
           return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              [
+                { table: "custom_radios", recordId: id },
+                ...affectedRadioIds.map((recordId) => ({
+                  table: "user_radios" as const,
+                  recordId,
+                })),
+              ],
+            ),
             customRadios: nextCustom,
             radios: updatedRadios,
             activeRadioId,
@@ -682,6 +715,11 @@ export const useShackStore = create<ShackStore>()(
         }
 
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            "antennas",
+            id,
+          ),
           antennas: state.antennas.filter((a) => a.id !== id),
           // Clean up presets referencing this antenna
           stationPresets: state.stationPresets.filter(
@@ -807,6 +845,11 @@ export const useShackStore = create<ShackStore>()(
             }
           }
           return {
+            pendingGearDeletions: enqueueGearDeletionIntent(
+              state.pendingGearDeletions,
+              "feedlines",
+              id,
+            ),
             feedlines: state.feedlines.filter((f) => f.id !== id),
             // Clean up presets referencing this feedline
             stationPresets: state.stationPresets.map((p) =>
@@ -937,6 +980,11 @@ export const useShackStore = create<ShackStore>()(
         }
 
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            "inline_components",
+            id,
+          ),
           inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
           stationPresets: state.stationPresets.map((p) => ({
             ...p,
@@ -1075,6 +1123,11 @@ export const useShackStore = create<ShackStore>()(
         }
 
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            "accessories",
+            id,
+          ),
           accessories: state.accessories.filter((a) => a.id !== id),
           // Remove this accessory from all presets' accessoryIds
           stationPresets: state.stationPresets.map((p) => ({
@@ -1189,6 +1242,11 @@ export const useShackStore = create<ShackStore>()(
         const preset = get().stationPresets.find((p) => p.id === id);
         const name = preset?.name ?? "Unknown";
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            "station_presets",
+            id,
+          ),
           stationPresets: state.stationPresets.filter((p) => p.id !== id),
           // Clear activePresetId if it matches the removed preset
           activePresetId:
@@ -1293,6 +1351,11 @@ export const useShackStore = create<ShackStore>()(
         const chain = get().stationChains.find((c) => c.id === id);
         const name = chain?.name ?? "Unknown";
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            "station_chains",
+            id,
+          ),
           stationChains: state.stationChains.filter((c) => c.id !== id),
           activeChainId:
             state.activeChainId === id ? null : state.activeChainId,
@@ -1867,7 +1930,7 @@ export const useShackStore = create<ShackStore>()(
     }),
     {
       name: "propulse-shack",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -1882,6 +1945,7 @@ export const useShackStore = create<ShackStore>()(
         equipmentHistory: state.equipmentHistory,
         stationChains: state.stationChains,
         activeChainId: state.activeChainId,
+        pendingGearDeletions: state.pendingGearDeletions,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -1941,6 +2005,11 @@ export const useShackStore = create<ShackStore>()(
         }
         if (version < 5) {
           // v4→v5: imageId fields are optional — no data migration needed
+        }
+        if (version < 6) {
+          if (!("pendingGearDeletions" in state)) {
+            state.pendingGearDeletions = [];
+          }
         }
         return state as never;
       },

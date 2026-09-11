@@ -5,6 +5,7 @@ import {
   WORKSPACE_CHANNEL,
 } from "@/hooks/useMapOperationalContext";
 import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
+import { PropSphereOpsWindow } from "@/pages/PropSphereOpsWindow";
 import { useContestStore } from "@/stores/contestStore";
 import {
   NO_SESSION_DOCK_KEY,
@@ -21,6 +22,13 @@ vi.mock("@/lib/supabase", () => ({
   getSupabase: vi.fn(),
   isSupabaseConfigured: false,
 }));
+
+// The popout host is exercised for its startup ordering, not its console.
+vi.mock("@/components/ops/OpsConsole", () => ({
+  OpsConsole: () => null,
+}));
+vi.mock("@/hooks/useOperatingSync", () => ({ useOperatingSync: () => {} }));
+vi.mock("@/hooks/useRigBridgeSync", () => ({ useRigBridgeSync: () => {} }));
 
 type Message = { kind: string; domain?: string; state?: unknown };
 
@@ -449,6 +457,58 @@ describe("dock tab across the /map/ops popout", () => {
     render(<Window />);
     await flush();
     const reloaded = TestChannel.instances.at(-1) as TestChannel;
+
+    expect(dockTab()).toBe("contest");
+    expect(snapshotsSince(reloaded, 0)).toEqual([]);
+  });
+
+  // #884 round 11 (Codex, useDockTabReconciler.ts:124): `workspaceOpen` is not
+  // persisted, so a fresh popout starts with it false. Opening it in an effect
+  // beside the reconciler gave the reconciler a first run at Observe — a scope
+  // the window was about to leave — which rejected the Log marker, cleared it
+  // and wrote DX before the second run settled on Log. The startup state is now
+  // applied before the console (and the reconciler) mounts.
+  it("keeps an explicit tab when the popout opens the workspace on startup", async () => {
+    // The choice was made while the workspace was open, so it belongs to Log.
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    useMapOperationalStore.setState({ workspaceOpen: false });
+
+    render(<PropSphereOpsWindow />);
+    await flush();
+    const popout = TestChannel.instances.at(-1) as TestChannel;
+
+    // The startup effect ran, and the reconciler's first run saw the scope it
+    // produced.
+    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(dockTab()).toBe("contest");
+    expect(
+      useContestUIStore.getState().explicitDockTabScopeByDockKey[
+        NO_SESSION_DOCK_KEY
+      ],
+    ).toBe("log");
+    // No DX write, so no reversal to broadcast to the window that made the
+    // choice.
+    expect(snapshotsSince(popout, 0)).toEqual([]);
+  });
+
+  // The main window has no startup effect that moves the scope: its only
+  // `setWorkspaceOpen(true)` is an operator action. A reload therefore starts
+  // at its final scope and the marker decides, with nothing arriving late.
+  it("keeps an explicit tab across a main-window reload at the same scope", async () => {
+    useRigStore.setState({ connected: true });
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+
+    render(<Window />);
+    await flush();
+    const reloaded = TestChannel.instances.at(-1) as TestChannel;
+    // Nothing may arrive late and flip this.
+    for (let turn = 0; turn < 3; turn += 1) await flush();
 
     expect(dockTab()).toBe("contest");
     expect(snapshotsSince(reloaded, 0)).toEqual([]);

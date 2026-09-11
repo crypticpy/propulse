@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { OpsConsole } from "@/components/ops/OpsConsole";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
@@ -8,13 +8,47 @@ import { useOperationalWorkspaceSync } from "@/hooks/useMapOperationalContext";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 
-/** Full-window presentation of the same stores and commands as the map dock. */
+/**
+ * Full-window presentation of the same stores and commands as the map dock.
+ *
+ * This outer component exists only to apply the popout's startup state before
+ * anything that reads the derived operating scope mounts (#884 round 11).
+ * `workspaceOpen` is not persisted, so a fresh popout starts with it false;
+ * opening it in an effect *beside* `useDockTabReconciler` gave the reconciler a
+ * first run at a scope the window was about to leave, and it cleared the
+ * operator's explicit dock tab on the way past. The reconciler's contract is
+ * that its host has already applied every startup input to the scope, so the
+ * console is rendered only once that is true.
+ */
 export function PropSphereOpsWindow() {
-  const timeOffset = useMapStore((state) => state.timeOffset);
-  const absoluteTime = useMapStore((state) => state.absoluteTime);
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
   );
+  const [startupApplied, setStartupApplied] = useState(false);
+
+  useEffect(() => {
+    setWorkspaceOpen(true);
+    setStartupApplied(true);
+  }, [setWorkspaceOpen]);
+
+  if (!startupApplied) {
+    // One frame of the same surface, so there is no flash before the console.
+    return (
+      <main
+        className="overflow-hidden bg-cosmic-gradient p-2 text-su-text"
+        style={{ height: "100vh" }}
+        aria-busy="true"
+      />
+    );
+  }
+
+  return <OperationalWorkspaceWindow />;
+}
+
+/** The window proper: mounted only after the startup state above is applied. */
+function OperationalWorkspaceWindow() {
+  const timeOffset = useMapStore((state) => state.timeOffset);
+  const absoluteTime = useMapStore((state) => state.absoluteTime);
   const displayTime = useMapDisplayTime(timeOffset, absoluteTime);
 
   useOperationalWorkspaceSync();
@@ -23,10 +57,6 @@ export function PropSphereOpsWindow() {
   useDockTabReconciler();
   useRigBridgeSync();
   useOperatingSync();
-
-  useEffect(() => {
-    setWorkspaceOpen(true);
-  }, [setWorkspaceOpen]);
 
   return (
     <main

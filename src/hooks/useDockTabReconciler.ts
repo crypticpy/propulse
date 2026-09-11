@@ -10,9 +10,30 @@
  *
  * Call it once per window, from the surface that owns the dock:
  * - `PropSphere` calls it unconditionally, so the tab is reconciled even while
- *   the console is collapsed (what `PropSphere`'s deleted effect was for).
+ *   the console is collapsed (what `PropSphere`'s deleted effect was for). Its
+ *   only `setWorkspaceOpen(true)` is an operator action (`openOpsConsole`), not
+ *   a startup effect, so its first run already sees the final scope.
  * - `PropSphereOpsWindow` calls it because the popout mounts `OpsConsole` on
  *   its own, in a separate document with its own store instances.
+ *
+ * **Host contract (#884 round 11): a host must have applied every startup input
+ * to the derived scope before it mounts this hook.** The first run is the one
+ * that decides whether a persisted explicit tab (rule 4) stands, so a host that
+ * opens the workspace, hydrates a draft or applies a session *after* mounting
+ * would have the reconciler judge the tab against a scope the window is about
+ * to leave — and clear the marker on the way past. `PropSphereOpsWindow` sets
+ * `workspaceOpen` in an outer component and renders the console only once that
+ * is done. The inputs and where each settles:
+ * - `manualScope`, contest session, QSO draft callsign — persisted stores,
+ *   hydrated synchronously from localStorage before the first render.
+ * - `workspaceOpen` — not persisted; the popout's startup state, applied by
+ *   its host before this hook mounts.
+ * - rig and WSJT-X connections — asynchronous by nature, but a connection that
+ *   arrives later is a genuine scope change, not startup, and is reconciled as
+ *   one.
+ * - a remote snapshot arriving on join — also a genuine change: it moves the
+ *   scope through the same stores, and it carries the marker with it, so the
+ *   tab it explains and the scope it belongs to arrive together.
  *
  * The rule:
  * 1. While an explicit tab click (`dockTabIntent`) is outstanding the
@@ -34,6 +55,11 @@
  *    actually changed. Both are recorded on every run — including a run the
  *    posture gate rejects — so a later posture change cannot replay a stale
  *    reconcile.
+ * 4. A window that was not there for the click (a late-joining popout, or this
+ *    one after a reload) has no ephemeral intent. It reads
+ *    `explicitDockTabScopeByDockKey`: a marker equal to the current scope means
+ *    the persisted tab was chosen deliberately and still stands (#884 round
+ *    10).
  * 3. Contact and Desk own the dock tab, so Work does not hide the band map —
  *    except when the operator has just picked a scope in
  *    `OperationalScopeControl` (`scopeReconcileRequestId`). Choosing Log takes

@@ -185,7 +185,7 @@ export function AppearanceSection() {
                   {theme.description}
                 </p>
                 {isActive && (
-                  <span className="absolute top-2 right-2 text-plasma-orange text-xs">
+                  <span className="absolute top-2 right-2 text-su-text text-xs">
                     &#10003;
                   </span>
                 )}
@@ -254,7 +254,7 @@ export function AppearanceSection() {
                   {skin.desc}
                 </p>
                 {isActive && (
-                  <span className="absolute top-2 right-2 text-plasma-orange text-xs">
+                  <span className="absolute top-2 right-2 text-su-text text-xs">
                     &#10003;
                   </span>
                 )}

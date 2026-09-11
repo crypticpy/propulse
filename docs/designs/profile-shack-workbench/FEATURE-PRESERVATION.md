@@ -144,7 +144,6 @@ This source inventory supplements OC13–OC16. It lists direct station selectors
 - [src/components/dashboard/QthScopeCard.tsx](../../../src/components/dashboard/QthScopeCard.tsx)
 - [src/components/home/HomeWidgets.tsx](../../../src/components/home/HomeWidgets.tsx)
 - [src/components/kiosk/KioskChrome.tsx](../../../src/components/kiosk/KioskChrome.tsx)
-- [src/components/logbook/LogUploadModal.tsx](../../../src/components/logbook/LogUploadModal.tsx)
 - [src/components/map/BandConditionsPanel.tsx](../../../src/components/map/BandConditionsPanel.tsx)
 - [src/components/map/DXNewsTicker.tsx](../../../src/components/map/DXNewsTicker.tsx)
 - [src/components/map/GlobeView.tsx](../../../src/components/map/GlobeView.tsx)

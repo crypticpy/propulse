@@ -44,7 +44,7 @@ import {
 } from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
 import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
-import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -243,8 +243,10 @@ interface GlobeViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** Hide the built-in radar scrubber (when host provides its own) */
   hideRadarScrubber?: boolean;
-  /** Hide the local size panel when the host docks it with other controls */
-  hideSizeSliders?: boolean;
+  /** Rows the host wants in the map's bottom-left corner. The view owns that
+   * corner and renders the one column there, so a host contributes rows
+   * instead of anchoring a second stack of its own (#930). */
+  cornerSlot?: ReactNode;
   /** Host override for the fallback's "Use flat map" action (defaults to switching the map store to flat) */
   onUseFlatMap?: () => void;
   /** Forwarded to `ClusterDetailPopover`/`SpotCollectionPopover` — true only
@@ -2070,7 +2072,7 @@ export function GlobeView({
   displayTime,
   onLocationClick,
   hideRadarScrubber,
-  hideSizeSliders = false,
+  cornerSlot,
   onUseFlatMap,
   isWallCanvas,
   onOpenPathAnalysis,
@@ -2706,7 +2708,7 @@ export function GlobeView({
     <MapSurface
       surfaceRef={mapSurfaceRef}
       label="Globe map"
-      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none"
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative select-none"
     >
       {webgl.supported && !contextLost ? (
         <GlobeErrorBoundary
@@ -2786,18 +2788,21 @@ export function GlobeView({
         />
       )}
 
-      {/* Map-owned DOM portal. In-scene drei Html labels top out at the
-          highest DOM z-band (see GLOBE_DOM_LAYER_ORDER in globeRenderOrder.ts),
-          so this sibling stacking layer must sit above that entire range for
-          previews to remain completely opaque. */}
+      {/* Map-owned DOM portal. It clears every in-scene drei Html band
+          structurally -- they are sealed inside the <Canvas> wrapper's
+          `isolate` at z-0 -- so it only needs a level above the legend tier
+          and below the host's controls (see MAP_PAGE_CHROME_Z, #930). */}
       <div
         ref={setMapOverlayPortal}
         className="pointer-events-none absolute inset-0"
-        style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
+        style={{ zIndex: MAP_PAGE_CHROME_Z.mapOverlayPortal }}
       />
 
       {(contactPath || justLogged) && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-1">
+        <div
+          className="pointer-events-none absolute left-1/2 top-3 flex -translate-x-1/2 flex-col items-center gap-1"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+        >
           {contactPath && (
             <div
               className="rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
@@ -2826,7 +2831,13 @@ export function GlobeView({
         </div>
       )}
 
-      <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
+      {/* Attribution carries the provider's required <a href> links, so it
+          is operable chrome even though it reads like a caption: a popup
+          painting over it would swallow the click (#930). */}
+      <div
+        className="absolute bottom-1 right-1 flex flex-col items-end gap-1"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      >
         <CloudImageryAttribution status={cloudImageryStatus} />
         <ImageryAttribution
           baseSource={
@@ -2846,7 +2857,10 @@ export function GlobeView({
         radarLayerEnabled &&
         radarAnimState &&
         radarAnimState.frameCount > 1 && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
+          <div
+            className="absolute bottom-16 left-1/2 -translate-x-1/2"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
             <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-su-line/40">
               {/* Play/Pause */}
               <button
@@ -3068,7 +3082,19 @@ export function GlobeView({
         />
       )}
 
-      {!hideSizeSliders && <MapSizeSliders />}
+      {/* Bottom-left corner column. The view owns this corner: host rows
+          arrive as `cornerSlot` and stack above the shared size control, so
+          the control can never cover a row it does not know about and no row
+          can cover the control (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-col items-start gap-1">
+        {cornerSlot}
+        <div
+          className="relative"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <MapSizeSliders />
+        </div>
+      </div>
 
       {/* AddPinDialog modal */}
       <AddPinDialog

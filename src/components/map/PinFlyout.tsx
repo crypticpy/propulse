@@ -18,7 +18,7 @@ import type { MapPin } from "@/types/pin";
 import { getCategoryMeta } from "@/types/pin";
 import type { DXSpot } from "@/types/dxcluster";
 import { getModeColor, inkOnFill } from "@/lib/utils/spotColors";
-import { useMapSurfaceFocus } from "./MapSurfaceContext";
+import { useFocusHome } from "./hooks/useFocusHome";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -159,22 +159,6 @@ export function PinFlyout({
   className = "",
 }: PinFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  // Whether focus actually entered this flyout while it was open (#824,
-  // Codex round 3). Hovering a pin and letting the ordinary auto-dismiss
-  // (mouse leaves proximity, timer closes it) close the flyout without ever
-  // tabbing into its buttons leaves `previousFocusRef` null — the pre-open
-  // `activeElement` was already `<body>`, since hovering never moves focus —
-  // and the cleanup below still reads `activeElement === body` at close time,
-  // because hovering never moved it off `<body>` in the first place. Without
-  // this flag the fallback cannot distinguish "focus died with the flyout"
-  // from "focus was never here to die", and fires in both cases: merely
-  // hovering a pin and moving away would move keyboard focus to the map
-  // surface. Set by a `focusin` listener on the flyout's own root so it only
-  // reflects focus actually landing inside this overlay's content.
-  const heldFocusRef = useRef(false);
-  const focusMapSurface = useMapSurfaceFocus();
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
 
@@ -339,93 +323,12 @@ export function PinFlyout({
 
   // ------- Dismissal behaviors (matching MapFlyout) -------
 
-  // Focus home (#797/#824). This flyout opens on hover and never steals
+  // Focus home (#797/#824/#848). This flyout opens on hover and never steals
   // focus into itself, but its own buttons are real, tabbable elements — a
   // keyboard user can Tab into "Set target"/"Edit Pin"/"Delete Pin" while the
-  // mouse keeps it open. If it then closes (auto-dismiss, Escape, or a click
-  // outside) while one of those buttons is focused, the browser drops focus
-  // to `<body>` once the flyout unmounts, which is the gap #797 covers.
-  useEffect(() => {
-    if (!visible) return;
-    if (fallbackTimerRef.current !== null) {
-      window.clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const root = flyoutRef.current;
-    const active = document.activeElement;
-    // Containment check for the same child-before-parent race as
-    // `PathPointInspector.tsx` (#824, Codex round 4). This flyout never
-    // auto-focuses anything of its own, so `active` can never already be
-    // inside `root` when this setup runs — a no-op here, kept for the
-    // shape's uniformity ahead of the #848 hook extraction.
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
-        ? active
-        : null;
-    heldFocusRef.current = root?.contains(active) ?? false;
-    const handleFocusIn = () => {
-      heldFocusRef.current = true;
-    };
-    root?.addEventListener("focusin", handleFocusIn);
-    return () => {
-      root?.removeEventListener("focusin", handleFocusIn);
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      // Gate the whole restore on focus having actually died with this
-      // flyout (#824). React detaches host nodes in the mutation phase,
-      // before passive `useEffect` cleanups flush: if focus was inside the
-      // flyout when it closed, the focused child is already detached and
-      // the browser has already moved focus to `<body>` by the time this
-      // cleanup runs. So `activeElement === body` means "focus died with
-      // the overlay, restore it"; anything else means a live element
-      // legitimately owns focus — e.g. the user tabbed to a different
-      // persistent control before this closed — and must be left alone.
-      // The explicit non-null check matters too: `document.activeElement`
-      // can be null in a detached document, and `null !== body` would
-      // otherwise skip a restore that should happen. Without this gate the
-      // restore below fires unconditionally and yanks focus back to the
-      // stale captured control even when it never lost focus to `<body>`;
-      // the fallback branch further down already carried this guard, the
-      // restore branch did not. Same reasoning applies to the identical
-      // cleanup shape in `SpotCollectionPopover`, `PathPointInspector`, and
-      // `SelectedSpotCard`.
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      // You cannot restore what was never taken (#824 round 3; moved ahead
-      // of the restore branch in round 5, Codex on PR #842): a pointer-only
-      // interaction can blur a persistent control to `<body>` — e.g. a click
-      // on non-focusable flyout content — without focus ever entering this
-      // flyout. `<body>` here otherwise reads the same as "this overlay held
-      // focus and its removal dropped it", so both the restore below and the
-      // fallback beneath it must be gated on `heldFocusRef`: cleanup only
-      // ever gives back focus it actually held.
-      if (!heldFocusRef.current) return;
-      if (previousFocus?.isConnected) {
-        previousFocus.focus();
-        return;
-      }
-      // Deferred one tick, not called inline: "Edit Pin" closes this flyout
-      // and opens `AddPinDialog` in the same click handler, so this cleanup
-      // and that dialog's own focus-capture effect can land in the same
-      // commit. Calling `focusMapSurface` synchronously here would move
-      // focus to the surface before the dialog's mount effect reads
-      // `document.activeElement`, so the dialog would capture the surface as
-      // ITS restore target instead of correctly finding nothing to restore —
-      // turning ITS close-time fallback into an unconditional steal later
-      // (see the identical hazard fixed in `SpotCollectionPopover`, #824).
-      // Cancelled if setup runs again (#824, found by Codex on PR #842).
-      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
-      // so the simulated cleanup schedules this timer while the overlay is
-      // in fact still open; without the cancel it fires and moves focus to
-      // the surface, and merely hovering changes keyboard focus in dev. Any
-      // re-run of setup means the overlay is open again, which makes a
-      // pending fallback stale by definition.
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (document.activeElement === document.body) focusMapSurface?.();
-      }, 0);
-    };
-  }, [focusMapSurface, visible]);
+  // mouse keeps it open. If it then closes while one of those buttons is
+  // focused, the browser drops focus to `<body>` once the flyout unmounts.
+  useFocusHome(visible, flyoutRef);
 
   // Click outside to dismiss
   useEffect(() => {

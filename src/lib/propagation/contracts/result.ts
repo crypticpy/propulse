@@ -27,6 +27,7 @@ import {
   type PredictionQuantity,
 } from "@/lib/propagation/contracts/enums";
 import {
+  artifactHash,
   decibelsOrNoPower,
   finite,
   identifier,
@@ -392,6 +393,9 @@ export interface PredictionHeadBase {
   validAt: string;
   effectiveModelId: string;
   effectiveModelVersion: string;
+  modelHash: string | null;
+  preprocessingHash: string | null;
+  featureHash: string | null;
   calibrationId: string | null;
   assumptions: string[];
   fallbackReason: FallbackReason | null;
@@ -426,6 +430,16 @@ const predictionHead = z
     validAt: instant,
     effectiveModelId: identifier,
     effectiveModelVersion: identifier,
+    /**
+     * M24: the exact artefacts this head was produced by, so the answer can be
+     * replayed rather than merely attributed. A model id and version name a
+     * lineage; only the digests pin the bytes. Required on a head that carries
+     * a value (it was routed and served); an unavailable head produced nothing
+     * and may leave them null.
+     */
+    modelHash: artifactHash.nullable(),
+    preprocessingHash: artifactHash.nullable(),
+    featureHash: artifactHash.nullable(),
     calibrationId: identifier.nullable(),
     assumptions: z.array(identifier),
     fallbackReason: z.enum(FALLBACK_REASONS).nullable(),
@@ -619,6 +633,12 @@ const provenance = z
     effectiveModelId: identifier,
     effectiveModelVersion: identifier,
     policyVersion: identifier,
+    /**
+     * M24: the digest of the capability declaration that served this result.
+     * Replay needs the routing table as it stood, not only the model that was
+     * picked out of it.
+     */
+    capabilityDigest: artifactHash,
     fallbackReason: z.enum(FALLBACK_REASONS).nullable(),
   })
   .strict()
@@ -701,7 +721,11 @@ function crossCheckDecodeMargin(
   if (!("value" in decode.state) || !("value" in snr.state)) return;
   if (
     snr.effectiveModelId !== decode.effectiveModelId ||
-    snr.effectiveModelVersion !== decode.effectiveModelVersion
+    snr.effectiveModelVersion !== decode.effectiveModelVersion ||
+    // M24: two heads from one lineage but different artefacts are two
+    // different models for replay, so the M10 identity does not bind them.
+    snr.modelHash !== decode.modelHash ||
+    snr.featureHash !== decode.featureHash
   ) {
     return;
   }
@@ -823,6 +847,27 @@ export const predictionResultSchema = z
           ["heads", index, "contextId"],
           "A head belongs to the result's context",
         );
+      }
+      // A head whose own payload was rejected has no parsed state to read.
+      const availability: string | undefined = head.state?.availability;
+      if (
+        availability !== undefined &&
+        VALUE_BEARING_STATES.includes(availability)
+      ) {
+        // M24: a served head is replayable only if the exact artefacts are
+        // named. An unavailable head produced nothing and may omit them.
+        for (const field of [
+          "modelHash",
+          "preprocessingHash",
+          "featureHash",
+        ] as const) {
+          if (head[field] !== null) continue;
+          reject(
+            ctx,
+            ["heads", index, field],
+            `A served ${head.quantity} head must pin its ${field} for replay (M24)`,
+          );
+        }
       }
       const servedByAnotherModel =
         head.effectiveModelId !== value.provenance.effectiveModelId ||

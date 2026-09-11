@@ -117,6 +117,36 @@ describe("parseRequest fails closed", () => {
     );
   });
 
+  it("models aurora as bistatic scatter, not a great circle (A19)", () => {
+    const bad = candidate("hfShortPath");
+    (bad.mechanismPolicy as Mutable).family = "aurora";
+    expect(reasonsAt(bad, "mechanismPolicy.geometryClass").join()).toMatch(
+      /aurora is not requested on geometry class terrestrial_great_circle/,
+    );
+    const good = candidate("hfShortPath");
+    (good.mechanismPolicy as Mutable).family = "aurora";
+    (good.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a satellite family served by a fixed relay (A21)", () => {
+    const bad = candidate("fixedRelay");
+    (bad.mechanismPolicy as Mutable).family = "satellite";
+    expect(reasonsAt(bad, "relay.kind").join()).toMatch(
+      /satellite is not served by a relay of kind fixed/,
+    );
+  });
+
+  it("rejects a terrestrial relay family served by an orbital relay (A21)", () => {
+    const bad = candidate("satellitePass");
+    (bad.mechanismPolicy as Mutable).family = "relay";
+    (bad.mechanismPolicy as Mutable).geometryClass = "two_leg_relay";
+    expect(reasonsAt(bad, "relay.kind").join()).toMatch(
+      /relay is not served by a relay of kind orbital/,
+    );
+  });
+
   it("accepts every request fixture's family and geometry pair (A21, A22)", () => {
     for (const name of Object.keys(cases)) {
       const outcome = parseRequest(candidate(name));

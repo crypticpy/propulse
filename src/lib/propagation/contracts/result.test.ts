@@ -11,6 +11,11 @@ type Mutable = Record<string, unknown>;
 
 const cases = resultCases as unknown as Record<string, Mutable>;
 
+/** The artefact digests the result fixtures pin (M24). */
+const MODEL_HASH = `sha256:${"a".repeat(64)}`;
+const PREPROCESSING_HASH = `sha256:${"b".repeat(64)}`;
+const FEATURE_HASH = `sha256:${"c".repeat(64)}`;
+
 function candidate(name: string): Mutable {
   return structuredClone(cases[name]) as Mutable;
 }
@@ -803,6 +808,9 @@ describe("parseResult fails closed", () => {
       validAt: bad.validAt,
       effectiveModelId: "propulse-physics-v1",
       effectiveModelVersion: "1.0.0",
+      modelHash: MODEL_HASH,
+      preprocessingHash: PREPROCESSING_HASH,
+      featureHash: FEATURE_HASH,
       calibrationId: null,
       assumptions: [],
       fallbackReason: null,
@@ -872,5 +880,78 @@ describe("parseResult fails closed", () => {
     expect(reasonsAt(bad, "heads[0].state.value.count").join()).toMatch(
       /integer/i,
     );
+  });
+
+  it("rejects a served head that does not pin its artefacts (M24)", () => {
+    for (const field of [
+      "modelHash",
+      "preprocessingHash",
+      "featureHash",
+    ] as const) {
+      const bad = candidate("fullHfCircuit");
+      headFor(bad, "snr2500")[field] = null;
+      expect(reasonsAt(bad, `heads[1].${field}`).join()).toMatch(
+        new RegExp(`must pin its ${field} for replay`),
+      );
+    }
+  });
+
+  it("lets an unavailable head omit its artefact hashes (M24)", () => {
+    const outcome = parseResult(candidate("fullHfCircuit"));
+    if (!outcome.ok) throw new Error("fixture must parse");
+    const qso = findHead(outcome.value, "completed_qso");
+    expect(qso?.state.availability).toBe("unavailable");
+    expect(qso?.modelHash).toBeNull();
+    expect(qso?.featureHash).toBeNull();
+  });
+
+  it("rejects an artefact hash that is not sha256 (M24)", () => {
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").featureHash = "sha1:deadbeef";
+    expect(reasonsAt(bad, "heads[1].featureHash").join()).toMatch(
+      /sha256: followed by 64 lowercase hex digits/,
+    );
+    const spaced = candidate("fullHfCircuit");
+    spaced.provenance = {
+      ...(spaced.provenance as Mutable),
+      capabilityDigest: `${MODEL_HASH} `,
+    };
+    expect(reasonsAt(spaced, "provenance.capabilityDigest").join()).toMatch(
+      /no leading or trailing whitespace/,
+    );
+  });
+
+  it("requires the serving capability digest in provenance (M24)", () => {
+    const bad = candidate("fullHfCircuit");
+    const provenance = { ...(bad.provenance as Mutable) };
+    delete provenance.capabilityDigest;
+    bad.provenance = provenance;
+    expect(
+      issues(bad).some((issue) => issue.path === "provenance.capabilityDigest"),
+    ).toBe(true);
+  });
+
+  it("does not bind the M10 margin across different artefacts (M24)", () => {
+    // Same model id and version, different weights: the two heads are not one
+    // replayable model, so the decode margin is not the SNR's margin.
+    const drifted = candidate("fullHfCircuit");
+    const decode = headFor(drifted, "conditional_decode");
+    (decode.state as Mutable).value = {
+      ...((decode.state as Mutable).value as Mutable),
+      marginDb: 99,
+    };
+    decode.modelHash = `sha256:${"e".repeat(64)}`;
+    const outcome = parseResult(drifted);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+
+    const sameArtefacts = candidate("fullHfCircuit");
+    const sameDecode = headFor(sameArtefacts, "conditional_decode");
+    (sameDecode.state as Mutable).value = {
+      ...((sameDecode.state as Mutable).value as Mutable),
+      marginDb: 99,
+    };
+    expect(
+      reasonsAt(sameArtefacts, "heads[2].state.value.marginDb").join(),
+    ).toMatch(/SNR2500 minus the declared threshold/);
   });
 });

@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
+import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
+import { parseResult } from "@/lib/propagation/contracts/result";
 import {
   ALIGNED_PROTOCOL_ID,
   isProtocolCoverage,
@@ -36,6 +38,7 @@ interface CoverageRow {
 
 interface Protocol {
   protocol_id: string;
+  replay: { revisions: string };
   events: Record<string, { units: string; definition: string }>;
   coverage_rows: CoverageRow[];
 }
@@ -144,6 +147,38 @@ describe("the embedded coverage tuples match the frozen protocol", () => {
             }).toMatchObject({ known: true });
           }
         }
+      }
+    }
+  });
+});
+
+describe("the result contract carries what replay needs", () => {
+  const SHA256 = /^sha256:[0-9a-f]{64}$/;
+
+  it("pins every served head's artefacts, as the replay clause requires (M24)", () => {
+    // The protocol replays against immutable SHA-256 versions, so a served
+    // head that names only a model id and version cannot be replayed.
+    expect(protocol.replay.revisions).toMatch(/SHA-256/);
+    for (const [name, fixture] of Object.entries(
+      resultCases as unknown as Record<string, unknown>,
+    )) {
+      const outcome = parseResult(structuredClone(fixture));
+      if (!outcome.ok) {
+        throw new Error(
+          `${name} must parse: ${JSON.stringify(outcome.issues)}`,
+        );
+      }
+      expect(outcome.value.provenance.capabilityDigest).toMatch(SHA256);
+      for (const head of outcome.value.heads) {
+        if (
+          head.state.availability !== "available" &&
+          head.state.availability !== "experimental"
+        ) {
+          continue;
+        }
+        expect(head.modelHash).toMatch(SHA256);
+        expect(head.preprocessingHash).toMatch(SHA256);
+        expect(head.featureHash).toMatch(SHA256);
       }
     }
   });

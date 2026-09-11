@@ -15,6 +15,9 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   isProtocolCoverage,
   PERMITTED_GEOMETRY_CLASSES,
+  permittedRelayKinds,
+  protocolCoverageContainsHz,
+  RELAY_REQUIRED_GEOMETRY_CLASSES,
   protocolCoverageRows,
   RECEIVER_PARTICIPATION,
   type AntennaClass,
@@ -39,30 +42,16 @@ import {
 } from "@/lib/propagation/contracts/enums";
 import {
   finite,
+  artifactHash,
   identifier,
   parseWith,
   reject,
   type ParseOutcome,
-  trimmed,
 } from "@/lib/propagation/contracts/validation";
 import {
   hasPointValue,
   RESULT_SCHEMA_VERSION,
 } from "@/lib/propagation/contracts/result";
-
-/**
- * A pinned artefact digest. M19 traceability needs the artefact itself, not a
- * human-readable label, so the shape is checked: `sha256:` and 64 lowercase
- * hexadecimal digits.
- */
-const artifactHash = trimmed(
-  z
-    .string()
-    .regex(
-      /^sha256:[0-9a-f]{64}$/,
-      "An artefact hash is sha256: followed by 64 lowercase hex digits",
-    ),
-);
 
 const frequencyRange = z
   .object({
@@ -318,12 +307,27 @@ export const modelCapabilitySchema = z
         // head may not advertise a geometry class its family never takes.
         const permitted = PERMITTED_GEOMETRY_CLASSES[mechanism];
         for (const geometryClass of head.geometryClasses) {
-          if (permitted.includes(geometryClass)) continue;
-          reject(
-            ctx,
-            ["heads", index, "geometryClasses"],
-            `Mechanism family ${mechanism} is not answered on geometry class ${geometryClass} (A21, A22)`,
-          );
+          if (!permitted.includes(geometryClass)) {
+            reject(
+              ctx,
+              ["heads", index, "geometryClasses"],
+              `Mechanism family ${mechanism} is not answered on geometry class ${geometryClass} (A21, A22)`,
+            );
+            continue;
+          }
+          if (
+            RELAY_REQUIRED_GEOMETRY_CLASSES.includes(geometryClass) &&
+            permittedRelayKinds(mechanism, geometryClass).length === 0
+          ) {
+            // The relay leg exists but no relay body satisfies both the
+            // geometry and the family, so nothing could ever be routed here:
+            // orbital physics over a fixed repeater, or the reverse (A21).
+            reject(
+              ctx,
+              ["heads", index, "geometryClasses"],
+              `Mechanism family ${mechanism} admits no relay kind that geometry class ${geometryClass} carries (A21)`,
+            );
+          }
         }
       }
       for (const horizon of head.horizons) {
@@ -504,6 +508,18 @@ export function capabilityCovers(
       receiverChainsCovered(head, query) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz &&
+      // A declared range can span a gap between the constituents of a grouped
+      // protocol band (100 MHz lies between 4 m and 2 m). The protocol froze
+      // no row there, so nothing may be routed there either.
+      protocolCoverageContainsHz(
+        {
+          event: head.quantity,
+          domain: head.domain,
+          horizon: query.horizon,
+          mechanism: query.mechanismFamily,
+        },
+        query.frequencyHz,
+      ) &&
       head.requiredInputs.every((input) => available.has(input)),
   );
 }

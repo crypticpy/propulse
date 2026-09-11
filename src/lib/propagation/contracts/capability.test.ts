@@ -5,7 +5,8 @@ import {
   PREDICTION_QUANTITIES,
   isProtocolCoverage,
   PERMITTED_GEOMETRY_CLASSES,
-  PROTOCOL_BAND_EDGES,
+  permittedRelayKinds,
+  protocolBandEnvelope,
   PROTOCOL_COVERAGE_TUPLES,
   RECEIVER_PARTICIPATION,
   QUANTITY_UNITS,
@@ -108,7 +109,10 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   head.horizons = [tuple.horizon];
   head.mechanismFamilies = [tuple.mechanism];
   // The row's own band, so the head is inside the coverage the protocol froze.
-  head.frequencyRangeHz = { ...PROTOCOL_BAND_EDGES[tuple.band] };
+  head.frequencyRangeHz = protocolBandEnvelope(tuple.band) as {
+    minHz: number;
+    maxHz: number;
+  };
   // A21/A22: the geometry classes the row's mechanism is answered on.
   head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[tuple.mechanism]];
   // A01: only a quantity with a receive chain names receiver classes.
@@ -546,14 +550,81 @@ describe("parseCapability fails closed", () => {
     );
   });
 
-  it("accepts a routable head inside the row's own band (M11)", () => {
-    const good = candidate("hfPhysics");
-    (good.heads as Mutable[])[0].frequencyRangeHz = {
+  it("rejects a routable head that serves only part of the row's band (M11)", () => {
+    const bad = candidate("hfPhysics");
+    // The row is frozen for the whole of 160 m; a head over 1.81-1.90 MHz
+    // would answer it for frequencies it never declared.
+    (bad.heads as Mutable[])[0].frequencyRangeHz = {
       minHz: 1810000,
       maxHz: 1900000,
     };
-    const outcome = parseCapability(good);
-    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    expect(reasonsAt(bad, "heads[0].mechanismFamilies").join()).toMatch(
+      /only for 160m, not for this frequency range/,
+    );
+  });
+
+  it("rejects a head that covers one constituent of a grouped band (M11)", () => {
+    const row = PROTOCOL_COVERAGE_TUPLES.find(
+      (tuple) => tuple.band === "8m_6m_4m_2m",
+    );
+    if (row === undefined) throw new Error("the grouped row must exist");
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead(row.event);
+    head.domain = row.domain;
+    head.horizons = [row.horizon];
+    head.mechanismFamilies = [row.mechanism];
+    head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[row.mechanism]];
+    // 6 m alone is one of the four allocations the label names.
+    head.frequencyRangeHz = { minHz: 50000000, maxHz: 54000000 };
+    (draft.heads as Mutable[]).push(head);
+    const reason = reasonsAt(draft, "heads[3].mechanismFamilies").join();
+    expect(reason).toMatch(/8m_6m_4m_2m/);
+    expect(reason).toMatch(/not for this frequency range/);
+  });
+
+  it("does not route a frequency in a gap between grouped constituents", () => {
+    const row = PROTOCOL_COVERAGE_TUPLES.find(
+      (tuple) => tuple.band === "8m_6m_4m_2m",
+    );
+    if (row === undefined) throw new Error("the grouped row must exist");
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead(row.event);
+    head.domain = row.domain;
+    head.horizons = [row.horizon];
+    head.mechanismFamilies = [row.mechanism];
+    head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[row.mechanism]];
+    head.units = QUANTITY_UNITS[row.event];
+    head.frequencyRangeHz = protocolBandEnvelope(row.band) as {
+      minHz: number;
+      maxHz: number;
+    };
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) {
+      throw new Error(`must parse: ${JSON.stringify(outcome.issues)}`);
+    }
+    const groupedQuery = {
+      ...secondQuery,
+      quantity: row.event,
+      domain: row.domain,
+      horizon: row.horizon,
+      mechanismFamily: row.mechanism,
+      geometryClass: PERMITTED_GEOMETRY_CLASSES[row.mechanism][0],
+    } as const;
+    // 100 MHz is between the 4 m and 2 m allocations: no protocol row.
+    expect(
+      capabilityCovers(outcome.value, {
+        ...groupedQuery,
+        frequencyHz: 100000000,
+      }),
+    ).toBe(false);
+    // 144.2 MHz is inside the 2 m constituent of the same label.
+    expect(
+      capabilityCovers(outcome.value, {
+        ...groupedQuery,
+        frequencyHz: 144200000,
+      }),
+    ).toBe(true);
   });
 
   it("rejects a routable head pairing a family with an alien geometry (A21, A22)", () => {
@@ -563,6 +634,34 @@ describe("parseCapability fails closed", () => {
     expect(reasonsAt(bad, "heads[1].geometryClasses").join()).toMatch(
       /regular_ef is not answered on geometry class earth_space/,
     );
+  });
+
+  it("pairs a relayed geometry with a relay kind the family admits (A21)", () => {
+    // Geometry alone admits both relay kinds on a two-leg circuit; the family
+    // decides which body may be on it, so the pair is the intersection.
+    expect(permittedRelayKinds("satellite", "two_leg_relay")).toEqual([
+      "orbital",
+    ]);
+    expect(permittedRelayKinds("relay", "two_leg_relay")).toEqual(["fixed"]);
+    expect(permittedRelayKinds("relay", "earth_space")).toEqual([]);
+    expect(permittedRelayKinds("eme", "earth_moon_earth")).toEqual(["orbital"]);
+    // A routable satellite head on a two-leg circuit is therefore legal: an
+    // orbital relay satisfies both tables.
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead("conditional_decode");
+    head.domain = "configured_two_leg_path";
+    head.horizons = ["current"];
+    head.mechanismFamilies = ["satellite"];
+    head.geometryClasses = ["two_leg_relay"];
+    head.units = QUANTITY_UNITS.conditional_decode;
+    head.uncertaintyKind = "none";
+    head.frequencyRangeHz = protocolBandEnvelope("qualified_family_bands") as {
+      minHz: number;
+      maxHz: number;
+    };
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("accepts every routable head in the capability fixtures", () => {

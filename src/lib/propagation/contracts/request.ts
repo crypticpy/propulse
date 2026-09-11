@@ -29,6 +29,7 @@ import {
   type PredictionQuantity,
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
+  PERMITTED_RELAY_KINDS_BY_MECHANISM,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
   RECEIVER_CLASSES,
@@ -533,6 +534,20 @@ export const predictionRequestSchema = z
         ctx,
         ["relay", "kind"],
         `Geometry class ${value.mechanismPolicy.geometryClass} does not admit a ${value.relay.kind} relay`,
+      );
+    } else if (
+      value.relay !== null &&
+      value.mechanismPolicy.family !== "auto" &&
+      !PERMITTED_RELAY_KINDS_BY_MECHANISM[
+        value.mechanismPolicy.family
+      ].includes(value.relay.kind)
+    ) {
+      // Geometry alone would let satellite physics run over a fixed ground
+      // repeater, or a two-leg repeater circuit claim an ephemeris (A21).
+      reject(
+        ctx,
+        ["relay", "kind"],
+        `Mechanism family ${value.mechanismPolicy.family} is not served by a relay of kind ${value.relay.kind} (A21)`,
       );
     }
     if (

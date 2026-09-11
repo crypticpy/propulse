@@ -135,6 +135,62 @@ export type RelayKind = "orbital" | "fixed";
  * - every direct class: no relay leg at all.
  */
 /**
+ * A21: which relay kinds each mechanism family may be served by. Geometry
+ * alone cannot decide this, because `two_leg_relay` admits both an orbital and
+ * a fixed relay: the protocol froze `conditional_decode` on
+ * `configured_two_leg_path` for `satellite` *and* for `relay`, and those are
+ * two different physics on the same circuit shape. Satellite physics (SGP4
+ * ephemeris, range rate, transponder budget) requires an orbiting relay;
+ * the terrestrial repeater family requires a fixed one with a position, so a
+ * request cannot claim satellite physics over a ground repeater or vice versa
+ * (plan of record, docs/designs/propagation/all-band-contract-v0.1.md:183-187,
+ * which separates the satellite transponder from the "offline ground-repeater
+ * /relay scenarios ... composing two qualified legs"). `eme` reflects off the
+ * Moon, an orbiting body with an ephemeris (A22). `event_head` aggregates a
+ * versioned event population rather than predicting a circuit, so it
+ * constrains neither the geometry nor the relay body. Every other family is a
+ * direct path and admits no relay at all.
+ */
+export const PERMITTED_RELAY_KINDS_BY_MECHANISM: Record<
+  MechanismFamily,
+  readonly RelayKind[]
+> = {
+  aircraft_scatter: [],
+  atmospheric_los: [],
+  aurora: [],
+  eme: ["orbital"],
+  es: [],
+  event_head: ["orbital", "fixed"],
+  f2_daytime: [],
+  ground_sky_coherent: [],
+  groundwave: [],
+  meteor: [],
+  rain_scatter: [],
+  refractivity_pe: [],
+  regular_ef: [],
+  relay: ["fixed"],
+  satellite: ["orbital"],
+  tep_evening: [],
+  terrain_troposphere: [],
+  waveguide: [],
+};
+
+/**
+ * The relay kinds a (family, geometry class) pair actually admits: both tables
+ * must agree, since the geometry says whether there is a relay leg at all and
+ * the family says what kind of body can be on it.
+ */
+export function permittedRelayKinds(
+  family: MechanismFamily,
+  geometryClass: GeometryClass,
+): readonly RelayKind[] {
+  const byFamily = PERMITTED_RELAY_KINDS_BY_MECHANISM[family];
+  return PERMITTED_RELAY_KINDS[geometryClass].filter((kind) =>
+    byFamily.includes(kind),
+  );
+}
+
+/**
  * A21/A22: which geometry classes each mechanism family may be requested on.
  * Family and geometry are two names for one physical path, so a declaration
  * that pairs them freely can route a satellite request down a terrestrial
@@ -149,11 +205,20 @@ export type RelayKind = "orbital" | "fixed";
  *   the protocol froze a two-leg decode through a satellite as well as a pass.
  * - `groundwave` and `waveguide` take the geometry class the contract names
  *   with the same word (`ground_wave`, `waveguide_mode`).
- * - the scatter families (`meteor`, `aircraft_scatter`, `rain_scatter`) take
- *   `bistatic_scatter`, the class A22 defines for a scattering volume off the
- *   great circle.
+ * - the scatter families take `bistatic_scatter`: A19 (plan of record,
+ *   docs/designs/propagation/all-band-contract-v0.1.md:175) defines auroral
+ *   propagation as bistatic scattering through mutually visible, field-aligned
+ *   scattering volumes, and names rain scattering and aircraft targets as the
+ *   same geometry with different scatterers; A20 (line 179) does the same for
+ *   a meteor trail. `aurora` therefore sits with `meteor`, `aircraft_scatter`
+ *   and `rain_scatter`, not on the single great circle.
  * - the remaining ionospheric and tropospheric families are single-great-
- *   circle physics and take `terrestrial_great_circle`.
+ *   circle physics and take `terrestrial_great_circle`: A12 puts troposcatter
+ *   and ducting inside one P.2001 path prediction (line 145), A17 reflects
+ *   sporadic E at a point on the circuit (line 167), and although A18 names
+ *   off-great-circle F2/TEP rays (line 171) the contract publishes no geometry
+ *   class for them, so those families keep the single-circuit class until it
+ *   does.
  * - `event_head` is an aggregate over a versioned event population rather than
  *   a path, so it constrains no geometry.
  */
@@ -163,7 +228,7 @@ export const PERMITTED_GEOMETRY_CLASSES: Record<
 > = {
   aircraft_scatter: ["bistatic_scatter"],
   atmospheric_los: ["terrestrial_great_circle"],
-  aurora: ["terrestrial_great_circle"],
+  aurora: ["bistatic_scatter"],
   eme: ["earth_moon_earth"],
   es: ["terrestrial_great_circle"],
   event_head: GEOMETRY_CLASSES,
@@ -314,42 +379,106 @@ export const MIN_REQUEST_FREQUENCY_HZ = 1e4;
 export const MAX_REQUEST_FREQUENCY_HZ = 3e11;
 
 /**
- * Frequency edges for the band labels the protocol's coverage rows use, in Hz.
+ * The frequency ranges each protocol band label stands for, in Hz.
  *
- * Sources: the amateur allocations this repository already uses for the named
- * amateur bands (`src/lib/data/bandRanges.ts` gives 160 m as 1.800-2.000 MHz),
- * the ITU allocations for the bands that file does not carry (2200 m
- * 135.7-137.8 kHz, 630 m 472-479 kHz, and the VHF/UHF/microwave groups spanned
- * by their outermost allocations), and the protocol's own labels where they
- * state the range directly (`2_30MHz`, `50_300GHz`, `13cm_to_47GHz`, and
- * `hf_vhf` as the ITU HF and VHF ranges, 3-300 MHz).
+ * A grouped label names several amateur bands, not one continuous envelope:
+ * `8m_6m_4m_2m` is four allocations with broadcast and other services in the
+ * gaps between them, so 100 MHz is not "on that row" and a head that covers
+ * only 6 m does not serve it. Each label is therefore a list of disjoint
+ * constituent ranges, ordered by frequency.
+ *
+ * Sources: the allocations this repository already carries for the bands in
+ * `src/lib/data/bandRanges.ts` (160 m 1.800-2.000 MHz, 6 m 50-54 MHz); the
+ * ITU/IARU amateur allocations for the bands that file does not reach, taking
+ * the widest allocation where regions differ (2200 m 135.7-137.8 kHz, 630 m
+ * 472-479 kHz, 8 m 40.660-40.700 MHz, 4 m 70.000-70.500 MHz, 2 m 144-148 MHz,
+ * 1.25 m 222-225 MHz, 70 cm 420-450 MHz, 33 cm 902-928 MHz, 23 cm
+ * 1240-1300 MHz, 13 cm 2300-2450 MHz, 9 cm 3300-3500 MHz, 5 cm
+ * 5650-5925 MHz, 3 cm 10.0-10.5 GHz, 24 GHz 24.00-24.25 GHz, 47 GHz
+ * 47.0-47.2 GHz, 76 GHz 76-81 GHz, 122 GHz 122.25-123 GHz, 134 GHz
+ * 134-141 GHz, 241 GHz 241-250 GHz); and the protocol's own labels where they
+ * state a range directly (`2_30MHz`, and `hf_vhf` as the ITU HF and VHF
+ * ranges, 3-300 MHz). Which constituents belong to each group is read off the
+ * band inventory of the plan of record,
+ * docs/designs/propagation/all-band-contract-v0.1.md:83 and its band table at
+ * lines 90-92.
  *
  * `declared_model_bands` and `qualified_family_bands` are the protocol's way
  * of deferring the band to the declaration itself, so they span the whole
  * legal request range and constrain nothing here.
  */
-export const PROTOCOL_BAND_EDGES: Record<
-  string,
-  { minHz: number; maxHz: number }
-> = {
-  "2200m": { minHz: 135700, maxHz: 137800 },
-  "630m": { minHz: 472000, maxHz: 479000 },
-  "160m": { minHz: 1800000, maxHz: 2000000 },
-  "2_30MHz": { minHz: 2e6, maxHz: 30e6 },
-  hf_vhf: { minHz: 3e6, maxHz: 300e6 },
-  "8m_6m_4m_2m": { minHz: 40660000, maxHz: 148e6 },
-  "1p25m_70cm_33cm_23cm": { minHz: 222e6, maxHz: 1.3e9 },
-  "13cm_to_47GHz": { minHz: 2.3e9, maxHz: 47.2e9 },
-  "50_300GHz": { minHz: 50e9, maxHz: 300e9 },
-  declared_model_bands: {
-    minHz: MIN_REQUEST_FREQUENCY_HZ,
-    maxHz: MAX_REQUEST_FREQUENCY_HZ,
-  },
-  qualified_family_bands: {
-    minHz: MIN_REQUEST_FREQUENCY_HZ,
-    maxHz: MAX_REQUEST_FREQUENCY_HZ,
-  },
+export interface FrequencyRange {
+  minHz: number;
+  maxHz: number;
+}
+
+export const PROTOCOL_BAND_RANGES: Record<string, readonly FrequencyRange[]> = {
+  "2200m": [{ minHz: 135700, maxHz: 137800 }],
+  "630m": [{ minHz: 472000, maxHz: 479000 }],
+  "160m": [{ minHz: 1800000, maxHz: 2000000 }],
+  "2_30MHz": [{ minHz: 2e6, maxHz: 30e6 }],
+  hf_vhf: [{ minHz: 3e6, maxHz: 300e6 }],
+  "8m_6m_4m_2m": [
+    { minHz: 40660000, maxHz: 40700000 },
+    { minHz: 50e6, maxHz: 54e6 },
+    { minHz: 70e6, maxHz: 70.5e6 },
+    { minHz: 144e6, maxHz: 148e6 },
+  ],
+  "1p25m_70cm_33cm_23cm": [
+    { minHz: 222e6, maxHz: 225e6 },
+    { minHz: 420e6, maxHz: 450e6 },
+    { minHz: 902e6, maxHz: 928e6 },
+    { minHz: 1240e6, maxHz: 1300e6 },
+  ],
+  "13cm_to_47GHz": [
+    { minHz: 2300e6, maxHz: 2450e6 },
+    { minHz: 3300e6, maxHz: 3500e6 },
+    { minHz: 5650e6, maxHz: 5925e6 },
+    { minHz: 10000e6, maxHz: 10500e6 },
+    { minHz: 24000e6, maxHz: 24250e6 },
+    { minHz: 47000e6, maxHz: 47200e6 },
+  ],
+  "50_300GHz": [
+    { minHz: 76e9, maxHz: 81e9 },
+    { minHz: 122.25e9, maxHz: 123e9 },
+    { minHz: 134e9, maxHz: 141e9 },
+    { minHz: 241e9, maxHz: 250e9 },
+  ],
+  declared_model_bands: [
+    { minHz: MIN_REQUEST_FREQUENCY_HZ, maxHz: MAX_REQUEST_FREQUENCY_HZ },
+  ],
+  qualified_family_bands: [
+    { minHz: MIN_REQUEST_FREQUENCY_HZ, maxHz: MAX_REQUEST_FREQUENCY_HZ },
+  ],
 };
+
+/** The envelope of a label's constituents; only for building declarations. */
+export function protocolBandEnvelope(band: string): FrequencyRange | undefined {
+  const ranges = PROTOCOL_BAND_RANGES[band];
+  if (ranges === undefined || ranges.length === 0) return undefined;
+  return {
+    minHz: Math.min(...ranges.map((range) => range.minHz)),
+    maxHz: Math.max(...ranges.map((range) => range.maxHz)),
+  };
+}
+
+/** Whether a declared range covers every constituent of a band label. */
+export function rangeCoversBand(range: FrequencyRange, band: string): boolean {
+  const ranges = PROTOCOL_BAND_RANGES[band];
+  if (ranges === undefined) return false;
+  return ranges.every(
+    (part) => range.minHz <= part.minHz && range.maxHz >= part.maxHz,
+  );
+}
+
+/** Whether a frequency falls inside one of a band label's constituents. */
+export function bandContainsHz(band: string, frequencyHz: number): boolean {
+  const ranges = PROTOCOL_BAND_RANGES[band];
+  if (ranges === undefined) return false;
+  return ranges.some(
+    (part) => frequencyHz >= part.minHz && frequencyHz <= part.maxHz,
+  );
+}
 
 /**
  * The (band, event, domain, horizon, mechanism) rows the frozen validation
@@ -656,9 +785,10 @@ export function protocolCoverageRows(claim: {
 }
 
 /**
- * Whether the protocol defines this claim for a frequency range that contains
- * the declared one. The head's whole range must fit inside one row's band; two
- * rows cannot be glued together to cover a range neither of them froze.
+ * Whether the protocol defines this claim for a band the declared range serves
+ * in full. A row is frozen for a whole band label, so a head claiming it must
+ * cover every constituent of that label; two rows are never glued together to
+ * cover a band neither of them froze.
  */
 export function isProtocolCoverage(
   claim: {
@@ -672,14 +802,26 @@ export function isProtocolCoverage(
   const rows = protocolCoverageRows(claim);
   if (rows.length === 0) return false;
   if (range === undefined) return true;
-  return rows.some((row) => {
-    const edges = PROTOCOL_BAND_EDGES[row.band];
-    return (
-      edges !== undefined &&
-      range.minHz >= edges.minHz &&
-      range.maxHz <= edges.maxHz
-    );
-  });
+  return rows.some((row) => rangeCoversBand(range, row.band));
+}
+
+/**
+ * Whether the protocol defines this claim on a band that actually contains
+ * the frequency. A frequency in a gap between a grouped label's constituents
+ * (100 MHz between 4 m and 2 m) is on no row and must not be answered.
+ */
+export function protocolCoverageContainsHz(
+  claim: {
+    event: PredictionQuantity;
+    domain: PredictionDomain;
+    horizon: PredictionHorizon;
+    mechanism: MechanismFamily;
+  },
+  frequencyHz: number,
+): boolean {
+  return protocolCoverageRows(claim).some((row) =>
+    bandContainsHz(row.band, frequencyHz),
+  );
 }
 
 /** M01 availability enum. "Missing is never zero" (M11). */

@@ -36,6 +36,21 @@ export function trimmed(schema: z.ZodString) {
 /** Non-empty identifier, already trimmed on the wire. */
 export const identifier = trimmed(z.string().min(1));
 
+/**
+ * A pinned artefact digest, shared by the capability declaration and the
+ * result provenance so the two cannot drift. M19/M24 traceability needs the
+ * artefact itself, not a human-readable label, so the shape is checked:
+ * `sha256:` and 64 lowercase hexadecimal digits, with no whitespace repaired.
+ */
+export const artifactHash = trimmed(
+  z
+    .string()
+    .regex(
+      /^sha256:[0-9a-f]{64}$/,
+      "An artefact hash is sha256: followed by 64 lowercase hex digits",
+    ),
+);
+
 /** More than three fractional-second digits. */
 const SUB_MILLISECOND = /\.\d{4,}/;
 

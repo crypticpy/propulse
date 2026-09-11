@@ -54,8 +54,15 @@ function totalDistanceKm(
 /**
  * Path MUF is the minimum hop MUF along the great-circle control points
  * from the ray-trace engine — not the midpoint-only estimate.
+ *
+ * Returns `null` when the ray-trace engine yields no control points, because
+ * then there is no hop to take a minimum over and no limiting hop to name. A
+ * circuit whose endpoints determine no great circle is the case that reaches
+ * this, and it is a real answer rather than a failure: there is no path to
+ * report a MUF for. Every consumer already holds the result as
+ * `PathMufSample | null`, so nothing downstream changes shape.
  */
-export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
+export function samplePathMuf(input: SamplePathMufInput): PathMufSample | null {
   const pathMode = input.pathMode ?? "short";
   const mode = input.mode ?? "SSB";
   const txPowerWatts = input.txPowerWatts ?? 100;
@@ -78,6 +85,10 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
     input.date,
     pathMode,
   );
+
+  if (points.length === 0) {
+    return null;
+  }
 
   const hops: PathMufHop[] = points.map((point) => {
     const hop = evaluateHopQuality(
@@ -107,21 +118,13 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
   }
 
   const lufs = hops.map((hop) =>
-    calculateLUF(
-      hop.lat,
-      hop.lon,
-      input.sfi,
-      input.date,
-      txPowerWatts,
-      mode,
-    ),
+    calculateLUF(hop.lat, hop.lon, input.sfi, input.date, txPowerWatts, mode),
   );
   const luf = lufs.length > 0 ? Math.max(...lufs) : 1.8;
-  const limiting = hops[limitingHop] ?? hops[0];
+  // `points` is non-empty above, so `hops` is too and this index exists.
+  const limiting = hops[limitingHop];
 
-  const kpLabel = input.kpAssumed
-    ? `Kp ${input.kp} assumed`
-    : `Kp ${input.kp}`;
+  const kpLabel = input.kpAssumed ? `Kp ${input.kp} assumed` : `Kp ${input.kp}`;
   const basis = `ITU-R P.533 ray-trace, ${numHops} hop${numHops === 1 ? "" : "s"}, limiting hop ${limitingHop + 1} at ${limiting.lat.toFixed(1)}°, ${limiting.lon.toFixed(1)}° (SFI ${input.sfi}, ${kpLabel})`;
   const computedAt = input.computedAt;
   const computedIso =

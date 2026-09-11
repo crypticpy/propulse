@@ -278,6 +278,33 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
     }
   });
 
+  it("an unsupported circuit carries its bounds even without solar inputs", () => {
+    // kp and sfi omitted: the sentinel bounds are part of the contract, not a
+    // by-product of the confidence-interval branch (Codex round 4, PR #1081).
+    const unsupported = predictSignalStrength(
+      28,
+      3000,
+      1,
+      5,
+      100,
+      "SSB",
+      0,
+      "residential",
+      undefined,
+      undefined,
+      undefined,
+      10,
+      "above_basic_muf",
+    );
+    expect(unsupported.support).toBe("above_basic_muf");
+    expect(unsupported.expectedSNR).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.snrLow).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.snrHigh).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.confidence).toBe(0);
+    expect(unsupported.confidenceLow).toBe(0);
+    expect(unsupported.confidenceHigh).toBe(0);
+  });
+
   it("an unsupported circuit carries no power and no confidence", () => {
     // Raw engine output (not the display object): zero received power is
     // -Infinity dBm, and there is nothing to be confident about, so the

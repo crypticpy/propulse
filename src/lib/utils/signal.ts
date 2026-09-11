@@ -800,8 +800,11 @@ export function predictSignalStrength(
     noise,
   };
 
-  // Calculate confidence intervals when solar/geomagnetic data is available
-  if (kp !== undefined && sfi !== undefined && !isSupported) {
+  // An unsupported mode carries its bounds unconditionally: [0, 0] confidence
+  // and -Infinity SNR bounds are part of the no-power contract, not a
+  // by-product of the solar inputs (Codex round 4, PR #1081). Supported modes
+  // get an interval only when solar/geomagnetic data is available.
+  if (!isSupported) {
     prediction.confidenceLow = 0;
     prediction.confidenceHigh = 0;
     prediction.snrLow = Number.NEGATIVE_INFINITY;

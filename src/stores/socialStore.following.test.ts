@@ -46,6 +46,14 @@ function signedInAs(id: string) {
   });
 }
 
+function deferred() {
+  let resolve!: (value: unknown) => void;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
 function profileRow(id: string) {
   return { id, callsign: id.toUpperCase(), grid: "DM79" };
 }
@@ -345,5 +353,61 @@ describe("socialStore following is account-scoped (#995)", () => {
     });
     useSocialStore.getState().clearFollowing();
     expect(useSocialStore.getState().followingLoadError).toBeNull();
+  });
+
+  it("lets the latest load win when an older overlapping one fails after it", async () => {
+    signedInAs("user-a");
+    const older = deferred();
+    const newer = deferred();
+    supabaseMocks.follows
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    supabaseMocks.profiles.mockResolvedValue({
+      data: [profileRow("operator-1")],
+      error: null,
+    });
+
+    const olderCall = useSocialStore.getState().fetchFollowing();
+    const newerCall = useSocialStore.getState().fetchFollowing();
+
+    newer.resolve({ data: [{ following_id: "operator-1" }], error: null });
+    await newerCall;
+    older.resolve({ data: null, error: { message: "network" } });
+    await olderCall;
+
+    const state = useSocialStore.getState();
+    // The older call's view of the cache is stale; committing its failure
+    // would wipe the good set and put a retry error on a healthy state.
+    expect(state.following.map((p) => p.id)).toEqual(["operator-1"]);
+    expect(state.followingLoadedForUserId).toBe("user-a");
+    expect(state.followingLoadError).toBeNull();
+    expect(state.isRefreshingFollowing).toBe(false);
+  });
+
+  it("records the error when the newest load fails after an older one succeeded", async () => {
+    signedInAs("user-a");
+    const older = deferred();
+    const newer = deferred();
+    supabaseMocks.follows
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    supabaseMocks.profiles.mockResolvedValue({
+      data: [profileRow("operator-1")],
+      error: null,
+    });
+
+    const olderCall = useSocialStore.getState().fetchFollowing();
+    const newerCall = useSocialStore.getState().fetchFollowing();
+
+    older.resolve({ data: [{ following_id: "operator-1" }], error: null });
+    await olderCall;
+    newer.resolve({ data: null, error: { message: "network" } });
+    await newerCall;
+
+    const state = useSocialStore.getState();
+    // The latest answer wins even when it is the worse one.
+    expect(state.followingLoadedForUserId).toBeNull();
+    expect(state.followingLoadError?.userId).toBe("user-a");
+    expect(state.isRefreshingFollowing).toBe(false);
   });
 });

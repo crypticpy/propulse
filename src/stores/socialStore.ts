@@ -99,6 +99,19 @@ export function viewerFriendship(
     : "stranger";
 }
 
+/**
+ * Which `fetchFollowing` call owns the answer. Two overlapping loads for the
+ * same account both used to commit: when the newer succeeded and the older
+ * then failed, the older's stale view of the cache wiped the good set and
+ * recorded a retry error. Only the latest call may write now.
+ *
+ * A generation counter rather than promise dedupe: dedupe would also make a
+ * retry a no-op while the failing request is still in flight, and "the latest
+ * answer wins" is the rule we actually want. It is also directly testable by
+ * interleaving two calls.
+ */
+let followingFetchGeneration = 0;
+
 // ── Store ───────────────────────────────────────────────────────────────
 
 interface SocialStore {
@@ -218,6 +231,7 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     // its tag: clearing there made every remount flash the viewer as a
     // stranger, hiding friends-only content and offering "Follow" for a
     // relation that already exists.
+    const generation = ++followingFetchGeneration;
     const cacheBelongsToUser = get().followingLoadedForUserId === userId;
     set(
       cacheBelongsToUser
@@ -245,8 +259,13 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
       isLoadingFollowers: false,
     });
 
-    /** A result is only ours if the signed-in user has not changed since. */
-    const stillCurrent = () => useAuthStore.getState().user?.id === userId;
+    /**
+     * A result is only ours if the signed-in user has not changed since AND
+     * no later fetch has superseded this one.
+     */
+    const stillCurrent = () =>
+      useAuthStore.getState().user?.id === userId &&
+      generation === followingFetchGeneration;
 
     try {
       const supabase = getSupabase();

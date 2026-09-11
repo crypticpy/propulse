@@ -17,6 +17,20 @@ const follower = {
   lastActiveAt: undefined,
 };
 
+const friendsOnlyFollower = {
+  id: "operator-2",
+  callsign: "N0FRND",
+  grid: "DM79",
+  visibilitySettings: {
+    stats: "public",
+    awards: "public",
+    equipment: "public",
+    activity: "public",
+    location: "friends",
+  },
+  lastActiveAt: undefined,
+} as const;
+
 function signedInAs(id: string | null) {
   useAuthStore.setState({
     user: id ? ({ id } as never) : null,
@@ -91,5 +105,47 @@ describe("FriendList follow toggle gating (#995)", () => {
 
     retry.click();
     expect(fetchFollowing.mock.calls.length).toBe(callsOnMount + 1);
+  });
+
+  // #995 round 7: the row passed a literal `true` for "the viewer is a
+  // friend", so a one-way follower disclosed a friends-only grid.
+  it("hides a friends-only grid from a follower the viewer does not follow back", () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      followers: [friendsOnlyFollower],
+      following: [],
+      followingLoadedForUserId: "user-a",
+    });
+
+    render(<FriendList />);
+
+    expect(screen.getByText("N0FRND")).toBeTruthy();
+    expect(screen.queryByText("DM79")).toBeNull();
+  });
+
+  it("shows the friends-only grid once the follow is mutual", () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      followers: [friendsOnlyFollower],
+      following: [friendsOnlyFollower],
+      followingLoadedForUserId: "user-a",
+    });
+
+    render(<FriendList />);
+
+    expect(screen.getAllByText("DM79").length).toBeGreaterThan(0);
+  });
+
+  it("hides a friends-only grid while the follow set is unknown", () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      followers: [friendsOnlyFollower],
+      following: [friendsOnlyFollower],
+      followingLoadedForUserId: "user-b",
+    });
+
+    render(<FriendList />);
+
+    expect(screen.queryByText("DM79")).toBeNull();
   });
 });

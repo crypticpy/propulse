@@ -87,6 +87,17 @@ function FriendListInner() {
     [following],
   );
 
+  /**
+   * The one friendship input for this list: the viewer follows them, and the
+   * set that says so is this account's. An unknown set answers false, which
+   * keeps friends-only fields closed rather than opening them on a cache
+   * that may belong to someone else.
+   */
+  const viewerFollows = useCallback(
+    (profileId: string) => relationshipsKnown && followingIds.has(profileId),
+    [relationshipsKnown, followingIds],
+  );
+
   // Filter by callsign search
   const filteredFollowing = useMemo(() => {
     if (!search.trim()) return following;
@@ -190,7 +201,7 @@ function FriendListInner() {
               <ProfileCard
                 key={profile.id}
                 profile={profile}
-                isFollowing={true}
+                isFollowing={viewerFollows(profile.id)}
                 actionable={relationshipsKnown}
                 onToggle={() => handleUnfollow(profile.id)}
               />
@@ -210,10 +221,10 @@ function FriendListInner() {
               <ProfileCard
                 key={profile.id}
                 profile={profile}
-                isFollowing={followingIds.has(profile.id)}
+                isFollowing={viewerFollows(profile.id)}
                 actionable={relationshipsKnown}
                 onToggle={() =>
-                  followingIds.has(profile.id)
+                  viewerFollows(profile.id)
                     ? handleUnfollow(profile.id)
                     : handleFollow(profile.id)
                 }
@@ -279,13 +290,16 @@ function ProfileCard({
             {profile.operatorName && (
               <span className="truncate">{profile.operatorName}</span>
             )}
-            {/* Following them makes the viewer a friend, but a private
-                location is still private. */}
+            {/* Friendship here is the viewer following THEM, never the
+                other way round: a follower the viewer does not follow back
+                is a stranger, and a friends-only grid stays hidden. The flag
+                comes from the account-tagged following set, so an unknown
+                set reads as "not a friend". */}
             {profile.grid &&
               isSectionVisibleToViewer(
                 profile.visibilitySettings,
                 "location",
-                true,
+                isFollowing,
               ) && <span className="font-mono">{profile.grid}</span>}
           </div>
         </div>

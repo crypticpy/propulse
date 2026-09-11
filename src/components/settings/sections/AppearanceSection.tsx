@@ -10,7 +10,7 @@ import { VisualEffectsSettings } from "@/components/settings/VisualEffectsSettin
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { THEMES, type ThemeId } from "@/lib/themes";
+import { THEMES, SATURATION_DEFAULT, type ThemeId } from "@/lib/themes";
 import type { SdrSkinName } from "@/components/sdr/skins/types";
 import {
   TICKER_COVERAGE_PRESETS,
@@ -47,6 +47,8 @@ export function AppearanceSection() {
   const setAccent = useThemeStore((s) => s.setAccent);
   const themeId = useThemeStore((s) => s.themeId);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const saturation = useThemeStore((s) => s.saturation);
+  const setSaturation = useThemeStore((s) => s.setSaturation);
   const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const tickerCoverageArea = useSettingsStore(
@@ -153,6 +155,67 @@ export function AppearanceSection() {
           </div>
         </div>
       </details>
+
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
+          Saturation
+        </h3>
+        <p className="text-xs text-su-muted mb-4">
+          How vivid accent and status colors are. Surfaces stay the same.
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="appearance-saturation"
+              className="text-sm font-medium text-su-text"
+            >
+              Saturation
+            </label>
+            <span className="text-sm font-mono text-su-text">
+              {Math.round(saturation * 100)} %
+            </span>
+          </div>
+          <input
+            id="appearance-saturation"
+            type="range"
+            role="slider"
+            min={80}
+            max={140}
+            step={5}
+            value={Math.round(saturation * 100)}
+            aria-valuemin={80}
+            aria-valuemax={140}
+            aria-valuenow={Math.round(saturation * 100)}
+            aria-valuetext={`${Math.round(saturation * 100)} percent`}
+            onChange={(event) =>
+              setSaturation(Number(event.target.value) / 100)
+            }
+            className="
+              w-full h-11 cursor-pointer appearance-none rounded-lg bg-su-line/20
+              accent-plasma-orange
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:h-11
+              [&::-webkit-slider-thumb]:w-11
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-plasma-orange
+              [&::-webkit-slider-thumb]:cursor-pointer
+              [&::-moz-range-thumb]:h-11
+              [&::-moz-range-thumb]:w-11
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:border-0
+              [&::-moz-range-thumb]:bg-plasma-orange
+              [&::-moz-range-thumb]:cursor-pointer
+            "
+          />
+          <button
+            type="button"
+            onClick={() => setSaturation(SATURATION_DEFAULT)}
+            className="min-h-11 px-4 py-2 text-sm font-medium rounded-lg text-su-muted border border-su-line/40 hover:text-su-text hover:border-su-line/50 transition-colors"
+          >
+            Reset to 100 %
+          </button>
+        </div>
+      </div>
 
       <div className="border-t border-su-line/40 pt-6">
         <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">

@@ -8,12 +8,18 @@ import {
   type ThemeId,
 } from "./index";
 import {
+  clampSaturation,
   DEFAULT_ACCENT_HEX,
   hexToChannels,
+  SATURATION_DEFAULT,
+  SATURATION_MAX,
+  SATURATION_MIN,
+  SATURATION_STEP,
   stationContrast,
   stationPalettes,
   stationTokens,
 } from "./stationTokens";
+import { hexToOklch, scaleHexChroma } from "./oklch";
 import { DEUTERANOPIA_PALETTE, TRITANOPIA_PALETTE } from "./colorblind";
 import {
   stationTokens as reExportedStationTokens,
@@ -417,5 +423,152 @@ describe("hexToChannels", () => {
     expect(hexToChannels("rebeccapurple")).toBe(darkCanvasChannels);
     expect(hexToChannels("#12345")).toBe(darkCanvasChannels);
     expect(hexToChannels("")).toBe(darkCanvasChannels);
+  });
+});
+
+const TONE_ROLES = [
+  "accent",
+  "info",
+  "success",
+  "warning",
+  "danger",
+] as const;
+
+const SURFACE_ROLES = [
+  "canvas",
+  "panel",
+  "input",
+  "text",
+  "muted",
+  "line",
+  "purple",
+] as const;
+
+function chromaOf(hex: string): number {
+  const oklch = hexToOklch(hex);
+  expect(oklch).not.toBeNull();
+  return oklch!.C;
+}
+
+describe("oklch conversion", () => {
+  it("matches Ottosson's linear-sRGB green primary", () => {
+    const oklch = hexToOklch("#00ff00");
+    expect(oklch).not.toBeNull();
+    expect(oklch!.L).toBeCloseTo(0.86644, 4);
+    expect(oklch!.C).toBeCloseTo(0.29483, 4);
+  });
+
+  it("round-trips an in-gamut hex at factor 1 without changing the string", () => {
+    expect(scaleHexChroma("#8bdbb0", 1)).toBe("#8bdbb0");
+  });
+});
+
+describe("clampSaturation", () => {
+  it("defaults a missing key to 1, the pre-slider identity", () => {
+    expect(clampSaturation(undefined)).toBe(SATURATION_DEFAULT);
+    expect(clampSaturation(null)).toBe(SATURATION_DEFAULT);
+    expect(clampSaturation("1")).toBe(SATURATION_DEFAULT);
+  });
+
+  it("snaps onto the 0.05 grid and stays inside 0.8…1.4", () => {
+    expect(clampSaturation(1.37)).toBe(1.35);
+    expect(clampSaturation(0.82)).toBe(0.8);
+    expect(clampSaturation(2)).toBe(SATURATION_MAX);
+    expect(clampSaturation(0.1)).toBe(SATURATION_MIN);
+    expect(clampSaturation(1)).toBe(SATURATION_DEFAULT);
+    expect(SATURATION_STEP).toBe(0.05);
+  });
+});
+
+describe("station token saturation", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("treats factor 1 as identity for every token", () => {
+    for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+      const unscaled = stationTokens(themeId, DEFAULT_ACCENT_HEX);
+      expect(stationTokens(themeId, DEFAULT_ACCENT_HEX, "none", 1)).toEqual(
+        unscaled,
+      );
+    }
+  });
+
+  it("raises chroma at 1.4 and keeps accent-text on panel at 4.5:1", () => {
+    for (const themeId of ["dark", "light"] as const) {
+      const base = stationTokens(themeId, DEFAULT_ACCENT_HEX, "none", 1);
+      const vivid = stationTokens(themeId, DEFAULT_ACCENT_HEX, "none", 1.4);
+      // Plasma orange sits on the sRGB hull at this L/h, so 140% cannot
+      // raise its C. The four palette tones are inside the hull and move.
+      expect(chromaOf(vivid["--su-accent"])).toBeGreaterThanOrEqual(
+        chromaOf(base["--su-accent"]),
+      );
+      for (const role of ["info", "success", "warning", "danger"] as const) {
+        expect(chromaOf(vivid[`--su-${role}`])).toBeGreaterThan(
+          chromaOf(base[`--su-${role}`]),
+        );
+      }
+      for (const role of SURFACE_ROLES) {
+        expect(vivid[`--su-${role}`]).toBe(base[`--su-${role}`]);
+      }
+      expect(
+        stationContrast(
+          vivid["--su-accent-text"],
+          stationPalettes[themeId].panel,
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("lowers chroma at 0.8 and leaves surfaces untouched", () => {
+    for (const themeId of ["dark", "light"] as const) {
+      const base = stationTokens(themeId, DEFAULT_ACCENT_HEX, "none", 1);
+      const muted = stationTokens(themeId, DEFAULT_ACCENT_HEX, "none", 0.8);
+      for (const role of TONE_ROLES) {
+        expect(chromaOf(muted[`--su-${role}`])).toBeLessThan(
+          chromaOf(base[`--su-${role}`]),
+        );
+      }
+      for (const role of SURFACE_ROLES) {
+        expect(muted[`--su-${role}`]).toBe(base[`--su-${role}`]);
+      }
+    }
+  });
+
+  it("swaps colour-blind tones before scaling their chroma", () => {
+    const swapped = stationTokens("dark", DEFAULT_ACCENT_HEX, "deuteranopia", 1);
+    const scaled = stationTokens(
+      "dark",
+      DEFAULT_ACCENT_HEX,
+      "deuteranopia",
+      1.4,
+    );
+    expect(swapped["--su-success"]).not.toBe(stationPalettes.dark.success);
+    expect(chromaOf(scaled["--su-success"])).toBeGreaterThan(
+      chromaOf(swapped["--su-success"]),
+    );
+  });
+
+  it("writes the scaled tones onto the document and keeps --theme-accent-primary in lockstep", () => {
+    applyThemeToDocument(
+      getTheme("dark"),
+      getAccentPreset("plasma"),
+      "none",
+      1.4,
+    );
+    const token = rootTokens();
+    expect(token("--su-success")).not.toBe(stationPalettes.dark.success);
+    expect(token("--theme-accent-primary")).toBe(token("--su-accent"));
+    expect(token("--su-canvas")).toBe(stationPalettes.dark.canvas);
+  });
+
+  it("raises chroma of an in-gamut accent that still has headroom", () => {
+    const inside = "#3b82f6";
+    const base = stationTokens("dark", inside, "none", 1);
+    const vivid = stationTokens("dark", inside, "none", 1.4);
+    expect(chromaOf(vivid["--su-accent"])).toBeGreaterThan(
+      chromaOf(base["--su-accent"]),
+    );
+    expect(vivid["--su-accent"]).not.toBe(inside);
   });
 });

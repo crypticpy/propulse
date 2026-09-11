@@ -14,6 +14,31 @@
 import type { CSSProperties } from "react";
 import { COLOR_BLIND_PALETTES, type ColorBlindMode } from "./colorblind";
 import type { ThemeId } from "./index";
+import { scaleHexChroma } from "./oklch";
+
+/** Appearance saturation slider: 80 % … 140 % in 5 % steps, stored as 0.8…1.4. */
+export const SATURATION_MIN = 0.8;
+export const SATURATION_MAX = 1.4;
+export const SATURATION_STEP = 0.05;
+export const SATURATION_DEFAULT = 1;
+
+const TONE_ROLES = [
+  "accent",
+  "info",
+  "success",
+  "warning",
+  "danger",
+] as const;
+
+/** Snap a stored or slider value onto the allowed 0.05 grid. Missing/invalid → 1. */
+export function clampSaturation(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return SATURATION_DEFAULT;
+  }
+  const stepped = Math.round(value / SATURATION_STEP) * SATURATION_STEP;
+  const clamped = Math.min(SATURATION_MAX, Math.max(SATURATION_MIN, stepped));
+  return Math.round(clamped * 20) / 20;
+}
 
 export type StationTokenStyle = CSSProperties &
   Record<`--su-${string}`, string>;
@@ -164,26 +189,17 @@ export function stationTokens(
   theme: ThemeId,
   requestedAccent: string,
   colorBlindMode: ColorBlindMode = "none",
+  saturation: number = SATURATION_DEFAULT,
 ): StationTokenStyle {
   const palette = stationPalettes[theme];
   const accent = /^#[0-9a-f]{6}$/i.test(requestedAccent)
     ? requestedAccent
     : DEFAULT_ACCENT_HEX;
-  const onAccent =
-    stationContrast(accent, "#000000") >= stationContrast(accent, "#ffffff")
-      ? "#000000"
-      : "#ffffff";
   const colors: Record<string, string> = {
     ...Object.fromEntries(
       Object.entries(palette).map(([name, value]) => [`--su-${name}`, value]),
     ),
     "--su-accent": accent,
-    "--su-on-accent": onAccent,
-    "--su-accent-edge":
-      stationContrast(accent, palette.panel) >= 3 ? accent : palette.info,
-    // A custom brand color is never assumed to be legible as text on a panel.
-    "--su-accent-text":
-      stationContrast(accent, palette.panel) >= 4.5 ? accent : palette.info,
   };
   // Colour-blind mode swaps the three tone roles for a palette whose hues stay
   // distinguishable. It is folded in here (rather than layered on afterwards by
@@ -201,6 +217,27 @@ export function stationTokens(
     colors["--su-warning"] = toneOnPanel(colorBlind.fair, palette.panel);
     colors["--su-danger"] = toneOnPanel(colorBlind.poor, palette.panel);
   }
+  // Saturation scales chroma of the five tone tokens after the colour-blind
+  // swap. Surfaces (canvas/panel/input/text/muted/line) and decorative purple
+  // stay put. Factor 1 is a no-op so existing lockstep tests keep matching.
+  const factor = clampSaturation(saturation);
+  if (factor !== SATURATION_DEFAULT) {
+    for (const role of TONE_ROLES) {
+      colors[`--su-${role}`] = scaleHexChroma(colors[`--su-${role}`], factor);
+    }
+  }
+  const scaledAccent = colors["--su-accent"];
+  const info = colors["--su-info"];
+  colors["--su-on-accent"] =
+    stationContrast(scaledAccent, "#000000") >=
+    stationContrast(scaledAccent, "#ffffff")
+      ? "#000000"
+      : "#ffffff";
+  colors["--su-accent-edge"] =
+    stationContrast(scaledAccent, palette.panel) >= 3 ? scaledAccent : info;
+  // A custom brand color is never assumed to be legible as text on a panel.
+  colors["--su-accent-text"] =
+    stationContrast(scaledAccent, palette.panel) >= 4.5 ? scaledAccent : info;
   // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
   // inside a scoped StationProvider as well as on the document root.
   const channels = Object.fromEntries(

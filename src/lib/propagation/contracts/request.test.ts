@@ -23,6 +23,18 @@ function reasonsAt(value: unknown, path: string): string[] {
     .map((issue) => issue.reason);
 }
 
+/** hfShortPath with exactly antipodal endpoints and an explicit azimuth. */
+function antipodalCase(): Mutable {
+  const draft = candidate("hfShortPath");
+  const tx = (draft.tx as Mutable).coordinates as Mutable;
+  const rx = (draft.rx as Mutable).coordinates as Mutable;
+  rx.latitudeDeg = -(tx.latitudeDeg as number);
+  rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
+  (draft.route as Mutable).azimuthDeg = 45;
+  (draft.route as Mutable).leg = null;
+  return draft;
+}
+
 describe("parseRequest fixtures", () => {
   it.each(Object.keys(cases))("round-trips the %s fixture", (name) => {
     const outcome = parseRequest(candidate(name));
@@ -405,7 +417,35 @@ describe("parseRequest fails closed", () => {
     rx.latitudeDeg = -(tx.latitudeDeg as number);
     rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
     (explicit.route as Mutable).azimuthDeg = 45;
+    (explicit.route as Mutable).leg = null;
     const outcome = parseRequest(explicit);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a leg on antipodal endpoints (M06)", () => {
+    const bad = antipodalCase();
+    (bad.route as Mutable).leg = "long";
+    expect(reasonsAt(bad, "route.leg").join()).toMatch(/the leg is null/);
+  });
+
+  it("still requires a leg on an ordinary direct path (M06)", () => {
+    const bad = candidate("hfShortPath");
+    (bad.route as Mutable).leg = null;
+    expect(reasonsAt(bad, "route.leg").join()).toMatch(
+      /must declare the short or the long leg/,
+    );
+  });
+
+  it("rejects a known relay height measured against an unknown datum (A21)", () => {
+    const bad = candidate("fixedRelay");
+    (bad.relay as Mutable).heightDatum = "unknown";
+    expect(reasonsAt(bad, "relay.heightDatum").join()).toMatch(
+      /must name the datum/,
+    );
+  });
+
+  it("accepts a known relay height against a named datum (A21)", () => {
+    const outcome = parseRequest(candidate("fixedRelay"));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 

@@ -39,6 +39,13 @@ import {
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
+/**
+ * The one result schema version `parseResult` accepts, re-exported so a
+ * capability declaration can be checked against the parser's own literal
+ * rather than against a copy of the string (M19).
+ */
+export { RESULT_SCHEMA_VERSION };
+
 /** M17 uncertainty. An interval always states the semantics it was built on. */
 const uncertainty = z
   .discriminatedUnion("kind", [

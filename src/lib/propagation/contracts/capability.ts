@@ -40,21 +40,26 @@ import {
   parseWith,
   reject,
   type ParseOutcome,
+  trimmed,
 } from "@/lib/propagation/contracts/validation";
-import { hasPointValue } from "@/lib/propagation/contracts/result";
+import {
+  hasPointValue,
+  RESULT_SCHEMA_VERSION,
+} from "@/lib/propagation/contracts/result";
 
 /**
  * A pinned artefact digest. M19 traceability needs the artefact itself, not a
  * human-readable label, so the shape is checked: `sha256:` and 64 lowercase
  * hexadecimal digits.
  */
-const artifactHash = z
-  .string()
-  .trim()
-  .regex(
-    /^sha256:[0-9a-f]{64}$/,
-    "An artefact hash is sha256: followed by 64 lowercase hex digits",
-  );
+const artifactHash = trimmed(
+  z
+    .string()
+    .regex(
+      /^sha256:[0-9a-f]{64}$/,
+      "An artefact hash is sha256: followed by 64 lowercase hex digits",
+    ),
+);
 
 const frequencyRange = z
   .object({
@@ -282,6 +287,17 @@ export const modelCapabilitySchema = z
           ctx,
           ["heads", index, "calibrationId"],
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
+        );
+      }
+      if (head.outputSchemaId !== RESULT_SCHEMA_VERSION) {
+        // A routable head is answered by `parseResult`, which accepts exactly
+        // one result schema version. Advertising another is a promise nothing
+        // downstream could keep (M19). A planned or unsupported head may name
+        // a future schema, which is why this is inside the routable branch.
+        reject(
+          ctx,
+          ["heads", index, "outputSchemaId"],
+          `A routable head is answered by ${RESULT_SCHEMA_VERSION}, not ${head.outputSchemaId} (M19)`,
         );
       }
       if (!hasPointValue(head.quantity) && head.uncertaintyKind !== "none") {

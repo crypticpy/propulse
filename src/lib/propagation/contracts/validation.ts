@@ -21,18 +21,20 @@ export type ParseOutcome<T> =
   { ok: true; value: T } | { ok: false; issues: ContractIssue[] };
 
 /**
- * Non-empty identifier, already trimmed on the wire.
+ * Require a string to arrive already trimmed, reporting rather than repairing.
  *
- * Identifiers define cache identity, so this fails closed instead of
- * repairing: trimming here would let `"ctx-v1 "` and `"ctx-v1"` become the same
- * key after the fact, which hides a producer bug rather than reporting it.
+ * These strings define cache identity and artefact identity, so a silent
+ * `.trim()` would let `"ctx-v1 "` and `"ctx-v1"` become one key after the fact,
+ * hiding a producer bug instead of naming it.
  */
-export const identifier = z
-  .string()
-  .min(1)
-  .refine((value) => value === value.trim(), {
-    message: "An identifier carries no leading or trailing whitespace",
+export function trimmed(schema: z.ZodString) {
+  return schema.refine((value) => value === value.trim(), {
+    message: "This value carries no leading or trailing whitespace",
   });
+}
+
+/** Non-empty identifier, already trimmed on the wire. */
+export const identifier = trimmed(z.string().min(1));
 
 /** More than three fractional-second digits. */
 const SUB_MILLISECOND = /\.\d{4,}/;

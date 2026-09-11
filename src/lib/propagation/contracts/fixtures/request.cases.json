@@ -400,7 +400,10 @@
           "cellSizeDeg": null
         }
       },
-      "heightMeters": 183.0,
+      "heightMeters": {
+        "state": "known",
+        "value": 183.0
+      },
       "heightDatum": "above_ground_level",
       "configurationId": "repeater-config-2026-03"
     },

@@ -5,7 +5,10 @@ import {
   PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
-import { hasPointValue } from "@/lib/propagation/contracts/result";
+import {
+  hasPointValue,
+  RESULT_SCHEMA_VERSION,
+} from "@/lib/propagation/contracts/result";
 import {
   capabilityCovers,
   parseCapability,
@@ -486,6 +489,42 @@ describe("parseCapability fails closed", () => {
         rxReceiverClass: "calibrated_system_temperature",
       }),
     ).toBe(false);
+  });
+
+  it("rejects a routable head that advertises another result schema (M19)", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.2.0";
+    expect(reasonsAt(bad, "heads[1].outputSchemaId").join()).toMatch(
+      new RegExp(`answered by ${RESULT_SCHEMA_VERSION}`),
+    );
+  });
+
+  it("accepts a routable head on the current result schema (M19)", () => {
+    const good = candidate("hfPhysics");
+    expect((good.heads as Mutable[])[1].outputSchemaId).toBe(
+      RESULT_SCHEMA_VERSION,
+    );
+    expect(parseCapability(good).ok).toBe(true);
+  });
+
+  it("lets a planned head name a future result schema (M19)", () => {
+    const good = candidate("hfPhysics");
+    const planned = (good.heads as Mutable[])[2];
+    expect(planned.state).toBe("planned");
+    planned.outputSchemaId = "propagation-result-0.2.0";
+    expect(parseCapability(good).ok).toBe(true);
+  });
+
+  it("rejects an artefact hash with surrounding whitespace", () => {
+    const bad = candidate("hfPhysics");
+    bad.modelHash = `${bad.modelHash as string} `;
+    expect(reasonsAt(bad, "modelHash").join()).toMatch(
+      /no leading or trailing whitespace/,
+    );
+  });
+
+  it("accepts the same artefact hash written exactly", () => {
+    expect(parseCapability(candidate("hfPhysics")).ok).toBe(true);
   });
 
   it("rejects an interval uncertainty kind on the non-scalar quantities (M17)", () => {

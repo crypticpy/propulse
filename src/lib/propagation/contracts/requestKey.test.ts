@@ -47,6 +47,25 @@ describe("requestKey identity", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
   });
 
+  it("gives two antipodal requests that name no leg one key", () => {
+    // Both legs of an antipodal pair are pi * R, so there is no leg to choose
+    // and nothing left that could split the cache (M06).
+    const antipodal = (viewScopeId: string) =>
+      build((draft) => {
+        const tx = (draft.tx as Mutable).coordinates as Mutable;
+        const rx = (draft.rx as Mutable).coordinates as Mutable;
+        rx.latitudeDeg = -(tx.latitudeDeg as number);
+        rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
+        (draft.route as Mutable).azimuthDeg = 45;
+        (draft.route as Mutable).leg = null;
+        draft.viewScopeId = viewScopeId;
+      });
+    expect(requestKey(antipodal("view-a"))).toBe(
+      requestKey(antipodal("view-b")),
+    );
+    expect(requestKey(antipodal("view-a"))).toContain('"leg":null');
+  });
+
   it("gives two relayed requests that name no leg one key", () => {
     // The leg used to be part of every request; on a relayed geometry there is
     // no great circle to choose, so it is no longer in the shape or the key.

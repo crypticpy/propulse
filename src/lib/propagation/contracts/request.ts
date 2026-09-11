@@ -313,7 +313,12 @@ const relayIdentity = z.discriminatedUnion("kind", [
       relayId: identifier,
       /** Surveyed position of the installation, with its own precision. */
       coordinates,
-      heightMeters: finite.nonnegative(),
+      /**
+       * Height above the declared datum, in the same known/unknown shape the
+       * antenna schema uses, so a number is never reported against an unknown
+       * reference (A21).
+       */
+      heightMeters: knownOrUnknown(finite.nonnegative()),
       heightDatum: z.enum(HEIGHT_DATUMS),
       /** Configuration identity the geometry depends on (A21). */
       configurationId: identifier,
@@ -405,7 +410,14 @@ export const predictionRequestSchema = z
       z
         .object({
           kind: z.literal("direct"),
-          leg: z.enum(ROUTE_LEGS),
+          /**
+           * M06: the short and the long way round are different paths, except
+           * for exactly antipodal endpoints, where both legs are pi * R and
+           * the explicit azimuth alone selects the semicircle. There the leg
+           * is null, so two requests that differ only in a meaningless leg
+           * label cannot split the cache.
+           */
+          leg: z.enum(ROUTE_LEGS).nullable(),
           /**
            * M06: the departure tangent is derived uniquely from the endpoints
            * and the leg, so an explicit azimuth is legal only where no tangent
@@ -517,6 +529,18 @@ export const predictionRequestSchema = z
           `Geometry class ${value.mechanismPolicy.geometryClass} has no single great circle, so it takes the relayed route shape (A21)`,
         );
       }
+      if (
+        value.relay !== null &&
+        value.relay.kind === "fixed" &&
+        value.relay.heightMeters.state === "known" &&
+        value.relay.heightDatum === "unknown"
+      ) {
+        reject(
+          ctx,
+          ["relay", "heightDatum"],
+          "A known relay height must name the datum it is measured against",
+        );
+      }
       if (value.relay !== null && value.relay.kind === "fixed") {
         const legs: [
           string,
@@ -567,6 +591,25 @@ export const predictionRequestSchema = z
         ["route", "kind"],
         `Geometry class ${value.mechanismPolicy.geometryClass} is one great circle and must declare its short or long leg (M06)`,
       );
+    }
+    if (value.route.kind === "direct" && !relayed) {
+      // M06: both legs of an antipodal pair are the same half-circumference,
+      // so the leg label carries no geometry and the azimuth below carries it
+      // all. Any other direct path must choose a leg.
+      if (antipodal && value.route.leg !== null) {
+        reject(
+          ctx,
+          ["route", "leg"],
+          "Antipodal endpoints have two equal legs; the azimuth selects the path and the leg is null (M06)",
+        );
+      }
+      if (!antipodal && value.route.leg === null) {
+        reject(
+          ctx,
+          ["route", "leg"],
+          "A direct path must declare the short or the long leg (M06)",
+        );
+      }
     }
     if (
       value.route.kind === "direct" &&

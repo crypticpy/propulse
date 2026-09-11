@@ -108,11 +108,11 @@ whether canonical logging or shared station synchronization continues.
 
 Example compositions, not new operating modes:
 
-| Use | Chosen content and scaling behavior |
-| --- | --- |
-| Owner's close-up 4K screen | Detailed DX Spots, Recent Contacts, and conditions; modest text enlargement; long lists remain available |
-| Across-room display | Larger text with a small chosen set, such as clock/status, Band Conditions, and Recent Contacts; essential chosen panels fit without scrolling |
-| Observatory | Map-heavy composition with a few chosen condition panels; no forced reset of the operator's saved panel choices |
+| Use                        | Chosen content and scaling behavior                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner's close-up 4K screen | Detailed DX Spots, Recent Contacts, and conditions; modest text enlargement; long lists remain available                                       |
+| Across-room display        | Larger text with a small chosen set, such as clock/status, Band Conditions, and Recent Contacts; essential chosen panels fit without scrolling |
+| Observatory                | Map-heavy composition with a few chosen condition panels; no forced reset of the operator's saved panel choices                                |
 
 Implementation requirements:
 
@@ -320,16 +320,16 @@ The repository now has Vitest and Playwright despite the older AGENTS.md note.
 
 Manual matrix:
 
-| Scenario | What must be checked |
-| --- | --- |
-| 55-inch 4K above ultrawide, approximately 20 inches away | Detail retention, modest Text Size increase, comfortable panels, regional imagery |
-| Large display approximately ten feet away | Enlarged essentials readable physically; detail still reachable |
-| 1080p/1440p desktop and narrow browser window | No clipped controls or unusable map; predictable overflow |
+| Scenario                                                          | What must be checked                                                                                |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 55-inch 4K above ultrawide, approximately 20 inches away          | Detail retention, modest Text Size increase, comfortable panels, regional imagery                   |
+| Large display approximately ten feet away                         | Enlarged essentials readable physically; detail still reachable                                     |
+| 1080p/1440p desktop and narrow browser window                     | No clipped controls or unusable map; predictable overflow                                           |
 | Few/many selected panels at every Text Size, Smart scaling on/off | Readability floor, overflow preview, stable fit, reset, reload restoration, no loss of user choices |
-| Flat and 3D, with AZ regression smoke | Startup, pan/zoom, Home region, panel changes, projection transitions |
-| Day/night and sparse/dense traffic | Overlay contrast, legend meaning, labels, grid activity, warm/cold performance |
-| Manual operation, live radio, disconnect/reconnect | Accurate source state, filter behavior, no unintended tuning |
-| Two ProPulse windows and a supported paired display | Shared operating/log data, independent presentation, refresh/reconnect correctness |
+| Flat and 3D, with AZ regression smoke                             | Startup, pan/zoom, Home region, panel changes, projection transitions                               |
+| Day/night and sparse/dense traffic                                | Overlay contrast, legend meaning, labels, grid activity, warm/cold performance                      |
+| Manual operation, live radio, disconnect/reconnect                | Accurate source state, filter behavior, no unintended tuning                                        |
+| Two ProPulse windows and a supported paired display               | Shared operating/log data, independent presentation, refresh/reconnect correctness                  |
 
 Include screenshots at fixed scenes and sizes, interaction recordings, and
 performance evidence. Headless 4K screenshots establish layout, not physical
@@ -339,15 +339,15 @@ resource cleanup before claiming companion-display readiness.
 
 ## Implementation touch points
 
-| Area | Existing starting points |
-| --- | --- |
-| Shell and panels | `HamClockView.tsx`, `components/map/hamclock/*` |
+| Area                              | Existing starting points                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Shell and panels                  | `HamClockView.tsx`, `components/map/hamclock/*`                                                                |
 | Preferences and display isolation | `hamclockStore`, `settingsStore`, `displayStore`, `useTextScale`, `useDisplaySync`, `styles/design-tokens.css` |
-| Modes and camera restore | `mapStore`, `lib/hamclock/modePresets.ts`, existing Observatory behavior |
-| Flat rendering and resize | `FlatMapView.tsx`, `components/map/lib/flatMapLayout.ts`, `lib/tiles/flatTileLayer.ts` |
-| Globe rendering | `GlobeView.tsx`, `TiledGlobe.tsx`, shared rendering instrumentation |
-| Location and operating context | `useActiveLocation`, `useActiveBandMode`, existing region helpers |
-| Spots and contacts | `DXSpotList`, `useLogbook`, `useLoggedQsoLocations`, `lib/sync/modules/logbookSync.ts` |
+| Modes and camera restore          | `mapStore`, `lib/hamclock/modePresets.ts`, existing Observatory behavior                                       |
+| Flat rendering and resize         | `FlatMapView.tsx`, `components/map/lib/flatMapLayout.ts`, `lib/tiles/flatTileLayer.ts`                         |
+| Globe rendering                   | `GlobeView.tsx`, `TiledGlobe.tsx`, shared rendering instrumentation                                            |
+| Location and operating context    | `useActiveLocation`, `useActiveBandMode`, existing region helpers                                              |
+| Spots and contacts                | `DXSpotList`, `useLogbook`, `useLoggedQsoLocations`, `lib/sync/modules/logbookSync.ts`                         |
 
 ## Future direction retained as context
 
@@ -377,7 +377,6 @@ confirmed openings or imply prediction quality has already been validated.
 
 These are concrete product review points, not reasons to block independent
 diagnosis or invent additional modes before the simpler composition is tested.
-
 
 ## Implementation and validation — 2026-09-04
 
@@ -422,7 +421,7 @@ npm run build
 npm run check:bundles
 npm run test:dev-session
 npm run test -- src/lib/hamclock src/stores/hamclockStore.test.ts src/stores/hamclockDisplayStore.test.ts src/stores/mapStore.hamclockBeauty.test.ts src/components/map/lib/flatMapLayout.test.ts src/components/map/lib/flatMufRaster.test.ts src/components/map/hamclock/HamClockSpotsSidebar.test.tsx
-npm run test:hamclock:browser -- http://127.0.0.1:5173
+npm run test:hamclock:browser -- <url reported by npm run dev:session -- status>
 ```
 
 The browser command requires this checkout's managed local-profile server at the

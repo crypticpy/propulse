@@ -82,3 +82,99 @@ Insufficient data/power or a failed slice does not pass. The 20% SNR MAE target
 and external paired 95% interval rule remain targets, never reported achievements.
 Full repository `npm run verify` and current-head independent/Fable review are
 parent-session responsibilities, separate from these focused checks.
+
+## Pinned ITU-R HF reference build ([#952](https://github.com/crypticpy/propulse/issues/952))
+
+`reference/` holds the reproduction recipe and the committed manifests for the
+official ITU-R Study Group 3 implementation of Recommendations P.533-14 and
+P.372-15 (`ITURHFProp` + `libp533` + `libp372`), pinned at tag `v14.3`, commit
+`cd172be56dc04b154e5d2fa91cbaa6ecf5284305`. It exists so that the climatology
+provider ([#953](https://github.com/crypticpy/propulse/issues/953)) and the
+local circuit solver ([#954](https://github.com/crypticpy/propulse/issues/954))
+can be checked against a fixed standard instead of against each other.
+
+**Nothing from that repository is committed here.** No source, binary, or
+coefficient file enters Propulse git; the clone and every build artifact live
+in the gitignored `reference/.build/`. The upstream project ships no `LICENSE`
+file — the rights statement lives in the source headers and is recorded
+verbatim in `manifest.json` (`rights.licence_text_location`), which is also the
+reason nothing is redistributed.
+
+### Reproduce
+
+```sh
+scripts/propagation-reference-fetch                      # clone, verify, build, manifest
+scripts/propagation-reference-fetch --golden             # + regenerate golden-v1.json
+scripts/propagation-reference-fetch --golden --portable  # + WASM portability proof
+```
+
+Prerequisites: `git`, `make`, a C compiler (clang on macOS, gcc on Linux),
+Python 3.10+, ~400 MB of disk; the `--portable` stage additionally needs
+Emscripten and node. The build refuses to continue if the clone is not at the
+pinned commit. On macOS the upstream Makefiles are driven with
+`CC=clang … -dynamiclib` because they assume GNU `ld` (`-shared -z muldefs`).
+
+Committed outputs (the only files in git):
+
+| File                  | What it records                                                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`       | source commit, licence location and rights text, per-file size + sha256 for all 42 P372 coefficient files, tree digests for the other data trees, build artifact hashes, toolchain versions |
+| `golden-v1.json`      | 30 circuits, their exact reference inputs (`input_sha256`), 42 reference outputs each, and the normalisation conventions                                                                    |
+| `portable-proof.json` | the static/WASM port with the P372 loader removed, its parity against `golden-v1.json`, asset sizes, startup, memory and batch latency                                                      |
+
+`golden-v1.json` is frozen: changing any case in `reference/cases.py` requires a
+new `golden-v2.json`, never an in-place edit.
+
+### Supported domain
+
+HF **skywave only**, 2–30 MHz (the golden set exercises 3–30 MHz). Nothing
+below 2 MHz is in scope — ground-wave, MF and LF belong to other work. No
+ground-wave, scatter, or space path is modelled. **This is not VOACAP**: it is
+the ITU-R P.533-14 method, and the two disagree by design.
+
+Parity against these goldens is _implementation verification_ — it says a
+solver reproduces the reference's own arithmetic. It is never a claim about
+observed propagation accuracy, and it establishes no coverage under
+`protocol-v0.1.json`.
+
+### Normalisation conventions (read before comparing anything)
+
+The full text lives in `golden-v1.json` under `conventions`; the load-bearing
+points:
+
+- **Bandwidth** — `Path.BW` is the receiver noise bandwidth in Hz. `PR` and
+  `SNR` are both referred to it; changing it moves noise power, not field
+  strength.
+- **Power** — `Path.txpower` is dB(kW) (limits −30…60, i.e. a 1 W floor). `PR`
+  is median _available receiver power_ in dB(W).
+- **Noise** — `FaA`, `FaM`, `FaG` are P.372 component noise factors in dB above
+  kT₀b with T₀ = 288 K. `FamT` is **not** the noise the SNR uses: P372
+  `Noise.c` sets `FamT = min(FamTu, FamTl)` (the worse-case decile-weighted
+  total), while `CircuitReliability.c` divides the signal by the plain power
+  sum. The two differ by up to ~1 dB across this golden set.
+- **SNR** — for ANALOG cases
+  `SNR = PR − (Fsum − 204 + 10·log10(BW_Hz))` with
+  `Fsum = 10·log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10))`.
+  `test_reference.py` enforces this to 0.05 dB on every ANALOG case, so a
+  consumer that reconstructs SNR from `FamT` will disagree with the reference.
+  DIGITAL cases use the signal-and-interferers numerator of P.533-12 §10.2.3,
+  so the identity does not hold there.
+- **Field strength** — dB above 1 µV/m; `Es` below 7000 km, `El` above
+  9000 km, interpolated `Ep` between. The unused branch is emitted as the
+  reference's `−307` sentinel.
+- **Antennas** — both ends are ISOTROPIC with 0 dB offset, so no antenna model
+  leaks into the reference numbers.
+- **Time** — hours are 0–23 UTC here (the reference uses 1–24); maps are
+  monthly medians indexed by R12 (`SSN`), not a daily index.
+- **Report buffer** — `Report.c` formats every requested column into a fixed
+  `char outstr[256]`; requesting the whole `RPT_` set overflows it and aborts,
+  so each case is run as two bounded passes joined on month/hour/frequency/
+  distance.
+
+### Tests
+
+`test_reference.py` runs from the committed manifests alone and needs no clone:
+it checks the pin, the hash inventory, the rights record, golden schema/count/
+NaN-freedom, that every emitted column is documented, and that the documented
+SNR identity actually holds in the golden numbers. The two tests that need the
+native build skip with an explicit message when `reference/.build/` is absent.

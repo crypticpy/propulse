@@ -1,0 +1,329 @@
+"""Input rendering and report parsing for the pinned ITU-R HF reference.
+
+This module drives the *official* ITURHFProp executable built from the pinned
+commit. It never re-implements the recommendation and never substitutes a
+Propulse model for a reference number.
+
+Domain: HF skywave, 1.6-30 MHz as validated by the reference itself; the
+Propulse golden set restricts itself further to 3-30 MHz (see README). Nothing
+here supports frequencies below 2 MHz and nothing here is VOACAP.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import math
+import os
+import subprocess
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any
+
+REPOSITORY = "https://github.com/ITU-R-Study-Group-3/ITU-R-HF.git"
+TAG = "v14.3"
+COMMIT = "cd172be56dc04b154e5d2fa91cbaa6ecf5284305"
+
+HERE = Path(__file__).resolve().parent
+DEFAULT_BUILD_DIR = HERE / ".build"
+SOURCE_DIRNAME = "ITU-R-HF"
+
+# ITURHFProp Report.c assembles every requested column into a fixed
+# `char outstr[256]` buffer. Asking for too many RPT_ options at once
+# overflows that buffer and aborts the process (SIGTRAP on macOS), so the
+# reference is driven in two bounded passes whose columns are disjoint apart
+# from the join key.
+REPORT_PASSES: dict[str, str] = {
+    "circuit": (
+        "RPT_D | RPT_DMAX | RPT_ELE | RPT_BMUF | RPT_BMUFD | RPT_OPMUF "
+        "| RPT_OPMUFD | RPT_E | RPT_PR | RPT_SNR | RPT_SNRXX | RPT_BCR "
+        "| RPT_OCR | RPT_OCRS"
+    ),
+    "noise_mode": (
+        "RPT_D | RPT_NOISESOURCES | RPT_NOISETOTAL | RPT_NOISETOTALD "
+        "| RPT_SNRD | RPT_GRW | RPT_ESL | RPT_DOMMODE"
+    ),
+}
+
+JOIN_KEYS = ("month", "hour", "frequency", "distance")
+
+
+@dataclass(frozen=True)
+class Case:
+    """One deterministic reference circuit.
+
+    Hours are stored 0-23 UTC and converted to the reference's 1-24
+    convention at render time. Power is watts and converted to dB(kW).
+    """
+
+    case_id: str
+    label: str
+    tx_lat: float
+    tx_lon: float
+    rx_lat: float
+    rx_lon: float
+    year: int
+    month: int
+    hour_utc: int
+    sunspot_number: int
+    frequency_mhz: float
+    tx_power_watts: float
+    bandwidth_hz: float
+    required_snr_db: float
+    man_made_noise: str
+    path_direction: str = "SHORTPATH"
+    modulation: str = "ANALOG"
+    # Digital-modulation windows. The reference only uses these when
+    # modulation == "DIGITAL"; leaving them at zero there collapses the
+    # multimode-interference term and drives SNR to a degenerate value, so a
+    # DIGITAL case must supply real windows.
+    required_sir_db: float = 0.0
+    amplitude_ratio_db: float = 0.0
+    time_window_ms: float = 0.0
+    frequency_window_hz: float = 0.0
+    t0_ms: float = 0.0
+    f0_hz: float = 0.0
+
+
+class ReferenceError(RuntimeError):
+    """Raised when the pinned reference build is missing or fails."""
+
+
+def validate_case(case: Case) -> None:
+    if not -90.0 <= case.tx_lat <= 90.0 or not -90.0 <= case.rx_lat <= 90.0:
+        raise ValueError(f"{case.case_id}: latitude outside [-90, 90]")
+    if not -180.0 <= case.tx_lon <= 180.0 or not -180.0 <= case.rx_lon <= 180.0:
+        raise ValueError(f"{case.case_id}: longitude outside [-180, 180]")
+    if not 1900 <= case.year <= 2100:
+        raise ValueError(f"{case.case_id}: year outside [1900, 2100]")
+    if not 1 <= case.month <= 12:
+        raise ValueError(f"{case.case_id}: month outside [1, 12]")
+    if case.hour_utc not in range(24):
+        raise ValueError(f"{case.case_id}: hour_utc outside [0, 23]")
+    if not 1 <= case.sunspot_number <= 311:
+        raise ValueError(f"{case.case_id}: R12 outside [1, 311]")
+    # The reference validates 1.6-30 MHz; the Propulse golden set is 3-30 MHz
+    # because PROP-35..39 own everything below 2 MHz.
+    if not 3.0 <= case.frequency_mhz <= 30.0:
+        raise ValueError(f"{case.case_id}: frequency outside golden domain [3, 30] MHz")
+    if case.tx_power_watts < 1.0:
+        raise ValueError(f"{case.case_id}: reference floor is 1 W (-30 dB(kW))")
+    if not 0.005 <= case.bandwidth_hz <= 3_000_000.0:
+        raise ValueError(f"{case.case_id}: bandwidth outside reference limits")
+    if not -30.0 <= case.required_snr_db <= 200.0:
+        raise ValueError(f"{case.case_id}: required SNR outside reference limits")
+    if case.path_direction not in ("SHORTPATH", "LONGPATH"):
+        raise ValueError(f"{case.case_id}: path direction must be SHORT/LONGPATH")
+    if case.modulation not in ("ANALOG", "DIGITAL"):
+        raise ValueError(f"{case.case_id}: modulation must be ANALOG or DIGITAL")
+    if case.modulation == "DIGITAL" and (
+        case.time_window_ms <= 0.0 or case.frequency_window_hz <= 0.0
+    ):
+        raise ValueError(
+            f"{case.case_id}: DIGITAL needs non-zero time/frequency windows; "
+            "zero windows make the reference SNR degenerate"
+        )
+
+
+def render_input(
+    case: Case, data_path: Path, report_dir: Path, report_format: str
+) -> str:
+    """Render the exact ITURHFProp input file for one case and one pass."""
+    validate_case(case)
+    power_db_kw = 10.0 * math.log10(case.tx_power_watts / 1000.0)
+    return f"""// Propulse reference golden case {case.case_id}
+// {case.label}
+PathName "{case.case_id}"
+PathTXName "TX"
+Path.L_tx.lat {case.tx_lat}
+Path.L_tx.lng {case.tx_lon}
+TXAntFilePath "ISOTROPIC"
+TXGOS 0.0
+TXBearing 0.0
+PathRXName "RX"
+Path.L_rx.lat {case.rx_lat}
+Path.L_rx.lng {case.rx_lon}
+RXAntFilePath "ISOTROPIC"
+RXGOS 0.0
+RXBearing 0.0
+AntennaOrientation "TX2RX"
+Path.year {case.year}
+Path.month {case.month}
+Path.hour {case.hour_utc + 1}
+Path.SSN {case.sunspot_number}
+Path.frequency {case.frequency_mhz:.6f}
+Path.txpower {power_db_kw:.8f}
+Path.BW {case.bandwidth_hz}
+Path.SNRr {case.required_snr_db}
+Path.SNRXXp 90
+Path.ManMadeNoise "{case.man_made_noise}"
+Path.Modulation "{case.modulation}"
+Path.SIRr {case.required_sir_db}
+Path.A {case.amplitude_ratio_db}
+Path.TW {case.time_window_ms}
+Path.FW {case.frequency_window_hz}
+Path.T0 {case.t0_ms}
+Path.F0 {case.f0_hz}
+Path.SorL "{case.path_direction}"
+RptFilePath "{report_dir}/"
+RptFileFormat "{report_format}"
+LL.lat {case.rx_lat}
+LL.lng {case.rx_lon}
+LR.lat {case.rx_lat}
+LR.lng {case.rx_lon}
+UL.lat {case.rx_lat}
+UL.lng {case.rx_lon}
+UR.lat {case.rx_lat}
+UR.lng {case.rx_lon}
+latinc 1.0
+lnginc 1.0
+DataFilePath "{data_path}/"
+"""
+
+
+def _portable_input_text(case: Case, report_format: str) -> str:
+    """Machine-independent rendering used only for the input hash.
+
+    The real input file embeds absolute paths to the gitignored clone, which
+    differ per machine. Hashing this placeholder form keeps the manifest
+    reproducible across checkouts.
+    """
+    return render_input(case, Path("<DATA>"), Path("<RPT>"), report_format)
+
+
+def input_digest(case: Case) -> str:
+    joined = "\n".join(
+        _portable_input_text(case, REPORT_PASSES[name])
+        for name in sorted(REPORT_PASSES)
+    )
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def _coerce(column: str, raw: str) -> Any:
+    raw = raw.strip()
+    if column in ("month", "hour"):
+        return int(raw)
+    try:
+        return float(raw)
+    except ValueError:
+        return raw
+
+
+def parse_report(path: Path) -> list[dict[str, Any]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise ReferenceError(f"reference produced no rows: {path}")
+    parsed: list[dict[str, Any]] = []
+    for row in rows:
+        record = {
+            column: _coerce(column, value)
+            for column, value in row.items()
+            if column is not None and value is not None
+        }
+        # The reference emits hours in 1-24; restore 0-23 UTC.
+        if "hour" in record:
+            record["hour"] = record["hour"] - 1
+        parsed.append(record)
+    return parsed
+
+
+class ReferenceBuild:
+    """Locates the artifacts of a completed native build."""
+
+    def __init__(self, source: Path) -> None:
+        self.source = Path(source).resolve()
+        self.executable = self.source / "ITURHFProp/Linux/ITURHFProp"
+        self.p533_library = self.source / "P533/Linux/libp533.so"
+        self.p372_library = self.source / "P372/Linux/libp372.so"
+        self.data_path = self.source / "P372/Data"
+
+    @classmethod
+    def default(cls, build_dir: Path | None = None) -> "ReferenceBuild":
+        root = Path(build_dir) if build_dir else DEFAULT_BUILD_DIR
+        return cls(root / SOURCE_DIRNAME)
+
+    def available(self) -> bool:
+        return all(
+            path.exists()
+            for path in (
+                self.executable,
+                self.p533_library,
+                self.p372_library,
+                self.data_path,
+            )
+        )
+
+    def require(self) -> None:
+        if not self.available():
+            raise ReferenceError(
+                "pinned ITU-R HF build is absent; run "
+                "scripts/propagation-reference-fetch first"
+            )
+
+    def environment(self) -> dict[str, str]:
+        env = dict(os.environ)
+        libraries = f"{self.p533_library.parent}:{self.p372_library.parent}"
+        env["DYLD_LIBRARY_PATH"] = libraries
+        env["LD_LIBRARY_PATH"] = libraries
+        return env
+
+    def version(self) -> str:
+        self.require()
+        result = subprocess.run(
+            [str(self.executable), "-v", "unused"],
+            env=self.environment(),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def run_pass(self, case: Case, report_format: str, workdir: Path) -> dict[str, Any]:
+        self.require()
+        workdir.mkdir(parents=True, exist_ok=True)
+        input_path = workdir / f"{case.case_id}.in"
+        report_path = workdir / f"{case.case_id}.csv"
+        input_path.write_text(
+            render_input(case, self.data_path, workdir, report_format),
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            [str(self.executable), "-s", "-c", str(input_path), str(report_path)],
+            env=self.environment(),
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode:
+            raise ReferenceError(
+                f"ITURHFProp failed for {case.case_id} "
+                f"({completed.returncode}): {completed.stdout.strip()} "
+                f"{completed.stderr.strip()}"
+            )
+        rows = parse_report(report_path)
+        if len(rows) != 1:
+            raise ReferenceError(
+                f"{case.case_id}: expected one row, got {len(rows)}"
+            )
+        return rows[0]
+
+    def run_case(self, case: Case, workdir: Path) -> dict[str, Any]:
+        """Run both report passes and merge them on the shared join keys."""
+        merged: dict[str, Any] = {}
+        for name in sorted(REPORT_PASSES):
+            row = self.run_pass(
+                case, REPORT_PASSES[name], workdir / name
+            )
+            for key in JOIN_KEYS:
+                if key in merged and key in row and merged[key] != row[key]:
+                    raise ReferenceError(
+                        f"{case.case_id}: pass disagreement on {key}: "
+                        f"{merged[key]} != {row[key]}"
+                    )
+            merged.update(row)
+        return merged
+
+
+def case_inputs(case: Case) -> dict[str, Any]:
+    """The as-issued inputs recorded alongside every golden output."""
+    return asdict(case)

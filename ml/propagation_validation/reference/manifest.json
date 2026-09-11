@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF.git",
+    "tag": "v14.3",
+    "commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+    "vendored": false,
+    "build_dir": "ml/propagation_validation/reference/.build"
+  },
+  "version": {
+    "recommendations": [
+      "ITU-R P.533-14",
+      "ITU-R P.372-15"
+    ],
+    "self_reported": "ITURHFProp Version: Sep 11 2026\nP533 Version: 14.2",
+    "note": "Official tag v14.3 self-reports 'P533 Version: 14.2'. Both values are recorded; neither is corrected."
+  },
+  "rights": {
+    "licence_file": null,
+    "licence_text_location": "ITURHFProp/Src/ITURHFProp/ITURHFProp.c",
+    "licence_text_lines": [
+      59,
+      76
+    ],
+    "statement": "The ITURHFProp, P533 and P372 software has been developed collaboratively by participants in ITU-R Study Group 3. It may be used by implementers in their implementation of the Recommendation as well as in revisions of the specific original Recommendation and in other ITU Recommendations, free from any copyright assertions. This software is provided \"as is\" WITH NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO, THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS. The ITU shall not be held liable in any event for any damages whatsoever (including, without limitation, damages for loss of profits, business interruption, loss of information, or any other pecuniary loss) arising out of or related to use of the software.",
+    "redistribution": "Not committed and not redistributed: no source, binary or coefficient file from the pinned repository enters Propulse git. Reproduce locally from the pinned commit."
+  },
+  "toolchain": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.14.5",
+    "cc": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "make": "GNU Make 3.81",
+    "cmake": "cmake version 4.3.3",
+    "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 5.0.7-git",
+    "git": "git version 2.50.1 (Apple Git-155)"
+  },
+  "build": {
+    "commands": [
+      [
+        "make",
+        "clean"
+      ],
+      [
+        "make",
+        "all",
+        "CC=clang",
+        "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2 -I../Src/P372/",
+        "LDFLAGS=-dynamiclib -lm"
+      ],
+      [
+        "make",
+        "clean"
+      ],
+      [
+        "make",
+        "all",
+        "CC=clang",
+        "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2 -I../Src/P533/",
+        "LDFLAGS=-dynamiclib -lm"
+      ],
+      [
+        "make",
+        "clean"
+      ],
+      [
+        "make",
+        "all",
+        "CC=clang",
+        "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2",
+        "LDFLAGS=-lm"
+      ]
+    ],
+    "seconds": 2.216,
+    "artifacts": [
+      {
+        "path": "ITURHFProp/Linux/ITURHFProp",
+        "bytes": 105352,
+        "sha256": "a71d2bc57edf133c02c239b9e65c63ec5a4d029c3b343b34a248481ca25d2173"
+      },
+      {
+        "path": "P533/Linux/libp533.so",
+        "bytes": 105896,
+        "sha256": "fd93a804e8dfd44192d2b23d2e3726bcf38c3be0583652cfd1ebe87e4ff95883"
+      },
+      {
+        "path": "P372/Linux/libp372.so",
+        "bytes": 35208,
+        "sha256": "4f4e5092aeb56019c2a9653b595b030d1541a93d5fc1cfd0d38b6a9974c3e4ee"
+      }
+    ],
+    "note": "ITURHFProp dlopen()s libp533.so which dlopen()s libp372.so; the executable itself links only libSystem."
+  },
+  "data": {
+    "coefficient_files": [
+      {
+        "path": "P372/Data/COEFF01W.BIN",
+        "bytes": 38570,
+        "sha256": "55e75bcec753a5075548273656963441a5e86adaaf3724781ed2db5f355d10bd"
+      },
+      {
+        "path": "P372/Data/COEFF01W.txt",
+        "bytes": 235276,
+        "sha256": "535ed4f03a0f35d4061f1878b06397cc9e46610cf599a6930696a8adb2836c24"
+      },
+      {
+        "path": "P372/Data/COEFF02W.BIN",
+        "bytes": 38570,
+        "sha256": "19ee04e92ccd09ebc50be10966734221a918908151f966d891cd11cd0c5dc7e8"
+      },
+      {
+        "path": "P372/Data/COEFF02W.txt",
+        "bytes": 235275,
+        "sha256": "2f38315584d249a3437bc32112acf1a0d995ef312f7257befa1a3284e120e50c"
+      },
+      {
+        "path": "P372/Data/COEFF03W.BIN",
+        "bytes": 38570,
+        "sha256": "ce335f7af73993095da3ffaf851625431deec41c4fad73109b17f1f7f81ecfcc"
+      },
+      {
+        "path": "P372/Data/COEFF03W.txt",
+        "bytes": 235275,
+        "sha256": "ec7557912e3cf0fb74c0dc5ac7dc66bac8fa52d765993f560ba16ff1004b0ceb"
+      },
+      {
+        "path": "P372/Data/COEFF04W.BIN",
+        "bytes": 38570,
+        "sha256": "cf09f9d3e912af04658a35db09e1e71b81c4d2894e1df697ee03813860116b04"
+      },
+      {
+        "path": "P372/Data/COEFF04W.txt",
+        "bytes": 235275,
+        "sha256": "61cac0db7f4de48241d4ee4aed2943a8498bb1dc44fe41895f13a937775b3f84"
+      },
+      {
+        "path": "P372/Data/COEFF05W.BIN",
+        "bytes": 38570,
+        "sha256": "0a16df6a8676ce888e81bba74ceb9dca206cd2afdda427d63d98c189e7f00a6c"
+      },
+      {
+        "path": "P372/Data/COEFF05W.txt",
+        "bytes": 235275,
+        "sha256": "95c7363f1605ab4ab85190ab6cad4f7218e39b480adee2ddcf19e6a20b57d105"
+      },
+      {
+        "path": "P372/Data/COEFF06W.BIN",
+        "bytes": 38570,
+        "sha256": "f70f8d4ae618db5e2c07ceb38ce84613e4575b68c9c326ddd0911a3b56c72234"
+      },
+      {
+        "path": "P372/Data/COEFF06W.txt",
+        "bytes": 235275,
+        "sha256": "1935e05fc16d8476c071b3a9aa7b46f5b458fcaf12aca99131cf151f0bcd583a"
+      },
+      {
+        "path": "P372/Data/COEFF07W.BIN",
+        "bytes": 38570,
+        "sha256": "f6db5ef9d5fa2e07a2f316fecf8d86463a95e37312e7a95e608aca6df0ed9f50"
+      },
+      {
+        "path": "P372/Data/COEFF07W.txt",
+        "bytes": 235275,
+        "sha256": "f70793c6f8718b73a3c40984d55815091a660a9a29acc6f6b06e49a5429df5fb"
+      },
+      {
+        "path": "P372/Data/COEFF08W.BIN",
+        "bytes": 38570,
+        "sha256": "0fbbb7529500c39e8d3baf82cda4946fc7f11f2fe72d6b8982417353648073e2"
+      },
+      {
+        "path": "P372/Data/COEFF08W.txt",
+        "bytes": 235275,
+        "sha256": "548ece698b3337bac73c83479f5f2670cc01aceccd676ecead870342490a2983"
+      },
+      {
+        "path": "P372/Data/COEFF09W.BIN",
+        "bytes": 38570,
+        "sha256": "780128c6da69885d2b5f16d0ec1629fc5561be916c820c6e6907f8c60c6d422f"
+      },
+      {
+        "path": "P372/Data/COEFF09W.txt",
+        "bytes": 235275,
+        "sha256": "9b954efdaafd00cee24fdf91da9b794ebe1bab2d124cba1d5c944f76d8e4ec67"
+      },
+      {
+        "path": "P372/Data/COEFF10W.BIN",
+        "bytes": 38570,
+        "sha256": "88979be75c36ce2212df403beb6bfc8c32cff5c726c76ea0cd6a0e446d4e9650"
+      },
+      {
+        "path": "P372/Data/COEFF10W.txt",
+        "bytes": 235275,
+        "sha256": "5eb812b10eac52a6b8b95c128b44bf223ad673120df4e6f82656686ba84063f2"
+      },
+      {
+        "path": "P372/Data/COEFF11W.BIN",
+        "bytes": 38570,
+        "sha256": "9380c6d16c8568b1dccebf6d7522758c150e44bb04650a006f1ea11803c4c67f"
+      },
+      {
+        "path": "P372/Data/COEFF11W.txt",
+        "bytes": 235275,
+        "sha256": "f2cd45593a65e76c5502921dc7d51f8e02457021a36e4a8e4a6092326425cd25"
+      },
+      {
+        "path": "P372/Data/COEFF12W.BIN",
+        "bytes": 38570,
+        "sha256": "aeac62beca813b70a10240c1e9d112132ae827374971d3604d3e068dd285e758"
+      },
+      {
+        "path": "P372/Data/COEFF12W.txt",
+        "bytes": 235275,
+        "sha256": "9ca240655c28afd09aef6cfebae2ce7d02fd3a16ae3dcebc5c733c42aec5a9e0"
+      },
+      {
+        "path": "P372/Data/FOF2CCIR.DAW",
+        "bytes": 94848,
+        "sha256": "bd78d04018c07996b0427b2da60b5a95471f74c832862fed93ebddee10437f7f"
+      },
+      {
+        "path": "P372/Data/FOF2DALW.BIN",
+        "bytes": 71226,
+        "sha256": "4250448e8af34493dab1eef46cd79aae24c1d97001f65bf51efbf5bdb090d0f9"
+      },
+      {
+        "path": "P372/Data/FOF2URSI.DAW",
+        "bytes": 94848,
+        "sha256": "258f2cbcef3bc2c7068be5b21c292a8c32c5def4368ad14acb0940a5b30b2f5f"
+      },
+      {
+        "path": "P372/Data/P1239-3 Decile Factors.txt",
+        "bytes": 73427,
+        "sha256": "1ca1a014e11b2f33a7f8c7c47b824e5fd53dd3a9ff89f07bb257e02d33b20aa9"
+      },
+      {
+        "path": "P372/Data/V_d.txt",
+        "bytes": 1992,
+        "sha256": "fc14cc65917872983d33f0accb382de8d8d6cabe50ce1b70075e51422cde4e37"
+      },
+      {
+        "path": "P372/Data/ionos01.bin",
+        "bytes": 11197844,
+        "sha256": "bc85f60176ab6c3ba87786991144746d5136b1b0d8c2954dac6e4c1d9ed73f29"
+      },
+      {
+        "path": "P372/Data/ionos02.bin",
+        "bytes": 11197844,
+        "sha256": "8968d0d7f89488d2fda5ca5449e2625f1830b08652a628b4540c87cce4665395"
+      },
+      {
+        "path": "P372/Data/ionos03.bin",
+        "bytes": 11197844,
+        "sha256": "b4f4505adce4be843a56914b9d1031e0fbb4b48d4f401d47aedaf77d66f25eb2"
+      },
+      {
+        "path": "P372/Data/ionos04.bin",
+        "bytes": 11197844,
+        "sha256": "f5e00cdf933924737eb58440e75cf8aff6fad6c1c1ee8f1b46d7088f275a9293"
+      },
+      {
+        "path": "P372/Data/ionos05.bin",
+        "bytes": 11197844,
+        "sha256": "5e9fac4ddda38730747ac3a8d621a1817f86d5cd18457d180c469e216cb11fcc"
+      },
+      {
+        "path": "P372/Data/ionos06.bin",
+        "bytes": 11197844,
+        "sha256": "d9e565e5fabbd6c45e9b7832aa05765edcc21f94d79e4a01ca1b012acd29b46a"
+      },
+      {
+        "path": "P372/Data/ionos07.bin",
+        "bytes": 11197844,
+        "sha256": "ef44f7dbbf5fce17b115fbb8ae4252959c90a462b96334ce722910ee94b5b422"
+      },
+      {
+        "path": "P372/Data/ionos08.bin",
+        "bytes": 11197844,
+        "sha256": "c3fc2104df2e2b9608bc5c4c693d2a2e8a4b622a97152da10b4318b1c92f574e"
+      },
+      {
+        "path": "P372/Data/ionos09.bin",
+        "bytes": 11197844,
+        "sha256": "0e1326da42f9cfd3b11d4540f14ba8870c0d88f8aa034d84e9f89f5138b74796"
+      },
+      {
+        "path": "P372/Data/ionos10.bin",
+        "bytes": 11197844,
+        "sha256": "2a32b327d7fcc12bfa53e4668dcbf66a8b686bc6f0022de7617ca2802237b50a"
+      },
+      {
+        "path": "P372/Data/ionos11.bin",
+        "bytes": 11197844,
+        "sha256": "81a9165f356a4b860278b05279f1b716501d40652c5b52a9f8e27815f30250d6"
+      },
+      {
+        "path": "P372/Data/ionos12.bin",
+        "bytes": 11197844,
+        "sha256": "44e2ea84b3d2d169a3749d0e058319b739528e516b1a5e7fcffa09cdda89f29f"
+      },
+      {
+        "path": "P372/Data/sigma_V_d.txt",
+        "bytes": 2016,
+        "sha256": "a050f55715c8547d45d3f560aeb2dcffb1607b39f7f0a636d41d2e1bcee3ec45"
+      }
+    ],
+    "coefficient_total_bytes": 137998626,
+    "other_data_trees": [
+      {
+        "path": "P533/Data",
+        "file_count": 40,
+        "bytes": 137994618,
+        "tree_sha256": "5577870b81e504f4953e486df0e558beb58113cf282d2b586dff98b3b516fb8e",
+        "note": "Rolled up, not itemised: unused by the golden runs (DataFilePath points at P372/Data) and dominated by antenna-pattern files."
+      },
+      {
+        "path": "ITURHFProp/Data",
+        "file_count": 1105,
+        "bytes": 282536396,
+        "tree_sha256": "77db6d32d19c8e2301577c4f04fbbc2dacda7477e8c91069d419a9525320e96d",
+        "note": "Rolled up, not itemised: unused by the golden runs (DataFilePath points at P372/Data) and dominated by antenna-pattern files."
+      }
+    ]
+  }
+}

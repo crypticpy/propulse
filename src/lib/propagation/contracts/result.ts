@@ -1386,6 +1386,36 @@ export const predictionResultSchema = z
         head.quantity === "observed_activity" &&
         availability !== undefined &&
         VALUE_BEARING_STATES.includes(availability) &&
+        "value" in head.state
+      ) {
+        /**
+         * M11/M24: a count is only interpretable against the coverage that
+         * produced it, and coverage is only replayable if it is provenance. An
+         * identifier that matches no eligible evidence source lets an archived
+         * count claim PSK Reporter while the result's provenance holds an
+         * unrelated or excluded entry, and neither replay nor an
+         * exposure-aware evaluation could tell. Eligible sources already carry
+         * a pinned sha256 version and an as-issued availability history, so
+         * resolving to one is what makes the coverage claim checkable.
+         */
+        const eligible = new Set(
+          value.evidence.sources
+            .filter((source) => source.eligible)
+            .map((source) => source.sourceId),
+        );
+        head.state.value.sourceCoverageIds.forEach((coverageId, position) => {
+          if (eligible.has(coverageId)) return;
+          reject(
+            ctx,
+            ["heads", index, "state", "value", "sourceCoverageIds", position],
+            `Coverage ${coverageId} is not an eligible evidence source of this result, so what produced the count cannot be replayed (M11, M24)`,
+          );
+        });
+      }
+      if (
+        head.quantity === "observed_activity" &&
+        availability !== undefined &&
+        VALUE_BEARING_STATES.includes(availability) &&
         "value" in head.state &&
         instantMs(head.state.value.intervalEndAt) > issued
       ) {

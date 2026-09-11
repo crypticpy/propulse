@@ -107,6 +107,20 @@ function echoFor(quantity: string, payload: Mutable): number | null {
 }
 
 /**
+ * The draft with `coverageId` added to its evidence as a second eligible
+ * source, cloned from the fixture's eligible entry so the stamps, the pinned
+ * version and the age stay consistent. A value-bearing observed_activity head
+ * may only claim coverage that resolves to eligible provenance (M11, M24).
+ */
+function withCoverageSource(draft: Mutable, coverageId: string): Mutable {
+  const sources = (draft.evidence as Mutable).sources as Mutable[];
+  const eligible = sources.find((source) => source.eligible === true);
+  if (!eligible) throw new Error("fixture must carry an eligible source");
+  sources.push({ ...structuredClone(eligible), sourceId: coverageId });
+  return draft;
+}
+
+/**
  * The fullHfCircuit result with its SNR head replaced by a head for another
  * scalar quantity, so one interval rule can be exercised per payload type.
  */
@@ -130,6 +144,13 @@ function scalarHeadCase(
   // An interval-valued head echoes the request interval it answers, and the
   // fixtures answer exactly the window their own payload carries (M02, M19).
   head.intervalSeconds = echoFor(quantity, payload);
+  // M11/M24: a count's coverage must resolve to eligible provenance, so the
+  // substituted observation head's coverage is added to the evidence census.
+  if (quantity === "observed_activity") {
+    for (const coverageId of payload.sourceCoverageIds as string[]) {
+      withCoverageSource(result, coverageId);
+    }
+  }
   return { result, head };
 }
 
@@ -1735,6 +1756,42 @@ describe("parseResult fails closed", () => {
     value.aosAt = "2026-09-11T19:02:00Z";
     value.losAt = "2026-09-11T19:12:00Z";
     const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+  it("rejects observed coverage that resolves to no eligible source (M11, M24)", () => {
+    // The reviewer's case: the count claims PSK Reporter coverage while the
+    // provenance holds only an excluded entry for it, so nothing records what
+    // was actually listening.
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 4,
+        intervalStartAt: "2026-09-11T17:00:00Z",
+        intervalEndAt: "2026-09-11T18:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    bad.result.validAt = "2026-09-11T18:00:00Z";
+    for (const head of heads(bad.result)) head.validAt = bad.result.validAt;
+    const sources = (bad.result.evidence as Mutable).sources as Mutable[];
+    const coverage = sources.find(
+      (source) => source.sourceId === "pskreporter-2026-09-11",
+    ) as Mutable;
+    coverage.eligible = false;
+    coverage.exclusionReason = "source_not_authorized_by_n5_policy";
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.sourceCoverageIds[0]").join(),
+    ).toMatch(
+      /is not an eligible evidence source of this result, so what produced the count cannot be replayed \(M11, M24\)/,
+    );
+
+    // The same count with the coverage carried as eligible provenance stands.
+    coverage.eligible = true;
+    coverage.exclusionReason = null;
+    const outcome = parseResult(bad.result);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 });

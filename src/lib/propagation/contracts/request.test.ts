@@ -1076,4 +1076,41 @@ describe("parseRequest fails closed", () => {
       ).toContain(geometryClass);
     }
   });
+  /** hfShortPath moved onto the frozen observed_activity row (M11). */
+  function observedActivityCase(validAt: string): Mutable {
+    const draft = candidate("hfShortPath");
+    draft.targetEvent = "observed_activity";
+    draft.scope = {
+      domain: "versioned_event_population",
+      horizon: "current",
+      aggregation: "interval",
+      intervalSeconds: 3600,
+    };
+    draft.mechanismPolicy = {
+      family: "event_head",
+      geometryClass: "terrestrial_great_circle",
+    };
+    draft.validAt = validAt;
+    return draft;
+  }
+
+  it("rejects an observed-activity request with a future valid time (M02)", () => {
+    // The result contract anchors an observation to close at validAt and
+    // refuses an interval ending after issuedAt, so a later valid time is a
+    // request no value-bearing result could answer.
+    expect(
+      reasonsAt(observedActivityCase("2026-09-11T19:00:00Z"), "validAt").join(),
+    ).toMatch(/as-issued: validAt is the instant the observation closes/);
+
+    const outcome = parseRequest(observedActivityCase("2026-09-11T18:00:00Z"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("still accepts a future valid time for a forecast quantity (M02)", () => {
+    // The fixture asks for an SNR an hour ahead, which is the normal case.
+    const forecast = candidate("hfShortPath");
+    expect(forecast.validAt).not.toBe(forecast.issuedAt);
+    const outcome = parseRequest(forecast);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
 });

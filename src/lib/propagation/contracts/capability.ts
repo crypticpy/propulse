@@ -51,6 +51,7 @@ import {
   ROUTABLE_CAPABILITY_STATES,
   SOURCE_MODES,
   type SourceMode,
+  SCATTER_BASIS_BY_MECHANISM,
   UNCERTAINTY_KINDS,
   VALIDATED_CAPABILITY_STATES,
 } from "@/lib/propagation/contracts/enums";
@@ -58,16 +59,23 @@ import {
   finite,
   artifactHash,
   identifier,
+  instantMs,
   parseWith,
   reject,
+  type ContractIssue,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 import {
   hasPointValue,
+  parseResult,
   RESULT_SCHEMA_VERSION,
+  type PredictionHead,
+  type PredictionResult,
 } from "@/lib/propagation/contracts/result";
+import type { PredictionRequest } from "@/lib/propagation/contracts/request";
 import {
   canonicalize,
+  requestKeyDigest,
   type Canonical,
 } from "@/lib/propagation/contracts/requestKey";
 
@@ -1040,4 +1048,275 @@ export async function capabilityDigest(
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   return `sha256:${hex}`;
+}
+
+/**
+ * The result side of the routing table (M01, M11, M19).
+ *
+ * `parseResult` can only see the result. It cannot recover the request behind
+ * the opaque `requestKey` digest, so every dimension routing decided on -- the
+ * frequency above all -- is unchecked there: a correctly keyed 100 MHz result
+ * may carry a value-bearing HF head and pass, because the four-field coverage
+ * tuple exists at HF. Binding is therefore a separate pass that takes the
+ * request as well, and it is driven by the same dimension tables routing uses
+ * (`ROUTING_DIMENSIONS`, `RANGE_ROUTING_DIMENSIONS`) so a dimension added to
+ * routing later cannot be silently left unbound: `capability.test.ts` fails if
+ * a routing dimension has neither a binding nor a stated exemption.
+ *
+ * A dimension is bound either on the head that answers `targetEvent` (domain,
+ * horizon, family, geometry, interval: the row the request asked for) or on
+ * every value-bearing head (frequency: a companion head is still an answer
+ * served at the requested frequency, and the protocol must define it there).
+ */
+type BindingField =
+  | RoutingDimension["field"]
+  | RangeRoutingDimension["field"]
+  | "domain"
+  | "scatterBasis";
+
+interface ResultBinding {
+  field: BindingField;
+  /** "target" answers `targetEvent`; "served" is every value-bearing head. */
+  appliesTo: "target" | "served";
+  /** Why a result cannot carry this dimension at all, or null when bound. */
+  exemption: string | null;
+  /** The head field a violation is reported on. */
+  path: string;
+  /** The violation reason, or null when the head satisfies the request. */
+  check:
+    | ((head: PredictionHead, request: PredictionRequest) => string | null)
+    | null;
+}
+
+export const RESULT_BINDINGS: readonly ResultBinding[] = [
+  {
+    field: "domain",
+    appliesTo: "target",
+    exemption: null,
+    path: "domain",
+    check: (head, request) =>
+      head.domain === request.scope.domain
+        ? null
+        : `A head answering ${request.targetEvent} answers the requested domain ${request.scope.domain}, not ${head.domain} (M11)`,
+  },
+  {
+    field: "horizons",
+    appliesTo: "target",
+    exemption: null,
+    path: "horizon",
+    check: (head, request) =>
+      head.horizon === request.scope.horizon
+        ? null
+        : `A head answering ${request.targetEvent} answers the requested horizon ${request.scope.horizon}, not ${head.horizon} (M11)`,
+  },
+  {
+    field: "mechanismFamilies",
+    appliesTo: "target",
+    exemption: null,
+    path: "mechanismFamily",
+    check: (head, request) => {
+      const family = request.mechanismPolicy.family;
+      // "auto" delegates the choice to the router, and the frequency binding
+      // below still requires the family it chose to be on a frozen row.
+      if (family === "auto" || head.mechanismFamily === family) return null;
+      return `The request named mechanism family ${family} and the head answers ${head.mechanismFamily} (M11, M19)`;
+    },
+  },
+  {
+    field: "geometryClasses",
+    appliesTo: "target",
+    exemption: null,
+    path: "mechanismFamily",
+    check: (head, request) => {
+      const geometryClass = request.mechanismPolicy.geometryClass;
+      if (
+        !(
+          PERMITTED_GEOMETRY_CLASSES[head.mechanismFamily] as readonly string[]
+        ).includes(geometryClass)
+      ) {
+        return `Mechanism family ${head.mechanismFamily} is not answered on the requested geometry class ${geometryClass} (A21, A22)`;
+      }
+      return isProtocolGeometry(head.domain, geometryClass)
+        ? null
+        : `The protocol serves domain ${head.domain} on ${DOMAIN_GEOMETRY_CLASSES[head.domain].join(", ")}, not on the requested geometry class ${geometryClass} (M11, A21)`;
+    },
+  },
+  {
+    field: "scatterBasis",
+    appliesTo: "target",
+    exemption: null,
+    path: "mechanismFamily",
+    check: (head, request) => {
+      if (request.route.kind !== "scatter") return null;
+      const basis = SCATTER_BASIS_BY_MECHANISM[head.mechanismFamily];
+      return basis === request.route.basis
+        ? null
+        : `The request locates its scattering region on the ${request.route.basis} basis and ${head.mechanismFamily} scatters on ${basis ?? "no scatter basis"} (A19, A20)`;
+    },
+  },
+  {
+    field: "intervalSecondsRange",
+    appliesTo: "target",
+    exemption: null,
+    path: "intervalSeconds",
+    check: (head, request) =>
+      head.intervalSeconds === request.scope.intervalSeconds
+        ? null
+        : `A head answering ${request.targetEvent} answers the requested interval ${request.scope.intervalSeconds ?? "none"}, not ${head.intervalSeconds ?? "none"} (M02, M19)`,
+  },
+  {
+    field: "frequencyRangeHz",
+    appliesTo: "served",
+    exemption: null,
+    path: "mechanismFamily",
+    check: (head, request) =>
+      protocolCoverageContainsHz(
+        {
+          event: head.quantity,
+          domain: head.domain,
+          horizon: head.horizon,
+          mechanism: head.mechanismFamily,
+        },
+        request.frequencyHz,
+      )
+        ? null
+        : `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} at ${request.frequencyHz} Hz (M11)`,
+  },
+  {
+    field: "modeProfileIds",
+    appliesTo: "served",
+    exemption:
+      "A head carries the mode ids it evaluated, not the profile that selected them; the profile enters the request key and the capability head declares it.",
+    path: "quantity",
+    check: null,
+  },
+  {
+    field: "sourceModes",
+    appliesTo: "served",
+    exemption:
+      "A result records the sources it used, not the posture it was issued under; the as-issued evidence rules bound every posture alike.",
+    path: "quantity",
+    check: null,
+  },
+  {
+    field: "antennaClasses",
+    appliesTo: "served",
+    exemption:
+      "A result carries no station description; the stations enter the request key and the context identity the result echoes.",
+    path: "quantity",
+    check: null,
+  },
+  {
+    field: "receiverClasses",
+    appliesTo: "served",
+    exemption:
+      "A result carries no receive chain description; the receiver classes enter the request key and the context identity the result echoes.",
+    path: "quantity",
+    check: null,
+  },
+];
+
+/** The value-bearing states; an unavailable head answers no dimension. */
+const SERVED_STATES: readonly string[] = ["available", "experimental"];
+
+/**
+ * Every way a result can fail to be an answer to this request (M01, M11, M19).
+ *
+ * The result must already be structurally valid: run `parseResult` first, or
+ * use `parseResultForRequest`, which does both.
+ */
+export async function bindResult(
+  result: PredictionResult,
+  request: PredictionRequest,
+): Promise<ContractIssue[]> {
+  const issues: ContractIssue[] = [];
+  const add = (path: string, reason: string) => issues.push({ path, reason });
+
+  // M01: the digest is the identity of the request, so a result that names
+  // another request is not an answer to this one however well it parses.
+  const digest = await requestKeyDigest(request);
+  if (result.requestKey !== digest) {
+    add("requestKey", `This result answers request key ${digest} (M01)`);
+  }
+  if (result.contextId !== request.contextId) {
+    add(
+      "contextId",
+      `This result answers context ${request.contextId} (M01, M11)`,
+    );
+  }
+  // M02: the answer is for the instant that was asked about, and it cannot
+  // have been issued before the question.
+  if (instantMs(result.validAt) !== instantMs(request.validAt)) {
+    add("validAt", `This result is valid at ${request.validAt} (M02)`);
+  }
+  if (instantMs(result.issuedAt) < instantMs(request.issuedAt)) {
+    add(
+      "issuedAt",
+      "A result cannot be issued before the request it answers (M02)",
+    );
+  }
+  // M19: the model preference and the policy the request was issued under are
+  // what the provenance reports on, so they are the request's, not a copy.
+  if (result.provenance.requestedModelId !== request.requestedModel.modelId) {
+    add(
+      "provenance.requestedModelId",
+      `This request asked for model ${request.requestedModel.modelId ?? "none"} (M19)`,
+    );
+  }
+  if (
+    result.provenance.requestedModelVersion !==
+    request.requestedModel.modelVersion
+  ) {
+    add(
+      "provenance.requestedModelVersion",
+      `This request asked for model version ${request.requestedModel.modelVersion ?? "none"} (M19)`,
+    );
+  }
+  if (
+    result.provenance.policyVersion !== request.requestedModel.policyVersion
+  ) {
+    add(
+      "provenance.policyVersion",
+      `This request was issued under policy version ${request.requestedModel.policyVersion} (M19)`,
+    );
+  }
+  const targetIndex = result.heads.findIndex(
+    (head) => head.quantity === request.targetEvent,
+  );
+  if (targetIndex === -1) {
+    add(
+      "heads",
+      `This result carries no ${request.targetEvent} head, which is the event the request asked for (M01)`,
+    );
+  }
+  result.heads.forEach((head, index) => {
+    if (!SERVED_STATES.includes(head.state.availability)) return;
+    for (const binding of RESULT_BINDINGS) {
+      if (binding.check === null) continue;
+      if (binding.appliesTo === "target" && index !== targetIndex) continue;
+      const reason = binding.check(head, request);
+      if (reason === null) continue;
+      add(`heads[${index}].${binding.path}`, reason);
+    }
+  });
+  return issues;
+}
+
+/**
+ * Parse a result and bind it to the request it claims to answer (M01, M11).
+ *
+ * This is the entry point an experiment must use. `parseResult` establishes
+ * that a result is internally consistent; only this one establishes that it is
+ * an answer to a particular question, because the routed dimensions -- the
+ * frequency first -- live in the request and the result names it by an opaque
+ * digest. It is asynchronous because the request key digest is.
+ */
+export async function parseResultForRequest(
+  candidate: unknown,
+  request: PredictionRequest,
+): Promise<ParseOutcome<PredictionResult>> {
+  const parsed = parseResult(candidate);
+  if (!parsed.ok) return parsed;
+  const issues = await bindResult(parsed.value, request);
+  return issues.length === 0 ? parsed : { ok: false, issues };
 }

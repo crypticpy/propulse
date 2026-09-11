@@ -554,6 +554,12 @@ const requestScope = z
     /**
      * M02: an instantaneous sample is not an hourly opening probability. An
      * interval scope must state its own length.
+     *
+     * The length is anchored on the request's `validAt`: a forecast interval
+     * opens there and an `observed_activity` interval closes there. An
+     * observation cannot run past the moment it is reported, so an
+     * `observed_activity` request is as-issued (`validAt === issuedAt`) and the
+     * rule below refuses any other valid time.
      */
     aggregation: z.enum(["instantaneous", "interval"]),
     intervalSeconds: finite.positive().nullable(),
@@ -683,6 +689,23 @@ export const predictionRequestSchema = z
     const intervalValued = INTERVAL_VALUED_QUANTITIES.includes(
       value.targetEvent,
     );
+    if (
+      value.targetEvent === "observed_activity" &&
+      instantMs(value.validAt) !== instantMs(value.issuedAt)
+    ) {
+      /**
+       * M02: an observation is reported as issued. The result contract anchors
+       * an observation interval to end exactly at `validAt` and separately
+       * refuses an interval ending after `issuedAt`, so a later valid time
+       * describes a request no value-bearing result could ever answer. Routing
+       * it would spend a model run on a question with no legal answer.
+       */
+      reject(
+        ctx,
+        ["validAt"],
+        "An observed_activity request is as-issued: validAt is the instant the observation closes, which is issuedAt (M02)",
+      );
+    }
     if (intervalValued && value.scope.aggregation !== "interval") {
       reject(
         ctx,

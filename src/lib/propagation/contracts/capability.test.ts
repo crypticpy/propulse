@@ -23,8 +23,15 @@ import {
   capabilityCovers,
   capabilityDigest,
   parseCapability,
+  parseResultForRequest,
+  RANGE_ROUTING_DIMENSIONS,
+  RESULT_BINDINGS,
   ROUTING_DIMENSIONS,
 } from "@/lib/propagation/contracts/capability";
+import requestCases from "@/lib/propagation/contracts/fixtures/request.cases.json";
+import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
+import { parseRequest } from "@/lib/propagation/contracts/request";
+import { requestKeyDigest } from "@/lib/propagation/contracts/requestKey";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
 
 type Mutable = Record<string, unknown>;
@@ -1377,5 +1384,149 @@ describe("capabilityDigest (M24)", () => {
     // The transponder circuit the row was frozen over is accepted.
     head.geometryClasses = ["two_leg_relay"];
     expect(parseCapability(draft).ok).toBe(true);
+  });
+});
+
+describe("parseResultForRequest binds a result to its request", () => {
+  /**
+   * A coherent pair: the hfShortPath request moved onto 160 m, which is the
+   * band the protocol froze the fixture's ground_sky_coherent rows for, and the
+   * fullHfCircuit result whose decode head (frozen for 3-300 MHz) is reported
+   * as a declared gap rather than served there.
+   */
+  function boundRequest(edit?: (draft: Mutable) => void): Mutable {
+    const draft = structuredClone(
+      (requestCases as unknown as Record<string, Mutable>).hfShortPath,
+    ) as Mutable;
+    (draft.mechanismPolicy as Mutable).family = "ground_sky_coherent";
+    draft.frequencyHz = 1840000;
+    draft.bandKey = "160m";
+    draft.terrainProfileId = "terrain-em12-to-jo21-v3";
+    edit?.(draft);
+    return draft;
+  }
+
+  function boundResult(edit?: (draft: Mutable) => void): Mutable {
+    const draft = structuredClone(
+      (resultCases as unknown as Record<string, Mutable>).fullHfCircuit,
+    ) as Mutable;
+    const decode = (draft.heads as Mutable[]).find(
+      (head) => head.quantity === "conditional_decode",
+    ) as Mutable;
+    decode.state = {
+      availability: "missing_input",
+      reason: "no_calibrated_decoder",
+    };
+    edit?.(draft);
+    return draft;
+  }
+
+  async function bind(
+    result: Mutable,
+    request: Mutable = boundRequest(),
+    rekey = true,
+  ): Promise<ContractIssue[]> {
+    const parsedRequest = parseRequest(request);
+    if (!parsedRequest.ok) {
+      throw new Error(
+        `request must parse: ${JSON.stringify(parsedRequest.issues)}`,
+      );
+    }
+    if (rekey) result.requestKey = await requestKeyDigest(parsedRequest.value);
+    const outcome = await parseResultForRequest(result, parsedRequest.value);
+    return outcome.ok ? [] : outcome.issues;
+  }
+
+  it("accepts a result that answers the request it names", async () => {
+    expect(await bind(boundResult())).toEqual([]);
+  });
+
+  it("rejects a served head the protocol does not define at the requested frequency (M11)", async () => {
+    // The reviewer's case: the decode head's row is frozen for 3-300 MHz, so a
+    // 1.84 MHz result may not carry it as a value-bearing companion head. The
+    // standalone parser cannot see this: the four-field tuple does exist.
+    const result = boundResult((draft) => {
+      const decode = (draft.heads as Mutable[]).find(
+        (head) => head.quantity === "conditional_decode",
+      ) as Mutable;
+      const source = structuredClone(
+        (resultCases as unknown as Record<string, Mutable>).fullHfCircuit,
+      );
+      decode.state = ((source.heads as Mutable[])[2] as Mutable).state;
+    });
+    const reasons = (await bind(result))
+      .filter((issue) => issue.path === "heads[2].mechanismFamily")
+      .map((issue) => issue.reason);
+    expect(reasons.join()).toMatch(
+      /defines no conditional_decode on mechanism_labeled_exposure at current via f2_daytime at 1840000 Hz \(M11\)/,
+    );
+  });
+
+  it("rejects a result that names another request (M01)", async () => {
+    const result = boundResult();
+    const issues = await bind(result, boundRequest(), false);
+    expect(
+      issues.filter((issue) => issue.path === "requestKey").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("rejects a result valid at another instant (M02)", async () => {
+    const result = boundResult((draft) => {
+      draft.validAt = "2026-09-11T20:00:00Z";
+      for (const head of draft.heads as Mutable[]) head.validAt = draft.validAt;
+    });
+    const issues = await bind(result);
+    expect(issues.map((issue) => issue.path)).toContain("validAt");
+  });
+
+  it("rejects a target head that answers another row of the request (M11, M19)", async () => {
+    // The request asks for the climatology row; the head answers the forecast
+    // row. Both are frozen, and both parse on their own.
+    const request = boundRequest((draft) => {
+      (draft.scope as Mutable).horizon = "climatology";
+    });
+    const issues = await bind(boundResult(), request);
+    expect(
+      issues
+        .filter((issue) => issue.path === "heads[1].horizon")
+        .map((issue) => issue.reason)
+        .join(),
+    ).toMatch(/answers the requested horizon climatology, not forecast_1_24h/);
+  });
+
+  it("rejects a result with no head for the requested event (M01)", async () => {
+    const result = boundResult((draft) => {
+      draft.heads = (draft.heads as Mutable[]).filter(
+        (head) => head.quantity !== "snr2500",
+      );
+    });
+    expect(
+      (await bind(result))
+        .filter((issue) => issue.path === "heads")
+        .map((issue) => issue.reason)
+        .join(),
+    ).toMatch(/carries no snr2500 head/);
+  });
+
+  it("binds or documents an exemption for every routing dimension (M19)", () => {
+    // The structural guarantee: a dimension added to routing later cannot be
+    // left unchecked on the result side without someone writing down why.
+    const bound = new Map(
+      RESULT_BINDINGS.map((binding) => [binding.field, binding]),
+    );
+    const routed = [
+      ...ROUTING_DIMENSIONS.map((dimension) => dimension.field),
+      ...RANGE_ROUTING_DIMENSIONS.map((dimension) => dimension.field),
+    ];
+    for (const field of routed) {
+      const binding = bound.get(field);
+      expect(binding, `routing dimension ${field}`).toBeDefined();
+      if (binding === undefined) continue;
+      if (binding.check === null) {
+        expect(binding.exemption, `exemption for ${field}`).toMatch(/\w/);
+      } else {
+        expect(binding.exemption, `binding for ${field}`).toBeNull();
+      }
+    }
   });
 });

@@ -274,6 +274,21 @@ export function admitRecord(
         `opens ${Math.round(ahead)} s after it was issued, beyond the ${horizon} s this source declares`,
       );
     }
+    // Bounding only the opening would let a bin open on the last hour of the
+    // horizon and close a week past it. The one overrun that is real is the
+    // producer's own last bucket, which the horizon cuts through: that is
+    // allowed exactly when the ledger declares the bucket width and the bin is
+    // no wider than it. Anything wider is a claim the source never made.
+    const until = (validity.toMs - admitted.forecastIssuedMs) / 1000;
+    const bucketSeconds = entry.observationIntervalSeconds;
+    const width = (validity.toMs - validity.fromMs) / 1000;
+    if (until > horizon && (bucketSeconds === null || width > bucketSeconds)) {
+      throw new ContextDeclarationError(
+        record.sourceId,
+        "valid horizon",
+        `closes ${Math.round(until)} s after it was issued, past the ${horizon} s this source declares, and is wider than its declared bucket`,
+      );
+    }
   }
 
   return admitted;

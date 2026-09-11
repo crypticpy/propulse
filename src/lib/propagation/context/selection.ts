@@ -61,10 +61,12 @@ function eligibleInMode(
   // `origin` is the caller's own label on one record, so it cannot be the
   // whole test: a Kp measurement shipped inside an offline pack would
   // otherwise be selected and read as the state, which is exactly the
-  // residual M11 excludes. The ledger says which sources are standing bundled
-  // products, and both have to agree.
+  // residual M11 excludes. What offline excludes is the observation, not the
+  // prediction: an as-issued forecast and a bundled climatology are what an
+  // offline pack is for, so the ledger's kind decides and the origin still has
+  // to agree.
   if (mode === "offline") {
-    return record.origin === "bundled" && entry.kind === "bundled";
+    return record.origin === "bundled" && entry.kind !== "observation";
   }
   return true;
 }

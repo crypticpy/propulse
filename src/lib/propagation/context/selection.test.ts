@@ -354,6 +354,29 @@ describe("selectAsOf: bounds, outages and modes (M11)", () => {
     expect(selected.state).toBe("selected");
   });
 
+  it("keeps an as-issued forecast shipped inside an offline pack", () => {
+    // M11 excludes observation residuals offline, not predictions. A pack
+    // carrying the 27 day outlook is the whole point of an offline pack.
+    const packed = record({
+      sourceId: "outlook_27day",
+      variable: "kp",
+      observedIntervalEndAt: "2026-09-11T00:30:00.000Z",
+      publishedAt: "2026-09-11T00:30:00.000Z",
+      capturedAt: "2026-09-11T00:35:00.000Z",
+      publicationKind: "declared",
+      origin: "bundled",
+      forecastIssuedAt: "2026-09-11T00:30:00.000Z",
+      validFrom: "2026-09-12T00:00:00.000Z",
+      validTo: "2026-09-13T00:00:00.000Z",
+    });
+    const selected = selectAsOf([packed], {
+      issuedAt: ISSUED,
+      entry: getLedgerEntry("outlook_27day"),
+      mode: "offline",
+    });
+    expect(selected.state).toBe("selected");
+  });
+
   it("excludes an observation shipped inside an offline pack", () => {
     // `origin` is the caller's own label. M11 excludes observation residuals
     // in offline mode by rule, so a Kp measurement does not become a bundled
@@ -721,6 +744,46 @@ describe("admitRecord: the ledger is the only authority on a record", () => {
       admitRecord(
         kpEntry,
         record({ observedIntervalEndAt: "2026-09-11T11:45:00.000Z" }),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("a forecast bin lives entirely inside its declared horizon", () => {
+  const bin = (validFrom: string, validTo: string): SourceRecord =>
+    record({
+      sourceId: "kp_forecast",
+      observedIntervalEndAt: "2026-09-11T00:00:00.000Z",
+      forecastIssuedAt: "2026-09-11T00:00:00.000Z",
+      validFrom,
+      validTo,
+    });
+
+  it("refuses a bin that opens inside the horizon and closes a week past it", () => {
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("kp_forecast"),
+        bin("2026-09-13T23:00:00.000Z", "2026-09-20T23:00:00.000Z"),
+      ),
+    ).toThrow(ContextDeclarationError);
+  });
+
+  it("admits a bin closing exactly on the horizon", () => {
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("kp_forecast"),
+        bin("2026-09-13T21:00:00.000Z", "2026-09-14T00:00:00.000Z"),
+      ),
+    ).not.toThrow();
+  });
+
+  it("admits a declared width bucket the horizon cuts through", () => {
+    // kp_forecast declares 3 hour bins, so the bin open at the horizon end is
+    // the producer's own bucket rather than an overlong claim.
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("kp_forecast"),
+        bin("2026-09-13T22:00:00.000Z", "2026-09-14T01:00:00.000Z"),
       ),
     ).not.toThrow();
   });

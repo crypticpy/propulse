@@ -372,8 +372,14 @@ export async function buildContextSnapshot(
     assumptions,
   };
 
+  // The snapshot owns what it freezes. The census still points at the caller's
+  // own record objects, and freezing those would reach back out of this
+  // function and make a caller's input immutable as a side effect of asking a
+  // question. A structural copy is also what makes the snapshot immutable in
+  // fact rather than by convention: nothing a caller still holds a reference
+  // to can change what the digest was taken over.
   return deepFreeze({
-    ...census,
+    ...structuredClone(census),
     contextId: `ctx:sha256:${await sha256Hex(canonical(census))}`,
   }) as ContextSnapshot;
 }

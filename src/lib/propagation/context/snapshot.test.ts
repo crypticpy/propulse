@@ -482,6 +482,73 @@ describe("buildContextSnapshot: a declared driver never silently disappears", ()
   });
 });
 
+describe("an offline pack still carries its predictions", () => {
+  it("drives the trajectory from a bundled as-issued outlook", async () => {
+    // M11 excludes observation residuals offline, not forecasts. A pack
+    // shipping the 27 day outlook exists precisely so the grid still has a
+    // prediction to read with no network.
+    const packed = {
+      sourceId: "outlook_27day",
+      variable: "kp",
+      units: "dimensionless",
+      value: 4,
+      stamps: {
+        observedIntervalStartAt: null,
+        observedIntervalEndAt: "2026-09-11T12:00:00.000Z",
+        publication: {
+          kind: "declared" as const,
+          publishedAt: "2026-09-11T12:00:00.000Z",
+        },
+        capturedAt: "2026-09-11T12:05:00.000Z",
+        forecastIssuedAt: "2026-09-11T12:00:00.000Z",
+        validFrom: "2026-09-11T12:00:00.000Z",
+        validTo: "2026-09-12T12:00:00.000Z",
+        intervalSeconds: 86400,
+        revision: "outlook 2026-09-11",
+        archiveClass: "verified_as_issued" as const,
+      },
+      origin: "bundled" as const,
+      activity: "not_reported" as const,
+      qualityFlags: [],
+    };
+    const built = await snapshot({
+      mode: "offline",
+      trajectoryHours: 2,
+      histories: { outlook_27day: [packed] },
+    });
+    expect(built.sources.outlook_27day).toMatchObject({ state: "selected" });
+    for (const sample of built.trajectory) {
+      expect(sample.drivers.kp).toMatchObject({
+        origin: "issued_forecast",
+        value: 4,
+      });
+    }
+  });
+});
+
+describe("the snapshot owns its own copy of every record", () => {
+  it("freezes its own copy and leaves the caller's records writable", async () => {
+    const histories = historiesFrom(ROW);
+    const kpRecord = histories.kp[0];
+    const built = await buildContextSnapshot({
+      issuedAt: ISSUED,
+      mode: "cached_live",
+      histories,
+    });
+    const entry = built.sources.kp;
+    expect(entry.state).toBe("selected");
+    if (entry.state !== "selected") return;
+    const pinned = entry.record.value;
+
+    const mutable = kpRecord as { value: number };
+    expect(() => {
+      mutable.value = 9;
+    }).not.toThrow();
+    expect(mutable.value).toBe(9);
+    expect(entry.record.value).toBe(pinned);
+  });
+});
+
 describe("the snapshot is the only way into the trajectory", () => {
   it("does not publish the trajectory builder", async () => {
     // `buildTrajectory` reads a `Selected` and a mode it cannot re-derive, so

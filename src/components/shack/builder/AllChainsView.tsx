@@ -418,7 +418,7 @@ function ExpandedChainBody({
           )}
           <AddEquipmentPanel
             position={swapState.nodeIndex}
-            validTypes={ALL_EQUIPMENT_OPTIONS.filter((opt) => {
+            validTypes={getValidEquipmentTypes().filter((opt) => {
               if (swapState.nodeType === "radio")
                 return opt.nodeType === "radio";
               if (swapState.nodeType === "antenna")

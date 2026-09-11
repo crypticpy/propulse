@@ -71,7 +71,7 @@
         "LDFLAGS=-lm"
       ]
     ],
-    "seconds": 2.216,
+    "seconds": 2.044,
     "artifacts": [
       {
         "path": "ITURHFProp/Linux/ITURHFProp",
@@ -81,12 +81,12 @@
       {
         "path": "P533/Linux/libp533.so",
         "bytes": 105896,
-        "sha256": "fd93a804e8dfd44192d2b23d2e3726bcf38c3be0583652cfd1ebe87e4ff95883"
+        "sha256": "1b4eaf5fdafbae866f7188171d65848842bec22d01fc70798af7532e9d74ccd5"
       },
       {
         "path": "P372/Linux/libp372.so",
         "bytes": 35208,
-        "sha256": "4f4e5092aeb56019c2a9653b595b030d1541a93d5fc1cfd0d38b6a9974c3e4ee"
+        "sha256": "aaee141cf1ec30f26d839d8b30ec557b799a72f125bfd22d5475cd703690613e"
       }
     ],
     "note": "ITURHFProp dlopen()s libp533.so which dlopen()s libp372.so; the executable itself links only the libSystem runtime library on Darwin."

@@ -16,7 +16,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
   });
 
   it("shows 'Map orbit' when untracked and maps the track via setSatelliteTrack", () => {
-    render(<OrbitTrackToggleButton noradId={25544} color="#4ade80" />);
+    render(<OrbitTrackToggleButton noradId={25544} />);
 
     const button = screen.getByRole("button", { name: "Map orbit" });
     expect(button.getAttribute("aria-pressed")).toBe("false");
@@ -36,7 +36,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
       useMapStore.getState().setSatelliteTrack(25544, {});
     });
 
-    render(<OrbitTrackToggleButton noradId={25544} color="#4ade80" />);
+    render(<OrbitTrackToggleButton noradId={25544} />);
 
     const button = screen.getByRole("button", { name: "Clear orbit" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
@@ -47,7 +47,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
   });
 
   it("is a real, keyboard-reachable button (type=button, no href/role hack)", () => {
-    render(<OrbitTrackToggleButton noradId={43137} color="#22d3ee" />);
+    render(<OrbitTrackToggleButton noradId={43137} />);
     const button = screen.getByRole("button", { name: "Map orbit" });
     expect(button.tagName).toBe("BUTTON");
     expect(button.getAttribute("type")).toBe("button");
@@ -57,7 +57,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
     let parentClicked = false;
     render(
       <div onClick={() => { parentClicked = true; }}>
-        <OrbitTrackToggleButton noradId={7530} color="#fb923c" />
+        <OrbitTrackToggleButton noradId={7530} />
       </div>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));

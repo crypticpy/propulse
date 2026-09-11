@@ -241,5 +241,17 @@ describe("mapStore satellite orbit tracks (#994)", () => {
           .order,
       ).toEqual(["1"]);
     });
+
+    it("clears a pending eviction notice too (#994 PR B round 2), so the status chip doesn't keep pointing at a track that no longer exists", async () => {
+      const useMapStore = await loadFreshStore();
+      for (const id of [1, 2, 3, 4, 5, 6]) {
+        useMapStore.getState().setSatelliteTrack(id, {});
+      }
+      expect(useMapStore.getState().satelliteTrackEviction).not.toBeNull();
+
+      useMapStore.getState().clearAllSatelliteTracks();
+
+      expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+    });
   });
 });

@@ -187,6 +187,11 @@ export function PropSphere() {
   const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
+  // `hasSatelliteTracks` is intentionally omitted here (#994 PR B round 2
+  // item 9): this call only checks `.length > 0`, and the orbit-track row it
+  // gates is additive to a `satellites` legend that's already non-empty
+  // whenever the layer is on, so omitting it can't turn a true `.length > 0`
+  // into a false one.
   const hasLayerLegend = useMemo(
     () =>
       buildLayerLegends(layers, {

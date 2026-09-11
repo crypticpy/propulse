@@ -2587,13 +2587,25 @@ export const useMapStore = create<MapState>((set, get) => ({
         (existingId) => existingId !== id,
       );
       saveSatelliteTracks(tracks, order);
-      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+      // Clear any pending eviction notice too (#994 PR B round 2) -- leaving
+      // it set here would show "cleared NORAD X to make room" after the user
+      // has since cleared tracks entirely, pointing at a track that may no
+      // longer exist.
+      return {
+        satelliteTracks: tracks,
+        satelliteTrackOrder: order,
+        satelliteTrackEviction: null,
+      };
     }),
 
   clearAllSatelliteTracks: () =>
     set(() => {
       saveSatelliteTracks({}, []);
-      return { satelliteTracks: {}, satelliteTrackOrder: [] };
+      return {
+        satelliteTracks: {},
+        satelliteTrackOrder: [],
+        satelliteTrackEviction: null,
+      };
     }),
 
   dismissSatelliteTrackEviction: () => set({ satelliteTrackEviction: null }),

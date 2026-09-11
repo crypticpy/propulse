@@ -377,7 +377,7 @@ function SatelliteInfoPopup({
           className="my-0.5"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         />
-        <OrbitTrackToggleButton noradId={satellite.noradId} color={color} />
+        <OrbitTrackToggleButton noradId={satellite.noradId} />
 
         {/* Details affordance — a real button so keyboard users can open
             the modal; the surrounding popup is also clickable for pointers */}
@@ -419,10 +419,8 @@ function SatelliteInfoPopup({
  */
 export function OrbitTrackToggleButton({
   noradId,
-  color,
 }: {
   noradId: number;
-  color: string;
 }) {
   const id = String(noradId);
   const isTracked = useMapStore((s) => s.satelliteTracks[id] !== undefined);
@@ -446,12 +444,11 @@ export function OrbitTrackToggleButton({
       type="button"
       onClick={handleToggleTrack}
       aria-pressed={isTracked}
-      className={`flex w-full items-center justify-center gap-1 rounded text-xs font-semibold uppercase tracking-wider focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
+      className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
         isTracked
-          ? "bg-su-accent/15 text-su-accent hover:bg-su-accent/25"
-          : "hover:bg-su-line/10"
+          ? "bg-su-accent/15 text-su-accent border border-su-accent/40 hover:bg-su-accent/25"
+          : "bg-su-line/15 text-su-text border border-su-line/40 hover:bg-su-line/25"
       }`}
-      style={{ color: isTracked ? undefined : `${color}aa` }}
     >
       {isTracked ? "Clear orbit" : "Map orbit"}
     </button>

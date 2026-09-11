@@ -825,7 +825,10 @@ export const shackSync: SyncModule = {
     const state = useShackStore.getState();
     const stateUpdate: Record<string, unknown> = {};
     const ackKeys: string[] = [];
-    const pendingKeys = pendingGearDeletionKeys(state.pendingGearDeletions ?? []);
+    const pendingKeys = pendingGearDeletionKeys(
+      state.pendingGearDeletions ?? [],
+      userId,
+    );
 
     const radioMerge = mergeGearPullRows(
       radioRows,

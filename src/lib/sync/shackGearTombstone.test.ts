@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   mergeGearPullRows,
+  pendingGearDeletionKeys,
   pushPendingGearDeletions,
 } from "./shackGearTombstone";
 
@@ -169,5 +170,33 @@ describe("shackGearTombstone", () => {
     ]);
 
     expect(ack).toEqual(["antennas:ant-1"]);
+  });
+
+  it("scopes the pull-exclusion key set to the syncing owner", () => {
+    // Account A has a pending deletion and account B has an active row
+    // with the same table:id — the key set built for B's pull must not
+    // include A's intent, or B's active server row would be suppressed
+    // indefinitely while A's intent stays queued (#326).
+    const pending = [
+      {
+        table: "antennas" as const,
+        recordId: "ant-1",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-A",
+      },
+      {
+        table: "antennas" as const,
+        recordId: "ant-2",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-B",
+      },
+    ];
+
+    expect(pendingGearDeletionKeys(pending, "user-B")).toEqual(
+      new Set(["antennas:ant-2"]),
+    );
+    expect(pendingGearDeletionKeys(pending, "user-A")).toEqual(
+      new Set(["antennas:ant-1"]),
+    );
   });
 });

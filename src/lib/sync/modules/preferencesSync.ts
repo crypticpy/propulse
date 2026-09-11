@@ -168,6 +168,7 @@ export const preferencesSync: SyncModule = {
           // and retain every unmatched local entry (#326).
           const pendingKeys = pendingGearDeletionKeys(
             currentShack.pendingGearDeletions ?? [],
+            userId,
           );
           const filteredRadios = mergeBlobGearIntoLocal(
             currentShack.radios,
@@ -181,11 +182,23 @@ export const preferencesSync: SyncModule = {
             "custom_radios",
             pendingKeys,
           );
+          // The blob's activeRadioId may point at a radio deleted offline
+          // (removed by the pending intent above, or already gone from the
+          // filtered list for any other reason) — a stale id would leave
+          // the store pointing at nothing instead of the survivor/null the
+          // local delete already chose. Only take the blob's id when it
+          // still resolves against the filtered radios (#326).
+          const resolvedActiveRadioId =
+            activeRadioId !== undefined &&
+            activeRadioId !== null &&
+            !filteredRadios.some((radio) => radio.id === activeRadioId)
+              ? currentShack.activeRadioId
+              : activeRadioId;
           useShackStore.setState({
             radios: filteredRadios,
             customRadios: filteredCustomRadios,
-            ...(activeRadioId !== undefined
-              ? { activeRadioId }
+            ...(resolvedActiveRadioId !== undefined
+              ? { activeRadioId: resolvedActiveRadioId }
               : { activeRadioId: currentShack.activeRadioId }),
           });
         }

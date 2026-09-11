@@ -161,3 +161,49 @@ it("drops a radio entirely when it has a pending deletion, even though the blob 
     expect.objectContaining({ radios: [radioA] }),
   );
 });
+
+it("keeps the current activeRadioId when the blob's stale value no longer resolves against the filtered radios (#326)", async () => {
+  // Radio A was deleted offline; the local delete already moved
+  // activeRadioId to survivor B. A stale prefs blob from another device
+  // still says A was active — restoring that id would leave the store
+  // pointing at no radio, since A is filtered out of the merge below.
+  const radioA = {
+    id: "radio-a",
+    equipmentId: "ic-7300",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const radioB = {
+    id: "radio-b",
+    equipmentId: "ft-991a",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  mocks.shackState = {
+    radios: [radioB],
+    customRadios: [],
+    activeRadioId: "radio-b",
+    pendingGearDeletions: [
+      {
+        table: "user_radios",
+        recordId: "radio-a",
+        requestedAt: "2026-01-02T00:00:00.000Z",
+        ownerId: "owner-a",
+      },
+    ],
+  };
+  mocks.maybeSingle.mockResolvedValue({
+    data: {
+      preferences: {
+        radios: [radioA, radioB],
+        activeRadioId: "radio-a",
+      },
+      updated_at: "2026-09-07",
+    },
+    error: null,
+  });
+
+  await preferencesSync.pull("owner-a", null);
+
+  expect(mocks.write).toHaveBeenCalledWith(
+    expect.objectContaining({ activeRadioId: "radio-b" }),
+  );
+});

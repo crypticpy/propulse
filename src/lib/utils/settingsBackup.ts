@@ -19,7 +19,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { useWatchStore, type WatchItem } from "@/stores/watchStore";
 import { usePinStore } from "@/stores/pinStore";
 import { useAlertsStore } from "@/stores/alertsStore";
-import { enqueueGearDeletionIntents } from "@/lib/sync/shackDeletionIntent";
+import type { GearDeletionTable } from "@/lib/sync/shackDeletionIntent";
 import type { MapPin } from "@/types/pin";
 import type { UserStation, UserPreferences } from "@/types/user";
 import type {
@@ -436,25 +436,24 @@ export function importSettings(backup: SettingsBackup): ImportResult {
             ...(radios !== undefined ? { radios } : {}),
             ...(customRadios !== undefined ? { customRadios } : {}),
             ...(activeRadioId !== undefined ? { activeRadioId } : {}),
-            ...(droppedRadioIds.length > 0 || droppedCustomRadioIds.length > 0
-              ? {
-                  pendingGearDeletions: enqueueGearDeletionIntents(
-                    currentShack.pendingGearDeletions,
-                    currentOwnerId(),
-                    [
-                      ...droppedRadioIds.map((recordId) => ({
-                        table: "user_radios" as const,
-                        recordId,
-                      })),
-                      ...droppedCustomRadioIds.map((recordId) => ({
-                        table: "custom_radios" as const,
-                        recordId,
-                      })),
-                    ],
-                  ),
-                }
-              : {}),
           } as never);
+
+          // Cascade the drops through the same referential cleanup a local
+          // remove* action runs (dangling chain nodes/feedline runs left
+          // pointing at dropped radios), and tombstone them — reuses
+          // applyGearRemoval rather than re-implementing the cascade here
+          // (#326).
+          const ownerId = currentOwnerId();
+          if (droppedRadioIds.length > 0) {
+            useShackStore
+              .getState()
+              .applyGearRemoval("user_radios", droppedRadioIds, ownerId);
+          }
+          if (droppedCustomRadioIds.length > 0) {
+            useShackStore
+              .getState()
+              .applyGearRemoval("custom_radios", droppedCustomRadioIds, ownerId);
+          }
         }
 
         // Route license to profile store
@@ -478,32 +477,30 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         // itself still contains gear already tombstoned elsewhere
         // (resurrection via import) is the reverse problem and is out of
         // scope for this PR (#326 follow-up).
-        const droppedEntries = [
-          ...droppedIds(currentShack.antennas, nextAntennas).map(
-            (recordId) => ({ table: "antennas" as const, recordId }),
-          ),
-          ...droppedIds(currentShack.feedlines, nextFeedlines).map(
-            (recordId) => ({ table: "feedlines" as const, recordId }),
-          ),
-          ...droppedIds(currentShack.inlineComponents, nextInlineComponents).map(
-            (recordId) => ({ table: "inline_components" as const, recordId }),
-          ),
-          ...droppedIds(currentShack.accessories, nextAccessories).map(
-            (recordId) => ({ table: "accessories" as const, recordId }),
-          ),
-          ...droppedIds(currentShack.stationPresets, nextStationPresets).map(
-            (recordId) => ({ table: "station_presets" as const, recordId }),
-          ),
-          ...(backup.shackEquipment.stationChains !== undefined
+        const droppedAntennaIds = droppedIds(currentShack.antennas, nextAntennas);
+        const droppedFeedlineIds = droppedIds(
+          currentShack.feedlines,
+          nextFeedlines,
+        );
+        const droppedInlineIds = droppedIds(
+          currentShack.inlineComponents,
+          nextInlineComponents,
+        );
+        const droppedAccessoryIds = droppedIds(
+          currentShack.accessories,
+          nextAccessories,
+        );
+        const droppedPresetIds = droppedIds(
+          currentShack.stationPresets,
+          nextStationPresets,
+        );
+        const droppedChainIds =
+          backup.shackEquipment.stationChains !== undefined
             ? droppedIds(
                 currentShack.stationChains,
                 backup.shackEquipment.stationChains,
-              ).map((recordId) => ({
-                table: "station_chains" as const,
-                recordId,
-              }))
-            : []),
-        ];
+              )
+            : [];
 
         useShackStore.setState({
           antennas: nextAntennas,
@@ -519,16 +516,30 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           ...(backup.shackEquipment.activeChainId !== undefined
             ? { activeChainId: backup.shackEquipment.activeChainId }
             : {}),
-          ...(droppedEntries.length > 0
-            ? {
-                pendingGearDeletions: enqueueGearDeletionIntents(
-                  useShackStore.getState().pendingGearDeletions,
-                  currentOwnerId(),
-                  droppedEntries,
-                ),
-              }
-            : {}),
         });
+
+        // Cascade the drops through the same referential cleanup a local
+        // remove* action runs, and tombstone them (#326). This matters
+        // most for a legacy backup that omits `stationChains` (the block
+        // above then retains the current chains as-is): without this,
+        // any retained chain node or feedline run referencing one of the
+        // just-dropped antennas/feedlines/accessories/inline components
+        // would be pushed dangling. Reuses applyGearRemoval rather than
+        // re-implementing the cascade here.
+        const ownerId = currentOwnerId();
+        const cascades: Array<[GearDeletionTable, string[]]> = [
+          ["antennas", droppedAntennaIds],
+          ["feedlines", droppedFeedlineIds],
+          ["inline_components", droppedInlineIds],
+          ["accessories", droppedAccessoryIds],
+          ["station_presets", droppedPresetIds],
+          ["station_chains", droppedChainIds],
+        ];
+        for (const [table, ids] of cascades) {
+          if (ids.length > 0) {
+            useShackStore.getState().applyGearRemoval(table, ids, ownerId);
+          }
+        }
       }
 
       if (backup.userPreferences.savedTargets) {

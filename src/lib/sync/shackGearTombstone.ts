@@ -72,11 +72,21 @@ export function pullAcknowledgementKeys(
   return removedIds.map((recordId) => gearDeletionKey({ table, recordId }));
 }
 
-/** Full `table:recordId` key set for every queued intent, for pull-merge exclusion. */
+/**
+ * `table:recordId` key set for the syncing owner's queued intents, for
+ * pull-merge exclusion. Scoped to `userId` so a pending deletion queued
+ * under one account never suppresses another account's active server row
+ * (e.g. after using the shared local store across accounts) (#326).
+ */
 export function pendingGearDeletionKeys(
   pending: readonly PendingGearDeletion[],
+  userId: string,
 ): Set<string> {
-  return new Set(pending.map(gearDeletionKey));
+  return new Set(
+    pending
+      .filter((deletion) => deletion.ownerId === userId)
+      .map(gearDeletionKey),
+  );
 }
 
 export async function pushPendingGearDeletions(

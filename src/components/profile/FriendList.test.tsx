@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/stores/authStore";
 import { useSocialStore } from "@/stores/socialStore";
@@ -134,6 +134,52 @@ describe("FriendList follow toggle gating (#995)", () => {
     render(<FriendList />);
 
     expect(screen.getAllByText("DM79").length).toBeGreaterThan(0);
+  });
+
+  // #995 round 9: the list fetched on mount only, so an A-to-B account
+  // switch under a mounted list left the relation unknown forever with no
+  // Retry (a cleared cache is not a load error).
+  it("reloads the follow set when the session switches straight to another account", () => {
+    const fetchFollowing = vi.fn();
+    const fetchFollowers = vi.fn();
+    signedInAs("user-a");
+    useSocialStore.setState({
+      followers: [follower],
+      following: [],
+      followingLoadedForUserId: "user-a",
+      fetchFollowing,
+      fetchFollowers,
+    });
+
+    render(<FriendList />);
+    expect(fetchFollowing).toHaveBeenCalledTimes(1);
+    expect(fetchFollowers).toHaveBeenCalledTimes(1);
+
+    // A to B: authStore drops A's set at the boundary, the list stays mounted.
+    act(() => {
+      useSocialStore.setState({
+        following: [],
+        followingLoadedForUserId: null,
+      });
+      signedInAs("user-b");
+    });
+    expect(fetchFollowing).toHaveBeenCalledTimes(2);
+    expect(fetchFollowers).toHaveBeenCalledTimes(2);
+    // Still unknown until that load lands, so nothing is actionable yet.
+    expect(toggleButton().disabled).toBe(true);
+
+    // The reload lands for B: the relation ends known, not stuck.
+    act(() => {
+      useSocialStore.setState({ followingLoadedForUserId: "user-b" });
+    });
+    expect(toggleButton().disabled).toBe(false);
+
+    // B back to A refetches rather than trusting B's cache.
+    act(() => {
+      useSocialStore.setState({ followingLoadedForUserId: null });
+      signedInAs("user-a");
+    });
+    expect(fetchFollowing).toHaveBeenCalledTimes(3);
   });
 
   it("hides a friends-only grid while the follow set is unknown", () => {

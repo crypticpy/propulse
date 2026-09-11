@@ -19,6 +19,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/station-ui";
+import { useViewerFollowing } from "@/hooks/useViewerFollowing";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -62,11 +63,16 @@ function FriendListInner() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [unfollowTarget, setUnfollowTarget] = useState<string | null>(null);
 
-  // Fetch on mount
+  // The follow set is keyed on the viewer identity (#995 round 9): an
+  // A-to-B account switch clears A's cache while this stays mounted, and a
+  // mount-only fetch would leave the relation unknown forever.
+  useViewerFollowing();
+  // Followers are account-scoped the same way, so key them on the viewer too
+  // rather than on mount alone.
   useEffect(() => {
-    fetchFollowing();
-    fetchFollowers();
-  }, [fetchFollowing, fetchFollowers]);
+    if (!authUserId) return;
+    void fetchFollowers();
+  }, [authUserId, fetchFollowers]);
 
   // Whether the cached follow set is this account's. Until it is, no toggle
   // is actionable: "Follow" on a relation that already exists is a duplicate

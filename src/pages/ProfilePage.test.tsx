@@ -7,6 +7,7 @@ const VIEWER_ID = "viewer-1";
 
 const fixture = vi.hoisted(() => ({
   authenticated: true,
+  viewerId: "viewer-1",
   followingLoadedForUserId: "viewer-1" as string | null,
   followingLoadError: null as { userId: string; at: number } | null,
   fetchFollowing: vi.fn(),
@@ -43,7 +44,7 @@ vi.mock("@/stores/authStore", () => ({
   ) =>
     selector({
       authenticated: fixture.authenticated,
-      user: fixture.authenticated ? { id: VIEWER_ID } : null,
+      user: fixture.authenticated ? { id: fixture.viewerId } : null,
     }),
 }));
 vi.mock("@/stores/socialStore", async (importOriginal) => ({
@@ -167,6 +168,7 @@ function openProfile(path = "/profile/N0TEST") {
 }
 beforeEach(() => {
   fixture.authenticated = true;
+  fixture.viewerId = VIEWER_ID;
   fixture.mobile = false;
   fixture.following = [];
   fixture.followingLoadedForUserId = VIEWER_ID;
@@ -318,6 +320,50 @@ describe("redesigned visitor profile preservation", () => {
     expect(fixture.fetchFollowing).toHaveBeenCalled();
     // The relation is still unknown, so nothing was followed by that click.
     expect(fixture.follow).not.toHaveBeenCalled();
+  });
+
+  // #995 round 9: a session that goes straight from account A to account B
+  // keeps `isAuthenticated` true, so an effect keyed on that boolean never
+  // re-ran. authStore drops A's cache at the boundary and nothing refilled
+  // it, leaving the relation unknown for the life of the mount: friends-only
+  // sections hidden, Follow disabled, and no Retry because a cleared cache
+  // is not a load error.
+  it("reloads the follow set when the session switches straight to another account", async () => {
+    // A fresh element each time: React bails out of re-rendering a subtree
+    // whose element is referentially identical to the last one.
+    const tree = () => (
+      <MemoryRouter initialEntries={["/profile/N0TEST"]}>
+        <Routes>
+          <Route path="/profile/:callsign/*" element={<ProfilePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const { rerender } = render(tree());
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(1);
+
+    // A to B: still authenticated, but authStore has cleared A's set.
+    fixture.viewerId = "viewer-2";
+    fixture.followingLoadedForUserId = null;
+    rerender(tree());
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(2);
+
+    // That reload lands and the relation ends known for B, not stuck.
+    fixture.followingLoadedForUserId = "viewer-2";
+    rerender(tree());
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Follow operator",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+
+    // B back to A refetches again rather than trusting B's cache.
+    fixture.viewerId = VIEWER_ID;
+    fixture.followingLoadedForUserId = null;
+    rerender(tree());
+    expect(fixture.fetchFollowing).toHaveBeenCalledTimes(3);
   });
 
   it("keeps Follow disabled while the relation is unknown with no recorded failure", async () => {

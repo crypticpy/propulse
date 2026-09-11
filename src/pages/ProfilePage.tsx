@@ -31,6 +31,7 @@ import {
   viewerFriendship,
 } from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useViewerFollowing } from "@/hooks/useViewerFollowing";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 // LocationManager moved to Settings — locations managed via /settings route
 import {
@@ -148,10 +149,11 @@ function OtherProfileView({
     return hourly;
   }, [viewerEntries]);
 
-  // Fetch following list for follow button state
-  useEffect(() => {
-    if (isAuthenticated) fetchFollowing();
-  }, [isAuthenticated, fetchFollowing]);
+  // Fetch following list for follow button state. Keyed on the viewer
+  // identity, not on `isAuthenticated`: an A-to-B account switch keeps that
+  // boolean true while authStore drops A's cache, and this view would never
+  // reload (#995 round 9).
+  useViewerFollowing();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {

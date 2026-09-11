@@ -89,7 +89,7 @@
         "sha256": "4f4e5092aeb56019c2a9653b595b030d1541a93d5fc1cfd0d38b6a9974c3e4ee"
       }
     ],
-    "note": "ITURHFProp dlopen()s libp533.so which dlopen()s libp372.so; the executable itself links only libSystem."
+    "note": "ITURHFProp dlopen()s libp533.so which dlopen()s libp372.so; the executable itself links only the libSystem runtime library on Darwin."
   },
   "data": {
     "coefficient_files": [

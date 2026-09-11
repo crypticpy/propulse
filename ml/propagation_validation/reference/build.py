@@ -224,7 +224,9 @@ def build_manifest(source: Path, build_dir: Path) -> dict[str, Any]:
             "artifacts": artifacts,
             "note": (
                 "ITURHFProp dlopen()s libp533.so which dlopen()s libp372.so; "
-                "the executable itself links only libSystem."
+                "the executable itself links only the "
+                f"{'libSystem' if platform.system() == 'Darwin' else 'C'} "
+                f"runtime library on {platform.system()}."
             ),
         },
         "data": data,

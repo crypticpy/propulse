@@ -311,8 +311,15 @@ class CleanCheckoutTests(unittest.TestCase):
                 ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
                  "commit", "-q", "-m", "pin"], check=True, env=env)
             require_clean_checkout(repo)  # clean: no error
-            (repo / "build.o").write_bytes(b"\0")  # untracked build product is fine
+            # Objects are exempt only where the upstream Makefiles write them.
+            (repo / "P533/Src/P533").mkdir(parents=True, exist_ok=True)
+            (repo / "P533/Src/P533/build.o").write_bytes(b"\0")
             require_clean_checkout(repo)
+            (repo / "P372/Data").mkdir(parents=True, exist_ok=True)
+            (repo / "P372/Data/EXTRA.o").write_bytes(b"\0")
+            with self.assertRaisesRegex(RuntimeError, "P372/Data/EXTRA.o"):
+                require_clean_checkout(repo)
+            (repo / "P372/Data/EXTRA.o").unlink()
             # Upstream commits its build outputs; rebuilding them is not a
             # provenance change.
             for rel in ("P533/Src/P533/P533.o", "P533/Linux/libp533.so",

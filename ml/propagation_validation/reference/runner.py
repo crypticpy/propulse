@@ -109,6 +109,11 @@ def git_env() -> dict[str, str]:
 # stay checked. The linked outputs' own provenance is their sha256 in the
 # manifest, recorded by build.py from the pinned sources.
 GENERATED_ARTIFACT_SUFFIXES = (".o", ".d")
+GENERATED_OBJECT_DIRS = (
+    "ITURHFProp/Src/ITURHFProp/",
+    "P372/Src/P372/",
+    "P533/Src/P533/",
+)
 GENERATED_ARTIFACT_PATHS = frozenset(
     {
         "ITURHFProp/Linux/ITURHFProp",
@@ -119,8 +124,14 @@ GENERATED_ARTIFACT_PATHS = frozenset(
 
 
 def is_generated_artifact(relative_path: str) -> bool:
-    return relative_path in GENERATED_ARTIFACT_PATHS or relative_path.endswith(
-        GENERATED_ARTIFACT_SUFFIXES
+    """Only what the upstream Makefiles write: objects in the three Src
+    directories and the three linked outputs. A .o or .d anywhere else (a Data
+    directory, say) is not a build product and must fail the cleanliness check,
+    because inventory() digests every file under Data."""
+    if relative_path in GENERATED_ARTIFACT_PATHS:
+        return True
+    return relative_path.endswith(GENERATED_ARTIFACT_SUFFIXES) and any(
+        relative_path.startswith(prefix) for prefix in GENERATED_OBJECT_DIRS
     )
 
 

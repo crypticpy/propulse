@@ -43,6 +43,14 @@ import { ConnectionLine } from "./ConnectionLine";
 import { DropZone } from "./DropZone";
 import { GroundBusBar } from "./GroundBusBar";
 import type { GroundStub } from "./GroundBusBar";
+import {
+  clampZoom,
+  FIT_ZOOM,
+  panAfterZoomAt,
+  pointerToViewBox,
+  WHEEL_ZOOM_STEP,
+  ZOOM_BUTTON_STEP,
+} from "./canvasViewport";
 
 // ─── Layout Constants ────────────────────────────────────────────────────────
 
@@ -105,6 +113,7 @@ export function BuilderCanvas({
   // ── Container ref for measuring available width ────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const isEmpty = chain.nodes.length === 0;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -116,7 +125,7 @@ export function BuilderCanvas({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [isEmpty]);
 
   // ── Store data ──────────────────────────────────────────────────────────
   const radios = useUserRadios();
@@ -481,32 +490,31 @@ export function BuilderCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
+    if (isEmpty) return;
     const el = svgRef.current;
     if (!el) return;
+    const svgEl = el;
 
     function onWheel(e: WheelEvent) {
       e.preventDefault();
       e.stopPropagation();
 
-      const rect = el!.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const cursor = pointerToViewBox(svgEl, e.clientX, e.clientY);
 
       setZoom((prev) => {
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        const next = Math.min(2.5, Math.max(0.3, prev + delta));
+        const next = clampZoom(
+          prev + (e.deltaY > 0 ? -WHEEL_ZOOM_STEP : WHEEL_ZOOM_STEP),
+        );
+        if (next === prev) return prev;
         const s = next / prev;
-        setPanOffset((p) => ({
-          x: mx - s * (mx - p.x),
-          y: my - s * (my - p.y),
-        }));
+        setPanOffset((p) => panAfterZoomAt(cursor, p, s));
         return next;
       });
     }
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [isEmpty]);
 
   // ── Pan handlers (mouse drag on background) ──────────────────────────
   const handleCanvasMouseDown = useCallback(
@@ -537,9 +545,13 @@ export function BuilderCanvas({
       if (!didPan.current && Math.sqrt(dx * dx + dy * dy) < PAN_DEAD_ZONE)
         return;
       didPan.current = true;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const start = pointerToViewBox(svg, panStart.x, panStart.y);
+      const now = pointerToViewBox(svg, e.clientX, e.clientY);
       setPanOffset({
-        x: panStartOffset.current.x + dx,
-        y: panStartOffset.current.y + dy,
+        x: panStartOffset.current.x + (now.x - start.x),
+        y: panStartOffset.current.y + (now.y - start.y),
       });
     },
     [isPanning, panStart],
@@ -550,12 +562,12 @@ export function BuilderCanvas({
   }, []);
 
   // ── Zoom to fit ──────────────────────────────────────────────────────
+  // Layout padding (CANVAS_PADDING_X/Y) is already in the viewBox. The viewBox
+  // maps that extent onto the viewport once — do not apply containerWidth/svgWidth again.
   const handleZoomToFit = useCallback(() => {
-    if (containerWidth <= 0 || svgWidth <= 0) return;
-    const fitZoom = Math.min(containerWidth / svgWidth, 1);
-    setZoom(Math.max(0.3, fitZoom));
+    setZoom(FIT_ZOOM);
     setPanOffset({ x: 0, y: 0 });
-  }, [containerWidth, svgWidth]);
+  }, []);
 
   // ── Click background to deselect ────────────────────────────────────────
   const handleBackgroundClick = useCallback(
@@ -599,10 +611,11 @@ export function BuilderCanvas({
   );
 
   // ── Empty state ───────────────────────────────────────────────────────────
-  if (chain.nodes.length === 0) {
+  if (isEmpty) {
     const isDropHover = activeDropIndex != null;
     return (
       <div
+        ref={containerRef}
         className={`
           relative rounded-2xl border-2 border-dashed transition-all duration-300 overflow-hidden
           ${
@@ -774,7 +787,7 @@ export function BuilderCanvas({
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg p-1">
         <button
           type="button"
-          onClick={() => setZoom((prev) => Math.min(2.5, prev + 0.2))}
+          onClick={() => setZoom((prev) => clampZoom(prev + ZOOM_BUTTON_STEP))}
           className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom in"
         >
@@ -785,7 +798,7 @@ export function BuilderCanvas({
         </span>
         <button
           type="button"
-          onClick={() => setZoom((prev) => Math.max(0.3, prev - 0.2))}
+          onClick={() => setZoom((prev) => clampZoom(prev - ZOOM_BUTTON_STEP))}
           className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom out"
         >
@@ -805,7 +818,7 @@ export function BuilderCanvas({
       <svg
         ref={svgRef}
         width="100%"
-        height={Math.max(svgHeight * zoom, MIN_CANVAS_HEIGHT)}
+        height={Math.max(svgHeight, MIN_CANVAS_HEIGHT)}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         style={{ minHeight: MIN_CANVAS_HEIGHT }}
         role="img"
@@ -817,6 +830,7 @@ export function BuilderCanvas({
         onMouseLeave={handleCanvasMouseUp}
       >
         <g
+          data-testid="builder-canvas-content"
           transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${zoom}) translate(${centerOffsetX || 0}, 0)`}
         >
           {/* Connection lines between adjacent nodes */}

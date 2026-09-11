@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   observedActivityIssueBucket,
+  observedActivityQueryKey,
   useObservedPathActivity,
 } from "./useObservedPathActivity";
 
@@ -219,5 +220,43 @@ describe("useObservedPathActivity", () => {
     const record = result.current.record;
     expect(record?.state === "verified_open" && record.count).toBe(5);
     expect(record?.state === "verified_open" && record.ageSeconds).toBe(3600);
+  });
+});
+
+describe("observedActivityQueryKey", () => {
+  const base = {
+    band: "20m",
+    txField: "FN",
+    rxField: "IO",
+    windowSeconds: 21_600,
+    bucket: Date.parse("2026-09-11T18:00:00Z"),
+  };
+
+  it("separates two mode sets inside one issuance bucket", () => {
+    // Same instant, same path, different question. Without the mode set in
+    // the key the second question is answered from the first one's cache,
+    // which is how a CW request ends up rendering digital evidence.
+    expect(
+      observedActivityQueryKey({ ...base, modeClasses: ["cw"] }),
+    ).not.toEqual(
+      observedActivityQueryKey({ ...base, modeClasses: ["digital"] }),
+    );
+  });
+
+  it("treats the same set in a different order as one question", () => {
+    expect(
+      observedActivityQueryKey({ ...base, modeClasses: ["digital", "cw"] }),
+    ).toEqual(
+      observedActivityQueryKey({ ...base, modeClasses: ["cw", "digital"] }),
+    );
+  });
+
+  it("spells an omitted set as the full one", () => {
+    expect(observedActivityQueryKey(base)).toEqual(
+      observedActivityQueryKey({
+        ...base,
+        modeClasses: ["phone", "cw", "digital"],
+      }),
+    );
   });
 });

@@ -28,10 +28,11 @@ import {
   unknownActivity,
 } from "@/lib/propagation/radioEvidence/activityRecord";
 import { DEFAULT_OBSERVED_WINDOW_SECONDS } from "@/lib/propagation/radioEvidence/coverage";
-import type {
-  ModeClass,
-  ObservedActivityDescriptor,
-  PathActivityRecord,
+import {
+  MODE_CLASSES,
+  type ModeClass,
+  type ObservedActivityDescriptor,
+  type PathActivityRecord,
 } from "@/lib/propagation/radioEvidence/types";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
@@ -76,6 +77,39 @@ function useIssueBucket(): number {
   }, []);
 
   return bucket;
+}
+
+export interface ObservedActivityQueryKeyInput {
+  band: string;
+  txField: string | null;
+  rxField: string | null;
+  windowSeconds: number;
+  modeClasses?: readonly ModeClass[];
+  /** The five-minute issuance bucket the answer is as of. */
+  bucket: number;
+}
+
+/**
+ * The cache key for one observed-activity question.
+ *
+ * The mode set belongs in the key because it changes the answer: a CW request
+ * and a digital request over the same path and the same bucket are different
+ * questions, and serving one from the other's entry would render digital
+ * evidence under a CW heading. It is sorted so that asking the same question
+ * with the arguments in another order is still one question.
+ */
+export function observedActivityQueryKey(
+  input: ObservedActivityQueryKeyInput,
+): readonly unknown[] {
+  return [
+    "observed-path-activity",
+    input.band,
+    input.txField,
+    input.rxField,
+    input.windowSeconds,
+    [...(input.modeClasses ?? MODE_CLASSES)].sort().join(","),
+    input.bucket,
+  ];
 }
 
 /** The 2-character Maidenhead field of a grid square, or null. */
@@ -141,14 +175,14 @@ export function useObservedPathActivity(
   const since = new Date(bucket - windowSeconds * 1000).toISOString();
 
   const query = useQuery({
-    queryKey: [
-      "observed-path-activity",
-      input.band,
+    queryKey: observedActivityQueryKey({
+      band: input.band,
       txField,
       rxField,
       windowSeconds,
+      modeClasses,
       bucket,
-    ],
+    }),
     enabled,
     // The aggregates advance once an hour; refetching faster than the issuance
     // bucket would spend requests to learn nothing.

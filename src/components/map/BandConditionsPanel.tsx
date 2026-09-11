@@ -10,9 +10,7 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import {
-  LADDER_LABEL,
-} from "@/lib/verdict/presentation";
+import { LADDER_LABEL } from "@/lib/verdict/presentation";
 import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
 import { BandPill } from "@/components/ui/BandPill";
 import { useMapStore } from "@/stores/mapStore";
@@ -35,6 +33,7 @@ import {
   getEnhancedBandConditions,
   getPathStatusColor,
   getPathStatusBgColor,
+  displaySnrRange,
   type PathBandCondition,
 } from "@/lib/utils/bands";
 import {
@@ -309,9 +308,7 @@ export const BandConditionGridCell = memo(function BandConditionGridCell({
         backgroundColor: colors.bg,
         textAlign: "center",
         position: "relative",
-        ...(isSynced
-          ? { boxShadow: "inset 0 0 0 1px var(--su-info)" }
-          : {}),
+        ...(isSynced ? { boxShadow: "inset 0 0 0 1px var(--su-info)" } : {}),
       }}
     >
       <BandPill
@@ -493,7 +490,7 @@ export function BandConditionsPanel({
     [bandHealthReady, liveBandHealth],
   );
   const selectedHealthEntry = selectedHealthBand
-    ? liveBandHealthByBand.get(selectedHealthBand) ?? null
+    ? (liveBandHealthByBand.get(selectedHealthBand) ?? null)
     : null;
   // Gated by canonicalForBand's staleness rule so a frozen row never
   // renders in the shared dialog as if it were a live server verdict.
@@ -564,12 +561,7 @@ export function BandConditionsPanel({
     void refetchSfi();
     void refetchBandActivity();
     void refetchBandLadder();
-  }, [
-    refetchBandActivity,
-    refetchBandLadder,
-    refetchKIndex,
-    refetchSfi,
-  ]);
+  }, [refetchBandActivity, refetchBandLadder, refetchKIndex, refetchSfi]);
 
   // These inexpensive labels are intentionally recalculated on each render;
   // displayTime already keeps an open PropSphere updating, so their ages do
@@ -865,9 +857,9 @@ export function BandConditionsPanel({
   const renderedBands = new Set(
     bandConditions.map((condition) => condition.band),
   );
-  const bestHealth = [...liveBandHealthByBand.values()].reduce<
-    BandLadderEntry | null
-  >(
+  const bestHealth = [
+    ...liveBandHealthByBand.values(),
+  ].reduce<BandLadderEntry | null>(
     (best, entry) =>
       renderedBands.has(entry.band) &&
       (!best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable])
@@ -1145,7 +1137,11 @@ export function BandConditionsPanel({
             <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-su-muted">
               <span>Band evidence: {bandActivityFreshnessText}</span>
               <span
-                className={bandLadderStale ? "font-semibold text-caution-amber" : undefined}
+                className={
+                  bandLadderStale
+                    ? "font-semibold text-caution-amber"
+                    : undefined
+                }
               >
                 Canonical ladder: {bandLadderFreshnessText}
                 {bandLadderStale ? " · Stale" : ""}
@@ -1240,6 +1236,8 @@ function bandConditionRowPropsAreEqual(
     prevProps.condition.status === nextProps.condition.status &&
     prevProps.condition.snrEstimate === nextProps.condition.snrEstimate &&
     prevProps.condition.sUnit?.value === nextProps.condition.sUnit?.value &&
+    prevProps.condition.signalPrediction?.support ===
+      nextProps.condition.signalPrediction?.support &&
     prevProps.verdict?.stable === nextProps.verdict?.stable &&
     prevProps.verdict?.fading === nextProps.verdict?.fading &&
     prevProps.condition.signalPrediction?.confidenceLow ===
@@ -1285,8 +1283,23 @@ const BandConditionRow = memo(function BandConditionRow({
     ? LADDER_BADGE_CLASSES[verdict.stable]
     : `${getPathStatusColor(condition.status)} ${getPathStatusBgColor(condition.status)}`;
 
-  const sUnitText = condition.sUnit?.text || "N/A";
-  const sUnitColor = getSUnitColor(condition.sUnit);
+  // An "above_basic_muf" circuit carries no power at all: its S-unit is S0 at
+  // -Infinity dBm and its SNR bounds are display floors, not predictions. Say
+  // so instead of printing those numbers (PROP-02 #948 finding 3).
+  const isUnsupported =
+    condition.signalPrediction?.support === "above_basic_muf";
+  const unsupportedTitle =
+    "Above the median basic MUF at one or more hops: this engine predicts no ordinary skywave mode on this path, so there is no signal level or SNR to report.";
+  const sUnitText = isUnsupported
+    ? "Above MUF"
+    : condition.sUnit?.text || "N/A";
+  const sUnitColor = isUnsupported
+    ? "text-su-muted"
+    : getSUnitColor(condition.sUnit);
+  // `signalPrediction.snrLow`/`snrHigh` are the raw engine bounds; round and
+  // clamp them the same way as `snrEstimate` so the printed range brackets
+  // the printed centre (Codex round 7, PR #1081).
+  const snrRange = displaySnrRange(condition.signalPrediction);
 
   // Check if greyline is active for this band (low bands only)
   const isGreylineActive = isGreylineActiveForBand(
@@ -1418,7 +1431,9 @@ const BandConditionRow = memo(function BandConditionRow({
         <>
           <td className="px-1 py-1 text-center">
             <div className="flex items-center justify-center gap-0.5">
-              <SMeterIndicator sUnit={condition.sUnit} />
+              <SMeterIndicator
+                sUnit={isUnsupported ? undefined : condition.sUnit}
+              />
               <span className={`font-mono text-xs ${sUnitColor}`}>
                 {sUnitText}
               </span>
@@ -1426,10 +1441,13 @@ const BandConditionRow = memo(function BandConditionRow({
           </td>
           <td className="px-1 py-1 text-center font-mono text-xs">
             {/* SNR display: range when confidence intervals available, point value otherwise */}
-            {condition.signalPrediction?.snrLow !== undefined &&
-            condition.signalPrediction?.snrHigh !== undefined ? (
+            {isUnsupported ? (
+              <span className="text-su-muted" title={unsupportedTitle}>
+                Not supported
+              </span>
+            ) : snrRange.low !== undefined && snrRange.high !== undefined ? (
               <div
-                title={`SNR range: ${condition.signalPrediction.snrLow} to ${condition.signalPrediction.snrHigh} dB (center: ${condition.snrEstimate} dB)`}
+                title={`SNR range: ${snrRange.low} to ${snrRange.high} dB (center: ${condition.snrEstimate} dB)`}
               >
                 <span
                   className={
@@ -1438,21 +1456,24 @@ const BandConditionRow = memo(function BandConditionRow({
                       : "text-su-text"
                   }
                 >
-                  {condition.signalPrediction.snrLow} to{" "}
-                  {condition.signalPrediction.snrHigh}dB
+                  {snrRange.low} to{" "}
+                  {snrRange.high}dB
                 </span>
               </div>
             ) : (
               <span
                 className={
-                  condition.snrEstimate <= -24 ? "text-su-muted" : "text-su-text"
+                  condition.snrEstimate <= -24
+                    ? "text-su-muted"
+                    : "text-su-text"
                 }
               >
                 {condition.snrEstimate}dB
               </span>
             )}
             {/* Confidence interval bar */}
-            {condition.signalPrediction?.confidenceLow !== undefined &&
+            {!isUnsupported &&
+              condition.signalPrediction?.confidenceLow !== undefined &&
               condition.signalPrediction?.confidenceHigh !== undefined && (
                 <ConfidenceBar
                   confidence={condition.signalPrediction.confidence}
@@ -1527,7 +1548,14 @@ const SMeterIndicator = memo(function SMeterIndicator({
   };
 
   return (
-    <div className="flex gap-0.5" title={`${sUnit.text} (${sUnit.dBm} dBm)`}>
+    <div
+      className="flex gap-0.5"
+      title={
+        Number.isFinite(sUnit.dBm)
+          ? `${sUnit.text} (${sUnit.dBm} dBm)`
+          : `${sUnit.text} (no received power predicted)`
+      }
+    >
       {[...Array(5)].map((_, i) => (
         <div
           key={i}

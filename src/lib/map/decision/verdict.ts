@@ -9,6 +9,7 @@ import { isValidClock, pathAlmanac } from "./almanac";
 import { nearbySpots } from "./nearbySpots";
 import { samplePathMuf } from "./pathMuf";
 import type { DXSpot } from "@/types/dxcluster";
+import type { OperatingMode } from "@/types/signal";
 import type {
   DecisionReport,
   DecisionTone,
@@ -74,7 +75,7 @@ export interface BuildDecisionInput {
   sfiFetchedAt?: string | null;
   kp: number | null;
   txPowerWatts: number;
-  mode: "SSB" | "CW" | "FT8";
+  mode: OperatingMode;
   spots: DXSpot[];
   spotsObservedAt?: number | null;
   spotsFetchedAt?: number | null;
@@ -84,13 +85,13 @@ export interface BuildDecisionInput {
   evidenceLive?: boolean;
 }
 
-function wizardMode(mode: "SSB" | "CW" | "FT8"): WizardMode {
+function wizardMode(mode: OperatingMode): WizardMode {
   return mode;
 }
 
 function hrefs(
   target: BuildDecisionInput["target"],
-  mode: "SSB" | "CW" | "FT8",
+  mode: OperatingMode,
   pathMode: "short" | "long",
 ): { wizardHref: string; plannerHref: string } {
   const grid =

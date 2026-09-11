@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFrequencyLimits } from "@/lib/api/muf";
+import { calculateLUF, getFrequencyLimits } from "@/lib/api/muf";
 import { getMidpoint } from "@/lib/utils/path";
 import { samplePathMuf } from "./pathMuf";
 
@@ -73,5 +73,26 @@ describe("samplePathMuf", () => {
     });
     expect(sampled.hopCount).toBeGreaterThanOrEqual(1);
     expect(sampled.muf).toBeGreaterThan(0);
+  });
+});
+
+describe("calculateLUF RTTY threshold (#1088 note: MODE_SNR_THRESHOLDS is its own scale)", () => {
+  // MODE_SNR_THRESHOLDS in src/lib/api/muf.ts: FT8 -20, CW 3, RTTY 6, SSB 10.
+  // A higher required-SNR mode needs less D-layer absorption to close the
+  // link, i.e. a higher LUF. RTTY's threshold sits strictly between CW's and
+  // SSB's, so its LUF must land between theirs too -- monotone in threshold,
+  // not silently reusing CW's or SSB's value.
+  it("is at or above CW's LUF and below SSB's LUF for the same inputs", () => {
+    const lufFt8 = calculateLUF(AUSTIN.lat, AUSTIN.lon, 150, NOON, 100, "FT8");
+    const lufCw = calculateLUF(AUSTIN.lat, AUSTIN.lon, 150, NOON, 100, "CW");
+    const lufRtty = calculateLUF(AUSTIN.lat, AUSTIN.lon, 150, NOON, 100, "RTTY");
+    const lufSsb = calculateLUF(AUSTIN.lat, AUSTIN.lon, 150, NOON, 100, "SSB");
+
+    expect(lufFt8).toBeLessThanOrEqual(lufCw);
+    expect(lufCw).toBeLessThanOrEqual(lufRtty);
+    expect(lufRtty).toBeLessThanOrEqual(lufSsb);
+    // RTTY must actually differ from both neighbors, not just tie at a clamp.
+    expect(lufRtty).not.toBe(lufCw);
+    expect(lufRtty).not.toBe(lufSsb);
   });
 });

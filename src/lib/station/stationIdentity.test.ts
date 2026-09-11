@@ -116,10 +116,15 @@ const band: BandChainPerformance = {
 };
 
 describe("stationPhysics", () => {
-  it("maps live modes onto the physics trio", () => {
+  it("maps live modes onto the physics engine's mode set", () => {
     expect(toPhysicsMode("USB")).toBe("SSB");
     expect(toPhysicsMode("CW-R")).toBe("CW");
     expect(toPhysicsMode("FT4")).toBe("FT8");
+  });
+
+  it("preserves RTTY rather than collapsing it into FT8 (#1081 round 6)", () => {
+    expect(toPhysicsMode("RTTY")).toBe("RTTY");
+    expect(toPhysicsMode("RTTY-R")).toBe("RTTY");
   });
 
   it("folds system loss into path gain", () => {

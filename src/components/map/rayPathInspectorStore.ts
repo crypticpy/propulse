@@ -88,6 +88,11 @@ const OPEN_PRIORITY: Record<PathPointInspectorOpen, number> = {
   card: 2,
 };
 
+/** The two states that put a dismissable panel on screen. */
+export function isPanelOpen(open: PathPointInspectorOpen): boolean {
+  return open === "card" || open === "path";
+}
+
 /**
  * Highest priority wins; ties go to the most recently published owner.
  * A `closed` entry still wins over nothing at all, because
@@ -117,12 +122,38 @@ export function selectActiveOwner(
 }
 
 export const useRayPathInspectorStore = create<RayPathInspectorStore>(
-  (set) => ({
+  (set, get) => ({
     entries: {},
     active: null,
     activeOwnerId: null,
     nextSeq: 0,
-    publish: (ownerId, snapshot) =>
+    /**
+     * Publishing an open panel makes it the only open panel. In
+     * `pathMode: "both"` the operator could open the short route's card and
+     * then the long route's: both owners sat at panel priority, so dismissing
+     * the long card handed the panel straight back to the stale short one and
+     * the card the operator had just closed reappeared (#872 review round 4).
+     *
+     * Every other owner's open panel is therefore demoted to `closed` in the
+     * store AND dismissed through its own `onClose`, so the owning arc's
+     * internal state agrees: a demotion the arc never heard about would be
+     * republished verbatim the next time anything else in its snapshot moved
+     * (a hover on its own trace re-publishes `open` as it stands).
+     *
+     * Hover is left alone. It is not a panel, it cannot be dismissed, and the
+     * priority table already keeps it from displacing one.
+     */
+    publish: (ownerId, snapshot) => {
+      const dismissals: Array<() => void> = [];
+      if (snapshot !== null && isPanelOpen(snapshot.open)) {
+        for (const [otherId, entry] of Object.entries(get().entries)) {
+          if (otherId === ownerId) continue;
+          if (isPanelOpen(entry.snapshot.open)) {
+            dismissals.push(entry.snapshot.onClose);
+          }
+        }
+      }
+
       set((state) => {
         const entries = { ...state.entries };
         if (snapshot === null) {
@@ -130,6 +161,16 @@ export const useRayPathInspectorStore = create<RayPathInspectorStore>(
           delete entries[ownerId];
         } else {
           entries[ownerId] = { snapshot, seq: state.nextSeq };
+          if (isPanelOpen(snapshot.open)) {
+            for (const [otherId, entry] of Object.entries(entries)) {
+              if (otherId === ownerId) continue;
+              if (!isPanelOpen(entry.snapshot.open)) continue;
+              entries[otherId] = {
+                ...entry,
+                snapshot: { ...entry.snapshot, open: "closed" },
+              };
+            }
+          }
         }
         const activeOwnerId = selectActiveOwner(entries);
         return {
@@ -138,6 +179,11 @@ export const useRayPathInspectorStore = create<RayPathInspectorStore>(
           activeOwnerId,
           active: activeOwnerId ? entries[activeOwnerId].snapshot : null,
         };
-      }),
+      });
+
+      // After the store is consistent: these run the owning arcs' own close
+      // handlers, which republish them as closed.
+      for (const dismiss of dismissals) dismiss();
+    },
   }),
 );

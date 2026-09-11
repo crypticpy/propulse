@@ -164,6 +164,104 @@ describe("rayPathInspectorStore owner arbitration (#872 review)", () => {
   });
 });
 
+/**
+ * A stand-in for one `RayPathArc`: it holds its own `open` state and
+ * republishes on every change, with the same handler semantics as the real
+ * component (`handleHover` keeps an open panel open, `handleClose` clears
+ * everything). The round-4 defect only shows up through that internal state:
+ * a demotion the arc never hears about is republished verbatim the next time
+ * anything moves.
+ */
+function makeArc(ownerId: string) {
+  let open: PathPointInspectorOpen = "closed";
+  const republish = () => {
+    useRayPathInspectorStore.getState().publish(ownerId, {
+      ...withPoints(snapshot(ownerId, open)),
+      onClose: () => {
+        open = "closed";
+        republish();
+      },
+    });
+  };
+  return {
+    get open() {
+      return open;
+    },
+    mount() {
+      republish();
+    },
+    openCard() {
+      open = "card";
+      republish();
+    },
+    hover() {
+      // `RayPathArc.handleHover`: a hover never downgrades an open panel.
+      open = open === "card" || open === "path" ? open : "hover";
+      republish();
+    },
+    close() {
+      open = "closed";
+      republish();
+    },
+  };
+}
+
+describe("one card at a time across owners (#872 review round 4)", () => {
+  it("demotes the other arc's card when a second card opens", () => {
+    const short = makeArc("short");
+    const long = makeArc("long");
+    short.mount();
+    long.mount();
+
+    short.openCard();
+    long.openCard();
+
+    const state = useRayPathInspectorStore.getState();
+    expect(state.activeOwnerId).toBe("long");
+    expect(state.entries.short.snapshot.open).toBe("closed");
+    // The owning arc agrees, so it cannot republish the stale card.
+    expect(short.open).toBe("closed");
+  });
+
+  it("closes everything when the second card is dismissed", () => {
+    const short = makeArc("short");
+    const long = makeArc("long");
+    short.mount();
+    long.mount();
+
+    short.openCard();
+    long.openCard();
+    long.close(); // Escape / the card's Close button
+
+    const state = useRayPathInspectorStore.getState();
+    expect(state.active?.open).toBe("closed");
+    expect(
+      Object.values(state.entries).map((entry) => entry.snapshot.open),
+    ).toEqual(["closed", "closed"]);
+  });
+
+  it("does not resurrect a card when the other arc is hovered after a close", () => {
+    const short = makeArc("short");
+    const long = makeArc("long");
+    short.mount();
+    long.mount();
+
+    short.openCard();
+    long.openCard();
+    long.close();
+    short.hover();
+
+    const state = useRayPathInspectorStore.getState();
+    expect(state.active?.open).toBe("hover");
+    expect(
+      Object.values(state.entries).some(
+        (entry) =>
+          entry.snapshot.open === "card" || entry.snapshot.open === "path",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("selectTriggers (#872 review round 3)", () => {
   it("names one trigger per route so both arcs are keyboard-reachable", () => {
     const triggers = selectTriggers({

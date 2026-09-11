@@ -36,6 +36,7 @@ import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useChainPerformance } from "@/hooks/useChainPerformance";
 import { useKIndex, useMagnetometer, useSolarFlux } from "@/hooks/useSolarData";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+import { ObservedActivityChip } from "@/components/propagation/ObservedActivityChip";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
@@ -1515,6 +1516,14 @@ export function PathAnalysis({
               />
             </div>
           )}
+
+          {/* Observed Activity Section (#1047) */}
+          <div className="pt-3 mt-3 border-t border-su-line/20">
+            <ObservedActivityChip
+              txGrid={station.grid}
+              rxGrid={nowCastTarget?.grid}
+            />
+          </div>
 
           {/* Radio Suggestions Section */}
           {analysisRadio && (

@@ -24,15 +24,12 @@ function renderVisibilitySettings() {
   return render(<VisibilitySettings />);
 }
 
-/** The desktop group owns its radios by id, so resolve them through aria-owns. */
-function ownedRadios(group: HTMLElement): HTMLElement[] {
-  const owns = group.getAttribute("aria-owns");
-  expect(owns).toBeTruthy();
-  return (owns as string).split(/\s+/).map((id) => {
-    const owned = document.getElementById(id);
-    expect(owned).toBeTruthy();
-    return owned as HTMLElement;
-  });
+/** The desktop matrix owns nothing across cells: resolve radios by their row. */
+function sectionRow(section: string): HTMLElement {
+  const header = screen.getByRole("rowheader", { name: section });
+  const row = header.closest("tr");
+  expect(row).toBeTruthy();
+  return row as HTMLElement;
 }
 
 function statsRadio(level: string) {
@@ -57,7 +54,7 @@ describe("VisibilitySettings accessibility (#356)", () => {
     requireAuthMock.mockReset();
   });
 
-  it("exposes one labelled radiogroup per section with a single checked value", () => {
+  it("exposes every desktop choice as a labelled radio with one checked per section", () => {
     renderVisibilitySettings();
 
     for (const section of [
@@ -67,23 +64,63 @@ describe("VisibilitySettings accessibility (#356)", () => {
       "Activity",
       "Location",
     ]) {
-      const group = screen.getByRole("radiogroup", {
-        name: `${section} visibility`,
-      });
-      const radios = ownedRadios(group);
+      const radios = within(sectionRow(section)).getAllByRole("radio");
       expect(radios).toHaveLength(3);
-      expect(
-        radios.every((radio) => radio.getAttribute("role") === "radio"),
-      ).toBe(true);
       expect(
         radios.filter((radio) => radio.getAttribute("aria-checked") === "true"),
       ).toHaveLength(1);
+      for (const level of ["Public", "Friends Only", "Private"]) {
+        expect(
+          within(sectionRow(section)).getByRole("radio", {
+            name: `${section}: ${level}`,
+          }),
+        ).toBeTruthy();
+      }
     }
 
     expect(statsRadio("Public").getAttribute("aria-checked")).toBe("true");
     expect(statsRadio("Friends Only").getAttribute("aria-checked")).toBe(
       "false",
     );
+  });
+
+  it("leaves each desktop radio in the cell under its own column header", () => {
+    const { container } = renderVisibilitySettings();
+
+    // `aria-owns` was the only way to span a group across three cells, and it
+    // reparents the controls out of them: the column header (Public / Friends
+    // Only / Private) association is what pays for it. Nothing may own a
+    // control across cells here.
+    expect(container.querySelectorAll("[aria-owns]")).toHaveLength(0);
+
+    const columnHeaders = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(columnHeaders).toEqual([
+      "Section",
+      "Public",
+      "Friends Only",
+      "Private",
+    ]);
+    for (const header of screen.getAllByRole("columnheader")) {
+      expect(header.getAttribute("scope")).toBe("col");
+    }
+
+    const row = sectionRow("Stats");
+    const cells = Array.from(row.children);
+    for (const [index, level] of [
+      "Public",
+      "Friends Only",
+      "Private",
+    ].entries()) {
+      const radio = statsRadio(level);
+      const cell = radio.closest("td");
+      expect(cell).toBeTruthy();
+      expect(cell?.parentElement).toBe(row);
+      // The control sits in the column its header names: cell 0 is the row
+      // header, so the levels start at index 1.
+      expect(cells.indexOf(cell as HTMLElement)).toBe(index + 1);
+    }
   });
 
   it("keeps native table row semantics on desktop (no radiogroup on the tr)", () => {
@@ -94,6 +131,7 @@ describe("VisibilitySettings accessibility (#356)", () => {
     const rowHeader = screen.getByRole("rowheader", { name: "Stats" });
     const row = rowHeader.closest("tr");
     expect(row).toBeTruthy();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(row?.getAttribute("role")).toBeNull();
     expect(screen.getAllByRole("row").includes(row as HTMLElement)).toBe(true);
     expect(statsRadio("Public").closest("td")).toBeTruthy();

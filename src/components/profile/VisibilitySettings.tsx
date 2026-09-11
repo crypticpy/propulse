@@ -5,7 +5,7 @@
  * Persists to profileStore via visibilitySettings field.
  */
 
-import { useCallback, useId, useRef, type KeyboardEvent } from "react";
+import { useCallback, useRef, type KeyboardEvent } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProfileStore } from "@/stores/profileStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -44,14 +44,6 @@ function radioKey(section: SectionKey, level: VisibilityLevel): string {
   return `${section}:${level}`;
 }
 
-function radioDomId(
-  base: string,
-  section: SectionKey,
-  level: VisibilityLevel,
-): string {
-  return `${base}-${section}-${level}`;
-}
-
 function moveRadioSelection(
   current: VisibilityLevel,
   key: string,
@@ -77,7 +69,6 @@ export function VisibilitySettings() {
   const settings = useProfileStore((s) => s.visibilitySettings);
   const setVisibilitySettings = useProfileStore((s) => s.setVisibilitySettings);
   const requireAuth = useRequireAuth();
-  const idBase = useId();
 
   // Roving tabindex only works if DOM focus rides along with the selection,
   // otherwise focus is stranded on a button that just became tabIndex={-1}.
@@ -188,12 +179,16 @@ export function VisibilitySettings() {
       <table className="w-full">
         <thead>
           <tr className="border-b border-su-line/20">
-            <th className="text-left text-xs font-medium text-su-muted pb-2 pr-4">
+            <th
+              scope="col"
+              className="text-left text-xs font-medium text-su-muted pb-2 pr-4"
+            >
               Section
             </th>
             {LEVELS.map((level) => (
               <th
                 key={level.value}
+                scope="col"
                 className="text-center text-xs font-medium text-su-muted pb-2 px-4"
               >
                 {level.label}
@@ -211,34 +206,25 @@ export function VisibilitySettings() {
               className="border-b border-su-line/20 last:border-0"
             >
               {/*
-                The row keeps its native `row` role so the cells keep their
-                row/column header associations. The radio group owns the three
-                buttons by reference instead of replacing the row role.
+                No synthetic radiogroup on desktop: it can only span the three
+                cells by reparenting the controls with `aria-owns`, which is
+                what loses them their column headers. The matrix explains
+                itself through the table instead — `<th scope="row">` for the
+                section, `<th scope="col">` for the level — and each control
+                stays an `aria-checked` radio inside its own cell, with the
+                roving tabindex and the row key handler driving arrow keys.
               */}
               <th
                 scope="row"
-                // The sr-only radiogroup below lives in this cell, so pin the
-                // row header name to the section instead of letting the group
-                // label leak into the name computed from content.
-                aria-label={section.label}
                 className="text-left text-sm font-normal text-su-muted py-3 pr-4"
               >
                 {section.label}
-                <span
-                  role="radiogroup"
-                  aria-label={radioGroupLabel(section.label)}
-                  aria-owns={LEVELS.map((level) =>
-                    radioDomId(idBase, section.key, level.value),
-                  ).join(" ")}
-                  className="sr-only"
-                />
               </th>
               {LEVELS.map((level) => {
                 const selected = settings[section.key] === level.value;
                 return (
                   <td key={level.value} className="text-center py-3 px-4">
                     <button
-                      id={radioDomId(idBase, section.key, level.value)}
                       ref={registerRadio(section.key, level.value)}
                       type="button"
                       role="radio"

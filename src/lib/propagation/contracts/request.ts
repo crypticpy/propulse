@@ -185,6 +185,27 @@ function degeneracyToleranceRad(
   );
 }
 
+/**
+ * Exactly opposite points on the sphere, under the same declared-precision
+ * tolerance as coincidence plus the floating-point guard, since the separation
+ * of a true antipodal pair only evaluates to within rounding of pi.
+ */
+function isAntipodal(
+  a: {
+    latitudeDeg: number;
+    longitudeDeg: number;
+    precision: { horizontalMeters: Known<number> };
+  },
+  b: {
+    latitudeDeg: number;
+    longitudeDeg: number;
+    precision: { horizontalMeters: Known<number> };
+  },
+): boolean {
+  const tolerance = Math.max(degeneracyToleranceRad(a, b), NUMERIC_GUARD_RAD);
+  return angularSeparationRad(a, b) >= Math.PI - tolerance;
+}
+
 function isCoincident(
   a: {
     latitudeDeg: number;
@@ -478,17 +499,8 @@ export const predictionRequestSchema = z
         "An ephemeris epoch after issuedAt is not as-issued (M02)",
       );
     }
-    const separation = angularSeparationRad(
-      value.tx.coordinates,
-      value.rx.coordinates,
-    );
-    const tolerance = degeneracyToleranceRad(
-      value.tx.coordinates,
-      value.rx.coordinates,
-    );
     const coincident = isCoincident(value.tx.coordinates, value.rx.coordinates);
-    const antipodal =
-      separation >= Math.PI - Math.max(tolerance, NUMERIC_GUARD_RAD);
+    const antipodal = isAntipodal(value.tx.coordinates, value.rx.coordinates);
     const degenerate = coincident || antipodal;
     const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
       value.mechanismPolicy.geometryClass,
@@ -523,6 +535,15 @@ export const predictionRequestSchema = z
               ctx,
               ["relay", "coordinates"],
               `A fixed relay coincident with the ${end} station is a zero-length leg (M06, A21)`,
+            );
+          }
+          // M06: an antipodal leg has no unique tangent either, and the
+          // relayed route shape carries no azimuth that could supply one.
+          if (isAntipodal(value.relay.coordinates, endpoint)) {
+            reject(
+              ctx,
+              ["relay", "coordinates"],
+              `A fixed relay antipodal to the ${end} station has no unique leg tangent (M06, A21)`,
             );
           }
         }

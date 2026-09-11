@@ -41,6 +41,7 @@ import {
   reject,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
+import { hasPointValue } from "@/lib/propagation/contracts/result";
 
 /**
  * A pinned artefact digest. M19 traceability needs the artefact itself, not a
@@ -281,6 +282,16 @@ export const modelCapabilitySchema = z
           ctx,
           ["heads", index, "calibrationId"],
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
+        );
+      }
+      if (!hasPointValue(head.quantity) && head.uncertaintyKind !== "none") {
+        // M17: these quantities report no scalar, so the result contract
+        // refuses any numeric interval on them. A routable head promising an
+        // interval kind could only produce results the contract rejects.
+        reject(
+          ctx,
+          ["heads", index, "uncertaintyKind"],
+          `A routable ${head.quantity} head reports no scalar to bracket and declares uncertainty kind none (M17)`,
         );
       }
       if (head.featureSchemaId === null && head.featureHash !== null) {

@@ -335,8 +335,12 @@ function pointValue(
   return read === null ? null : read(payload as never);
 }
 
-/** Whether a quantity reports a scalar an interval could bracket at all. */
-function hasPointValue(quantity: PredictionQuantity): boolean {
+/**
+ * Whether a quantity reports a scalar an interval could bracket at all. The
+ * capability side reads this same function so a declaration can never promise
+ * an interval kind no accepted result could honor.
+ */
+export function hasPointValue(quantity: PredictionQuantity): boolean {
   return POINT_VALUES[quantity] !== null;
 }
 

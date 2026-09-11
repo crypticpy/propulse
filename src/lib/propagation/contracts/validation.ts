@@ -20,8 +20,19 @@ export interface ContractIssue {
 export type ParseOutcome<T> =
   { ok: true; value: T } | { ok: false; issues: ContractIssue[] };
 
-/** Non-empty, trimmed identifier. */
-export const identifier = z.string().trim().min(1);
+/**
+ * Non-empty identifier, already trimmed on the wire.
+ *
+ * Identifiers define cache identity, so this fails closed instead of
+ * repairing: trimming here would let `"ctx-v1 "` and `"ctx-v1"` become the same
+ * key after the fact, which hides a producer bug rather than reporting it.
+ */
+export const identifier = z
+  .string()
+  .min(1)
+  .refine((value) => value === value.trim(), {
+    message: "An identifier carries no leading or trailing whitespace",
+  });
 
 /** More than three fractional-second digits. */
 const SUB_MILLISECOND = /\.\d{4,}/;

@@ -57,6 +57,40 @@ describe("parseRequest fails closed", () => {
     expect(reasonsAt(extra, "").join()).toMatch(/Unrecognized key/i);
   });
 
+  it("rejects an identifier with surrounding whitespace instead of trimming it", () => {
+    const bad = candidate("hfShortPath");
+    bad.contextId = `${cases.hfShortPath.contextId as string} `;
+    expect(reasonsAt(bad, "contextId").join()).toMatch(
+      /no leading or trailing whitespace/,
+    );
+  });
+
+  it("accepts the same identifier already trimmed", () => {
+    const good = candidate("hfShortPath");
+    good.contextId = (cases.hfShortPath.contextId as string).trim();
+    expect(good.contextId).toBe(cases.hfShortPath.contextId);
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a fixed relay antipodal to one of its endpoints (M06, A21)", () => {
+    for (const end of ["tx", "rx"] as const) {
+      const bad = candidate("fixedRelay");
+      const endpoint = (bad[end] as Mutable).coordinates as Mutable;
+      const relay = (bad.relay as Mutable).coordinates as Mutable;
+      relay.latitudeDeg = -(endpoint.latitudeDeg as number);
+      relay.longitudeDeg = (endpoint.longitudeDeg as number) + 180;
+      expect(reasonsAt(bad, "relay.coordinates").join()).toMatch(
+        new RegExp(`antipodal to the ${end} station`),
+      );
+    }
+  });
+
+  it("still accepts an ordinary fixed relay between its endpoints (A21)", () => {
+    const outcome = parseRequest(candidate("fixedRelay"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects an unknown enum member", () => {
     const bad = candidate("hfShortPath");
     bad.targetEvent = "band_open";

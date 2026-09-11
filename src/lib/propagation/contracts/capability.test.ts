@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
+  PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
+import { hasPointValue } from "@/lib/propagation/contracts/result";
 import {
   capabilityCovers,
   parseCapability,
@@ -486,6 +488,36 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
+  it("rejects an interval uncertainty kind on the non-scalar quantities (M17)", () => {
+    for (const quantity of ["circuit_support", "pass_geometry"] as const) {
+      const draft = structuredClone(cases.hfPhysics) as Mutable;
+      const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
+      head.quantity = quantity;
+      head.units = QUANTITY_UNITS[quantity];
+      (draft.heads as Mutable[]).push(head);
+      expect(reasonsAt(draft, "heads[3].uncertaintyKind").join()).toMatch(
+        /no scalar to bracket/,
+      );
+      head.uncertaintyKind = "none";
+      expect(parseCapability(draft).ok).toBe(true);
+    }
+  });
+
+  it("treats the same quantities as non-scalar as the result side does", () => {
+    for (const quantity of PREDICTION_QUANTITIES) {
+      if (hasPointValue(quantity)) continue;
+      const draft = structuredClone(cases.hfPhysics) as Mutable;
+      const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
+      head.quantity = quantity;
+      head.units = QUANTITY_UNITS[quantity];
+      head.uncertaintyKind = "model_spread";
+      (draft.heads as Mutable[]).push(head);
+      expect(reasonsAt(draft, "heads[3].uncertaintyKind").join()).toMatch(
+        /no scalar to bracket/,
+      );
+    }
+  });
+
   it("ignores both receive chains for pass_geometry (A21)", () => {
     // A pass is mutual visibility of the relay, received by nobody, so a
     // declaration that names neither station's receiver class still covers it.
@@ -496,6 +528,7 @@ describe("parseCapability fails closed", () => {
     head.geometryClasses = ["earth_space"];
     head.mechanismFamilies = ["relay"];
     head.receiverClasses = ["external_noise_dominated"];
+    head.uncertaintyKind = "none";
     (draft.heads as Mutable[]).push(head);
     const outcome = parseCapability(draft);
     if (!outcome.ok) {

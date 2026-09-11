@@ -406,3 +406,49 @@ class PeakRssTests(unittest.TestCase):
             if probe is None:
                 raise RuntimeError("RSS probe exited (no time binary on this host)")
             peak_rss_kb(["false"])
+
+    def test_library_search_path_reaches_the_measured_child(self):
+        # macOS SIP strips DYLD_* across the protected time(1) wrapper; the
+        # committed proof once recorded a 1.5 MB "native" figure that was the
+        # executable failing to load libp533.so. The path must reach the child.
+        import os
+        import sys
+        from reference.portable import _rss_probe, peak_rss_kb
+
+        if _rss_probe() is None:
+            self.skipTest("no time binary on this host")
+        env = dict(os.environ, DYLD_LIBRARY_PATH="/nonexistent/lib",
+                   LD_LIBRARY_PATH="/nonexistent/lib")
+        child = [sys.executable, "-c",
+                 "import os, sys; sys.exit(0 if os.environ.get('DYLD_LIBRARY_PATH')"
+                 " == '/nonexistent/lib' and os.environ.get('LD_LIBRARY_PATH')"
+                 " == '/nonexistent/lib' else 7)"]
+        self.assertGreater(peak_rss_kb(child, env), 0)
+
+
+class BuildReceiptTests(unittest.TestCase):
+    def test_artifacts_must_match_the_checked_build_receipt(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "ITU-R-HF"
+            for rel in ("ITURHFProp/Linux/ITURHFProp", "P533/Linux/libp533.so",
+                        "P372/Linux/libp372.so", "P372/Data/keep"):
+                (source / rel).parent.mkdir(parents=True, exist_ok=True)
+                (source / rel).write_bytes(b"\0")
+            build = ReferenceBuild(source)
+            with self.assertRaisesRegex(RuntimeError, "no build receipt"):
+                build.require_build_receipt()
+            receipt = build.write_build_receipt()
+            self.assertEqual(receipt.name, "build-receipt.json")
+            self.assertEqual(receipt.parent, source.resolve().parent)
+            build.require_build_receipt()  # fresh from the checked build
+            (source / "P533/Linux/libp533.so").write_bytes(b"\1")
+            with self.assertRaisesRegex(RuntimeError, "libp533.so does not match"):
+                build.require_build_receipt()
+            build.write_build_receipt()
+            build.require_build_receipt()
+            text = receipt.read_text(encoding="utf-8").replace(COMMIT, "0" * 40)
+            receipt.write_text(text, encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "receipt is for commit"):
+                build.require_build_receipt()

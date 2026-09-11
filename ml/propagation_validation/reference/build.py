@@ -26,12 +26,12 @@ if __package__ in (None, ""):  # direct `python3 build.py`
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from reference.runner import (  # type: ignore[no-redef]
         COMMIT, DEFAULT_BUILD_DIR, HERE, REPOSITORY, SOURCE_DIRNAME, TAG,
-        ReferenceBuild, git_env, require_pinned_checkout,
+        ReferenceBuild, git_env, require_pinned_checkout, sha256_file,
     )
 else:
     from .runner import (
         COMMIT, DEFAULT_BUILD_DIR, HERE, REPOSITORY, SOURCE_DIRNAME, TAG,
-        ReferenceBuild, git_env, require_pinned_checkout,
+        ReferenceBuild, git_env, require_pinned_checkout, sha256_file,
     )
 
 MANIFEST_PATH = HERE / "manifest.json"
@@ -68,14 +68,6 @@ BUILD_TARGETS = (
     ("P533/Linux", "-I../Src/P533/", "-dynamiclib -lm"),
     ("ITURHFProp/Linux", "", "-lm"),
 )
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(1 << 20):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def run(command: list[str], cwd: Path) -> str:
@@ -180,19 +172,11 @@ def build_manifest(source: Path, build_dir: Path) -> dict[str, Any]:
     ensure_clone(source)
     commands, build_seconds = build_native(source)
     reference = ReferenceBuild(source)
+    # The receipt is the provenance of the linked outputs (they are rewritten
+    # by every build, so git cannot vouch for them); consumers verify it.
+    reference.write_build_receipt()
     reference.require()
-    artifacts = [
-        {
-            "path": path.relative_to(source).as_posix(),
-            "bytes": path.stat().st_size,
-            "sha256": sha256_file(path),
-        }
-        for path in (
-            reference.executable,
-            reference.p533_library,
-            reference.p372_library,
-        )
-    ]
+    artifacts = reference.artifact_digests()
     data = inventory(source)
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,

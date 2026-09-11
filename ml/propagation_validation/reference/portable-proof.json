@@ -55,7 +55,7 @@
     "-o",
     "<BUILD>/wasm/iturhfprop.cjs"
   ],
-  "build_seconds": 4.082,
+  "build_seconds": 3.435,
   "parity": {
     "cases": 30,
     "max_abs_diff_by_output": {
@@ -111,13 +111,20 @@
       "js_glue": 70589,
       "total": 275572
     },
-    "startup_seconds_min": 0.0642,
-    "startup_seconds_median": 0.0653,
-    "batch_seconds_wasm": 3.9619,
+    "startup_seconds_min": 0.0572,
+    "startup_seconds_median": 0.0577,
+    "batch_seconds_wasm": 3.4332,
     "batch_cases": 30,
-    "batch_seconds_native": 1.6475,
-    "peak_rss_kb_wasm": 96224,
-    "peak_rss_kb_native": 1520,
+    "batch_seconds_native": 3.2163,
+    "batch_seconds_native_at_golden_generation": {
+      "seconds": 1.6475,
+      "generated_on": {
+        "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64"
+      }
+    },
+    "peak_rss_kb_wasm": 96208,
+    "peak_rss_kb_native": 41936,
     "note": "Each case is two process launches (two bounded report passes), so batch numbers include 2N process starts, not just solver time. A library-mode embedding would not pay that."
   },
   "data_assets": {

@@ -293,6 +293,9 @@ def _rss_probe() -> tuple[list[str], str, int] | None:
     return None
 
 
+LIBRARY_PATH_KEYS = ("DYLD_LIBRARY_PATH", "LD_LIBRARY_PATH")
+
+
 def peak_rss_kb(command: list[str], env: dict[str, str] | None = None) -> int | None:
     """Peak RSS in KiB via BSD `time -l` or GNU `time -v`; None where neither exists.
 
@@ -304,6 +307,17 @@ def peak_rss_kb(command: list[str], env: dict[str, str] | None = None) -> int | 
     if probe is None:
         return None
     prefix, pattern, divisor = probe
+    # macOS SIP strips DYLD_* from the environment of protected binaries such
+    # as /usr/bin/time, so a library search path handed to the wrapper never
+    # reaches the measured child; re-assert it through `env`, whose explicit
+    # assignments are applied when it execs the (unprotected) executable.
+    library_paths = [
+        f"{key}={env[key]}"
+        for key in LIBRARY_PATH_KEYS
+        if env is not None and key in env
+    ]
+    if library_paths:
+        command = ["env", *library_paths, *command]
     completed = subprocess.run(
         [*prefix, *command], capture_output=True, text=True, env=env
     )
@@ -404,6 +418,15 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
         )
     batch_seconds = time.monotonic() - started
 
+    # The native batch is timed on this host too, so the runtime block never
+    # mixes this machine's Wasm timings with another machine's native figure
+    # from the golden file (Codex round 5, PR #1090).
+    native_started = time.monotonic()
+    for entry in golden["cases"]:
+        case = cases_by_id[entry["case_id"]]
+        native.run_case(case, workdir / "native" / case.case_id)
+    native_batch_seconds = time.monotonic() - native_started
+
     diffs, mismatched_labels = parity_deltas(golden["cases"], wasm_outputs)
 
     single = golden["cases"][0]["case_id"]
@@ -465,7 +488,11 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
             "startup_seconds_median": round(sorted(startup)[len(startup) // 2], 4),
             "batch_seconds_wasm": round(batch_seconds, 4),
             "batch_cases": len(golden["cases"]),
-            "batch_seconds_native": golden.get("native_batch_seconds"),
+            "batch_seconds_native": round(native_batch_seconds, 4),
+            "batch_seconds_native_at_golden_generation": {
+                "seconds": golden.get("native_batch_seconds"),
+                "generated_on": golden.get("generated_on"),
+            },
             "peak_rss_kb_wasm": peak_rss_kb(node_command),
             "peak_rss_kb_native": peak_rss_kb(native_command, native.environment()),
             "note": (

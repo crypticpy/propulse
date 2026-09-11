@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import math
 import os
 import subprocess
@@ -146,6 +147,17 @@ def require_clean_checkout(source: Path) -> None:
             f"tree (git -C {source} checkout -- . ) before using it:\n"
             + "\n".join(dirty)
         )
+
+
+RECEIPT_FILENAME = "build-receipt.json"
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def require_pinned_checkout(source: Path) -> None:
@@ -322,6 +334,66 @@ class ReferenceBuild:
         root = Path(build_dir) if build_dir else DEFAULT_BUILD_DIR
         return cls(root / SOURCE_DIRNAME)
 
+    @property
+    def artifacts(self) -> tuple[Path, Path, Path]:
+        return (self.executable, self.p533_library, self.p372_library)
+
+    @property
+    def receipt_path(self) -> Path:
+        """Written by build.py right after the checked build; gitignored."""
+        return self.source.parent / RECEIPT_FILENAME
+
+    def artifact_digests(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "path": path.relative_to(self.source).as_posix(),
+                "bytes": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+            for path in self.artifacts
+        ]
+
+    def write_build_receipt(self) -> Path:
+        """Record what the checked build step produced, so consumers can tell
+        a binary that came from it apart from one replaced afterwards."""
+        self.receipt_path.write_text(
+            json.dumps(
+                {"commit": COMMIT, "artifacts": self.artifact_digests()},
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return self.receipt_path
+
+    def require_build_receipt(self) -> None:
+        """The linked outputs are exempt from the git cleanliness check (the
+        build rewrites them), so their provenance is the receipt build.py wrote
+        from the checked build. A missing receipt or a digest mismatch means
+        the artifacts were replaced or rebuilt outside that step."""
+        if not self.receipt_path.exists():
+            raise ReferenceError(
+                f"no build receipt at {self.receipt_path}; run "
+                "scripts/propagation-reference-fetch so the artifacts come from "
+                "the checked build"
+            )
+        receipt = json.loads(self.receipt_path.read_text(encoding="utf-8"))
+        if receipt.get("commit") != COMMIT:
+            raise ReferenceError(
+                f"build receipt is for commit {receipt.get('commit')}, contract "
+                f"pins {COMMIT}; rebuild"
+            )
+        recorded = {entry["path"]: entry["sha256"] for entry in receipt.get("artifacts", [])}
+        for entry in self.artifact_digests():
+            expected = recorded.get(entry["path"])
+            if expected != entry["sha256"]:
+                raise ReferenceError(
+                    f"{entry['path']} does not match the build receipt "
+                    f"(receipt {expected}, on disk {entry['sha256']}); the "
+                    "artifact was replaced or rebuilt outside the checked build"
+                )
+
     def available(self) -> bool:
         return all(
             path.exists()
@@ -340,6 +412,7 @@ class ReferenceBuild:
                 "scripts/propagation-reference-fetch first"
             )
         require_pinned_checkout(self.source)
+        self.require_build_receipt()
 
     def environment(self) -> dict[str, str]:
         env = dict(os.environ)

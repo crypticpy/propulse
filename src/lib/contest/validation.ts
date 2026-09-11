@@ -20,168 +20,26 @@ import type {
 } from "./types";
 import { isValidCallsign } from "./parsing";
 import { isValidCounty } from "@/lib/data/counties";
+import { ARRL_RAC_SECTIONS } from "@/lib/data/arrlSections";
+import { US_STATES_WITH_DC } from "@/lib/data/usStateAbbreviations";
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 /**
- * Valid ARRL/RAC sections for contests like Sweepstakes, Field Day
- * 83 total sections including US states, Canadian provinces, and special areas
+ * Valid ARRL/RAC sections for contests like Sweepstakes, Field Day.
+ * Re-exported from the canonical table in `@/lib/data/arrlSections` so
+ * existing importers of this module keep working.
  */
-export const ARRL_RAC_SECTIONS = [
-  // New England Division
-  "CT",
-  "EMA",
-  "ME",
-  "NH",
-  "RI",
-  "VT",
-  "WMA",
-  // Hudson Division
-  "ENY",
-  "NLI",
-  "NNJ",
-  "NNY",
-  "SNJ",
-  "WNY",
-  // Atlantic Division
-  "DE",
-  "EPA",
-  "MDC",
-  "WPA",
-  // Delta Division
-  "AL",
-  "GA",
-  "KY",
-  "NC",
-  "NFL",
-  "SC",
-  "SFL",
-  "TN",
-  "VA",
-  "WCF",
-  "PR",
-  "VI",
-  // Midwest Division
-  "AR",
-  "LA",
-  "MS",
-  "NM",
-  "NTX",
-  "OK",
-  "STX",
-  "WTX",
-  // Pacific Division
-  "EB",
-  "LAX",
-  "ORG",
-  "PAC",
-  "SB",
-  "SCV",
-  "SDG",
-  "SF",
-  "SJV",
-  "SV",
-  // Rocky Mountain Division
-  "AZ",
-  "EWA",
-  "ID",
-  "MT",
-  "NV",
-  "OR",
-  "UT",
-  "WWA",
-  "WY",
-  "AK",
-  // Central Division
-  "IA",
-  "KS",
-  "MN",
-  "MO",
-  "NE",
-  "ND",
-  "SD",
-  // Great Lakes Division
-  "IL",
-  "IN",
-  "WI",
-  // Dakota Division
-  "CO",
-  "MI",
-  "OH",
-  "WV",
-  // Canada
-  "MAR",
-  "QC",
-  "ONE",
-  "ONN",
-  "ONS",
-  "GTA",
-  "MB",
-  "SK",
-  "AB",
-  "BC",
-  "NT",
-  "YT",
-] as const;
+export { ARRL_RAC_SECTIONS };
 
 /**
- * Valid US state abbreviations
+ * Valid US state abbreviations, including DC (ARRL contests award DC as its
+ * own multiplier). Re-exported under this module's historical name from the
+ * canonical `@/lib/data/usStateAbbreviations` table.
  */
-export const US_STATES = [
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
-  "DC",
-] as const;
+export const US_STATES = US_STATES_WITH_DC;
 
 /**
  * Valid Sweepstakes precedence values

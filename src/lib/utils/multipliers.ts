@@ -12,6 +12,7 @@ import {
   PREFIX_LOCATIONS,
   type PrefixLocation,
 } from "@/lib/data/prefixLocations";
+import { US_STATE_WITH_DC_SET as US_STATES } from "@/lib/data/usStateAbbreviations";
 
 // ============================================================================
 // Types
@@ -1485,67 +1486,6 @@ const DXCC_DATA: Record<string, DXCCData> = {
   },
 };
 
-// ============================================================================
-// US State Data
-// ============================================================================
-
-/**
- * US state abbreviations for ARRL contests
- */
-const US_STATES: Set<string> = new Set([
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
-  "DC", // Washington DC
-]);
-
 /**
  * Canadian provinces for VE multipliers
  */
@@ -1612,12 +1552,17 @@ function getOperatingPrefix(callsign: string): string {
 
   // Check if either is a short modifier (1-3 chars) that's a valid prefix
   // This handles both DL/W1ABC (first is prefix) and W1ABC/DL (second is prefix)
-  if (second && second.length <= 3 && /^[A-Z0-9]+$/.test(second) && isValidPrefix(second)) {
-        return second;
+  if (
+    second &&
+    second.length <= 3 &&
+    /^[A-Z0-9]+$/.test(second) &&
+    isValidPrefix(second)
+  ) {
+    return second;
   }
 
   if (first.length <= 3 && /^[A-Z0-9]+$/.test(first) && isValidPrefix(first)) {
-        return first;
+    return first;
   }
 
   // If second part validates as a known prefix, prefer it (suffix portable)

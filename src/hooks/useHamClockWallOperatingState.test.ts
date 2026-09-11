@@ -108,6 +108,24 @@ function authorlessRelay(
   };
 }
 
+/**
+ * A live selection broadcast from another window of this app — `trigger:
+ * "update"`, which is what separates a real pick from the republish every
+ * peer sends when a window joins (#859 round 15).
+ */
+function livePick(sender: string, at: number) {
+  return {
+    data: {
+      kind: "snapshot",
+      sender,
+      domain: "map",
+      revision: 1,
+      trigger: "update",
+      state: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: at },
+    },
+  } as MessageEvent;
+}
+
 /** A phone whose clock is a full day away from this browser's. */
 const SKEW_MS = 24 * 60 * 60 * 1000;
 
@@ -996,6 +1014,149 @@ describe("useHamClockWallOperatingState", () => {
         data: { ...aTarget, sender: "zzz-window", revision: 1 },
       } as MessageEvent);
     });
+    expect(useMapStore.getState().targetSeq).toBe(syncedSeq);
+
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ" });
+    sync.unmount();
+  });
+
+  it("keeps a target picked between a legacy relay and the upgraded relay of one write", () => {
+    // #859 round 15, thread 1. The phone's cursor reaches this screen first
+    // through a tab too old to name an author, so the held tie key is only
+    // the *relayer's* id. When an upgraded peer then relays the same write
+    // with the author on it, comparing that author against the relayer's id
+    // made it look like a second writer: it re-stamped, and the target the
+    // operator picked between the two deliveries lost the remount. "A
+    // different author" needs both sides known.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+    const at = Date.now();
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(authorlessRelay("mmm-legacy", "K1ABC", "EM10", at));
+    const seq = useOperatingStateStore.getState().stamps.target.appliedSeq;
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    // The same write, now named — and the author's id sorts above the
+    // relayer's, which is what used to win it the tie.
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        relayedTarget("bbb-relay", "zzz-author", "K1ABC", "EM10", at),
+      );
+
+    expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(
+      seq,
+    );
+    // It is still a replay that *learns*: the author is now known.
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe(
+      "zzz-author",
+    );
+
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+  });
+
+  it("keeps a target picked between an authored write and a legacy relay of it", () => {
+    // The other delivery order of the same mixed-version pair: the author's
+    // own write lands first, and the legacy relay that follows names nobody.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+    const at = Date.now();
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("zzz-author", "K1ABC", "EM10", null, null, at),
+      );
+    const seq = useOperatingStateStore.getState().stamps.target.appliedSeq;
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(authorlessRelay("mmm-legacy", "K1ABC", "EM10", at));
+
+    expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(
+      seq,
+    );
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe(
+      "zzz-author",
+    );
+
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+  });
+
+  it("applies a second window's live pick of the same target in the same millisecond", async () => {
+    // #859 round 15, thread 2. Two windows *selecting* the same target in one
+    // millisecond are two writes; only a republish for a joining window is a
+    // replay. The message kind says which, so a live selection at an equal
+    // stamp goes through the sender tie-break and mints when it wins — and
+    // then outranks a cursor that arrived in between.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    const t0 = new Date("2026-09-10T00:00:00Z").getTime();
+    vi.setSystemTime(t0);
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => channel.onmessage?.(livePick("aaa-window", t0)));
+    const syncedSeq = useMapStore.getState().targetSeq as number;
+
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone", "W2XYZ", "FN20", null, null, t0));
+    });
+    expect(
+      useOperatingStateStore.getState().stamps.target.appliedSeq as number,
+    ).toBeGreaterThan(syncedSeq);
+
+    // A live pick from a window whose id sorts above wins the tie, mints,
+    // and is then the newest thing this window applied.
+    act(() => channel.onmessage?.(livePick("zzz-window", t0)));
+    expect(useMapStore.getState().targetSeq as number).toBeGreaterThan(
+      useOperatingStateStore.getState().stamps.target.appliedSeq as number,
+    );
+
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "PY5DX" });
+    sync.unmount();
+  });
+
+  it("ignores a second window's live pick from a lower id in the same millisecond", async () => {
+    // The negative order of the same race: the tie-break still decides it,
+    // and losing takes no number — or a write that did not win would climb
+    // above the cursor anyway.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    const t0 = new Date("2026-09-10T00:00:00Z").getTime();
+    vi.setSystemTime(t0);
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => channel.onmessage?.(livePick("mmm-window", t0)));
+    const syncedSeq = useMapStore.getState().targetSeq as number;
+
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone", "W2XYZ", "FN20", null, null, t0));
+    });
+
+    act(() => channel.onmessage?.(livePick("aaa-window", t0)));
     expect(useMapStore.getState().targetSeq).toBe(syncedSeq);
 
     renderHook(() => useHamClockWallOperatingState()).unmount();

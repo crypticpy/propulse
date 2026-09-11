@@ -151,6 +151,27 @@ const WORKSPACE_DOMAINS: readonly WorkspaceDomain[] = [
   "contestUi",
 ];
 
+/**
+ * Why a snapshot was sent (#859 round 15). `"update"` is a live broadcast:
+ * this window's own store changed and it is telling the others. `"handshake"`
+ * is a reply to a joining window's `request` — a republish of what was
+ * already held, which every peer sends at once and which names no original
+ * writer.
+ *
+ * The receiver needs the difference to tell a *replay* from a second write
+ * that happens to carry the same value at the same stamp: republished
+ * targets are suppressed, live selections are ordered. It is a string, not a
+ * counter — nothing here is compared across windows to establish order, so
+ * round 10's rule stands.
+ *
+ * Optional on the wire, and absent means `"handshake"`: a window on a bundle
+ * from before this field answers handshakes and broadcasts alike without it,
+ * and the safe reading of an unlabelled equal-stamp equal-value snapshot is
+ * the one that mints nothing. The channel name is unchanged — this is an
+ * added optional field, which an older receiver reads past.
+ */
+type SnapshotTrigger = "update" | "handshake";
+
 type WorkspaceMessage =
   | { kind: "request"; sender: string }
   | {
@@ -159,6 +180,7 @@ type WorkspaceMessage =
       domain: WorkspaceDomain;
       revision: number;
       state: WorkspaceSnapshot[WorkspaceDomain];
+      trigger?: SnapshotTrigger;
     };
 
 const WORKSPACE_CHANNEL = "propulse-operating-workspace-v2";
@@ -228,7 +250,7 @@ export function useOperationalWorkspaceSync(): void {
     let applyingRemote = false;
     let publishQueued = false;
     let nextRevision = 0;
-    const pendingDomains = new Set<WorkspaceDomain>();
+    const pendingDomains = new Map<WorkspaceDomain, SnapshotTrigger>();
     const receivedRevisions = new Map<string, Map<WorkspaceDomain, number>>();
     /**
      * Which window wrote the map target this window currently holds: its own
@@ -239,9 +261,18 @@ export function useOperationalWorkspaceSync(): void {
      */
     let targetTieKey: string = sender;
 
-    const publish = (...domains: WorkspaceDomain[]) => {
+    const publish = (
+      trigger: SnapshotTrigger,
+      ...domains: WorkspaceDomain[]
+    ) => {
       if (disposed || applyingRemote) return;
-      for (const domain of domains) pendingDomains.add(domain);
+      for (const domain of domains) {
+        // A real write queued in the same tick as a handshake reply is still
+        // a real write: the honest label is the stronger of the two.
+        if (trigger === "update" || !pendingDomains.has(domain)) {
+          pendingDomains.set(domain, trigger);
+        }
+      }
       if (publishQueued) return;
       publishQueued = true;
       queueMicrotask(() => {
@@ -254,13 +285,14 @@ export function useOperationalWorkspaceSync(): void {
         const snapshot = createWorkspaceSnapshot();
         const domainsToPublish = [...pendingDomains];
         pendingDomains.clear();
-        for (const domain of domainsToPublish) {
+        for (const [domain, trigger] of domainsToPublish) {
           channel.postMessage({
             kind: "snapshot",
             sender,
             domain,
             revision: ++nextRevision,
             state: snapshot[domain],
+            trigger,
           } satisfies WorkspaceMessage);
         }
       });
@@ -277,7 +309,7 @@ export function useOperationalWorkspaceSync(): void {
           state.workspaceOpen !== previous.workspaceOpen ||
           state.selectedReport !== previous.selectedReport
         ) {
-          publish("operational");
+          publish("update", "operational");
         }
       }),
       useQSOStore.subscribe((state, previous) => {
@@ -285,7 +317,7 @@ export function useOperationalWorkspaceSync(): void {
           state.form !== previous.form ||
           state.operatingMode !== previous.operatingMode
         ) {
-          publish("qso");
+          publish("update", "qso");
         }
       }),
       useMapStore.subscribe((state, previous) => {
@@ -310,18 +342,19 @@ export function useOperationalWorkspaceSync(): void {
           // A local write takes back the tie key; a remote one is applied
           // with `applyingRemote` set and keeps the key the applier gave it.
           if (!applyingRemote) targetTieKey = sender;
-          publish("map");
+          publish("update", "map");
         }
       }),
       useDXStore.subscribe((state, previous) => {
-        if (state.selectedSpot !== previous.selectedSpot) publish("dx");
+        if (state.selectedSpot !== previous.selectedSpot)
+          publish("update", "dx");
       }),
       useContestStore.subscribe((state, previous) => {
         if (
           state.activeSession !== previous.activeSession ||
           state.sessionHistory !== previous.sessionHistory
         ) {
-          publish("contest");
+          publish("update", "contest");
         }
       }),
       useContestUIStore.subscribe((state, previous) => {
@@ -337,7 +370,7 @@ export function useOperationalWorkspaceSync(): void {
           state.publicAssistanceBySessionId !==
             previous.publicAssistanceBySessionId
         ) {
-          publish("contestUi");
+          publish("update", "contestUi");
         }
       }),
     ];
@@ -346,7 +379,7 @@ export function useOperationalWorkspaceSync(): void {
       const message = event.data;
       if (!message || message.sender === sender) return;
       if (message.kind === "request") {
-        publish(...WORKSPACE_DOMAINS);
+        publish("handshake", ...WORKSPACE_DOMAINS);
         return;
       }
       if (
@@ -471,16 +504,32 @@ export function useOperationalWorkspaceSync(): void {
                 const heldAt = held.targetSetAt;
                 if (senderAt < heldAt) break;
                 if (senderAt === heldAt) {
-                  // The same value at the same stamp is this window's own
-                  // held write coming back, not a new one (#859 round 14).
-                  // When a third window joins, *every* peer republishes what
-                  // it holds, and none of those snapshots names the original
-                  // writer; keying the tie on whoever relayed it would let a
-                  // high-id relay of an unchanged target mint a fresh
-                  // sequence and pass for the newest thing this window did —
-                  // outranking a cursor that arrived while the wall was
-                  // unmounted. A replay mints nothing and moves no key.
-                  if (sameTarget(held.target, map.target)) break;
+                  // A *republished* value equal to the one held, at the stamp
+                  // already held, is this window's own write coming back
+                  // (#859 rounds 14-15). When a third window joins, every
+                  // peer answers at once with what it holds and none of those
+                  // snapshots names the original writer; keying the tie on
+                  // whoever relayed it would let a high-id relay of an
+                  // unchanged target mint a fresh sequence and pass for the
+                  // newest thing this window did — outranking a cursor that
+                  // arrived while the wall was unmounted. A replay mints
+                  // nothing and moves no key.
+                  //
+                  // Only a republish, though. Two windows *selecting* the
+                  // same target in the same millisecond are two writes, and
+                  // the wire already says which is which: `trigger`, the
+                  // message kind, separates a handshake reply from a live
+                  // broadcast. A live selection at an equal stamp goes to the
+                  // sender tie-break below and mints if it wins, exactly as
+                  // it would with a different value. An unlabelled snapshot
+                  // (a window on an older bundle) reads as a republish, which
+                  // is the reading that mints nothing.
+                  if (
+                    message.trigger !== "update" &&
+                    sameTarget(held.target, map.target)
+                  ) {
+                    break;
+                  }
                   // Genuinely different values at one instant: the tie falls
                   // to the higher sender, as below.
                   if (message.sender <= targetTieKey) break;

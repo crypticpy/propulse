@@ -499,35 +499,43 @@ function mergePatch(
     // guard has to survive the tie rule getting more permissive rather than
     // depend on it.
     //
-    // Identity is the same instant, the same value, *and* a key that says
-    // this is the same write rather than a second one. Three cases, and the
-    // middle column is the whole rule:
+    // Identity is the same instant, the same value, *and* authorship that
+    // says this is the same write rather than a second one. Four cases, and
+    // the middle column is the whole rule:
     //
     // | arrival at the held `at` with the held value | is it a replay? | why |
     // | --- | --- | --- |
     // | no author (`by` undefined) | **yes** | a relay, legacy or upgraded, stripped of its author. It cannot be told apart from the original, so the safe reading is replay — that is round 5's guard. |
-    // | `by` equals the held `tieKey` | **yes** | an upgraded relay naming the screen this write is already keyed on. |
-    // | `by` names a *different* screen | **no** | a distinct write that happens to carry an equal value in the same millisecond. It goes through `beats()` like anything else and, if it wins, lands with its own `appliedAt`/`appliedSeq`. |
+    // | held author unknown, arrival authored | **yes, and it learns** | the write reached this screen first through a tab too old to name an author, so the held `tieKey` is only the *relayer's* id. An authored delivery of the same instant and value is that same write, now named: `by` and `tieKey` become the author, and nothing is minted. |
+    // | same author | **yes** | the author, or an upgraded relay, re-announcing a write already held. |
+    // | two *known* and different authors | **no** | a distinct write that happens to carry an equal value in the same millisecond. It goes through `beats()` like anything else and, if it wins, lands with its own `appliedAt`/`appliedSeq`. |
     //
-    // The third row is round 14: collapsing two screens' same-millisecond
+    // "Different author" needs both sides known — round 15. Keying the second
+    // row on the held `tieKey` instead compared an author against a *relayer*,
+    // so in a mixed-version network the upgraded relay of a write the legacy
+    // peer had already delivered looked like a second writer and re-stamped
+    // it, taking a target chosen between the two deliveries.
+    //
+    // The fourth row is round 14: collapsing two screens' same-millisecond
     // writes into one left the winner's re-pick unnumbered here, so a wall
     // that had picked something else in between kept its own target on
     // remount. And equal values never short-circuit ordering in the first
     // place (round 13): a *newer* `at` is always a new write, whatever it
     // carries.
     //
-    // What a replay can add is an author this screen never knew: the write
-    // arrived first from a tab too old to name one and the relay states it.
-    // That is learned, not guessed — it is on the entry — so it is recorded,
-    // and only it. The tie key is untouched: it is the key this write won on,
-    // and a second delivery did not win anything.
+    // Nothing here is guessed. An author is recorded only when an entry
+    // states it, and a replay that does not name one leaves the tie key
+    // alone: it is the key this write won on, and a second delivery did not
+    // win anything.
     if (
       entry.at === current.at &&
       sameCursorValue(cursor[field], entry.value) &&
-      (entry.by === undefined || entry.by === current.tieKey)
+      (entry.by === undefined ||
+        current.by === undefined ||
+        entry.by === current.by)
     ) {
-      if (current.by !== undefined || entry.by === undefined) continue;
-      stamps[field] = { ...current, by: entry.by };
+      if (entry.by === undefined || current.by !== undefined) continue;
+      stamps[field] = { ...current, by: entry.by, tieKey: entry.by };
       changed = true;
       continue;
     }

@@ -420,6 +420,43 @@ describe("map target synchronization", () => {
     expect(settled).toEqual(["zzz-other", "zzz-other"]);
   });
 
+  it("labels a handshake reply differently from a live write", async () => {
+    // #859 round 15, thread 2. The receiver's replay rule needs to know which
+    // is which, and this is the only thing that can tell it: a republish for
+    // a joining window carries the value already held, a live broadcast is a
+    // write that just happened.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => {
+      useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(channel.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: "map", trigger: "update" }),
+    );
+
+    channel.postMessage.mockClear();
+    act(() => {
+      channel.onmessage?.({
+        data: { kind: "request", sender: "joining-window" },
+      } as MessageEvent);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(channel.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: "map", trigger: "handshake" }),
+    );
+    view.unmount();
+  });
+
   it("leaves a legacy snapshot that carries no write time unstamped", async () => {
     // Unknown, not new (#859 round 9). A window on an older bundle answers
     // the handshake with whatever target it has had up all along; stamping

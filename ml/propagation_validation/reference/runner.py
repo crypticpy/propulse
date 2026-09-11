@@ -129,11 +129,12 @@ def require_clean_checkout(source: Path) -> None:
 
     HEAD alone does not prove provenance: an edited source or coefficient
     file would be compiled and then recorded as if it came from COMMIT.
-    Untracked files and the rebuilt generated artifacts are allowed; any other
-    tracked modification (a Makefile included) is not.
+    Untracked files count too: inventory() digests every file under the Data
+    directories, so a locally added coefficient file would otherwise be
+    attributed to COMMIT. Only the rebuilt generated artifacts are exempt.
     """
     status = subprocess.check_output(
-        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
+        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=all"],
         text=True,
         env=git_env(),
     )
@@ -143,8 +144,9 @@ def require_clean_checkout(source: Path) -> None:
     ]
     if dirty:
         raise ReferenceError(
-            "reference checkout has modified tracked files; restore the pinned "
-            f"tree (git -C {source} checkout -- . ) before using it:\n"
+            "reference checkout has modified or untracked files; restore the "
+            f"pinned tree (git -C {source} checkout -- . && git -C {source} "
+            "clean -fd) before using it:\n"
             + "\n".join(dirty)
         )
 

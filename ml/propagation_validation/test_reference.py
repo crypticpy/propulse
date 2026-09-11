@@ -327,6 +327,15 @@ class CleanCheckoutTests(unittest.TestCase):
                         "ITURHFProp/Linux/ITURHFProp"):
                 (repo / rel).write_bytes(b"\1")
             require_clean_checkout(repo)
+            # An untracked coefficient file would be digested by inventory()
+            # and attributed to the pin (Codex round 6): reject it.
+            extra = repo / "P372/Data/EXTRA.txt"
+            extra.parent.mkdir(parents=True, exist_ok=True)
+            extra.write_text("local\n")
+            with self.assertRaisesRegex(RuntimeError, "P372/Data/EXTRA.txt"):
+                require_clean_checkout(repo)
+            extra.unlink()
+            require_clean_checkout(repo)
             # A Makefile under a build directory is provenance, not a product.
             (repo / "P533/Linux/Makefile").write_text("all:\n")
             subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)

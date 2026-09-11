@@ -58,6 +58,11 @@ import {
 import type { AuroraData } from "@/lib/api/aurora";
 import { useSatellites } from "@/hooks/useSatellites";
 import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
+import type { SatelliteTrackConfig } from "@/stores/mapStore";
+import {
+  buildFlatSatelliteTrack,
+  type FlatSatelliteTrackGeometry,
+} from "@/lib/map/satelliteTrack2D";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 import { useFlatMapGestures } from "@/hooks/useFlatMapGestures";
 import { MapTooltip } from "./MapTooltip";
@@ -3328,6 +3333,129 @@ function drawSatellites(
   ctx.restore();
 }
 
+/** Fallback panel/text colors (mirror the `:root` defaults in
+ * globals.css/hamclock-themes.css) for a document-less test environment. */
+const SAT_TRACK_LABEL_FALLBACK_PANEL = "#191e2e";
+const SAT_TRACK_LABEL_FALLBACK_TEXT = "#cad2dc";
+
+/**
+ * Resolve the orbit-track time-marker label chip colors from the
+ * `--su-panel` / `--su-text` design tokens (never a hardcoded near-white --
+ * legibility standard) at call time, the same `getComputedStyle` pattern
+ * `resolveLightningTone` uses in `lightningGlyph.ts`.
+ */
+function resolveSatelliteTrackLabelColors(): { panel: string; text: string } {
+  if (typeof document === "undefined") {
+    return {
+      panel: SAT_TRACK_LABEL_FALLBACK_PANEL,
+      text: SAT_TRACK_LABEL_FALLBACK_TEXT,
+    };
+  }
+  const root = getComputedStyle(document.documentElement);
+  const panel = root.getPropertyValue("--su-panel").trim();
+  const text = root.getPropertyValue("--su-text").trim();
+  return {
+    panel: panel || SAT_TRACK_LABEL_FALLBACK_PANEL,
+    text: text || SAT_TRACK_LABEL_FALLBACK_TEXT,
+  };
+}
+
+export interface FlatSatelliteTrackEntry {
+  satellite: SatelliteInfo;
+  geometry: FlatSatelliteTrackGeometry;
+  isSelected: boolean;
+}
+
+/**
+ * Draw store-driven "Map orbit" tracks (#994 PR B) on the 2D flat map.
+ * Companion to `SatelliteOverlay`'s globe `GroundTrack`: same past/future
+ * alpha (0.18 / 0.45) and per-satellite category color, same 10-minute dot
+ * markers and time-marker labels, built from the shared
+ * `buildFlatSatelliteTrack` helper so the two views agree on point
+ * selection. Draw order: after `drawSatelliteFootprints`, before
+ * `drawSatellites`, so the track lines sit under the diamond markers.
+ */
+function drawSatelliteTracks(
+  ctx: CanvasRenderingContext2D,
+  tracks: FlatSatelliteTrackEntry[],
+  zoomScale = 1.0,
+) {
+  if (tracks.length === 0) return;
+  const zoomDamp = Math.max(1, zoomScale);
+  const { panel, text } = resolveSatelliteTrackLabelColors();
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  for (const { satellite, geometry, isSelected } of tracks) {
+    const color = SAT_CATEGORY_COLORS[satellite.category] ?? "#aaaaaa";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (isSelected ? 3 : 2) / zoomDamp;
+
+    ctx.globalAlpha = 0.18;
+    for (const segment of geometry.pastSegments) {
+      ctx.beginPath();
+      segment.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
+      );
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.45;
+    for (const segment of geometry.futureSegments) {
+      ctx.beginPath();
+      segment.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
+      );
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = color;
+    const dotRadius = 2 / zoomDamp;
+    for (const dot of geometry.dots) {
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    const fontSize = Math.max(1, Math.round(9 / zoomDamp));
+    ctx.font = `${fontSize}px monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const label of geometry.labels) {
+      const labelText =
+        label.minutesFromNow === 0
+          ? "now"
+          : `${label.minutesFromNow > 0 ? "+" : ""}${label.minutesFromNow}m`;
+      const padX = 3 / zoomDamp;
+      const padY = 1.5 / zoomDamp;
+      const chipW = ctx.measureText(labelText).width + padX * 2;
+      const chipH = fontSize + padY * 2;
+      const chipRadius = 2 / zoomDamp;
+
+      ctx.fillStyle = panel;
+      ctx.beginPath();
+      ctx.roundRect(
+        label.x - chipW / 2,
+        label.y - chipH / 2,
+        chipW,
+        chipH,
+        chipRadius,
+      );
+      ctx.fill();
+
+      ctx.fillStyle = text;
+      ctx.fillText(labelText, label.x, label.y + 0.5 / zoomDamp);
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 // Re-use shared zoom state type
 import type { FlatMapZoomState } from "@/types/map";
 import {
@@ -3626,6 +3754,52 @@ export function FlatMapView({
   // Satellite positions for 2D overlay
   const { satellites: satPositions, selectedSatellite: selectedSat } =
     useSatellites(layers.satellites || layers.satelliteFootprints);
+
+  // Store-driven "Map orbit" tracks (#994 PR B), companion to the globe's
+  // GroundTrack in SatelliteOverlay.tsx.
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  // Re-anchor tracks on "now" once a minute without rebuilding them on every
+  // 5s satellite position poll tick (mirrors SatelliteOverlay's minuteTick).
+  const [satelliteTrackMinuteTick, setSatelliteTrackMinuteTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setSatelliteTrackMinuteTick((t) => t + 1),
+      60_000,
+    );
+    return () => clearInterval(id);
+  }, []);
+  const flatSatelliteTracks = useMemo((): FlatSatelliteTrackEntry[] => {
+    if (!layers.satellites) return [];
+    const entries: FlatSatelliteTrackEntry[] = [];
+    for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
+      const noradId = Number(noradIdStr);
+      const satellite = satPositions.find((s) => s.noradId === noradId);
+      if (!satellite) continue;
+      entries.push({
+        satellite,
+        geometry: buildFlatSatelliteTrack(
+          satellite,
+          config as SatelliteTrackConfig,
+          new Date(),
+          displaySize.width,
+          displaySize.height,
+        ),
+        isSelected: selectedSat?.noradId === noradId,
+      });
+    }
+    return entries;
+    // satelliteTrackMinuteTick intentionally re-anchors "now" once a minute;
+    // it isn't otherwise read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    layers.satellites,
+    satelliteTracks,
+    satPositions,
+    selectedSat,
+    displaySize.width,
+    displaySize.height,
+    satelliteTrackMinuteTick,
+  ]);
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
@@ -6000,6 +6174,9 @@ export function FlatMapView({
         selectedSat,
       );
     }
+    if (layers.satellites && flatSatelliteTracks.length > 0) {
+      drawSatelliteTracks(ctx, flatSatelliteTracks, zoom.scale);
+    }
     if (layers.satellites && satPositions.length > 0) {
       drawSatellites(
         ctx,
@@ -6228,6 +6405,7 @@ export function FlatMapView({
     matchedSpotIds,
     satPositions,
     selectedSat,
+    flatSatelliteTracks,
     earthquakeData,
     weatherAlerts,
     lightningStrikes,

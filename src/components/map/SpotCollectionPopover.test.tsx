@@ -22,6 +22,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
+import {
+  SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
+  SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+  SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
+} from "./spotCollectionPopoverLayout";
 
 // Round 3 (#871 review again): the wall row cap used to be driven by
 // `useEffectiveCanvasType()`, which reads `workspaceStore`. `HamClockView`
@@ -175,14 +180,19 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
       const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
-      expect(rows).toHaveLength(6);
-      expect(screen.getByText("+74 more")).toBeTruthy();
+      // 5, not 6: every spot in `makeSpots` carries a `dxGrid`, so each row
+      // renders the three-line variant (72px, not 54px). Budgeting them all
+      // at the two-line height fitted a sixth row the clipped body could not
+      // show while the aria label and "+N more" still counted it (#879
+      // review round).
+      expect(rows).toHaveLength(5);
+      expect(screen.getByText("+75 more")).toBeTruthy();
 
       const panel = screen.getByRole("dialog");
-      // F7: the wall only renders 6 rows, so the announced count must match
-      // what's actually on screen, not the full un-capped collection.
+      // F7: the announced count must match what is actually on screen, not
+      // the full un-capped collection.
       expect(panel.getAttribute("aria-label")).toBe(
-        "Test collection: showing 6 of 80 spots",
+        "Test collection: showing 5 of 80 spots",
       );
       const list = panel.querySelector(":scope > div:nth-child(2)");
       expect(list?.className).toContain("overflow-hidden");
@@ -228,8 +238,8 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       expect(useWorkspaceStore.getState().canvasTypeOverride).toBeNull();
       expect(
         screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(6);
-      expect(screen.getByText("+74 more")).toBeTruthy();
+      ).toHaveLength(5);
+      expect(screen.getByText("+75 more")).toBeTruthy();
       host.remove();
     });
 
@@ -249,7 +259,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       );
 
       const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
-      expect(rows.length).toBeLessThan(6);
+      expect(rows.length).toBeLessThan(5);
       expect(rows.length).toBeGreaterThan(0);
       expect(screen.getByText(/\+\d+ more/)).toBeTruthy();
       host.remove();
@@ -271,7 +281,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       );
 
       const panel = screen.getByRole("dialog");
-      const moreRow = screen.getByText("+74 more");
+      const moreRow = screen.getByText("+75 more");
       const listBody = panel.querySelector(":scope > div:nth-child(2)");
       const clippedRows = listBody?.querySelector(":scope > div:first-child");
 
@@ -299,7 +309,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
 
       expect(
         screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(6);
+      ).toHaveLength(5);
 
       host.getBoundingClientRect = () =>
         ({
@@ -319,8 +329,90 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       await vi.waitFor(() => {
         expect(
           screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
-        ).toBeLessThan(6);
+        ).toBeLessThan(5);
       });
+      host.remove();
+    });
+
+    it("budgets the grid/comment third line so every rendered row fits the clipped body (#879)", () => {
+      // The wall body is `overflow-hidden`, so a row that does not fit is not
+      // scrolled to, it is invisible -- while the aria label and the "+N more"
+      // count still claim it. Every spot here carries a `dxGrid`, so each row
+      // is the three-line variant; the rendered count must fit the list budget
+      // at THAT height, not at the two-line height.
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      const panel = screen.getByRole("dialog");
+      const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+      const listBudget =
+        Number.parseFloat(panel.style.maxHeight) -
+        SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
+      const needed =
+        rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT +
+        SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
+
+      expect(needed).toBeLessThanOrEqual(listBudget);
+      host.remove();
+    });
+
+    it("keeps the portal container and keyboard focus when the host rect degenerates mid-resize (#879)", async () => {
+      // React recreates a portal's children when its container changes, so
+      // re-resolving the container on every resize tick would remount the open
+      // popover the moment a host dipped below the usability threshold and
+      // drop focus to <body>.
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      await vi.waitFor(() => {
+        expect(document.activeElement?.getAttribute("aria-label")).toBe(
+          "Select K0ABC and view details",
+        );
+      });
+
+      host.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          right: 8,
+          bottom: 8,
+          width: 8,
+          height: 8,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        }) as DOMRect;
+      window.dispatchEvent(new Event("resize"));
+
+      await vi.waitFor(() => {
+        const panel = screen.getByRole("dialog");
+        expect(host.contains(panel)).toBe(true);
+      });
+      expect(document.activeElement?.getAttribute("aria-label")).toBe(
+        "Select K0ABC and view details",
+      );
       host.remove();
     });
 

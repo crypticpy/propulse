@@ -11,8 +11,28 @@ export const EDGE_PADDING = 10;
 
 /** Header, footer, and borders — excludes the scrollable/capped list body. */
 export const SPOT_COLLECTION_POPOVER_CHROME_HEIGHT = 96;
+/** A two-line row: callsign/frequency line plus the badge line. */
 export const SPOT_COLLECTION_WALL_ROW_HEIGHT = 54;
+/** The same row with the grid/comment third line (and its `mt-1`). A spot
+ * carrying `dxGrid` or `comment` renders this taller variant, so a cap that
+ * budgeted every row at 54px over-rendered the list: the wall body is
+ * `overflow-hidden`, so the extra rows were silently clipped while the aria
+ * label and the `+N more` count still claimed them as visible (#879 review
+ * round). Rows are budgeted individually at their own height instead. */
+export const SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT = 72;
 export const SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT = 36;
+
+/** The height the wall list must reserve for `spot`, matching the row markup
+ * in `SpotCollectionPopover`: the grid/comment line renders whenever either
+ * field is present (it prints "Grid unavailable" for a bare comment). */
+export function wallRowHeight(spot: {
+  dxGrid?: string | null;
+  comment?: string | null;
+}): number {
+  return spot.dxGrid || spot.comment
+    ? SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT
+    : SPOT_COLLECTION_WALL_ROW_HEIGHT;
+}
 
 export interface SpotCollectionPopoverLayout {
   frame: OverlayFrame;
@@ -28,29 +48,82 @@ function isUsableHostRect(width: number, height: number): boolean {
   return width >= EDGE_PADDING * 2 && height >= EDGE_PADDING * 2;
 }
 
+/** How many of `rowHeights` (in render order) fit in `budget`. */
+function countRowsThatFit(
+  rowHeights: readonly number[],
+  budget: number,
+): number {
+  let used = 0;
+  let count = 0;
+  for (const height of rowHeights) {
+    const next = used + Math.max(1, height);
+    if (next > budget) break;
+    used = next;
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * The wall never scrolls, so the list is capped instead. Rows are measured
+ * one by one from their own predicted height (see `wallRowHeight`) rather
+ * than from a single average: a collection of grid-carrying spots is 72px a
+ * row, and budgeting it at 54px rendered rows the clipped body could not
+ * show while still counting them as visible.
+ */
 export function deriveWallVisibleSpotCount(
   maxHeight: number,
-  totalSpots: number,
+  rowHeights: readonly number[],
 ): number {
+  const totalSpots = rowHeights.length;
   if (totalSpots <= 0) return 0;
 
   const listBudget = Math.max(
     0,
     maxHeight - SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
   );
-  const capWithoutMore = Math.floor(
-    listBudget / SPOT_COLLECTION_WALL_ROW_HEIGHT,
-  );
 
-  if (totalSpots <= capWithoutMore) {
+  if (countRowsThatFit(rowHeights, listBudget) >= totalSpots) {
     return totalSpots;
   }
 
-  const capWithMore = Math.floor(
-    (listBudget - SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT) /
-      SPOT_COLLECTION_WALL_ROW_HEIGHT,
+  // At least one row: a popover that shows only "+N more" tells the operator
+  // nothing, and the header already names the collection.
+  return Math.max(
+    1,
+    Math.min(
+      totalSpots,
+      countRowsThatFit(
+        rowHeights,
+        listBudget - SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
+      ),
+    ),
   );
-  return Math.max(1, Math.min(totalSpots, capWithMore));
+}
+
+/**
+ * The container the popover renders into: the map's own portal host when it
+ * has a usable rect, else `null` (the caller falls back to `document.body`).
+ *
+ * Callers must resolve this ONCE per open session. React recreates a portal's
+ * children when its container changes, so re-resolving it on every host
+ * resize would remount the open popover the moment a host dipped below the
+ * usability threshold mid-drag, dropping keyboard focus to `<body>` (#879
+ * review round). The frame math above may fall back to the viewport on the
+ * same dip; that is a positioning change, not a remount.
+ */
+export function resolveSpotCollectionPortalElement(
+  portalTarget: Element | null | undefined,
+): Element | null {
+  if (
+    !(portalTarget instanceof Element) ||
+    portalTarget === document.body ||
+    portalTarget === document.documentElement
+  ) {
+    return null;
+  }
+  const rect = portalTarget.getBoundingClientRect();
+  return isUsableHostRect(rect.width, rect.height) ? portalTarget : null;
 }
 
 export function computeSpotCollectionPopoverLayout(
@@ -99,16 +172,7 @@ export function computeSpotCollectionPopoverLayout(
       ? frame.top + adjustedPosition.y
       : adjustedPosition.y;
 
-  const portalElement =
-    portalTarget instanceof Element &&
-    portalTarget !== document.body &&
-    portalTarget !== document.documentElement &&
-    isUsableHostRect(
-      portalTarget.getBoundingClientRect().width,
-      portalTarget.getBoundingClientRect().height,
-    )
-      ? portalTarget
-      : null;
+  const portalElement = resolveSpotCollectionPortalElement(portalTarget);
 
   return {
     frame,

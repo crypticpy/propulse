@@ -3,10 +3,26 @@ import {
   computeSpotCollectionPopoverLayout,
   deriveWallVisibleSpotCount,
   EDGE_PADDING,
+  resolveSpotCollectionPortalElement,
   SPOT_COLLECTION_POPOVER_CHROME_HEIGHT,
+  SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
   SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
   SPOT_COLLECTION_WALL_ROW_HEIGHT,
+  wallRowHeight,
 } from "./spotCollectionPopoverLayout";
+
+/** `count` plain two-line rows. */
+function plainRows(count: number): number[] {
+  return Array.from({ length: count }, () => SPOT_COLLECTION_WALL_ROW_HEIGHT);
+}
+
+/** `count` rows carrying a grid/comment third line. */
+function detailRows(count: number): number[] {
+  return Array.from(
+    { length: count },
+    () => SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+  );
+}
 
 function makeHost(width: number, height: number, left = 0, top = 0) {
   const host = document.createElement("div");
@@ -29,7 +45,7 @@ describe("deriveWallVisibleSpotCount (#879)", () => {
   it("returns all spots when the list budget fits them without a +N row", () => {
     const maxHeight =
       SPOT_COLLECTION_POPOVER_CHROME_HEIGHT + SPOT_COLLECTION_WALL_ROW_HEIGHT * 3;
-    expect(deriveWallVisibleSpotCount(maxHeight, 3)).toBe(3);
+    expect(deriveWallVisibleSpotCount(maxHeight, plainRows(3))).toBe(3);
   });
 
   it("reserves space for the +N more row when the collection overflows", () => {
@@ -37,7 +53,7 @@ describe("deriveWallVisibleSpotCount (#879)", () => {
       SPOT_COLLECTION_POPOVER_CHROME_HEIGHT +
       SPOT_COLLECTION_WALL_ROW_HEIGHT * 6 +
       SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
-    expect(deriveWallVisibleSpotCount(maxHeight, 80)).toBe(6);
+    expect(deriveWallVisibleSpotCount(maxHeight, plainRows(80))).toBe(6);
   });
 
   it("shrinks the visible row count when maxHeight is tight", () => {
@@ -45,13 +61,74 @@ describe("deriveWallVisibleSpotCount (#879)", () => {
       SPOT_COLLECTION_POPOVER_CHROME_HEIGHT +
       SPOT_COLLECTION_WALL_ROW_HEIGHT * 2 +
       SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
-    expect(deriveWallVisibleSpotCount(maxHeight, 80)).toBe(2);
+    expect(deriveWallVisibleSpotCount(maxHeight, plainRows(80))).toBe(2);
   });
 
   it("always shows at least one row when spots exist", () => {
     expect(
-      deriveWallVisibleSpotCount(SPOT_COLLECTION_POPOVER_CHROME_HEIGHT + 1, 10),
+      deriveWallVisibleSpotCount(
+        SPOT_COLLECTION_POPOVER_CHROME_HEIGHT + 1,
+        plainRows(10),
+      ),
     ).toBe(1);
+  });
+
+  it("returns zero when there are no spots", () => {
+    expect(deriveWallVisibleSpotCount(1000, [])).toBe(0);
+  });
+
+  it("budgets grid/comment rows at their taller height (#879 review)", () => {
+    // A budget that fits six two-line rows plus the +N row fits only four of
+    // the three-line variant. Counting rows instead of measuring them let the
+    // clipped body swallow the difference.
+    const maxHeight =
+      SPOT_COLLECTION_POPOVER_CHROME_HEIGHT +
+      SPOT_COLLECTION_WALL_ROW_HEIGHT * 6 +
+      SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
+    const visible = deriveWallVisibleSpotCount(maxHeight, detailRows(80));
+    expect(visible).toBe(4);
+    expect(
+      visible * SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT +
+        SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT,
+    ).toBeLessThanOrEqual(maxHeight - SPOT_COLLECTION_POPOVER_CHROME_HEIGHT);
+  });
+
+  it("measures mixed rows in render order, not by an average", () => {
+    const maxHeight =
+      SPOT_COLLECTION_POPOVER_CHROME_HEIGHT +
+      SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT * 2 +
+      SPOT_COLLECTION_WALL_ROW_HEIGHT;
+    const rows = [
+      SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+      SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+      SPOT_COLLECTION_WALL_ROW_HEIGHT,
+    ];
+    expect(deriveWallVisibleSpotCount(maxHeight, rows)).toBe(3);
+  });
+});
+
+describe("wallRowHeight (#879 review)", () => {
+  it("reserves the third line for a grid or a comment", () => {
+    expect(wallRowHeight({ dxGrid: "DM79" })).toBe(
+      SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+    );
+    expect(wallRowHeight({ comment: "POTA K-1234" })).toBe(
+      SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+    );
+    expect(wallRowHeight({})).toBe(SPOT_COLLECTION_WALL_ROW_HEIGHT);
+    expect(wallRowHeight({ dxGrid: "", comment: "" })).toBe(
+      SPOT_COLLECTION_WALL_ROW_HEIGHT,
+    );
+  });
+});
+
+describe("resolveSpotCollectionPortalElement (#879 review)", () => {
+  it("returns the host only when its rect is usable", () => {
+    expect(resolveSpotCollectionPortalElement(makeHost(400, 600))).toBeTruthy();
+    expect(resolveSpotCollectionPortalElement(makeHost(8, 8))).toBeNull();
+    expect(resolveSpotCollectionPortalElement(document.body)).toBeNull();
+    expect(resolveSpotCollectionPortalElement(null)).toBeNull();
+    expect(resolveSpotCollectionPortalElement(undefined)).toBeNull();
   });
 });
 

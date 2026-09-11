@@ -11,6 +11,8 @@ import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import {
   computeSpotCollectionPopoverLayout,
   deriveWallVisibleSpotCount,
+  resolveSpotCollectionPortalElement,
+  wallRowHeight,
 } from "./spotCollectionPopoverLayout";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
@@ -132,12 +134,30 @@ export function SpotCollectionPopover({
     [boundsHost, layoutEpoch, portalTarget, position],
   );
 
+  // Per-row heights, not a count: rows carrying a grid or comment render a
+  // third line, so the cap has to budget them individually (#879 review).
+  const wallRowHeights = useMemo(
+    () => sortedSpots.map((spot) => wallRowHeight(spot)),
+    [sortedSpots],
+  );
+
   const wallVisibleCount = useMemo(
     () =>
       isWallCanvas
-        ? deriveWallVisibleSpotCount(layout.maxHeight, sortedSpots.length)
+        ? deriveWallVisibleSpotCount(layout.maxHeight, wallRowHeights)
         : sortedSpots.length,
-    [isWallCanvas, layout.maxHeight, sortedSpots.length],
+    [isWallCanvas, layout.maxHeight, sortedSpots.length, wallRowHeights],
+  );
+
+  // Resolved once per open session per `portalTarget` identity, NOT from
+  // `layout.portalElement`: that value is recomputed on every host resize, and
+  // a host that dips below the usability threshold mid-resize would otherwise
+  // swap the portal container, remount the popover, and drop keyboard focus to
+  // `<body>` (#879 review round). The focus effect below also lists it as a
+  // dependency so any container change that does happen re-runs focus setup.
+  const portalElement = useMemo(
+    () => (visible ? resolveSpotCollectionPortalElement(portalTarget) : null),
+    [portalTarget, visible],
   );
 
   // Rows shown when the wall's no-scroll rule caps the list instead of
@@ -273,17 +293,10 @@ export function SpotCollectionPopover({
         if (document.activeElement === document.body) focusMapSurface?.();
       }, 0);
     };
-  }, [focusMapSurface, sortedSpots.length, visible]);
+  }, [focusMapSurface, portalElement, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
-  const {
-    frame,
-    overlaySize,
-    maxHeight,
-    screenLeft,
-    screenTop,
-    portalElement,
-  } = layout;
+  const { frame, overlaySize, maxHeight, screenLeft, screenTop } = layout;
   const visibleSpotLabel = isWallCanvas
     ? `${title}: showing ${visibleSpots.length} of ${sortedSpots.length} spots`
     : `${title}: ${sortedSpots.length} spots`;

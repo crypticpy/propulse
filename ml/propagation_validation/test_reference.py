@@ -232,6 +232,26 @@ class PortableProofTests(unittest.TestCase):
             self.skipTest("portable-proof.json absent")
         self.proof = load(PROOF)
 
+    def test_proof_is_bound_to_the_committed_golden(self):
+        from reference.portable import golden_digest
+
+        golden = load(GOLDEN)
+        self.assertEqual(self.proof["golden"]["revision"], golden["revision"])
+        self.assertEqual(
+            self.proof["golden"]["reference_commit"], golden["reference_commit"]
+        )
+        self.assertEqual(self.proof["golden"]["digest"], golden_digest(golden))
+        # any regenerated number changes the digest; formatting does not
+        edited = json.loads(json.dumps(golden))
+        first = edited["cases"][0]["outputs"]
+        key = next(k for k, v in first.items() if isinstance(v, (int, float)))
+        first[key] = first[key] + 1e-9
+        self.assertNotEqual(golden_digest(edited), golden_digest(golden))
+        self.assertEqual(
+            golden_digest(json.loads(json.dumps(golden, indent=4))),
+            golden_digest(golden),
+        )
+
     def test_proof_records_exact_parity(self):
         self.assertEqual(self.proof["result"], "PASS")
         self.assertEqual(self.proof["parity"]["max_abs_diff_overall"], 0.0)

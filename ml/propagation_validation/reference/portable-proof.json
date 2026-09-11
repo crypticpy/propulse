@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "result": "PASS",
+  "golden": {
+    "revision": "golden-v1",
+    "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+    "digest": "ea1d463b6a93994a3910b13b8edc35b8d67eaa5dac8bfefa11e07bac563c659b"
+  },
   "claim": "Implementation verification only: the ported build reproduces the native reference's own numbers. It says nothing about how well ITU-R P.533 matches observed propagation.",
   "measured_on": {
     "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
@@ -55,7 +60,7 @@
     "-o",
     "<BUILD>/wasm/iturhfprop.cjs"
   ],
-  "build_seconds": 3.547,
+  "build_seconds": 3.55,
   "parity": {
     "cases": 30,
     "max_abs_diff_by_output": {
@@ -111,11 +116,11 @@
       "js_glue": 70589,
       "total": 275572
     },
-    "startup_seconds_min": 0.0566,
-    "startup_seconds_median": 0.0573,
-    "batch_seconds_wasm": 3.436,
+    "startup_seconds_min": 0.0562,
+    "startup_seconds_median": 0.0567,
+    "batch_seconds_wasm": 3.492,
     "batch_cases": 30,
-    "batch_seconds_native": 1.8588,
+    "batch_seconds_native": 1.6683,
     "batch_seconds_native_at_golden_generation": {
       "seconds": 1.6475,
       "generated_on": {
@@ -123,8 +128,8 @@
         "machine": "arm64"
       }
     },
-    "peak_rss_kb_wasm": 96304,
-    "peak_rss_kb_native": 41952,
+    "peak_rss_kb_wasm": 96320,
+    "peak_rss_kb_native": 41968,
     "note": "Each case is two process launches (two bounded report passes), so batch numbers include 2N process starts, not just solver time. A library-mode embedding would not pay that."
   },
   "data_assets": {

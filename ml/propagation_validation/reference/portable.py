@@ -26,6 +26,7 @@ stage step fails rather than silently producing a different program.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import platform
@@ -395,6 +396,22 @@ def parity_deltas(
     return diffs, mismatched_labels
 
 
+def golden_digest(golden: dict[str, Any]) -> str:
+    """Identity of the golden the proof was compared against: its revision,
+    reference commit and every case's inputs and outputs, canonically
+    serialised so formatting cannot change it but any regenerated number
+    does. The proof carries it and the tests check it against the committed
+    golden, so a golden regenerated without --portable cannot keep a stale
+    PASS (Codex round 9, PR #1090)."""
+    identity = {
+        "revision": golden.get("revision"),
+        "reference_commit": golden.get("reference_commit"),
+        "cases": golden["cases"],
+    }
+    canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
     source = build_dir / SOURCE_DIRNAME
     native = ReferenceBuild(source)
@@ -450,6 +467,11 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 1,
         "result": "PASS" if not mismatched_labels and max(diffs.values()) == 0.0
         else "MISMATCH",
+        "golden": {
+            "revision": golden.get("revision"),
+            "reference_commit": golden.get("reference_commit"),
+            "digest": golden_digest(golden),
+        },
         "claim": (
             "Implementation verification only: the ported build reproduces the "
             "native reference's own numbers. It says nothing about how well "

@@ -257,6 +257,17 @@ describe("parseResult fixtures", () => {
 });
 
 describe("parseResult fails closed", () => {
+  it("rejects a result tagged with an older schema version (M19)", () => {
+    // 0.2.0 made every head echo the kind of model that produced it and the
+    // mode profile it was evaluated on. A 0.1.0 result carries neither, and
+    // defaulting them would invent the two facts the binder checks.
+    const bad = candidate("fullHfCircuit");
+    bad.schemaVersion = "propagation-result-0.1.0";
+    expect(reasonsAt(bad, "schemaVersion").join()).toMatch(
+      /This contract is propagation-result-0\.2\.0 and the payload is tagged propagation-result-0\.1\.0; a schema version bump is a shape change/,
+    );
+  });
+
   it("rejects non-objects and an empty head list without throwing", () => {
     expect(parseResult(null).ok).toBe(false);
     const empty = candidate("fullHfCircuit");

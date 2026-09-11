@@ -1,6 +1,6 @@
 {
   "hfPhysics": {
-    "schemaVersion": "propagation-capability-0.1.0",
+    "schemaVersion": "propagation-capability-0.2.0",
     "modelId": "propulse-physics-v1",
     "modelVersion": "1.0.0",
     "modelHash": "sha256:e6b6e3c8d57eb93ee4c2f36b73b4e2b2871ededb631026a8439a9bb611cd40ad",
@@ -31,7 +31,7 @@
         ],
         "optionalInputs": [],
         "featureSchemaId": "physics-feature-schema-0.1.0",
-        "outputSchemaId": "propagation-result-0.1.0",
+        "outputSchemaId": "propagation-result-0.2.0",
         "calibrationId": null,
         "uncertaintyKind": "none",
         "internalFallback": {
@@ -68,7 +68,7 @@
         ],
         "optionalInputs": ["eligible_foF2_observations"],
         "featureSchemaId": "physics-feature-schema-0.1.0",
-        "outputSchemaId": "propagation-result-0.1.0",
+        "outputSchemaId": "propagation-result-0.2.0",
         "calibrationId": null,
         "uncertaintyKind": "native_reference_decile",
         "internalFallback": {
@@ -100,7 +100,7 @@
         "requiredInputs": ["snr2500", "decoder_response_calibration"],
         "optionalInputs": [],
         "featureSchemaId": "physics-feature-schema-0.1.0",
-        "outputSchemaId": "propagation-result-0.1.0",
+        "outputSchemaId": "propagation-result-0.2.0",
         "calibrationId": null,
         "uncertaintyKind": "model_spread",
         "internalFallback": {
@@ -141,7 +141,7 @@
     ]
   },
   "noOp": {
-    "schemaVersion": "propagation-capability-0.1.0",
+    "schemaVersion": "propagation-capability-0.2.0",
     "modelId": "no-op-capability",
     "modelVersion": "0.0.0",
     "modelHash": null,

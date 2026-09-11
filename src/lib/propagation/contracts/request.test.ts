@@ -147,6 +147,17 @@ describe("parseRequest fixtures", () => {
 });
 
 describe("parseRequest fails closed", () => {
+  it("rejects a request tagged with an older schema version (M19)", () => {
+    // 0.2.0 made the orbital relay name the body it is relayed by, which a
+    // 0.1.0 request cannot carry, so the older payload is refused by version
+    // and told so rather than failing on some field it never had.
+    const bad = candidate("hfShortPath");
+    bad.schemaVersion = "propagation-request-0.1.0";
+    expect(reasonsAt(bad, "schemaVersion").join()).toMatch(
+      /This contract is propagation-request-0\.2\.0 and the payload is tagged propagation-request-0\.1\.0; a schema version bump is a shape change/,
+    );
+  });
+
   it("rejects non-objects without throwing", () => {
     for (const value of [null, undefined, 42, "request", []]) {
       expect(parseRequest(value).ok).toBe(false);

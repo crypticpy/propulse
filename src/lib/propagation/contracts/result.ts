@@ -48,6 +48,7 @@ import {
   probability,
   reject,
   requestKeyDigestText,
+  schemaVersionLiteral,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
@@ -1345,7 +1346,7 @@ function crossCheckCircuitSupport(
 
 export const predictionResultSchema = z
   .object({
-    schemaVersion: z.literal(RESULT_SCHEMA_VERSION),
+    schemaVersion: schemaVersionLiteral(RESULT_SCHEMA_VERSION),
     contextId: identifier,
     /**
      * The exact request this result answers, named by the M01 digest

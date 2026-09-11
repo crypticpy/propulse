@@ -1,6 +1,6 @@
 {
   "fullHfCircuit": {
-    "schemaVersion": "propagation-result-0.1.0",
+    "schemaVersion": "propagation-result-0.2.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
     "requestKey": "b8252da2f662ba624fdb56db34bcc9c6d83477dccf13ed07794fbfddb075a9fa",
     "issuedAt": "2026-09-11T18:00:00Z",
@@ -222,7 +222,7 @@
     ]
   },
   "partialFallback": {
-    "schemaVersion": "propagation-result-0.1.0",
+    "schemaVersion": "propagation-result-0.2.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
     "requestKey": "dfce54c7043999dfb3beacf2fa4513ad33c74ac5057ee4ff7bd3817d9cb0c909",
     "issuedAt": "2026-09-11T18:00:00Z",
@@ -350,7 +350,7 @@
     ]
   },
   "noPowerMode": {
-    "schemaVersion": "propagation-result-0.1.0",
+    "schemaVersion": "propagation-result-0.2.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
     "requestKey": "68cf59b184580ea29f8030a707385dda7c1983bf34c55abb5a4e672886a751ce",
     "issuedAt": "2026-09-11T18:00:00Z",
@@ -462,7 +462,7 @@
     ]
   },
   "missingInput": {
-    "schemaVersion": "propagation-result-0.1.0",
+    "schemaVersion": "propagation-result-0.2.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
     "requestKey": "5c6d4e06a5f9b306da688dec6fadb0ed706dedbc7ed060c308d283e16c6f2688",
     "issuedAt": "2026-09-11T18:00:00Z",

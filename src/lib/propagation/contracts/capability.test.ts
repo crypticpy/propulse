@@ -107,7 +107,7 @@ const SECOND_SNR_HEAD = {
   featureSchemaId: "vhf-feature-schema-0.1.0",
   featureHash:
     "sha256:0000000000000000000000000000000000000000000000000000000000000001",
-  outputSchemaId: "propagation-result-0.1.0",
+  outputSchemaId: "propagation-result-0.2.0",
   calibrationId: null,
   uncertaintyKind: "model_spread",
   internalFallback: { kind: "none" },
@@ -1041,9 +1041,20 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
+  it("rejects a declaration tagged with an older schema version (M19)", () => {
+    // 0.2.0 added the required modelKind, so a 0.1.0 declaration cannot carry
+    // it and a 0.1.0 reader cannot see it. The rejection names both versions
+    // rather than reporting an invalid literal on a root field.
+    const bad = candidate("hfPhysics");
+    bad.schemaVersion = "propagation-capability-0.1.0";
+    expect(reasonsAt(bad, "schemaVersion").join()).toMatch(
+      /This contract is propagation-capability-0\.2\.0 and the payload is tagged propagation-capability-0\.1\.0; a schema version bump is a shape change/,
+    );
+  });
+
   it("rejects a routable head that advertises another result schema (M19)", () => {
     const bad = candidate("hfPhysics");
-    (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.2.0";
+    (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.3.0";
     expect(reasonsAt(bad, "heads[1].outputSchemaId").join()).toMatch(
       new RegExp(`answered by ${RESULT_SCHEMA_VERSION}`),
     );
@@ -1725,6 +1736,27 @@ describe("parseResultForRequest binds a result to its request", () => {
       (await bind(wrongDuration, request)).map((issue) => issue.reason).join(),
     ).toMatch(
       /One ft8-wsjtx-2.7.0-15s attempt lasts 15 s, and this head reports 7.5 s/,
+    );
+  });
+
+  it("rejects a decode head whose decoder release is not the profile's (M07, M11)", async () => {
+    // The residual: the registry pinned the decoder and the attempt length but
+    // not the release, so a 2.6.1 decode answered a profile that names 2.7.0.
+    // A decoder is not one algorithm across its releases, and the protocol
+    // conditions the event on the declared decoder AND version.
+    const request = relayRequest("fixed");
+    const result = relayResult("relay");
+    ((result.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((result.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      decoderVersion: "2.6.1",
+    };
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "heads[0].state.value.decoderVersion",
+    ]);
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Mode profile ft8-wsjtx-2\.7\.0-15s is decoded by wsjtx-ft8 2\.7\.0, and this head reports 2\.6\.1/,
     );
   });
 

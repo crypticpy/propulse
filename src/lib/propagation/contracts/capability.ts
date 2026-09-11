@@ -69,6 +69,7 @@ import {
   instantMs,
   parseWith,
   reject,
+  schemaVersionLiteral,
   type ContractIssue,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
@@ -382,7 +383,7 @@ function coverageTupleKey(head: {
 
 export const modelCapabilitySchema = z
   .object({
-    schemaVersion: z.literal(CAPABILITY_SCHEMA_VERSION),
+    schemaVersion: schemaVersionLiteral(CAPABILITY_SCHEMA_VERSION),
     modelId: identifier,
     modelVersion: identifier,
     /** Hashes that pin the trained artefact and its preprocessing (M19). */
@@ -1435,6 +1436,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
       }
       const payload = head.state.value as {
         decoderId: string;
+        decoderVersion: string;
         observationSeconds: number;
       };
       if (entry.decoderId === null) {
@@ -1447,6 +1449,15 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
         return {
           path: "state.value.decoderId",
           reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId}, and this head reports ${payload.decoderId} (M07, M11)`,
+        };
+      }
+      // A decoder is not one algorithm across its releases, and the protocol
+      // conditions the event on "declared decoder/version" for that reason, so
+      // the release binds beside the decoder itself.
+      if (payload.decoderVersion !== entry.decoderVersion) {
+        return {
+          path: "state.value.decoderVersion",
+          reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId} ${entry.decoderVersion}, and this head reports ${payload.decoderVersion} (M07, M11)`,
         };
       }
       if (payload.observationSeconds !== entry.observationSeconds) {

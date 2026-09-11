@@ -61,6 +61,7 @@ import {
   knownOrUnknown,
   parseWith,
   reject,
+  schemaVersionLiteral,
   type Known,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
@@ -595,7 +596,7 @@ const requestScope = z
 
 export const predictionRequestSchema = z
   .object({
-    schemaVersion: z.literal(REQUEST_SCHEMA_VERSION),
+    schemaVersion: schemaVersionLiteral(REQUEST_SCHEMA_VERSION),
     /** Immutable environment/station context identity (M01). */
     contextId: identifier,
     /** UI ownership only: preference and cancellation, never cache identity. */

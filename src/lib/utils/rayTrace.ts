@@ -48,12 +48,10 @@ import {
   resolveRoute,
   routeSampleAtFraction,
   type GeodeticPoint,
+  type AmbiguousRouteReason,
   type ResolvedRoute,
 } from "@/lib/propagation/geometry/route";
-import {
-  hopGeometry,
-  minimumHopCount,
-} from "@/lib/propagation/geometry/hop";
+import { hopGeometry, minimumHopCount } from "@/lib/propagation/geometry/hop";
 import {
   dRegionAbsorption,
   type DRegionCrossing,
@@ -115,10 +113,23 @@ export interface RayPathLosses {
   polarisationDb: number;
 }
 
-/** Why a circuit has no ray path, when it has none. */
+/**
+ * Why a circuit has no ray path, when it has none.
+ *
+ * Every consumer that reads `hops` must narrow on this first. A circuit whose
+ * endpoints determine no great circle, which is what selecting your own QTH as
+ * the target produces, returns zero hops; treating `hops[0]` or an
+ * initial-value-free `reduce` as safe is how that becomes a crash rather than
+ * a "no path" row. `reason` carries the route leaf's own classification so a
+ * caller can say "same place" rather than the generic wording.
+ */
 export type RayPathSupport =
   | { kind: "supported" }
-  | { kind: "ambiguous_geometry"; detail: string }
+  | {
+      kind: "ambiguous_geometry";
+      reason: AmbiguousRouteReason;
+      detail: string;
+    }
   | { kind: "geometrically_unsupported"; detail: string };
 
 export interface ReflectionPoint {
@@ -482,7 +493,11 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
   if (!isResolved(route)) {
     return emptyResult(
-      { kind: "ambiguous_geometry", detail: route.detail },
+      {
+        kind: "ambiguous_geometry",
+        reason: route.reason,
+        detail: route.detail,
+      },
       pathMode,
       frequencyMHz,
       assumptions,

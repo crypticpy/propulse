@@ -23,7 +23,11 @@
  *    M13's lag states and relaxation dynamics belong to PROP-12 and are not
  *    implemented here.
  */
-import { getLedgerEntry } from "@/lib/propagation/context/ledger";
+import {
+  getLedgerEntry,
+  type SourceKind,
+} from "@/lib/propagation/context/ledger";
+import { preferredRecord } from "@/lib/propagation/context/selection";
 import {
   instantMs,
   type BucketWindow,
@@ -63,6 +67,15 @@ export interface TrajectoryOptions {
   readonly observations?: Readonly<Record<string, Selected>>;
   /** Bundled climatological priors, keyed by variable. */
   readonly priors?: Readonly<Record<string, SourceRecord>>;
+  /**
+   * Every driver to report on, whether or not anything covers it.
+   *
+   * A variable whose only product was excluded still has to appear, saying
+   * absent and why. Deriving the driver set from what happened to survive
+   * would drop it from the grid instead, and a silently missing driver reads
+   * as a question nobody asked (M11).
+   */
+  readonly variables?: readonly string[];
   readonly mode: SourceMode;
   readonly requireVerifiedArchive?: boolean;
 }
@@ -81,6 +94,33 @@ interface PlacedForecast {
 }
 
 /**
+ * Whether this record may stand for `variable` as a product of kind `kind`.
+ *
+ * One rule for every branch that consumes a record. A variable the record's own
+ * source never declared is dropped (M11 already says it cannot be selected); a
+ * declared record filed under the wrong driver is a caller bug and throws,
+ * because dropping it would leave the driver mysteriously empty; and a product
+ * of the wrong kind is refused, so an observation cannot be relabelled a
+ * prediction and a prediction cannot be relabelled a climatology (M14).
+ */
+function bindsAs(
+  record: SourceRecord,
+  variable: string,
+  kind: SourceKind,
+  role: string,
+): boolean {
+  const entry = getLedgerEntry(record.sourceId);
+  if (!entry.variables.includes(record.variable)) return false;
+  if (record.variable !== variable) {
+    throw new ContextForecastError(
+      record.sourceId,
+      `carries "${record.variable}" but was filed as the ${role} for "${variable}"`,
+    );
+  }
+  return entry.kind === kind;
+}
+
+/**
  * The forecasts a prediction issued at `issuedAt` could actually have used.
  *
  * A forecast carries its issue time in `forecastIssuedAt`; a record without
@@ -95,20 +135,10 @@ function eligibleForecasts(
 ): PlacedForecast[] {
   const placed: PlacedForecast[] = [];
   for (const record of history) {
-    if (!getLedgerEntry(record.sourceId).variables.includes(record.variable)) {
-      // M11: a variable its own source never declared cannot be selected, so
-      // it is dropped here rather than driving a sample.
-      continue;
-    }
-    if (record.variable !== variable) {
-      // A declared record filed under the wrong driver is a caller bug: the
-      // outlook carries f107, kp and planetary_a under one issue time, and
-      // emitting a flux number as Kp would be silent nonsense.
-      throw new ContextForecastError(
-        record.sourceId,
-        `carries "${record.variable}" but was filed under the driver "${variable}"`,
-      );
-    }
+    // The outlook carries f107, kp and planetary_a under one issue time, so a
+    // misfiled record would emit a flux number as Kp; an observation source
+    // wearing forecast stamps would emit a measurement as a prediction.
+    if (!bindsAs(record, variable, "forecast", "driver")) continue;
     const { stamps } = record;
     if (stamps.forecastIssuedAt === null) {
       throw new ContextForecastError(record.sourceId, "no forecast issue time");
@@ -159,12 +189,22 @@ function coveringForecast(
   let best: PlacedForecast | null = null;
   for (const candidate of placed) {
     if (at < candidate.validFromMs || at >= candidate.validToMs) continue;
-    if (
-      best === null ||
-      candidate.issuedMs > best.issuedMs ||
-      (candidate.issuedMs === best.issuedMs &&
-        candidate.capturedMs > best.capturedMs)
-    ) {
+    if (best === null) {
+      best = candidate;
+      continue;
+    }
+    if (candidate.issuedMs !== best.issuedMs) {
+      if (candidate.issuedMs > best.issuedMs) best = candidate;
+      continue;
+    }
+    if (candidate.capturedMs !== best.capturedMs) {
+      if (candidate.capturedMs > best.capturedMs) best = candidate;
+      continue;
+    }
+    // Two bins issued and captured together cover the same sample. They are
+    // equally current, so the same total order the census uses decides, rather
+    // than the order the caller listed them in.
+    if (preferredRecord(candidate.record, best.record) === candidate.record) {
       best = candidate;
     }
   }
@@ -191,15 +231,7 @@ function bucketKey(bucket: BucketWindow): string {
  * label a prediction as climatology (M11, M14).
  */
 function priorBinds(prior: SourceRecord, variable: string): boolean {
-  const entry = getLedgerEntry(prior.sourceId);
-  if (!entry.variables.includes(prior.variable)) return false;
-  if (prior.variable !== variable) {
-    throw new ContextForecastError(
-      prior.sourceId,
-      `carries "${prior.variable}" but was filed as the prior for "${variable}"`,
-    );
-  }
-  return entry.kind === "bundled";
+  return bindsAs(prior, variable, "bundled", "prior");
 }
 
 /**
@@ -253,6 +285,7 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
   }
 
   const variables = new Set<string>([
+    ...(options.variables ?? []),
     ...Object.keys(options.forecasts),
     ...Object.keys(options.observations ?? {}),
     ...Object.keys(options.priors ?? {}),

@@ -18,6 +18,7 @@
 import type { SourceLedgerEntry } from "@/lib/propagation/context/ledger";
 import {
   ageSecondsAt,
+  canonicalJson,
   instantMs,
   type Instant,
   type Selected,
@@ -158,6 +159,52 @@ export function inactiveBarrierAsOf(
   return barrier;
 }
 
+/**
+ * The record to prefer between two that both passed the same test.
+ *
+ * The newest observation wins, then the newest capture: that is the oracle's
+ * rule and the one a reader expects. Past that the two are equally current, and
+ * leaving the choice to the order a caller happened to list them in would make
+ * the representative, and with it the context identity, depend on nothing. The
+ * remaining order is arbitrary but total, stable and written down: the nearer
+ * term bin first (a record with no stated validity is not a bin and sorts
+ * first), then the variable name, then the canonical form of the record.
+ */
+export function preferredRecord(
+  left: SourceRecord,
+  right: SourceRecord,
+): SourceRecord {
+  return compareRecords(left, right) >= 0 ? left : right;
+}
+
+function validFromRank(record: SourceRecord): number {
+  return record.stamps.validFrom === null
+    ? Number.NEGATIVE_INFINITY
+    : instantMs(record.stamps.validFrom, "validFrom");
+}
+
+/** Positive when `left` is the record to prefer. */
+function compareRecords(left: SourceRecord, right: SourceRecord): number {
+  const observed =
+    instantMs(left.stamps.observedIntervalEndAt, "observedIntervalEndAt") -
+    instantMs(right.stamps.observedIntervalEndAt, "observedIntervalEndAt");
+  if (observed !== 0) return observed;
+  const captured =
+    instantMs(left.stamps.capturedAt, "capturedAt") -
+    instantMs(right.stamps.capturedAt, "capturedAt");
+  if (captured !== 0) return captured;
+  const leftFrom = validFromRank(left);
+  const rightFrom = validFromRank(right);
+  if (leftFrom !== rightFrom) return leftFrom < rightFrom ? 1 : -1;
+  if (left.variable !== right.variable) {
+    return left.variable < right.variable ? 1 : -1;
+  }
+  const leftText = canonicalJson(left);
+  const rightText = canonicalJson(right);
+  if (leftText === rightText) return 0;
+  return leftText < rightText ? 1 : -1;
+}
+
 type ExclusionOf = Extract<Selected, { state: "excluded" }>["reason"];
 
 /**
@@ -271,44 +318,30 @@ export function selectAsOf(
   const barrierAt = barrier === null ? null : instantMs(barrier, "barrier");
 
   let selected: SourceRecord | null = null;
-  let selectedKey: [number, number] = [
-    Number.NEGATIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-  ];
   let latest: SourceRecord | null = null;
-  let latestAt = Number.NEGATIVE_INFINITY;
-  let excluded: ExclusionOf | null = null;
-  let excludedAt = Number.NEGATIVE_INFINITY;
+  let excluded: { reason: ExclusionOf; record: SourceRecord } | null = null;
 
   for (const record of history) {
-    const observed = admit(record, options);
-    if (observed > latestAt) {
-      latest = record;
-      latestAt = observed;
-    }
+    admit(record, options);
+    latest = latest === null ? record : preferredRecord(record, latest);
 
-    const captured = instantMs(record.stamps.capturedAt, "capturedAt");
     const failure = exclusionFor(record, options, issued, barrierAt);
 
     if (failure !== null) {
       // The reason reported for the source is the one belonging to its newest
       // record: an older record failing for another reason is not what a
-      // reader needs to know about.
-      if (observed >= excludedAt) {
-        excluded = failure;
-        excludedAt = observed;
+      // reader needs to know about. Two equally new records are separated by
+      // the same total order everything else here uses.
+      if (
+        excluded === null ||
+        preferredRecord(record, excluded.record) === record
+      ) {
+        excluded = { reason: failure, record };
       }
       continue;
     }
 
-    const key: [number, number] = [observed, captured];
-    if (
-      key[0] > selectedKey[0] ||
-      (key[0] === selectedKey[0] && key[1] > selectedKey[1])
-    ) {
-      selected = record;
-      selectedKey = key;
-    }
+    selected = selected === null ? record : preferredRecord(record, selected);
   }
 
   if (selected !== null) {
@@ -321,6 +354,8 @@ export function selectAsOf(
       ),
     };
   }
-  if (excluded !== null) return { state: "excluded", reason: excluded, latest };
+  if (excluded !== null) {
+    return { state: "excluded", reason: excluded.reason, latest };
+  }
   return { state: "absent", reason: "no_record_in_history" };
 }

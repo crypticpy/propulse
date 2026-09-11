@@ -556,3 +556,52 @@ describe("an instant without a UTC offset is not an instant", () => {
     ).toThrow(ContextTimeError);
   });
 });
+
+describe("two equally current records are ordered by rule, not by input order", () => {
+  it("selects the same record however the history is listed", () => {
+    const history = [
+      record({
+        observedIntervalEndAt: "2026-09-11T11:45:00.000Z",
+        value: 3,
+        revision: "a",
+      }),
+      record({
+        observedIntervalEndAt: "2026-09-11T11:45:00.000Z",
+        value: 5,
+        revision: "b",
+      }),
+    ];
+    const options = {
+      issuedAt: "2026-09-11T12:00:00.000Z",
+      entry: getLedgerEntry("kp"),
+      mode: "cached_live" as const,
+    };
+    const forward = selectAsOf(history, options);
+    const reversed = selectAsOf([...history].reverse(), options);
+    expect(forward.state).toBe("selected");
+    expect(reversed).toEqual(forward);
+  });
+
+  it("reports the same exclusion however the history is listed", () => {
+    const history = [
+      record({
+        observedIntervalEndAt: "2026-09-11T09:00:00.000Z",
+        value: 3,
+        revision: "a",
+      }),
+      record({
+        observedIntervalEndAt: "2026-09-11T09:00:00.000Z",
+        value: 5,
+        revision: "b",
+      }),
+    ];
+    const options = {
+      issuedAt: "2026-09-11T12:00:00.000Z",
+      entry: getLedgerEntry("kp"),
+      mode: "cached_live" as const,
+    };
+    const forward = selectAsOf(history, options);
+    expect(forward.state).toBe("excluded");
+    expect(selectAsOf([...history].reverse(), options)).toEqual(forward);
+  });
+});

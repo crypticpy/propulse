@@ -27,6 +27,7 @@ import {
   ContextVariableError,
   eligibleAsOf,
   inactiveBarrierAsOf,
+  preferredRecord,
   selectAsOf,
 } from "@/lib/propagation/context/selection";
 import {
@@ -35,8 +36,8 @@ import {
 } from "@/lib/propagation/context/trajectory";
 import {
   ageSecondsAt,
+  canonicalJson as canonical,
   CONTEXT_SCHEMA_VERSION,
-  instantMs,
   type ContextSnapshot,
   type DatedRecord,
   type ExclusionReason,
@@ -82,17 +83,6 @@ export interface EvidenceSourceProjection {
   readonly ageSeconds: number | null;
   readonly eligible: boolean;
   readonly exclusionReason: string | null;
-}
-
-/** Deterministic serialization: object keys sorted, arrays in order. */
-function canonical(value: unknown): string {
-  if (value === null || typeof value !== "object")
-    return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, child]) => child !== undefined)
-    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-  return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`).join(",")}}`;
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -264,14 +254,16 @@ export async function buildContextSnapshot(
       reason: ExclusionReason;
       latest: SourceRecord | null;
     } | null = null;
-    let excludedAt = Number.NEGATIVE_INFINITY;
 
+    // Which variable speaks for a multi-variable source is decided by the same
+    // total order selection uses, so listing the same records in another order
+    // cannot change the representative or the identity that follows from it.
     for (const outcome of Object.values(outcomes)) {
       if (outcome.state === "selected") {
-        const at = instantMs(outcome.record.stamps.observedIntervalEndAt);
         if (
           representative === null ||
-          at > instantMs(representative.record.stamps.observedIntervalEndAt)
+          preferredRecord(outcome.record, representative.record) ===
+            outcome.record
         ) {
           representative = {
             record: outcome.record,
@@ -281,13 +273,16 @@ export async function buildContextSnapshot(
         continue;
       }
       if (outcome.state !== "excluded") continue;
-      const at =
-        outcome.latest === null
-          ? Number.NEGATIVE_INFINITY
-          : instantMs(outcome.latest.stamps.observedIntervalEndAt);
-      if (excluded === null || at > excludedAt) {
+      if (excluded === null) {
         excluded = { reason: outcome.reason, latest: outcome.latest };
-        excludedAt = at;
+        continue;
+      }
+      if (outcome.latest === null) continue;
+      if (
+        excluded.latest === null ||
+        preferredRecord(outcome.latest, excluded.latest) === outcome.latest
+      ) {
+        excluded = { reason: outcome.reason, latest: outcome.latest };
       }
     }
 
@@ -357,6 +352,12 @@ export async function buildContextSnapshot(
   const trajectory = buildTrajectory({
     issuedAt,
     hours: options.trajectoryHours ?? DEFAULT_GRID_HOURS,
+    // Every variable any declared source carries, so a driver whose only
+    // product was excluded still appears on the grid saying absent and why,
+    // rather than vanishing from it.
+    variables: CENSUS_SOURCE_IDS.flatMap((sourceId) => [
+      ...getLedgerEntry(sourceId).variables,
+    ]),
     forecasts,
     observations,
     priors,

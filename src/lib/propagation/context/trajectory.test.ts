@@ -637,3 +637,83 @@ describe("a bundled prior is bound to its key and to a bundled product", () => {
     expect(samples[0].drivers.kp).not.toHaveProperty("value");
   });
 });
+
+describe("only a forecast product may drive a forecast sample", () => {
+  it("refuses an observation record wearing forecast stamps", () => {
+    // kp is an observation source. A record of it with a valid interval is
+    // still a measurement, and placing it would report it as a prediction.
+    const dressedUp = forecast({
+      sourceId: "kp",
+      variable: "kp",
+      value: 9,
+      issuedAt: "2026-09-11T11:00:00.000Z",
+      validFrom: "2026-09-11T12:00:00.000Z",
+      validTo: "2026-09-11T15:00:00.000Z",
+      intervalSeconds: 10800,
+    });
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: { kp: [dressedUp] },
+      mode: "live",
+    });
+    for (const sample of samples) {
+      expect(sample.drivers.kp.origin).toBe("absent");
+      expect(sample.drivers.kp).not.toHaveProperty("value");
+    }
+  });
+
+  it("picks the same bin however equally issued forecasts are listed", () => {
+    const twins = [
+      forecast({
+        sourceId: "kp_forecast",
+        variable: "kp",
+        value: 3,
+        issuedAt: "2026-09-11T11:00:00.000Z",
+        validFrom: "2026-09-11T12:00:00.000Z",
+        validTo: "2026-09-11T15:00:00.000Z",
+        intervalSeconds: 10800,
+        revision: "twin-a",
+      }),
+      forecast({
+        sourceId: "kp_forecast",
+        variable: "kp",
+        value: 5,
+        issuedAt: "2026-09-11T11:00:00.000Z",
+        validFrom: "2026-09-11T12:00:00.000Z",
+        validTo: "2026-09-11T15:00:00.000Z",
+        intervalSeconds: 10800,
+        revision: "twin-b",
+      }),
+    ];
+    const forward = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 1,
+      forecasts: { kp: twins },
+      mode: "live",
+    });
+    const reversed = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 1,
+      forecasts: { kp: [...twins].reverse() },
+      mode: "live",
+    });
+    expect(forward.samples[0].drivers.kp.origin).toBe("issued_forecast");
+    expect(reversed.samples[0].drivers.kp).toEqual(
+      forward.samples[0].drivers.kp,
+    );
+  });
+
+  it("reports a declared driver nothing covers instead of dropping its key", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: {},
+      variables: ["planetary_a"],
+      mode: "live",
+    });
+    for (const sample of samples) {
+      expect(sample.drivers.planetary_a?.origin).toBe("absent");
+    }
+  });
+});

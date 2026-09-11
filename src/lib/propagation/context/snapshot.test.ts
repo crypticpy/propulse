@@ -4,7 +4,11 @@ import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json"
 import { parseResult } from "@/lib/propagation/contracts/result";
 
 import { recordsFromSnapshotRow, type SolarSnapshotRow } from "./adapters";
-import { DISABLED_CAPABILITIES, LEDGER_VERSION } from "./ledger";
+import {
+  DISABLED_CAPABILITIES,
+  getLedgerEntry,
+  LEDGER_VERSION,
+} from "./ledger";
 import {
   buildContextSnapshot,
   CENSUS_SOURCE_IDS,
@@ -446,5 +450,82 @@ describe("buildContextSnapshot: the trajectory reads the censused records", () =
       base.sources.kp_forecast.sourceVersion,
     );
     expect(moved.contextId).not.toBe(base.contextId);
+  });
+});
+
+describe("buildContextSnapshot: a declared driver never silently disappears", () => {
+  it("names every declared variable in every sample, covered or not", async () => {
+    const declared = new Set(
+      CENSUS_SOURCE_IDS.flatMap((sourceId) => [
+        ...getLedgerEntry(sourceId).variables,
+      ]),
+    );
+    const built = await snapshot({ trajectoryHours: 2 });
+    for (const sample of built.trajectory) {
+      for (const variable of declared) {
+        expect(
+          sample.drivers[variable]?.origin,
+          `${variable} has no driver at ${sample.validAt}`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  it("reports a network only driver as absent in offline mode rather than omitting it", async () => {
+    const built = await snapshot({ mode: "offline", trajectoryHours: 2 });
+    for (const sample of built.trajectory) {
+      const driver = sample.drivers.planetary_a;
+      expect(driver?.origin).toBe("absent");
+      if (driver === undefined || driver.origin !== "absent") continue;
+      expect(driver.reason.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("buildContextSnapshot: the identity does not depend on input order", () => {
+  const daily = (value: number, day: string) => ({
+    sourceId: "f107_forecast",
+    variable: "f107",
+    units: "solar flux units",
+    value,
+    stamps: {
+      observedIntervalStartAt: null,
+      observedIntervalEndAt: "2026-09-11T17:30:00.000Z",
+      publication: {
+        kind: "declared" as const,
+        publishedAt: "2026-09-11T17:30:00.000Z",
+      },
+      capturedAt: "2026-09-11T17:40:00.000Z",
+      forecastIssuedAt: "2026-09-11T17:30:00.000Z",
+      validFrom: `${day}T00:00:00.000Z`,
+      validTo: `${day}T23:59:59.000Z`,
+      intervalSeconds: 86400,
+      revision: `f107 ${day}`,
+      archiveClass: "verified_as_issued" as const,
+    },
+    origin: "network" as const,
+    activity: "not_reported" as const,
+    qualityFlags: ["predicted"],
+  });
+
+  it("keeps one representative and one contextId however the bins are listed", async () => {
+    const bins = [
+      daily(150, "2026-09-12"),
+      daily(152, "2026-09-13"),
+      daily(155, "2026-09-14"),
+    ];
+    const forward = await snapshot({
+      histories: { ...historiesFrom(ROW), f107_forecast: bins },
+      trajectoryHours: 2,
+    });
+    const reversed = await snapshot({
+      histories: { ...historiesFrom(ROW), f107_forecast: [...bins].reverse() },
+      trajectoryHours: 2,
+    });
+    expect(forward.sources.f107_forecast.state).toBe("selected");
+    expect(reversed.sources.f107_forecast).toEqual(
+      forward.sources.f107_forecast,
+    );
+    expect(reversed.contextId).toBe(forward.contextId);
   });
 });

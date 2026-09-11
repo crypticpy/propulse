@@ -301,4 +301,22 @@ export function ageSecondsAt(
   return Math.max(0, Math.ceil(delta / 1000));
 }
 
+/**
+ * Deterministic serialization: object keys sorted, arrays in order.
+ *
+ * One spelling for one value, so a digest of it pins the content rather than
+ * the order a producer happened to write it in, and two runs over the same
+ * bytes agree. It also gives the record comparison a last resort total order
+ * to fall back on when every stamp ties.
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object")
+    return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, child]) => child !== undefined)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`).join(",")}}`;
+}
+
 export type { SourceMode };

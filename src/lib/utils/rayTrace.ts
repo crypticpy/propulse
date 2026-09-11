@@ -50,6 +50,7 @@ import {
   type GeodeticPoint,
   type AmbiguousRouteReason,
   type ResolvedRoute,
+  type RouteResolution,
 } from "@/lib/propagation/geometry/route";
 import { hopGeometry, minimumHopCount } from "@/lib/propagation/geometry/hop";
 import {
@@ -195,19 +196,16 @@ function routeFor(
     RayTraceInput,
     "startLat" | "startLon" | "endLat" | "endLon" | "pathMode"
   >,
-): ResolvedRoute | { detail: string } {
-  const route = resolveRoute(
+): RouteResolution {
+  return resolveRoute(
     { latitudeDeg: input.startLat, longitudeDeg: input.startLon },
     { latitudeDeg: input.endLat, longitudeDeg: input.endLon },
     { direction: input.pathMode ?? "short" },
   );
-  return route.kind === "resolved" ? route : { detail: route.detail };
 }
 
-function isResolved(
-  route: ResolvedRoute | { detail: string },
-): route is ResolvedRoute {
-  return "kind" in route;
+function isResolved(route: RouteResolution): route is ResolvedRoute {
+  return route.kind === "resolved";
 }
 
 // ---------------------------------------------------------------------------

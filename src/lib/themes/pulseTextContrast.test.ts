@@ -911,12 +911,34 @@ function extractObjectEntries(
         // existing recursive `resolveConstRefs` call on a resolved entry's
         // `literal` resolves them exactly like any other reference (Codex,
         // PR #874 round 33).
+        //
+        // The entry is registered even when BOTH `bodies` and `refs` come
+        // back empty -- a value made up entirely of an excluded keyword
+        // (`true`/`false`/`null`/`undefined`, per `IDENTIFIER_REF_KEYWORDS`)
+        // or a bare numeric/other literal with no string and no identifier
+        // at all (`pulse: 42`). Before round 43, dropping the entry here
+        // conflated two different things a caller needs told apart: the key
+        // being ABSENT from the object literal at all, vs. the key being
+        // PRESENT with a value this scanner can't read a class out of --
+        // `{ className: undefined }` genuinely clears `className` at
+        // runtime (the key is present, its resolved value is just empty),
+        // which is a real override, but a dropped entry made it
+        // indistinguishable from `{ title: "status" }` (no `className` key
+        // at all, nothing to override with) to any caller checking
+        // `entries.has(key)` (`resolveInlineObjectClassName`,
+        // `classifySpreadExpression`'s chain-narrowing branch -- Codex, PR
+        // #874 round 43 thread 1, correcting round 42 thread 1's own
+        // `{ className: undefined }` handling, which Codex flagged as
+        // backwards). An empty `literal` here is also the correct fail-
+        // closed value for a value this walk genuinely can't read any class
+        // text out of at all (no quoted body, no identifier) -- it resolves
+        // to "no known class contribution," never fabricating a violation
+        // out of a shape this scanner has no model for, same direction as
+        // every other fail-closed convention in this file.
         const refs = extractIdentifierRefs(valueText);
-        if (bodies.length > 0 || refs.length > 0) {
-          const entry: ConstEntry = { literal: [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") };
-          entries.set(key, entry);
-          order.push({ kind: "entry", key, entry });
-        }
+        const entry: ConstEntry = { literal: [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") };
+        entries.set(key, entry);
+        order.push({ kind: "entry", key, entry });
       }
     }
     i = valueEnd;
@@ -2529,13 +2551,18 @@ const SPREAD_ATTR_START_RE = /\{\s*\.\.\.\s*/g;
  * same "resolvable but imprecise" convention every other object-valued
  * reference in this file already uses. Also reports whether the resolved
  * object actually has a `className` key of its own at all
- * (`resolved.entries?.has("className")`) -- a `{ className: undefined }`
- * entry never makes it into `entries` in the first place
- * (`extractObjectEntries`'s identifier-only branch drops a value whose only
- * content is the `undefined` keyword, since `extractIdentifierRefs`
- * excludes it as a known keyword), so this reports `false` for that shape
- * too, exactly the "treat as not supplying" rule `findClassNameSites` needs
- * (Codex, PR #874 round 42 thread 1). */
+ * (`resolved.entries?.has("className")`) -- KEY PRESENCE, not whether its
+ * value resolves to any usable class text: `{ className: undefined }`,
+ * `{ className: null }`, and `{ className: cond ? a : b }` (where neither
+ * branch is readable) all still register the key in `entries` (with an
+ * empty `literal` when nothing readable was found), since `className:
+ * undefined` genuinely clears `className` at runtime and really does
+ * override an earlier source -- only a spread whose resolved object never
+ * wrote the key AT ALL (`{ title: "status" }`) leaves the earlier source in
+ * force (Codex, PR #874 round 43 thread 1, correcting round 42 thread 1's
+ * own `{ className: undefined }` handling -- Codex was right that it had
+ * this backwards: presence of the key overrides regardless of value
+ * readability, and only true absence doesn't). */
 function resolveInlineObjectClassName(
   objectText: string,
   constMap: ConstDecl[],
@@ -2558,52 +2585,219 @@ function resolveInlineObjectClassName(
   };
 }
 
+/** Splits `text` at its outermost `? :` ternary, if it has one at depth 0
+ * (i.e. not nested inside `(...)`/`[...]`/`{...}` and not inside a quoted or
+ * template string) -- `null` otherwise. A `?` immediately followed by `.` or
+ * another `?` is optional-chaining/nullish-coalescing syntax, never a
+ * ternary, and is skipped as a two-character unit rather than counted. Every
+ * other top-level `?` opens one level of "still looking for this ternary's
+ * own `:`" (`qDepth`); the `:` that brings `qDepth` back to zero is the
+ * outermost ternary's own divider between its true- and false-branches --
+ * this single left-to-right counter handles both a nested ternary written in
+ * the true-branch (`a ? b ? x : y : z`, real JS grammar: the true-branch
+ * greedily consumes the nested ternary, so the outer split lands on the
+ * SECOND `:`) and one chained in the false-branch (`a ? b : c ? d : e`,
+ * right-associative: the split lands on the FIRST `:`, leaving `c ? d : e`
+ * for a caller's own recursive call to split again) without needing to know
+ * which shape it's looking at up front (Codex, PR #874 round 43 thread 2). */
+function splitTopLevelTernary(text: string): { ifTrue: string; ifFalse: string } | null {
+  let depth = 0;
+  let qDepth = 0;
+  let firstQIndex = -1;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(text, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      i = close === -1 ? text.length : close + 1;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0 && c === "?") {
+      if (text[i + 1] === "." || text[i + 1] === "?") {
+        i += 2;
+        continue;
+      }
+      if (qDepth === 0) firstQIndex = i;
+      qDepth++;
+      i++;
+      continue;
+    }
+    if (depth === 0 && c === ":" && qDepth > 0) {
+      qDepth--;
+      if (qDepth === 0) {
+        return { ifTrue: text.slice(firstQIndex + 1, i).trim(), ifFalse: text.slice(i + 1).trim() };
+      }
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return null;
+}
+
+/** Splits `text` at its first top-level `&&`, `||`, or `??` (depth-0, outside
+ * quoted/template strings), if it has one -- `null` otherwise. Only the
+ * leftmost top-level occurrence is used; this file's fixtures only ever pair
+ * two operands, so a full-precedence multi-operator parse isn't needed
+ * (Codex, PR #874 round 43 thread 2). */
+function splitTopLevelLogical(text: string): { left: string; right: string; op: "&&" | "||" | "??" } | null {
+  let depth = 0;
+  let i = 0;
+  while (i < text.length - 1) {
+    const c = text[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(text, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      i = close === -1 ? text.length : close + 1;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0) {
+      const two = text.slice(i, i + 2);
+      if (two === "&&" || two === "||" || two === "??") {
+        return { left: text.slice(0, i).trim(), right: text.slice(i + 2).trim(), op: two };
+      }
+    }
+    i++;
+  }
+  return null;
+}
+
 /** Classifies one spread attribute's own expression text (everything between
- * its `...` and its matching `}`) into a resolved-or-fail-closed raw class
- * string, for `collectSpreadClassSources` (Codex, PR #874 round 40 thread 1):
+ * its `...` and its matching `}`), or one branch of a conditional/logical
+ * spread expression recursed into by this same function, into a resolved-or-
+ * fail-closed raw class string plus two signals, for `collectSpreadClassSources`
+ * and `classifySpreadExpression` (Codex, PR #874 round 40 thread 1; round 43
+ * thread 2 adds the conditional/logical recursion):
+ * - A parenthesised grouping (`(active ? a : b)`) -- unwrapped one layer and
+ *   recursed into.
+ * - A top-level ternary (`cond ? a : b`, plain or nested either branch) --
+ *   both branches recursed into and UNIONED: either branch supplying
+ *   `className` makes the whole expression supply it (a real render can take
+ *   either branch, so the census check has to cover both), and the `raw` text
+ *   is both branches' own raw text space-joined so a `PULSE_CLASS_RE` (or
+ *   contrast) check downstream sees whichever branch actually carries
+ *   `animate-pulse`. Both branches must themselves resolve (`resolvable:
+ *   true`) or the whole ternary fails closed as unresolvable, same direction
+ *   as every other "can't rule this out, don't guess" case in this file.
+ * - A top-level `||`/`??` (`a || b`, `obj ?? fallback`) -- same union-both-
+ *   sides treatment as a ternary: either operand could be the one that's
+ *   actually spread at runtime (a fallback pattern), so both must resolve.
+ * - A top-level `&&` (`cond && obj`) -- NOT symmetric: the left operand is
+ *   JS's own boolean-guard idiom (`{...(isActive && activeProps)}`), and
+ *   spreading a falsy primitive (`{...false}`) is a real, valid no-op in JS,
+ *   never a `className` supplier -- so only the RIGHT operand needs to
+ *   resolve; the left is always treated as "resolves, supplies nothing"
+ *   without requiring it to look like a class source at all (a literal
+ *   boolean/comparison/prop-guard on the left is expected, not a fail-closed
+ *   case).
  * - An identifier or dotted member chain (`props`, `styles.alert`) -- the
  *   existing round-38/39 path: resolved through `.className` member access
  *   when the base has a visible declaration, left as its own raw (inert)
  *   text otherwise.
  * - An inline object literal that is the expression's ENTIRE content
  *   (`{ className: "…" }`, `{ ...base, className: "…" }`) -- resolved via
- *   `resolveInlineObjectClassName`.
- * - Anything else at all (a call expression `getProps()`, a conditional
- *   `cond ? a : b`, a template literal, ...) -- this scanner has no model for
- *   what such an expression evaluates to, so it fails closed exactly like an
- *   unresolvable identifier already does: left as its own raw, unresolved
- *   text, which contributes nothing new rather than fabricating a violation
- *   (round 38 thread 1's own "no idea what this refers to" convention).
+ *   `resolveInlineObjectClassName`; always `resolvable: true`, since an
+ *   object literal's own shape is fully known either way.
+ * - Anything else at all (a call expression `getProps()`, a template
+ *   literal, ...) -- this scanner has no model for what such an expression
+ *   evaluates to, so it fails closed exactly like an unresolvable identifier
+ *   already does: left as its own raw, unresolved text, which contributes
+ *   nothing new rather than fabricating a violation (round 38 thread 1's own
+ *   "no idea what this refers to" convention); `resolvable: false`.
  *
- * Also reports `suppliesClassName`: whether this spread's resolved source
- * actually carries a `className` key of its own, for `findClassNameSites`'s
- * "a spread only overrides when it actually supplies `className`" rule
- * (Codex, PR #874 round 42 thread 1). `false` covers every case this
- * scanner can't rule a `className` key IN for -- an unresolvable base (no
- * visible decl), a chain segment that fails to narrow partway through
- * (`props.data` where `props`'s own entries have no `data` key), and the
- * catch-all "anything else" branch (a call, a ternary, ...) -- fail-closed
- * the same direction as everywhere else in this file: the earlier source on
- * the tag stays in force rather than being silently erased by something
- * this scanner can't see into. `true` only when a precisely-resolved object
- * -- an inline literal, or an identifier/chain with a visible declaration
- * whose own entries actually include the key -- has a `className` entry;
- * the inline-object branch's own `suppliesClassName` (from
- * `resolveInlineObjectClassName`) already handles a `{ className: undefined
- * }` shape correctly, since that never reaches `entries` at all. The `raw`
- * text returned is unchanged from before this round -- only the new
- * `suppliesClassName` signal is added alongside it. */
-function classifySpreadExpression(
+ * `suppliesClassName` is `findClassNameSites`'s "a spread only overrides when
+ * it actually supplies `className`" signal (Codex, PR #874 round 42 thread
+ * 1) -- KEY PRESENCE in the resolved object, not whether its value resolves
+ * to usable class text (round 43 thread 1 correction: `resolveInlineObjectClassName`
+ * and `extractObjectEntries` now register a `className` key even when its
+ * value is `undefined`/`null`/otherwise unreadable, since that's still a real
+ * override at runtime). `resolvable` is this function's own recursion signal
+ * (not part of `classifySpreadExpression`'s public return shape) -- `false`
+ * for the base case this scanner truly can't see into at all (an
+ * unresolvable identifier base, the catch-all branch), so a conditional/
+ * logical expression built out of it fails closed as a whole instead of
+ * guessing. */
+function classifyBranchExpression(
   exprText: string,
   constMap: ConstDecl[],
   atIndex: number,
-): { raw: string; suppliesClassName: boolean } {
+): { raw: string; suppliesClassName: boolean; resolvable: boolean } {
   const trimmed = exprText.trim();
+
+  if (trimmed.startsWith("(")) {
+    const { endIndex } = extractBalanced(trimmed, 0, "(", ")");
+    if (endIndex === trimmed.length - 1) {
+      return classifyBranchExpression(trimmed.slice(1, -1), constMap, atIndex);
+    }
+  }
+
+  const ternary = splitTopLevelTernary(trimmed);
+  if (ternary) {
+    const ifTrue = classifyBranchExpression(ternary.ifTrue, constMap, atIndex);
+    const ifFalse = classifyBranchExpression(ternary.ifFalse, constMap, atIndex);
+    if (!ifTrue.resolvable || !ifFalse.resolvable) {
+      return { raw: trimmed, suppliesClassName: false, resolvable: false };
+    }
+    return {
+      raw: [ifTrue.raw, ifFalse.raw].filter(Boolean).join(" "),
+      suppliesClassName: ifTrue.suppliesClassName || ifFalse.suppliesClassName,
+      resolvable: true,
+    };
+  }
+
+  const logical = splitTopLevelLogical(trimmed);
+  if (logical) {
+    const right = classifyBranchExpression(logical.right, constMap, atIndex);
+    if (logical.op === "&&") {
+      // The left operand is a boolean guard, not a candidate className
+      // source -- spreading its falsy value is a real, inert no-op in JS,
+      // so it never needs to resolve for the expression as a whole to.
+      if (!right.resolvable) return { raw: trimmed, suppliesClassName: false, resolvable: false };
+      return { raw: right.raw, suppliesClassName: right.suppliesClassName, resolvable: true };
+    }
+    const left = classifyBranchExpression(logical.left, constMap, atIndex);
+    if (!left.resolvable || !right.resolvable) {
+      return { raw: trimmed, suppliesClassName: false, resolvable: false };
+    }
+    return {
+      raw: [left.raw, right.raw].filter(Boolean).join(" "),
+      suppliesClassName: left.suppliesClassName || right.suppliesClassName,
+      resolvable: true,
+    };
+  }
+
   if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(trimmed)) {
     const segments = trimmed.split(".");
     const baseName = segments[0];
     const decl = visibleDecl(constMap, baseName, atIndex);
-    if (!decl) return { raw: trimmed, suppliesClassName: false };
+    if (!decl) return { raw: trimmed, suppliesClassName: false, resolvable: false };
     let candidates: ConstEntry[] | null = [{ literal: decl.literal, entries: decl.entries }];
     for (const seg of segments.slice(1)) {
       const narrowed: ConstEntry[] = candidates!
@@ -2613,15 +2807,31 @@ function classifySpreadExpression(
       if (!candidates) break;
     }
     const suppliesClassName = candidates !== null && candidates.some((c) => c.entries?.has("className"));
-    return { raw: resolveConstRefs(`${trimmed}.className`, constMap, atIndex), suppliesClassName };
+    return { raw: resolveConstRefs(`${trimmed}.className`, constMap, atIndex), suppliesClassName, resolvable: true };
   }
   if (trimmed.startsWith("{")) {
     const { endIndex } = extractBalanced(trimmed, 0, "{", "}");
     if (endIndex === trimmed.length - 1) {
-      return resolveInlineObjectClassName(trimmed, constMap, atIndex);
+      return { ...resolveInlineObjectClassName(trimmed, constMap, atIndex), resolvable: true };
     }
   }
-  return { raw: trimmed, suppliesClassName: false };
+  return { raw: trimmed, suppliesClassName: false, resolvable: false };
+}
+
+/** Public entry point `collectSpreadClassSources` calls for one spread
+ * attribute's own expression text -- thin wrapper over
+ * `classifyBranchExpression` that collapses its `resolvable: false` case down
+ * to this function's original two-field wire shape (`raw` left as the whole
+ * expression's own inert trimmed text, `suppliesClassName: false`), same as
+ * every caller already expects (Codex, PR #874 round 43 thread 2). */
+function classifySpreadExpression(
+  exprText: string,
+  constMap: ConstDecl[],
+  atIndex: number,
+): { raw: string; suppliesClassName: boolean } {
+  const result = classifyBranchExpression(exprText, constMap, atIndex);
+  if (!result.resolvable) return { raw: exprText.trim(), suppliesClassName: false };
+  return { raw: result.raw, suppliesClassName: result.suppliesClassName };
 }
 
 /** True when `index` is the exact start of a top-level attribute of the tag
@@ -4095,6 +4305,53 @@ function blankCommentsAndQuotedJsx(source: string): string {
     return len;
   }
 
+  /** A regex literal starting at `i` (`source[i]` is the opening `/`,
+   * already confirmed by the caller to be in expression position and not
+   * immediately followed by `/` or `*`, which are always a line/block
+   * comment in real JS regardless of position -- an empty regex body isn't
+   * valid syntax, so `//` can never actually be one). Consumed as a single
+   * atomic unit -- delimiters, escapes (`\/` doesn't close it), and a
+   * character class's own unescaped `/` (`[/]`, doesn't close it either,
+   * only a genuinely unescaped `/` outside `[...]` does) -- plus any
+   * trailing flag letters, so none of its internal characters are ever
+   * re-examined one at a time by `scanJs`'s own per-character loop, where an
+   * escaped-slash pair near the closing delimiter could otherwise line up
+   * into what looks like a `//` line-comment start partway through (`const
+   * separator = /\/\//;` -- Codex, PR #874 round 43 thread 3). Returns the
+   * index just past the literal (delimiters and flags included), or `null`
+   * if the line ends (or source runs out) before an unescaped, non-class
+   * closing `/` is found -- not actually a regex after all, left for the
+   * caller to fall back to treating `source[i]` as an ordinary character. */
+  function scanRegexLiteral(i: number): number | null {
+    let j = i + 1;
+    let inCharClass = false;
+    while (j < len) {
+      const c = source[j];
+      if (c === "\n") return null;
+      if (c === "\\") {
+        j += 2;
+        continue;
+      }
+      if (c === "[") {
+        inCharClass = true;
+        j++;
+        continue;
+      }
+      if (c === "]") {
+        inCharClass = false;
+        j++;
+        continue;
+      }
+      if (c === "/" && !inCharClass) {
+        j++;
+        while (j < len && /[a-zA-Z]/.test(source[j])) j++;
+        return j;
+      }
+      j++;
+    }
+    return null;
+  }
+
   /** JS-mode text starting at `i`: comments and strings/templates are real;
    * a `<` in expression position with a JSX-tag shape pushes into
    * `scanJsxElement`. Runs to end of source (`stopChar === null`, the
@@ -4110,13 +4367,28 @@ function blankCommentsAndQuotedJsx(source: string): string {
    * (including the comment) back to the caller as raw, unblanked JSX text
    * (Codex, PR #874 round 36). A string/template's own braces never reach
    * this counter -- `scanQuotedString`/`scanTemplate` consume their whole
-   * span as a unit before the per-character loop here ever sees them.
-   * Returns the index it stopped at. */
+   * span as a unit before the per-character loop here ever sees them. A `/`
+   * in expression position (`isExpressionPosition`, reused unchanged from
+   * its round-25/33 `<`-vs-comparison job -- a `/` is division only right
+   * after a value: an identifier, a number, `)`, `]`, or a string, and a
+   * regex literal exactly everywhere else) that isn't immediately a `//`/
+   * `/*` comment start is a regex literal, consumed whole by
+   * `scanRegexLiteral` before this loop's own comment checks ever see its
+   * interior characters (Codex, PR #874 round 43 thread 3). Returns the
+   * index it stopped at. */
   function scanJs(i: number, stopChar: "}" | null): number {
     let depth = 0;
     while (i < len) {
       const c = source[i];
       if (stopChar !== null && c === stopChar && depth === 0) return i;
+      if (c === "/" && source[i + 1] !== "/" && source[i + 1] !== "*" && isExpressionPosition(source, i)) {
+        const regexEnd = scanRegexLiteral(i);
+        if (regexEnd !== null) {
+          out.push(source.slice(i, regexEnd));
+          i = regexEnd;
+          continue;
+        }
+      }
       if (c === "/" && source[i + 1] === "/") {
         const nl = source.indexOf("\n", i);
         const end = nl === -1 ? len : nl;
@@ -6746,6 +7018,108 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("does not mistake a regex literal ending in an escaped slash for a `//` line comment, so a following real site is still caught (#874 round 43 thread 3)", () => {
+    // `/\/\//` is a regex matching a literal "//" -- its own last two
+    // characters (an escaped slash's closing `/` immediately followed by the
+    // regex's own closing delimiter `/`) line up into what looks exactly
+    // like a `//` line-comment start once `scanJs`'s old per-character loop
+    // reached them one at a time, blanking the rest of the line -- including
+    // a real pulse site on the SAME line right after the regex. Consuming
+    // the whole regex literal as one atomic unit (`scanRegexLiteral`) before
+    // the comment check ever sees its interior fixes this.
+    const fixture =
+      'const separator = /\\/\\//; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("does not mistake a regex character class containing a bare `/` for the regex's own closing delimiter", () => {
+    // `[/]` -- an unescaped `/` INSIDE a character class -- doesn't close
+    // the regex; only an unescaped `/` outside `[...]` does. Getting this
+    // wrong would close the regex early, leaving its real closing `/` (plus
+    // everything after) to be walked one character at a time by the
+    // now-resumed per-character loop, right past a real site on the same
+    // line.
+    const fixture =
+      'const isSlash = /[/]/; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("does not mistake a regex literal's own trailing flags for anything else, and still catches a following real site", () => {
+    const fixture =
+      'const re = /foo-bar/gi; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still treats `a / b` division after a value as division, not a regex, so a following real site is still caught", () => {
+    // `isExpressionPosition` (reused from the `<`-vs-comparison job) is what
+    // tells a division `/` apart from a regex-starting one: right after an
+    // identifier/number/`)`/`]`/string, `/` is division, everywhere else in
+    // this file's own convention it's a regex start. Division isn't
+    // affected by round 43's regex handling at all -- it was never
+    // misdetected as a comment start either -- pinned down here as a
+    // non-regression companion to the regex fixtures above.
+    const fixture =
+      'const half = a / b; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("does not mistake a `//` line comment for a regex literal, still blanking it (non-regression)", () => {
+    // `//` immediately together can never actually be a regex (an empty
+    // regex body isn't valid syntax) -- always a comment, in real JS and in
+    // this scanner's own regex-start check alike (excluded up front by the
+    // `source[i + 1] !== "/"` guard before `isExpressionPosition` is even
+    // consulted).
+    const fixture = '// <span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still blanks a `/* … */` block comment starting right after an expression-position `/` would sit, still a comment not a regex (non-regression)", () => {
+    // `/*` immediately together is always a block comment in real JS too (a
+    // regex pattern can never start with a bare `*`) -- excluded by the same
+    // `source[i + 1] !== "*"` guard.
+    const fixture = 'const x = 1; /* <span className="animate-pulse">Loading</span> */';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still blanks a string literal containing `//` (a URL) unaffected by regex handling (non-regression, #874 round 27 shape)", () => {
+    const fixture =
+      'const url = "https://example.com//path"; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still blanks a template literal containing `//` unaffected by regex handling (non-regression)", () => {
+    const fixture =
+      'const url = `https://example.com//path`; <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still blanks a block comment containing a bare `/` character unaffected by regex handling (non-regression)", () => {
+    const fixture =
+      'const x = 1; /* separator: / */ <span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations, fixture).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
   it("still blanks a real JS string in expression position even when it quotes JSX markup, unaffected by the apostrophe fix", () => {
     for (const fixture of [
       // Plain assignment (`=` is expression position).
@@ -6986,15 +7360,60 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
   });
 
-  it("keeps an explicit pulsing className in force through a LATER spread whose inline object explicitly sets `className: undefined`", () => {
-    // `{ className: undefined }` never reaches `extractObjectEntries`'s
-    // `entries` map at all -- `extractIdentifierRefs` excludes the bare
-    // `undefined` keyword, so this entry is dropped the same way a fully
-    // absent key is -- which is exactly the "treat as not supplying"
-    // behaviour this fixture pins down.
+  it("lets a LATER spread whose inline object sets `className: undefined` clear the explicit pulsing className (#874 round 43 thread 1, correcting round 42)", () => {
+    // Round 42 thread 1 shipped this fixture asserting the OPPOSITE outcome
+    // -- Codex correctly flagged it as backwards. Real JSX spread genuinely
+    // sets `className` to `undefined` here, clearing "text-red animate-pulse"
+    // at runtime, so the element does NOT pulse. The bug was in
+    // `extractObjectEntries`: its identifier-only-value branch dropped the
+    // `className` entry entirely whenever the value was made up solely of an
+    // excluded keyword (`undefined`, via `IDENTIFIER_REF_KEYWORDS`), which
+    // made `entries.has("className")` indistinguishable from the key being
+    // fully ABSENT (`{ title: "status" }`, the previous fixture above) --
+    // conflating "present but empty" with "never written at all". Round 43
+    // fixes this by registering the entry regardless (with an empty
+    // `literal` when nothing readable was found), so KEY PRESENCE alone now
+    // drives the override, matching real JSX semantics.
     const fixture =
       'export function A() { return <span className="text-red animate-pulse" {...{ className: undefined }}>Loading</span>; }';
-    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("lets a LATER spread whose inline object sets `className: null` clear the explicit pulsing className (#874 round 43 thread 1)", () => {
+    // Same gap as the `undefined` fixture above -- `null` is also excluded by
+    // `IDENTIFIER_REF_KEYWORDS`, so before round 43 this key was dropped from
+    // `entries` too. `{...{ className: null }}` clears `className` at
+    // runtime exactly like `undefined` does, so the element does not pulse.
+    const fixture =
+      'export function A() { return <span className="text-red animate-pulse" {...{ className: null }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("lets a LATER spread whose inline object sets `className: \"\"` clear the explicit pulsing className", () => {
+    // Not a round-43 regression -- an empty string literal already produces
+    // a (empty) body via `extractLiteralBodies`, so `entries.has("className")`
+    // was already `true` for this shape before this round; included here to
+    // pin the presence-vs-value-readability distinction down for the empty-
+    // string case explicitly, alongside its `undefined`/`null` siblings
+    // above (Codex, PR #874 round 43 thread 1 sweep).
+    const fixture =
+      'export function A() { return <span className="text-red animate-pulse" {...{ className: "" }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches the pulsing branch of a LATER spread whose inline object sets `className: cond ? \"text-red animate-pulse\" : \"text-xs\"`", () => {
+    // Also not a round-43 regression -- `extractLiteralBodies` finds both
+    // branches' own quoted bodies regardless of the surrounding ternary
+    // syntax, so `entries.has("className")` was already `true` here too.
+    // This key's resolved (imprecise, whole-ternary) literal folds BOTH
+    // branches' text together, so a pulsing branch is caught the same way an
+    // unconditional pulsing literal would be -- the census can't evaluate
+    // `cond` at scan time, so it can't narrow to just the branch that would
+    // actually render, and doesn't try to (Codex, PR #874 round 43 thread 1
+    // sweep).
+    const fixture =
+      'export function A() { return <span className="text-green" {...{ className: cond ? "text-red animate-pulse" : "text-xs" }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("fails closed on an UNRESOLVABLE spread after an explicit className -- keeps the explicit class visible rather than guessing (#874 round 42 thread 1)", () => {
@@ -7008,6 +7427,111 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // other unresolvable reference (Codex, PR #874 round 42 thread 1).
     const fixture =
       'export function A() { return <span className="text-red animate-pulse" {...getExtraProps()}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches a parenthesised ternary spread's pulsing true-branch (`{...(active ? alertProps : safeProps)}`, #874 round 43 thread 2)", () => {
+    // Before round 43, `classifySpreadExpression`'s catch-all "anything
+    // else" branch treated the WHOLE parenthesised ternary as an opaque,
+    // unresolvable expression -- it never even tried to resolve `alertProps`
+    // or `safeProps`. `classifyBranchExpression` now unwraps the grouping
+    // parens, splits the ternary, resolves each identifier branch through
+    // the same declaration logic a bare `{...alertProps}` already used, and
+    // unions them: `alertProps` pulses, so the site is flagged regardless of
+    // which branch a real render would actually take.
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'const safeProps = { className: "text-xs" };\n' +
+      'export function A({ active }: { active: boolean }) { return <span {...(active ? alertProps : safeProps)}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches a bare (unparenthesised) ternary spread's pulsing branch, both branches inline object literals", () => {
+    // `{...expr}` already accepts any AssignmentExpression -- a ternary
+    // needs no wrapping parens to be valid JS here. Both branches are inline
+    // object literals this time instead of identifiers, resolved through
+    // `resolveInlineObjectClassName` the same way a single inline-object
+    // spread already was before this round.
+    const fixture =
+      'export function A({ active }: { active: boolean }) { return <span {...active ? { className: "text-alert-red animate-pulse" } : { className: "text-xs" }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches a nested ternary spread's pulsing branch (`active ? alertProps : idle ? warnProps : safeProps`)", () => {
+    // The pulsing branch (`warnProps`) is chained into the FALSE side of the
+    // outer ternary -- `splitTopLevelTernary`'s first split has to land on
+    // the first top-level `:` (right-associative chaining), leaving `idle ?
+    // warnProps : safeProps` for the recursive call on `ifFalse` to split
+    // again.
+    const fixture =
+      'const alertProps = { className: "text-xs" };\n' +
+      'const warnProps = { className: "text-caution-amber animate-pulse" };\n' +
+      'const safeProps = { className: "text-xs" };\n' +
+      'export function A({ active, idle }: { active: boolean; idle: boolean }) {\n' +
+      '  return <span {...(active ? alertProps : idle ? warnProps : safeProps)}>Loading</span>;\n' +
+      '}';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches a `cond && obj` spread's pulsing object regardless of whether `cond` itself resolves to anything", () => {
+    // `active` is just a boolean prop, never declared as a class-shaped
+    // const -- it isn't meant to resolve as a className source at all.
+    // Spreading a falsy `&&` result (`{...false}`) is a real, valid JS
+    // no-op, so `classifyBranchExpression`'s `&&` branch never requires the
+    // left operand to resolve; only the right operand (`alertProps`) does.
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'export function A({ active }: { active: boolean }) { return <span {...(active && alertProps)}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches `cond ? obj : {}`'s pulsing true-branch against an empty-object false-branch", () => {
+    // The false-branch is a genuine empty object literal (`{}`) -- resolvable
+    // (an object literal's own shape is always fully known), just supplying
+    // no `className` of its own, unioned with the true-branch's pulsing one.
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'export function A({ active }: { active: boolean }) { return <span {...(active ? alertProps : {})}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches `obj ?? fallback`'s pulsing left operand", () => {
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'const safeProps = { className: "text-xs" };\n' +
+      'export function A({ overrideProps }: { overrideProps?: typeof alertProps }) {\n' +
+      '  return <span {...(alertProps ?? safeProps)}>Loading</span>;\n' +
+      '}';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("catches `a || b`'s pulsing right operand, both branches inline object literals", () => {
+    const fixture =
+      'export function A() { return <span {...({ className: "text-xs" } || { className: "text-alert-red animate-pulse" })}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("does not flag a ternary spread when NEITHER branch pulses (regression control for the union logic)", () => {
+    const fixture =
+      'const safeProps = { className: "text-xs" };\n' +
+      'const idleProps = { className: "text-signal-green" };\n' +
+      'export function A({ active }: { active: boolean }) { return <span {...(active ? safeProps : idleProps)}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("fails closed on a ternary spread after an explicit className when one branch is unresolvable -- keeps the explicit class visible rather than guessing", () => {
+    // `getSafeStuff()` is a call expression, the same catch-all-unresolvable
+    // shape a bare `{...getExtraProps()}` already fails closed on. Both
+    // branches of a ternary/`||`/`??` must resolve for the union to apply;
+    // since this one doesn't, the WHOLE expression fails closed exactly like
+    // any other unresolvable spread, leaving the earlier explicit
+    // "text-red animate-pulse" in force rather than guessing whether
+    // `getSafeStuff()`'s return value would have overridden it.
+    const fixture =
+      'const alertProps = { className: "text-alert-red animate-pulse" };\n' +
+      'export function A({ active }: { active: boolean }) {\n' +
+      '  return <span className="text-red animate-pulse" {...(active ? alertProps : getSafeStuff())}>Loading</span>;\n' +
+      '}';
     expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
   });
 });

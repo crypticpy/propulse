@@ -50,13 +50,37 @@ export function hourEnd(hourStart: string): string {
   return new Date(Date.parse(hourStart) + HOUR_MS).toISOString();
 }
 
-/** The instant the window opens: `issuedAt` minus its length. */
-export function windowStartAt(issuedAt: string, windowSeconds: number): string {
-  return new Date(Date.parse(issuedAt) - windowSeconds * 1000).toISOString();
+/** The span a record actually answers over: whole aggregation hours. */
+export interface AlignedWindow {
+  readonly startAt: string;
+  /** Exclusive, and never later than the last hour the collector wrote. */
+  readonly endAt: string;
 }
 
 /**
- * The whole hours that fit inside the window, oldest first.
+ * The window aligned to whole aggregation hours, ending at the last hour
+ * boundary at or before `issuedAt`.
+ *
+ * An unaligned window cannot be answered. Issued at 18:30 over six hours, the
+ * request runs 12:30 to 18:30: half of 12:00-13:00 falls outside it, and
+ * 18:00-19:00 has not been written at all. Reading the interior hours only
+ * (13:00 to 18:00) and then reporting the request as answered is the bug this
+ * function exists to remove; the record states these bounds instead, and the
+ * trailing part hour shows up as the aggregation lag it already carries.
+ */
+export function alignedWindow(
+  issuedAt: string,
+  windowSeconds: number,
+): AlignedWindow {
+  const endAt = normalizeHourStart(issuedAt);
+  return {
+    startAt: new Date(Date.parse(endAt) - windowSeconds * 1000).toISOString(),
+    endAt,
+  };
+}
+
+/**
+ * The whole hours of the aligned window, oldest first.
  *
  * Partial hours are excluded because the collector never writes one: the hour
  * in progress has no row, and treating its absence as a gap (or as silence)
@@ -67,11 +91,11 @@ export function candidateHourStarts(
   issuedAt: string,
   windowSeconds: number,
 ): string[] {
-  const issued = Date.parse(issuedAt);
-  const opens = issued - windowSeconds * 1000;
+  const window = alignedWindow(issuedAt, windowSeconds);
+  const closes = Date.parse(window.endAt);
   const hours: string[] = [];
-  let start = Math.ceil(opens / HOUR_MS) * HOUR_MS;
-  for (; start + HOUR_MS <= issued; start += HOUR_MS) {
+  let start = Math.ceil(Date.parse(window.startAt) / HOUR_MS) * HOUR_MS;
+  for (; start + HOUR_MS <= closes; start += HOUR_MS) {
     hours.push(new Date(start).toISOString());
   }
   return hours;

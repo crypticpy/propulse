@@ -8,6 +8,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  alignedWindow,
+  candidateHourStarts,
   DEFAULT_OBSERVED_WINDOW_SECONDS,
   resolveCoverage,
   unreadableSpans,
@@ -213,5 +215,38 @@ describe("gap handling", () => {
       { startAt: WINDOW_HOURS[2], endAt: WINDOW_HOURS[3] },
       { startAt: WINDOW_HOURS[5], endAt: "2026-09-11T18:00:00.000Z" },
     ]);
+  });
+});
+
+describe("window alignment", () => {
+  it("aligns a mid-hour issuance to whole aggregation hours", () => {
+    // 18:30 minus six hours is 12:30, and neither 12:00-13:00 nor
+    // 18:00-19:00 can be spoken for: the first is half outside the request
+    // and the second has not been written. Answering over 12:00 to 18:00 is
+    // the only span the aggregates can actually cover.
+    expect(alignedWindow("2026-09-11T18:30:00Z", 6 * 3600)).toEqual({
+      startAt: "2026-09-11T12:00:00.000Z",
+      endAt: "2026-09-11T18:00:00.000Z",
+    });
+  });
+
+  it("leaves an hour-aligned issuance alone", () => {
+    expect(alignedWindow(ISSUED_AT, 6 * 3600)).toEqual({
+      startAt: "2026-09-11T12:00:00.000Z",
+      endAt: "2026-09-11T18:00:00.000Z",
+    });
+  });
+
+  it("asks about every hour of the aligned window, not the interior", () => {
+    // The old loop read the complete hours strictly inside 12:30 to 18:30 and
+    // found five, then let the record claim it had covered six.
+    expect(candidateHourStarts("2026-09-11T18:30:00Z", 6 * 3600)).toEqual(
+      WINDOW_HOURS,
+    );
+    expect(candidateHourStarts(ISSUED_AT, 6 * 3600)).toEqual(WINDOW_HOURS);
+  });
+
+  it("still reports a window too short to hold an aggregation hour", () => {
+    expect(candidateHourStarts("2026-09-11T18:30:00Z", 1800)).toEqual([]);
   });
 });

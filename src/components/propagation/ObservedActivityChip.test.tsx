@@ -48,6 +48,7 @@ const BASE = {
   rxField: "IO",
   issuedAt: "2026-09-11T18:00:00.000Z",
   windowStartAt: "2026-09-11T12:00:00.000Z",
+  windowEndAt: "2026-09-11T18:00:00.000Z",
   intervalSeconds: 21600,
   modeClasses: ["cw", "digital", "phone"] as const,
   aggregationLagSeconds: 0,
@@ -158,6 +159,35 @@ describe("verified_open", () => {
 
     expect(screen.getByText(/grid from callsign/i)).toBeTruthy();
     expect(screen.getByText(/12 reports/)).toBeTruthy();
+  });
+});
+
+describe("the window it answered", () => {
+  it("states the bounds in words, in UTC", () => {
+    mountWith(VERIFIED_OPEN);
+
+    const group = screen.getByRole("group", { name: /observed activity/i });
+    expect(within(group).getByText(/12:00 to 18:00 UTC/i)).toBeTruthy();
+  });
+
+  it("says the current hour is not aggregated when issuance is mid-hour", () => {
+    mountWith({
+      ...VERIFIED_OPEN,
+      issuedAt: "2026-09-11T18:30:00.000Z",
+      aggregationLagSeconds: 1800,
+    });
+
+    expect(
+      screen.getByText(
+        /12:00 to 18:00 UTC; the current hour is not aggregated yet/i,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("says nothing about a current hour when issuance is on the hour", () => {
+    mountWith(VERIFIED_OPEN);
+
+    expect(screen.queryByText(/not aggregated yet/i)).toBeNull();
   });
 });
 

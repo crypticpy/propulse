@@ -127,7 +127,14 @@ export interface PathActivityBase {
   readonly txField: string;
   readonly rxField: string;
   readonly issuedAt: string;
+  /**
+   * The span the record actually answers over, aligned to whole aggregation
+   * hours. `windowEndAt` is the last hour boundary at or before `issuedAt`,
+   * so a mid-hour issuance states the hours it can speak for rather than
+   * claiming the part hours on either edge.
+   */
   readonly windowStartAt: string;
+  readonly windowEndAt: string;
   readonly intervalSeconds: number;
   readonly modeClasses: readonly ModeClass[];
   /**

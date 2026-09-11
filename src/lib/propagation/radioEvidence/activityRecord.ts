@@ -13,9 +13,9 @@ import {
   DEFAULT_OBSERVED_WINDOW_SECONDS,
   hourEnd,
   normalizeHourStart,
+  alignedWindow,
   resolveCoverage,
   unreadableSpans,
-  windowStartAt,
 } from "@/lib/propagation/radioEvidence/coverage";
 import {
   MODE_CLASSES,
@@ -76,12 +76,14 @@ export function unknownActivity(
 ): PathActivityRecord {
   const windowSeconds =
     descriptor.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
+  const window = alignedWindow(descriptor.issuedAt, windowSeconds);
   return {
     band: descriptor.band,
     txField: descriptor.txField,
     rxField: descriptor.rxField,
     issuedAt: descriptor.issuedAt,
-    windowStartAt: windowStartAt(descriptor.issuedAt, windowSeconds),
+    windowStartAt: window.startAt,
+    windowEndAt: window.endAt,
     intervalSeconds: windowSeconds,
     modeClasses: [...(descriptor.modeClasses ?? MODE_CLASSES)],
     aggregationLagSeconds: null,
@@ -110,13 +112,15 @@ export function derivePathActivity(
     modeClasses,
   });
   const { span } = coverage;
+  const window = alignedWindow(inputs.issuedAt, windowSeconds);
 
   const base: PathActivityBase = {
     band: inputs.band,
     txField: inputs.txField,
     rxField: inputs.rxField,
     issuedAt: inputs.issuedAt,
-    windowStartAt: windowStartAt(inputs.issuedAt, windowSeconds),
+    windowStartAt: window.startAt,
+    windowEndAt: window.endAt,
     intervalSeconds: windowSeconds,
     modeClasses: [...modeClasses],
     aggregationLagSeconds:

@@ -28,6 +28,28 @@ interface ObservedActivityChipProps {
   className?: string;
 }
 
+/** `HH:MM` in UTC, which is the only zone an aggregation hour is written in. */
+function utcHourMinute(instant: string): string {
+  return new Date(instant).toISOString().slice(11, 16);
+}
+
+/**
+ * The span the record answered, in words.
+ *
+ * The bounds are stated rather than implied because they are not the span the
+ * operator asked for: the aggregates are written per whole hour, so a reading
+ * taken at 18:30 answers to 18:00 and the last half hour is simply not in
+ * yet. Saying so is the difference between a quiet band and a quiet ledger.
+ */
+function windowPhrase(record: PathActivityRecord): string {
+  const bounds = `${utcHourMinute(record.windowStartAt)} to ${utcHourMinute(
+    record.windowEndAt,
+  )} UTC`;
+  return record.windowEndAt === new Date(record.issuedAt).toISOString()
+    ? `Window ${bounds}.`
+    : `Window ${bounds}; the current hour is not aggregated yet.`;
+}
+
 /**
  * How much of the window the aggregates cannot speak for, in words. The gap
  * is named rather than hinted at, because "at least" with no reason reads as
@@ -157,6 +179,8 @@ export function ObservedActivityChip({
           {UNKNOWN_COPY[record.reason]}
         </p>
       )}
+
+      <p className="mt-1 text-sm text-su-muted">{windowPhrase(record)}</p>
     </Card>
   );
 }

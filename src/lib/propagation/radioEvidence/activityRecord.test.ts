@@ -51,6 +51,14 @@ function pairRow(
   };
 }
 
+/** A receiver heard from at the rx field on one hour, in one mode class. */
+function listeningAt(
+  hour_utc: string,
+  mode_class: ModeClass = "digital",
+): PathCoverageRow {
+  return { hour_utc, mode_class, tx_field: "JN", unique_rx: 5 };
+}
+
 /** A coverage row derived from a pair row, as the real query would return. */
 function coverageOf(row: PathActivityPairRow): PathCoverageRow {
   return {
@@ -92,14 +100,7 @@ describe("unknown-vs-closed", () => {
   it("reports zero with a coverage age when somebody was listening (test 7)", () => {
     const record = derive({
       pairRows: [],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[3],
-          mode_class: "digital",
-          tx_field: "JN",
-          unique_rx: 6,
-        },
-      ],
+      coverageRows: [listeningAt(WINDOW_HOURS[3])],
     });
 
     expect(record.state).toBe("no_reports");
@@ -176,14 +177,7 @@ describe("age", () => {
     });
     const silent = derive({
       pairRows: [],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[5],
-          mode_class: "cw",
-          tx_field: "JN",
-          unique_rx: 2,
-        },
-      ],
+      coverageRows: [listeningAt(WINDOW_HOURS[5], "cw")],
     });
 
     expect(heard.state === "verified_open" && heard.ageKind).toBe("report");
@@ -226,14 +220,7 @@ describe("an incomplete window is not coverage", () => {
     // rule that out, so the verdict is unknown and names the gap.
     const record = derive({
       pairRows: [],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[4],
-          mode_class: "digital",
-          tx_field: "JN",
-          unique_rx: 5,
-        },
-      ],
+      coverageRows: [listeningAt(WINDOW_HOURS[4])],
       readableHours: readable(gapped),
     });
 
@@ -277,14 +264,7 @@ describe("an incomplete window is not coverage", () => {
   it("still reports silence over a wholly readable window", () => {
     const record = derive({
       pairRows: [],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[4],
-          mode_class: "digital",
-          tx_field: "JN",
-          unique_rx: 5,
-        },
-      ],
+      coverageRows: [listeningAt(WINDOW_HOURS[4])],
     });
 
     expect(record.state).toBe("no_reports");
@@ -296,14 +276,7 @@ describe("coverage answers the requested modes", () => {
     const record = derive({
       pairRows: [],
       modeClasses: ["cw"],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[4],
-          mode_class: "digital",
-          tx_field: "JN",
-          unique_rx: 5,
-        },
-      ],
+      coverageRows: [listeningAt(WINDOW_HOURS[4])],
     });
 
     expect(record.state).toBe("unknown");
@@ -455,14 +428,51 @@ describe("qualification", () => {
     if (record.state !== "unknown") return;
     expect(record.reason).toBe("no_receiver_coverage");
   });
+});
 
-  it("states the window it answered", () => {
+describe("the record answers over whole hours", () => {
+  const MID_HOUR = "2026-09-11T18:30:00Z";
+
+  it("states aligned window bounds for a mid-hour issuance", () => {
     const record = derive({
-      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[0] })],
+      issuedAt: MID_HOUR,
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[5] })],
     });
 
-    expect(record.intervalSeconds).toBe(DEFAULT_OBSERVED_WINDOW_SECONDS);
     expect(record.windowStartAt).toBe("2026-09-11T12:00:00.000Z");
+    expect(record.windowEndAt).toBe("2026-09-11T18:00:00.000Z");
+    // Six whole hours asked about and six readable: the half hour on each
+    // edge is outside the claim, not a gap inside it.
+    expect(record.requestedHourCount).toBe(6);
+    expect(record.readableHourCount).toBe(6);
+    expect(record.unreadableSpans).toEqual([]);
+    expect(record.state === "verified_open" && record.countIsLowerBound).toBe(
+      false,
+    );
+    // The trailing part hour is the aggregation lag the record already
+    // carries, rather than an unreadable hour.
+    expect(record.aggregationLagSeconds).toBe(1800);
+  });
+
+  it("keeps silence reachable for an in-app five-minute bucket", () => {
+    const record = derive({
+      issuedAt: "2026-09-11T18:05:00Z",
+      pairRows: [],
+      coverageRows: [listeningAt(WINDOW_HOURS[5])],
+    });
+
+    expect(record.state).toBe("no_reports");
+    expect(record.windowEndAt).toBe("2026-09-11T18:00:00.000Z");
+  });
+
+  it("states the window it answered when issuance is on the hour", () => {
+    const record = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[5] })],
+    });
+
+    expect(record.windowEndAt).toBe(new Date(ISSUED_AT).toISOString());
+    expect(record.windowStartAt).toBe("2026-09-11T12:00:00.000Z");
+    expect(record.intervalSeconds).toBe(DEFAULT_OBSERVED_WINDOW_SECONDS);
     expect(record.issuedAt).toBe(ISSUED_AT);
     expect(record.band).toBe("20m");
     expect(record.txField).toBe("FN");

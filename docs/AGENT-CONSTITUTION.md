@@ -81,7 +81,10 @@ ML checks, boundaries, lint, Vitest, bridge and daemon tests, build, bundles).
 A fresh worktree needs `npm ci` in root, `bridge/` and `collector/`, and the
 `ml/.venv` link, before it can pass; see the reference. Never relax a budget,
 threshold, lint or type rule; never `--no-verify`. Browser checks follow
-`docs/guides/LOCAL-AGENT-TESTING.md`; no ad-hoc dev servers.
+`docs/guides/LOCAL-AGENT-TESTING.md`. One dev server per machine, at
+`http://localhost:5173`, owned by the human or the orchestrator — agents never
+start one; check `npm run dev:session -- status` and use the shared server, or
+report it is not running and stop.
 
 ## Pull requests
 

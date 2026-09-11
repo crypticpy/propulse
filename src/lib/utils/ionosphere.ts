@@ -716,16 +716,24 @@ export function getIonosphericParameters(
 }
 
 /**
- * Get D-layer absorption for a frequency at a location
+ * Get D-layer absorption for a frequency at a location.
  *
- * Convenience function that combines zenith angle calculation
- * with absorption calculation.
+ * Combines the zenith angle calculation with the absorption calculation. The
+ * crossing described to the adapter is the caller's own: equation (21) is a
+ * function of latitude, season, modified dip and the crossing's local-noon
+ * angle, and this helper holds all four. Passing only the zenith angle, which
+ * is what it used to do, pinned every location on Earth to the declared
+ * stand-in crossing and made the position argument decorative.
+ *
+ * `foE` is left to the adapter, which derives it from the same zenith angle
+ * and SFI this function computed.
  *
  * @param lat - Geographic latitude
  * @param lon - Geographic longitude
  * @param date - Date/time
  * @param frequency - Operating frequency in MHz
  * @param sfi - Solar Flux Index
+ * @param elevationDeg - Ray take-off elevation, degrees. Vertical by default.
  * @returns Absorption in dB
  */
 export function getAbsorptionAtLocation(
@@ -734,9 +742,15 @@ export function getAbsorptionAtLocation(
   date: Date,
   frequency: number,
   sfi: number,
+  elevationDeg: number = 90,
 ): number {
   const zenithAngle = calculateZenithAngle(lat, lon, date);
-  return calculateDLayerAbsorption(frequency, zenithAngle, sfi);
+  return calculateDLayerAbsorption(frequency, zenithAngle, sfi, elevationDeg, {
+    latitudeDeg: lat,
+    monthIndex: date.getUTCMonth(),
+    modifiedDipDeg: modifiedDipAngle(lat, lon),
+    date,
+  });
 }
 
 /**

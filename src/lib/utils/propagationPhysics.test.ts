@@ -9,6 +9,9 @@ import { describe, it, expect } from "vitest";
 import {
   calculateM3000F2,
   calculateDLayerAbsorption,
+  calculateZenithAngle,
+  getAbsorptionAtLocation,
+  modifiedDipAngle,
   estimateFoF2,
   calculateF0F2,
   sfiToR12,
@@ -209,6 +212,42 @@ describe("item 4/12 - D-layer absorption", () => {
     });
     expect(derived).toBe(declared);
     expect(solarNoonZenithAngle(60, solstice)).toBeLessThan(60);
+  });
+
+  it("uses the position and season it was given, not the stand-in crossing", () => {
+    // Two crossings with the same instantaneous solar zenith angle and
+    // nothing else in common: 10 degrees north at the June solstice and 40
+    // degrees north at the December one. Equation (21) is a function of
+    // latitude, season, modified dip and the crossing's own local-noon angle,
+    // so these cannot absorb the same amount. The helper holds all four and
+    // used to throw them away, calling the adapter with a frequency and a
+    // zenith angle only, which pinned every location to the declared 45
+    // degrees north, March, dip 60 stand-in.
+    const tropicalJune = new Date("2026-06-21T16:51:09Z");
+    const temperateDecember = new Date("2026-12-21T14:05:05Z");
+    expect(calculateZenithAngle(10, 0, tropicalJune)).toBeCloseTo(70, 3);
+    expect(calculateZenithAngle(40, 0, temperateDecember)).toBeCloseTo(70, 3);
+
+    const tropical = getAbsorptionAtLocation(10, 0, tropicalJune, 7, 150);
+    const temperate = getAbsorptionAtLocation(40, 0, temperateDecember, 7, 150);
+    expect(tropical).not.toBeCloseTo(temperate, 3);
+
+    // And each one is the adapter called with that crossing's own context,
+    // not a number this test invented.
+    expect(tropical).toBe(
+      calculateDLayerAbsorption(
+        7,
+        calculateZenithAngle(10, 0, tropicalJune),
+        150,
+        90,
+        {
+          latitudeDeg: 10,
+          monthIndex: tropicalJune.getUTCMonth(),
+          modifiedDipDeg: modifiedDipAngle(10, 0),
+          date: tropicalJune,
+        },
+      ),
+    );
   });
 
   it("no longer clamps absorption at 50 dB", () => {

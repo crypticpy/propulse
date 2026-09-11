@@ -8,6 +8,8 @@ const VIEWER_ID = "viewer-1";
 const fixture = vi.hoisted(() => ({
   authenticated: true,
   followingLoadedForUserId: "viewer-1" as string | null,
+  followingLoadError: null as { userId: string; at: number } | null,
+  fetchFollowing: vi.fn(),
   mobile: false,
   profile: {} as Record<string, unknown>,
   following: [] as { id: string }[],
@@ -50,10 +52,14 @@ vi.mock("@/stores/socialStore", async (importOriginal) => ({
   viewerFriendship: (
     await importOriginal<typeof import("@/stores/socialStore")>()
   ).viewerFriendship,
+  followLoadFailedForViewer: (
+    await importOriginal<typeof import("@/stores/socialStore")>()
+  ).followLoadFailedForViewer,
   useSocialStore: (
     selector: (state: {
       following: { id: string }[];
       followingLoadedForUserId: string | null;
+      followingLoadError: { userId: string; at: number } | null;
       fetchFollowing: () => void;
       followUser: typeof fixture.follow;
       unfollowUser: typeof fixture.unfollow;
@@ -62,7 +68,8 @@ vi.mock("@/stores/socialStore", async (importOriginal) => ({
     selector({
       following: fixture.following,
       followingLoadedForUserId: fixture.followingLoadedForUserId,
-      fetchFollowing: () => {},
+      followingLoadError: fixture.followingLoadError,
+      fetchFollowing: fixture.fetchFollowing,
       followUser: fixture.follow,
       unfollowUser: fixture.unfollow,
     }),
@@ -163,6 +170,8 @@ beforeEach(() => {
   fixture.mobile = false;
   fixture.following = [];
   fixture.followingLoadedForUserId = VIEWER_ID;
+  fixture.followingLoadError = null;
+  fixture.fetchFollowing.mockClear();
   fixture.follow.mockClear();
   fixture.unfollow.mockClear();
   fixture.query.mockClear();
@@ -288,5 +297,41 @@ describe("redesigned visitor profile preservation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Following" }));
     fireEvent.click(screen.getByRole("button", { name: "Unfollow" }));
     expect(fixture.unfollow).toHaveBeenCalledWith("synthetic-operator");
+  });
+
+  // #995 round 6: a failed initial load left the relation unknown with no way
+  // back, so the follow control sat disabled for the life of the mount.
+  it("offers a retry instead of a dead Follow button when the follow set failed to load", async () => {
+    fixture.followingLoadedForUserId = null;
+    fixture.followingLoadError = { userId: VIEWER_ID, at: Date.now() };
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+
+    expect(
+      screen.queryByRole("button", { name: "Follow operator" }),
+    ).toBeNull();
+    const retry = screen.getByRole("button", { name: "Retry follow status" });
+    expect((retry as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(retry);
+    expect(fixture.fetchFollowing).toHaveBeenCalled();
+    // The relation is still unknown, so nothing was followed by that click.
+    expect(fixture.follow).not.toHaveBeenCalled();
+  });
+
+  it("keeps Follow disabled while the relation is unknown with no recorded failure", async () => {
+    fixture.followingLoadedForUserId = null;
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+
+    expect(
+      screen.queryByRole("button", { name: "Retry follow status" }),
+    ).toBeNull();
+    const follow = screen.getByRole("button", {
+      name: "Follow operator",
+    }) as HTMLButtonElement;
+    expect(follow.disabled).toBe(true);
   });
 });

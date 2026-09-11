@@ -7,13 +7,18 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { followSetBelongsToViewer, useSocialStore } from "@/stores/socialStore";
+import {
+  followLoadFailedForViewer,
+  followSetBelongsToViewer,
+  useSocialStore,
+} from "@/stores/socialStore";
 import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import type { PublicProfile } from "@/types/social";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/station-ui";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -44,6 +49,7 @@ function FriendListInner() {
   const followingLoadedForUserId = useSocialStore(
     (s) => s.followingLoadedForUserId,
   );
+  const followingLoadError = useSocialStore((s) => s.followingLoadError);
   const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const followers = useSocialStore((s) => s.followers);
   const isLoading = useSocialStore((s) => s.isLoadingFollowers);
@@ -70,6 +76,10 @@ function FriendListInner() {
     followingLoadedForUserId,
     authUserId,
   );
+  // One way out for the whole list, not a retry on every row.
+  const relationshipsRetryable =
+    !relationshipsKnown &&
+    followLoadFailedForViewer(followingLoadError, authUserId);
 
   // Set of IDs the current user follows (for toggle logic)
   const followingIds = useMemo(
@@ -148,6 +158,17 @@ function FriendListInner() {
         <p className="text-sm text-su-muted animate-pulse motion-reduce:animate-none">
           Loading...
         </p>
+      )}
+
+      {relationshipsRetryable && (
+        <div className="bg-panel/30 border border-su-line/20 rounded-lg p-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-su-muted">
+            Could not load who you follow, so following is paused.
+          </p>
+          <Button variant="secondary" onClick={() => fetchFollowing()}>
+            Retry
+          </Button>
+        </div>
       )}
 
       {!isLoading && isEmpty && (

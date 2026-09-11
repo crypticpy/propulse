@@ -66,4 +66,30 @@ describe("FriendList follow toggle gating (#995)", () => {
 
     expect(toggleButton().disabled).toBe(false);
   });
+
+  it("offers one retry for the whole list when the follow set failed to load", () => {
+    signedInAs("user-a");
+    const fetchFollowing = vi.fn();
+    useSocialStore.setState({
+      followers: [follower],
+      following: [],
+      followingLoadedForUserId: null,
+      followingLoadError: { userId: "user-a", at: Date.now() },
+      fetchFollowing,
+    });
+
+    render(<FriendList />);
+
+    const callsOnMount = fetchFollowing.mock.calls.length;
+    const retry = screen.getByRole("button", {
+      name: "Retry",
+    }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(false);
+    // One way out for the list, not a retry on every row.
+    expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(1);
+    expect(toggleButton().disabled).toBe(true);
+
+    retry.click();
+    expect(fetchFollowing.mock.calls.length).toBe(callsOnMount + 1);
+  });
 });

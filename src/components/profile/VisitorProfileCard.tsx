@@ -44,6 +44,12 @@ interface VisitorProfileCardProps {
    * cannot see.
    */
   relationshipKnown: boolean;
+  /**
+   * Present when the follow set failed to load for this viewer: the gated
+   * control becomes a spelled-out retry rather than a permanently disabled
+   * Follow.
+   */
+  onRetryRelationship?: () => void;
   onFollow: () => void;
   onUnfollow: () => void;
 }
@@ -77,6 +83,7 @@ export function VisitorProfileCard({
   viewerInterests,
   isFollowing,
   relationshipKnown,
+  onRetryRelationship,
   onFollow,
   onUnfollow,
 }: VisitorProfileCardProps) {
@@ -241,7 +248,17 @@ export function VisitorProfileCard({
 
         {/* ── Follow / Unfollow Button ───────────────────────────── */}
         <div className="mt-4 pt-4 border-t border-su-line/20">
-          {isFollowing ? (
+          {!relationshipKnown && onRetryRelationship ? (
+            <button
+              type="button"
+              onClick={onRetryRelationship}
+              className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
+                         bg-su-line/10 text-su-text border border-su-line/40
+                         hover:bg-su-line/20 transition-colors"
+            >
+              Retry follow status
+            </button>
+          ) : isFollowing ? (
             <button
               type="button"
               disabled={!relationshipKnown}

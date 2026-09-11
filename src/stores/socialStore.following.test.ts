@@ -31,7 +31,11 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import { useAuthStore } from "@/stores/authStore";
-import { useSocialStore, viewerFriendship } from "@/stores/socialStore";
+import {
+  followLoadFailedForViewer,
+  useSocialStore,
+  viewerFriendship,
+} from "@/stores/socialStore";
 
 type AuthListener = (event: AuthChangeEvent, session: Session | null) => void;
 
@@ -267,5 +271,79 @@ describe("socialStore following is account-scoped (#995)", () => {
       { follower_id: "user-a", following_id: "operator-1" },
       { onConflict: "follower_id,following_id", ignoreDuplicates: true },
     );
+  });
+
+  it("records a recoverable failure so the gated controls can offer a retry", async () => {
+    signedInAs("user-a");
+    supabaseMocks.follows.mockResolvedValue({
+      data: null,
+      error: { message: "network" },
+    });
+
+    await useSocialStore.getState().fetchFollowing();
+
+    const failedState = useSocialStore.getState();
+    // Nothing is known, which is what keeps friends-only content closed, but
+    // the failure is now visible so the mount is not stuck there.
+    expect(failedState.followingLoadedForUserId).toBeNull();
+    expect(failedState.followingLoadError?.userId).toBe("user-a");
+    expect(failedState.isRefreshingFollowing).toBe(false);
+    expect(
+      followLoadFailedForViewer(failedState.followingLoadError, "user-a"),
+    ).toBe(true);
+
+    supabaseMocks.follows.mockResolvedValue({
+      data: [{ following_id: "operator-1" }],
+      error: null,
+    });
+    supabaseMocks.profiles.mockResolvedValue({
+      data: [profileRow("operator-1")],
+      error: null,
+    });
+
+    await useSocialStore.getState().fetchFollowing();
+
+    const retried = useSocialStore.getState();
+    expect(retried.followingLoadedForUserId).toBe("user-a");
+    expect(retried.followingLoadError).toBeNull();
+    expect(
+      viewerFriendship(
+        retried.following,
+        retried.followingLoadedForUserId,
+        "user-a",
+        "operator-1",
+      ),
+    ).toBe("friend");
+  });
+
+  it("ignores a failure recorded for a different user than the current one", async () => {
+    signedInAs("user-a");
+    let releaseFollows!: (value: unknown) => void;
+    supabaseMocks.follows.mockReturnValue(
+      new Promise((resolve) => {
+        releaseFollows = resolve;
+      }),
+    );
+
+    const inFlight = useSocialStore.getState().fetchFollowing();
+    signedInAs("user-b");
+    releaseFollows({ data: null, error: { message: "network" } });
+    await inFlight;
+
+    const state = useSocialStore.getState();
+    // The failure belonged to user-a's fetch; user-b must not be shown a
+    // retry for it, and must not have one recorded at all.
+    expect(state.followingLoadError).toBeNull();
+    expect(followLoadFailedForViewer(state.followingLoadError, "user-b")).toBe(
+      false,
+    );
+  });
+
+  it("clears a recorded failure at the account boundary", () => {
+    useSocialStore.setState({
+      followingLoadError: { userId: "user-a", at: Date.now() },
+    });
+    useSocialStore.getState().clearFollowing();
+    expect(useSocialStore.getState().followingLoadError).toBeNull();
   });
 });

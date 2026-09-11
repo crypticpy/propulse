@@ -21,13 +21,18 @@ const profile: PublicProfile = {
   },
 };
 
-function draw(locationDisclosed: boolean, relationshipKnown = true) {
+function draw(
+  locationDisclosed: boolean,
+  relationshipKnown = true,
+  onRetryRelationship?: () => void,
+) {
   return render(
     <VisitorProfileCard
       profile={profile}
       locationDisclosed={locationDisclosed}
       isFollowing={false}
       relationshipKnown={relationshipKnown}
+      onRetryRelationship={onRetryRelationship}
       onFollow={() => {}}
       onUnfollow={() => {}}
     />,
@@ -71,5 +76,20 @@ describe("VisitorProfileCard location disclosure (#995)", () => {
       (screen.getByRole("button", { name: "Follow" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  // A failed load leaves the relation unknown for the life of the mount, so
+  // the gated control has to be the way out (#995 round 6).
+  it("offers a spelled-out retry when the follow set failed to load", () => {
+    const retry = vi.fn();
+    draw(true, false, retry);
+
+    expect(screen.queryByRole("button", { name: "Follow" })).toBeNull();
+    const button = screen.getByRole("button", {
+      name: "Retry follow status",
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });

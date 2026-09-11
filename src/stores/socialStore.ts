@@ -74,6 +74,17 @@ export function followSetBelongsToViewer(
   return !!authUserId && followingLoadedForUserId === authUserId;
 }
 
+/**
+ * Whether the follow set could not be loaded for this viewer and the gated
+ * controls should offer a retry rather than sit disabled forever.
+ */
+export function followLoadFailedForViewer(
+  followingLoadError: { userId: string } | null,
+  authUserId: string | null,
+): boolean {
+  return !!authUserId && followingLoadError?.userId === authUserId;
+}
+
 export function viewerFriendship(
   following: PublicProfile[],
   followingLoadedForUserId: string | null,
@@ -108,6 +119,13 @@ interface SocialStore {
    * may already exist.
    */
   isRefreshingFollowing: boolean;
+  /**
+   * The last failed `fetchFollowing`, tagged with the account it was for. A
+   * failure with no cached set leaves the relation unknown, which disables
+   * every follow control; without this the mount had no way back. The UI
+   * turns the gated control into a spelled-out retry.
+   */
+  followingLoadError: { userId: string; at: number } | null;
   feed: ActivityEvent[];
   isLoadingFollowers: boolean;
   isLoadingFeed: boolean;
@@ -129,6 +147,7 @@ const initialState = {
   following: [] as PublicProfile[],
   followingLoadedForUserId: null as string | null,
   isRefreshingFollowing: false,
+  followingLoadError: null as { userId: string; at: number } | null,
   feed: [] as ActivityEvent[],
   isLoadingFollowers: false,
   isLoadingFeed: false,
@@ -202,14 +221,29 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const cacheBelongsToUser = get().followingLoadedForUserId === userId;
     set(
       cacheBelongsToUser
-        ? { isRefreshingFollowing: true, isLoadingFollowers: true }
+        ? {
+            isRefreshingFollowing: true,
+            isLoadingFollowers: true,
+            followingLoadError: null,
+          }
         : {
             following: [],
             followingLoadedForUserId: null,
             isRefreshingFollowing: true,
             isLoadingFollowers: true,
+            followingLoadError: null,
           },
     );
+
+    /** A failure is only recoverable state for the user it was fetched for. */
+    const failed = () => ({
+      ...(cacheBelongsToUser
+        ? {}
+        : { following: [], followingLoadedForUserId: null }),
+      followingLoadError: { userId, at: Date.now() },
+      isRefreshingFollowing: false,
+      isLoadingFollowers: false,
+    });
 
     /** A result is only ours if the signed-in user has not changed since. */
     const stillCurrent = () => useAuthStore.getState().user?.id === userId;
@@ -227,13 +261,7 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
       if (followsError) {
         // A failed refresh is not an answer. Keep this account's last known
         // set rather than demoting it to "unknown" on a transient error.
-        set({
-          ...(cacheBelongsToUser
-            ? {}
-            : { following: [], followingLoadedForUserId: null }),
-          isRefreshingFollowing: false,
-          isLoadingFollowers: false,
-        });
+        set(failed());
         return;
       }
 
@@ -243,6 +271,7 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
           followingLoadedForUserId: userId,
           isRefreshingFollowing: false,
           isLoadingFollowers: false,
+          followingLoadError: null,
         });
         return;
       }
@@ -257,13 +286,7 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
       if (!stillCurrent()) return;
 
       if (profilesError || !profiles) {
-        set({
-          ...(cacheBelongsToUser
-            ? {}
-            : { following: [], followingLoadedForUserId: null }),
-          isRefreshingFollowing: false,
-          isLoadingFollowers: false,
-        });
+        set(failed());
         return;
       }
 
@@ -274,10 +297,11 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         followingLoadedForUserId: userId,
         isRefreshingFollowing: false,
         isLoadingFollowers: false,
+        followingLoadError: null,
       });
     } catch {
       if (!stillCurrent()) return;
-      set({ isRefreshingFollowing: false, isLoadingFollowers: false });
+      set(failed());
     }
   },
 
@@ -410,6 +434,7 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
       following: [],
       followingLoadedForUserId: null,
       isRefreshingFollowing: false,
+      followingLoadError: null,
     }),
 
   reset: () => set(initialState),

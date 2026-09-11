@@ -25,7 +25,11 @@ import type {
 } from "@/types/social";
 import type { RankTier } from "@/types/rank";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
-import { useSocialStore, viewerFriendship } from "@/stores/socialStore";
+import {
+  followLoadFailedForViewer,
+  useSocialStore,
+  viewerFriendship,
+} from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 // LocationManager moved to Settings — locations managed via /settings route
@@ -107,6 +111,7 @@ function OtherProfileView({
   const followingLoadedForUserId = useSocialStore(
     (s) => s.followingLoadedForUserId,
   );
+  const followingLoadError = useSocialStore((s) => s.followingLoadError);
   const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
   const followUser = useSocialStore((s) => s.followUser);
@@ -301,6 +306,11 @@ function OtherProfileView({
   // that already exists is a duplicate write on the follows primary key, and
   // "Following" on one that does not is a lie. The control waits instead.
   const relationshipKnown = friendship !== "unknown";
+  // A failed load leaves the relation unknown for the life of the mount. The
+  // gated control becomes the way out instead of sitting disabled forever.
+  const relationshipRetryable =
+    !relationshipKnown &&
+    followLoadFailedForViewer(followingLoadError, authUserId);
 
   // One predicate for the published location: the grid line, "Where to find
   // me" and the contact panel's coordinates are the same disclosure.
@@ -623,15 +633,21 @@ function OtherProfileView({
       onTabChange={setActiveTab}
       style={rankVars}
       actions={
-        <Button
-          variant={isFollowing ? "secondary" : "primary"}
-          disabled={!relationshipKnown}
-          onClick={
-            isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
-          }
-        >
-          {isFollowing ? "Following" : "Follow operator"}
-        </Button>
+        relationshipRetryable ? (
+          <Button variant="secondary" onClick={() => fetchFollowing()}>
+            Retry follow status
+          </Button>
+        ) : (
+          <Button
+            variant={isFollowing ? "secondary" : "primary"}
+            disabled={!relationshipKnown}
+            onClick={
+              isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
+            }
+          >
+            {isFollowing ? "Following" : "Follow operator"}
+          </Button>
+        )
       }
       identity={
         isMobile ? (
@@ -652,6 +668,9 @@ function OtherProfileView({
             profile={profile}
             locationDisclosed={locationDisclosed}
             relationshipKnown={relationshipKnown}
+            onRetryRelationship={
+              relationshipRetryable ? () => fetchFollowing() : undefined
+            }
             viewerInterests={viewerInterests}
             isFollowing={isFollowing}
             onFollow={handleFollow}

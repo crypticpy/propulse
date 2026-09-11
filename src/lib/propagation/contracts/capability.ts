@@ -225,6 +225,32 @@ const capabilityHead = z
         `Band label ${band} lies outside this head's frequency range (A02)`,
       );
     });
+    // M07/M11: a decode probability is conditioned on a decoder and on the
+    // length of one attempt, and `MODE_PROFILE_REGISTRY` is the only place
+    // those are written down. A decode head declaring a profile the registry
+    // does not carry would be routed to by `capabilityCovers` and then have
+    // every served result refused by the binder, so the claim is refused where
+    // it is made instead.
+    if (value.quantity === "conditional_decode") {
+      value.modeProfileIds.forEach((profileId, index) => {
+        const entry = modeProfileEntry(profileId);
+        if (entry === null) {
+          reject(
+            ctx,
+            ["modeProfileIds", index],
+            `Mode profile ${profileId} is not registered, so a decode head cannot declare it (M07, M11)`,
+          );
+          return;
+        }
+        if (entry.decoderId === null) {
+          reject(
+            ctx,
+            ["modeProfileIds", index],
+            `Mode profile ${profileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
+          );
+        }
+      });
+    }
     const overlap = value.requiredInputs.filter((input) =>
       value.optionalInputs.includes(input),
     );
@@ -1023,6 +1049,10 @@ export function capabilityKeyProjection(
     modelVersion: capability.modelVersion,
     modelHash: capability.modelHash,
     preprocessingHash: capability.preprocessingHash,
+    // M11/M24: the kind is a routing dimension (`physics_only` admits one kind
+    // and refuses the others), so two otherwise identical declarations that
+    // differ by kind route differently and must not share a digest.
+    modelKind: capability.modelKind,
     sourcePolicyVersion: capability.sourcePolicyVersion,
     heads: capability.heads.map((head): Record<string, Canonical> => ({
       quantity: head.quantity,

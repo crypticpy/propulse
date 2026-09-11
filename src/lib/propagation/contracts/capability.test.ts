@@ -147,6 +147,12 @@ function protocolHead(
   }
   const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
   head.quantity = quantity;
+  // M07: a decode head may only declare a profile the registry carries with a
+  // decoder, and the SNR head this is cloned from deliberately carries an
+  // unregistered one (the registry constrains decode claims, not labels).
+  if (quantity === "conditional_decode") {
+    head.modeProfileIds = ["ft8-wsjtx-2.7.0-15s"];
+  }
   head.units = QUANTITY_UNITS[quantity];
   head.domain = tuple.domain;
   head.horizons = [tuple.horizon];
@@ -1397,6 +1403,26 @@ describe("parseCapability fails closed", () => {
     }
   });
 
+  it("rejects a decode head declaring an unregistered mode profile (M07, M11)", () => {
+    // `capabilityCovers` would route a request naming this profile to the
+    // head, and the binder would then refuse every result it served, because
+    // nothing outside MODE_PROFILE_REGISTRY says what decoder the profile
+    // uses or how long one attempt lasts.
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[2].modeProfileIds = ["msk144-wsjtx-2.7.0-15s"];
+    expect(reasonsAt(bad, "heads[2].modeProfileIds[0]").join()).toMatch(
+      /Mode profile msk144-wsjtx-2\.7\.0-15s is not registered, so a decode head cannot declare it \(M07, M11\)/,
+    );
+  });
+
+  it("rejects a decode head declaring a profile with no decoder (M07, M11)", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[2].modeProfileIds = ["fm-voice-12k5"];
+    expect(reasonsAt(bad, "heads[2].modeProfileIds[0]").join()).toMatch(
+      /Mode profile fm-voice-12k5 carries no decoder, so no decode probability is defined for it \(M07, M11\)/,
+    );
+  });
+
   it("allows only one head per coverage tuple, whatever its state", () => {
     const bad = candidate("hfPhysics");
     const heads = bad.heads as Mutable[];
@@ -1411,6 +1437,19 @@ describe("capabilityDigest (M24)", () => {
     const second = await capabilityDigest(parsed("hfPhysics"));
     expect(first).toBe(second);
     expect(first).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("gives two declarations that differ only by model kind different digests (M11, M24)", async () => {
+    // `physics_only` admits one kind and refuses the others, so a physics and
+    // a learned declaration route differently. A shared digest would let a
+    // result pin the routing table of a model that could not have served it.
+    const draft = candidate("hfPhysics");
+    draft.modelKind = "learned";
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) throw new Error("mutated fixture must parse");
+    expect(await capabilityDigest(outcome.value)).not.toBe(
+      await capabilityDigest(parsed("hfPhysics")),
+    );
   });
 
   it("gives two declarations that differ only by a head's state different digests", async () => {

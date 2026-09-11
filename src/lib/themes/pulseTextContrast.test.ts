@@ -2527,8 +2527,20 @@ const SPREAD_ATTR_START_RE = /\{\s*\.\.\.\s*/g;
  * (Codex, PR #874 round 40 thread 1). Falls back to the object's whole
  * flattened literal when there's no explicit `className` key at all, the
  * same "resolvable but imprecise" convention every other object-valued
- * reference in this file already uses. */
-function resolveInlineObjectClassName(objectText: string, constMap: ConstDecl[], atIndex: number): string {
+ * reference in this file already uses. Also reports whether the resolved
+ * object actually has a `className` key of its own at all
+ * (`resolved.entries?.has("className")`) -- a `{ className: undefined }`
+ * entry never makes it into `entries` in the first place
+ * (`extractObjectEntries`'s identifier-only branch drops a value whose only
+ * content is the `undefined` keyword, since `extractIdentifierRefs`
+ * excludes it as a known keyword), so this reports `false` for that shape
+ * too, exactly the "treat as not supplying" rule `findClassNameSites` needs
+ * (Codex, PR #874 round 42 thread 1). */
+function resolveInlineObjectClassName(
+  objectText: string,
+  constMap: ConstDecl[],
+  atIndex: number,
+): { raw: string; suppliesClassName: boolean } {
   const { entries, spreads, order } = extractObjectEntries(objectText);
   const literal = extractLiteralBodies(objectText).join(" ");
   const wrapper = new Map<string, ConstEntry>([
@@ -2540,7 +2552,10 @@ function resolveInlineObjectClassName(objectText: string, constMap: ConstDecl[],
   resolveNestedEntrySpreads(wrapper, constMap, atIndex);
   const resolved = wrapper.get("__inlineSpread__")!;
   const classNameEntry = resolved.entries?.get("className");
-  return resolveConstRefs(classNameEntry?.literal ?? resolved.literal, constMap, atIndex);
+  return {
+    raw: resolveConstRefs(classNameEntry?.literal ?? resolved.literal, constMap, atIndex),
+    suppliesClassName: resolved.entries?.has("className") ?? false,
+  };
 }
 
 /** Classifies one spread attribute's own expression text (everything between
@@ -2558,14 +2573,47 @@ function resolveInlineObjectClassName(objectText: string, constMap: ConstDecl[],
  *   what such an expression evaluates to, so it fails closed exactly like an
  *   unresolvable identifier already does: left as its own raw, unresolved
  *   text, which contributes nothing new rather than fabricating a violation
- *   (round 38 thread 1's own "no idea what this refers to" convention). */
-function classifySpreadExpression(exprText: string, constMap: ConstDecl[], atIndex: number): string {
+ *   (round 38 thread 1's own "no idea what this refers to" convention).
+ *
+ * Also reports `suppliesClassName`: whether this spread's resolved source
+ * actually carries a `className` key of its own, for `findClassNameSites`'s
+ * "a spread only overrides when it actually supplies `className`" rule
+ * (Codex, PR #874 round 42 thread 1). `false` covers every case this
+ * scanner can't rule a `className` key IN for -- an unresolvable base (no
+ * visible decl), a chain segment that fails to narrow partway through
+ * (`props.data` where `props`'s own entries have no `data` key), and the
+ * catch-all "anything else" branch (a call, a ternary, ...) -- fail-closed
+ * the same direction as everywhere else in this file: the earlier source on
+ * the tag stays in force rather than being silently erased by something
+ * this scanner can't see into. `true` only when a precisely-resolved object
+ * -- an inline literal, or an identifier/chain with a visible declaration
+ * whose own entries actually include the key -- has a `className` entry;
+ * the inline-object branch's own `suppliesClassName` (from
+ * `resolveInlineObjectClassName`) already handles a `{ className: undefined
+ * }` shape correctly, since that never reaches `entries` at all. The `raw`
+ * text returned is unchanged from before this round -- only the new
+ * `suppliesClassName` signal is added alongside it. */
+function classifySpreadExpression(
+  exprText: string,
+  constMap: ConstDecl[],
+  atIndex: number,
+): { raw: string; suppliesClassName: boolean } {
   const trimmed = exprText.trim();
   if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(trimmed)) {
-    const baseName = trimmed.split(".")[0];
-    return visibleDecl(constMap, baseName, atIndex)
-      ? resolveConstRefs(`${trimmed}.className`, constMap, atIndex)
-      : trimmed;
+    const segments = trimmed.split(".");
+    const baseName = segments[0];
+    const decl = visibleDecl(constMap, baseName, atIndex);
+    if (!decl) return { raw: trimmed, suppliesClassName: false };
+    let candidates: ConstEntry[] | null = [{ literal: decl.literal, entries: decl.entries }];
+    for (const seg of segments.slice(1)) {
+      const narrowed: ConstEntry[] = candidates!
+        .map((c) => c.entries?.get(seg))
+        .filter((c): c is ConstEntry => c !== undefined);
+      candidates = narrowed.length > 0 ? narrowed : null;
+      if (!candidates) break;
+    }
+    const suppliesClassName = candidates !== null && candidates.some((c) => c.entries?.has("className"));
+    return { raw: resolveConstRefs(`${trimmed}.className`, constMap, atIndex), suppliesClassName };
   }
   if (trimmed.startsWith("{")) {
     const { endIndex } = extractBalanced(trimmed, 0, "{", "}");
@@ -2573,7 +2621,7 @@ function classifySpreadExpression(exprText: string, constMap: ConstDecl[], atInd
       return resolveInlineObjectClassName(trimmed, constMap, atIndex);
     }
   }
-  return trimmed;
+  return { raw: trimmed, suppliesClassName: false };
 }
 
 /** True when `index` is the exact start of a top-level attribute of the tag
@@ -2616,16 +2664,24 @@ function isTopLevelAttributePosition(source: string, tagStart: number, index: nu
 /** One class source found directly on a JSX opening tag -- a literal
  * `className=` attribute or a top-level `{...<expr>}` spread -- kept with
  * its own position and already-resolved text so `findClassNameSites` can
- * pick whichever source is LAST in source order per tag. JSX applies
- * attributes (including spreads) left to right, so a later source always
- * overrides an earlier one at runtime; a scanner that just picks the first
- * `className=` it sees regardless of what comes after it, or resolves a
- * spread only when there's no OTHER `className=` anywhere on the tag
- * (round 38's own rule), makes the wrong call whenever the two are mixed
- * (Codex, PR #874 round 39 thread 1): `<span className="text-green"
- * {...props}>` really renders whatever `props.className` is, not
- * `"text-green"`, and the reverse -- an explicit `className=` AFTER a
- * spread -- really does win over the spread. */
+ * pick whichever source is actually in force, LAST-IN-SOURCE-ORDER-THAT-
+ * SUPPLIES-A-CLASSNAME, per tag. JSX applies attributes (including spreads)
+ * left to right, so a later source always overrides an earlier one at
+ * runtime -- PROVIDED it actually supplies a `className`; a spread whose
+ * resolved object has no `className` key of its own changes nothing at
+ * runtime, and a scanner that treats it as an unconditional override anyway
+ * erases whatever `className=`/spread came before it, e.g. `<span
+ * className="text-red animate-pulse" {...{ title: "status" }}>Loading
+ * </span>` really still renders `"text-red animate-pulse"` (Codex, PR #874
+ * round 42 thread 1 -- round 39 thread 1's own fix only ever got the
+ * ordering right, not this "does it actually override" gate). A scanner
+ * that just picks the first `className=` it sees regardless of what comes
+ * after it, or resolves a spread only when there's no OTHER `className=`
+ * anywhere on the tag (round 38's own rule), makes the wrong call whenever
+ * the two are mixed (Codex, PR #874 round 39 thread 1): `<span
+ * className="text-green" {...props}>` really renders whatever
+ * `props.className` is, not `"text-green"`, and the reverse -- an explicit
+ * `className=` AFTER a spread -- really does win over the spread. */
 interface ClassSource {
   /** Position used to order this source against every other one on the
    * same tag -- the attribute's own start (`className=`'s `m.index`, or the
@@ -2635,6 +2691,15 @@ interface ClassSource {
    * through to the emitted `ClassNameSite.index` when this source wins. */
   contentStart: number;
   raw: string;
+  /** Whether this source actually supplies a `className` value at runtime --
+   * always `true` for a literal `className=` attribute; for a spread, only
+   * when `classifySpreadExpression` could confirm the resolved source
+   * actually carries a `className` key of its own (Codex, PR #874 round 42
+   * thread 1). A source with `false` here is still kept in `sources` (it
+   * still needs its own `afterIndex` for locating the tag's children/close),
+   * but `findClassNameSites` never lets it become the winner over whatever
+   * source preceded it. */
+  suppliesClassName: boolean;
   /** Position right after this source's own attribute -- valid as the
    * starting point for `findTagEnd` from ANY source on the tag, not just
    * the winning one, since `findTagEnd` skips forward through every later
@@ -2674,7 +2739,7 @@ function collectExplicitClassSources(source: string, constMap: ConstDecl[]): Cla
       afterIndex = closeIndex === -1 ? contentStart : closeIndex + 1;
     }
 
-    sources.push({ index: m.index, contentStart, raw, afterIndex });
+    sources.push({ index: m.index, contentStart, raw, afterIndex, suppliesClassName: true });
   }
   return sources;
 }
@@ -2705,9 +2770,9 @@ function collectSpreadClassSources(source: string, constMap: ConstDecl[]): Class
     const exprText = source.slice(contentStart, endIndex);
     const afterIndex = endIndex + 1;
 
-    const raw = classifySpreadExpression(exprText, constMap, braceIndex);
+    const { raw, suppliesClassName } = classifySpreadExpression(exprText, constMap, braceIndex);
 
-    sources.push({ index: braceIndex, contentStart: braceIndex, raw, afterIndex });
+    sources.push({ index: braceIndex, contentStart: braceIndex, raw, afterIndex, suppliesClassName });
   }
   return sources;
 }
@@ -2738,10 +2803,16 @@ interface ClassNameSite {
 }
 
 /** One `ClassNameSite` per JSX opening tag, chosen from every `className=`/
- * spread `ClassSource` found on that tag by keeping only the LAST one in
- * source order (Codex, PR #874 round 39 thread 1) -- see `ClassSource`'s own
- * doc for why last-wins is the correct rule (it's exactly what JSX itself
- * does). Sources are grouped by `findOpeningTag`'s own tag-start position,
+ * spread `ClassSource` found on that tag by keeping the LAST one in source
+ * order that actually `suppliesClassName` (Codex, PR #874 round 39 thread 1;
+ * round 42 thread 1 adds the "actually supplies" gate) -- see `ClassSource`'s
+ * own doc for why last-wins is the correct rule (it's exactly what JSX
+ * itself does) and for why a spread with nothing to override with must
+ * leave the winner unchanged instead of blanking it. The very first source
+ * on a tag is always the initial winner regardless of its own
+ * `suppliesClassName` (there's nothing earlier for it to not-override), but
+ * every source after it only replaces the winner when it actually supplies
+ * one. Sources are grouped by `findOpeningTag`'s own tag-start position,
  * the same backward walk every earlier single-source version of this
  * function already used, so a nested element's own attribute is never
  * mistaken for an outer element's (the walk always finds the NEAREST
@@ -2775,7 +2846,10 @@ function findClassNameSites(
 
   for (const [tagStart, { tag, sources }] of byTag) {
     sources.sort((a, b) => a.index - b.index);
-    const winner = sources[sources.length - 1];
+    let winner = sources[0];
+    for (let i = 1; i < sources.length; i++) {
+      if (sources[i].suppliesClassName) winner = sources[i];
+    }
 
     let childrenText: string | null = null;
     let openingTag: string | null = null;
@@ -4868,7 +4942,23 @@ function parseImportClauses(source: string): Array<{ clause: string; specifier: 
  * none of the offsets `Violation`/anchor matching use ever come from an
  * import (Codex, PR #874 round 28). An unresolvable specifier (a package, or
  * an alias other than `@/`) is ignored, same as one that resolves to a
- * module with no pulsing exports at all. */
+ * module with no pulsing exports at all.
+ *
+ * A leading default binding (`import def, * as ns from "…"`) is split off
+ * BEFORE the namespace-clause match below is attempted (Codex, PR #874
+ * round 42 thread 2) -- previously `nsMatch`'s anchored `^\*\s+as\s+…$`
+ * pattern only ever matched a clause that STARTS with `*`, so `def, * as
+ * ns` fell all the way through to the brace-based default/named path below,
+ * whose own `defaultName` derivation (`clause.slice(0, braceMatch.index)`)
+ * only works when the clause actually HAS a `{...}` to anchor before; with
+ * none here, the WHOLE clause (`"def, * as ns"`) was taken as one bogus
+ * default name, silently registering neither a usable default binding NOR
+ * the namespace object at all, so `ns.alert` stayed unresolved. The brace
+ * form (`import def, { a, b as c } from "…"`) already worked before this
+ * round by the same accident in reverse -- `braceMatch` anchors on the
+ * FIRST `{` in the clause regardless of what precedes it, so `clause.slice(
+ * 0, braceMatch.index)` already yields exactly `"def, "` -- so only the
+ * namespace form needed this split. */
 function resolveImportedDecls(
   file: string,
   rawSource: string,
@@ -4882,8 +4972,22 @@ function resolveImportedDecls(
     const pulsing = exportsMap.get(moduleKey);
     if (!pulsing) continue;
 
-    const nsMatch = /^\*\s+as\s+([A-Za-z_$][\w$]*)$/.exec(clause);
+    // Only a clause that starts with a bare identifier immediately followed
+    // by a `,` can carry a leading default binding -- `{ a, b as c }` and
+    // `* as ns` clauses (with no default) both start with `{`/`*`, which
+    // this can never match, so a named-only or namespace-only clause is
+    // completely unaffected by this split.
+    const leadingDefaultMatch = /^([A-Za-z_$][\w$]*)\s*,\s*([\s\S]*)$/.exec(clause);
+    const namespaceClause = leadingDefaultMatch ? leadingDefaultMatch[2].trim() : clause;
+
+    const nsMatch = /^\*\s+as\s+([A-Za-z_$][\w$]*)$/.exec(namespaceClause);
     if (nsMatch) {
+      if (leadingDefaultMatch) {
+        const defaultDecl = pulsing.get("default");
+        if (defaultDecl) {
+          extra.push({ ...defaultDecl, name: leadingDefaultMatch[1], index: 0, scopeStart: 0, scopeEnd: source.length });
+        }
+      }
       const entries = new Map<string, ConstEntry>();
       for (const [exportedName, decl] of pulsing) {
         entries.set(exportedName, { literal: decl.literal, entries: decl.entries });
@@ -6856,6 +6960,56 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture = 'export function A() { return <span {...getProps()}>Loading</span>; }';
     expect(scanSourceForViolations(fixture), fixture).toEqual([]);
   });
+
+  it("keeps an explicit pulsing className in force through a LATER spread whose inline object has no className key at all (#874 round 42 thread 1)", () => {
+    // Before round 42, `findClassNameSites` picked the LAST source
+    // unconditionally -- so this inline-object spread (which carries only
+    // `title`, no `className`) still became the tag's winner, replacing
+    // "text-red animate-pulse" with the object's own flattened literal
+    // ("status", inert), silently erasing a real violation. Real JSX
+    // renders "text-red animate-pulse" here unchanged, since `{ title:
+    // "status" }` has nothing to override className WITH.
+    const fixture =
+      'export function A() { return <span className="text-red animate-pulse" {...{ title: "status" }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("keeps an explicit pulsing className in force through a LATER identifier spread whose resolved object has no className key", () => {
+    const fixture =
+      'const meta = { title: "status" };\nexport function A() { return <span className="text-red animate-pulse" {...meta}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("keeps an explicit pulsing className in force through a LATER spread whose inline object nests another spread that also lacks className", () => {
+    const fixture =
+      'const meta = { title: "status" };\nexport function A() { return <span className="text-red animate-pulse" {...{ ...meta }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("keeps an explicit pulsing className in force through a LATER spread whose inline object explicitly sets `className: undefined`", () => {
+    // `{ className: undefined }` never reaches `extractObjectEntries`'s
+    // `entries` map at all -- `extractIdentifierRefs` excludes the bare
+    // `undefined` keyword, so this entry is dropped the same way a fully
+    // absent key is -- which is exactly the "treat as not supplying"
+    // behaviour this fixture pins down.
+    const fixture =
+      'export function A() { return <span className="text-red animate-pulse" {...{ className: undefined }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("fails closed on an UNRESOLVABLE spread after an explicit className -- keeps the explicit class visible rather than guessing (#874 round 42 thread 1)", () => {
+    // This scanner has no model at all for what a call expression
+    // (`getExtraProps()`) evaluates to, so it can't rule out -- or confirm --
+    // that the call's return value carries its own `className` key that
+    // would override "text-red animate-pulse" at runtime. Guessing "yes, it
+    // overrides" would silently erase a real violation behind ANY
+    // unresolvable spread; keeping the explicit class in force instead is
+    // the same fail-closed direction this file already takes for every
+    // other unresolvable reference (Codex, PR #874 round 42 thread 1).
+    const fixture =
+      'export function A() { return <span className="text-red animate-pulse" {...getExtraProps()}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
 });
 
 describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
@@ -7208,6 +7362,110 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
       "src/lib/b.tsx": bSource,
     });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("registers a namespace import's own members when a leading default binding precedes it (`import def, * as ns from \"…\"`) (#874 round 42 thread 2)", () => {
+    // Before round 42, `nsMatch`'s anchored regex only matched a clause
+    // starting with `*`, so `"def, * as styles"` fell through to the
+    // brace-based default path with no `{...}` to anchor on -- the WHOLE
+    // clause was taken as one bogus default name, and `styles` was never
+    // registered as a decl at all, leaving `styles.alert` as inert raw text.
+    const stylesSource =
+      'export const alert = "text-alert-red animate-pulse";\nexport const safe = "text-xs";\nexport default safe;';
+    const bSource =
+      'import def, * as styles from "./styles";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("also registers the split-off default binding itself, not just the namespace object, from the same combined clause", () => {
+    // On the unfixed parser, `def`'s registered name was the garbled whole
+    // clause text ("def, * as styles"), which no real reference in the file
+    // could ever match, so a plain `{def}` use stayed unresolved too.
+    const stylesSource = 'export const alert = "text-alert-red animate-pulse";\nexport default alert;';
+    const bSource =
+      'import def, * as styles from "./styles";\nexport function B() { return <span className={def}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps a namespace import's clean sibling precise through the same combined default+namespace clause (regression guard)", () => {
+    const stylesSource =
+      'export const alert = "text-alert-red animate-pulse";\nexport const safe = "text-xs";\nexport default safe;';
+    const bSource =
+      'import def, * as styles from "./styles";\nexport function B() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("already resolves both the default and named siblings in `import def, { a, b as c } from \"…\"` (baseline already handled this shape)", () => {
+    // `braceMatch` anchors on the FIRST `{` in the clause regardless of what
+    // precedes it, so `clause.slice(0, braceMatch.index)` already yielded
+    // exactly `"def, "` before this round -- only the namespace form (no
+    // `{...}` to anchor on) needed the leading-default split.
+    const stylesSource =
+      'export const alert = "text-alert-red animate-pulse";\nexport const safe = "text-xs";\nexport default safe;';
+    const bSource =
+      'import def, { alert, safe as clean } from "./styles";\nexport function B() { return <span className={alert}>{def}<span className={clean}>Idle</span></span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("ignores a type-only namespace import entirely (`import type * as ns from \"…\"`)", () => {
+    const stylesSource = 'export const alert = "text-alert-red animate-pulse";';
+    const bSource =
+      'import type * as styles from "./styles";\nexport function B() { return <span>No pulse here</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("never chokes on a TypeScript `import ns = require(...)` clause -- it simply has no ` from` for the tokenizer to match, so it's silently ignored", () => {
+    const stylesSource = 'export const alert = "text-alert-red animate-pulse";';
+    const bSource =
+      'import styles = require("./styles");\nexport function B() { return <span>No pulse here</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("tolerates odd whitespace/newlines inside a combined default+namespace clause", () => {
+    const stylesSource =
+      'export const alert = "text-alert-red animate-pulse";\nexport const safe = "text-xs";\nexport default safe;';
+    const bSource =
+      'import def,\n  *   as   styles\n  from "./styles";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("resolves a plain namespace import of a module with only a default-exported pulsing class (`ns.default`)", () => {
+    const onlyDefaultSource = 'export default "text-alert-red animate-pulse";';
+    const bSource =
+      'import * as ns from "./onlyDefault";\nexport function B() { return <span className={ns.default}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/onlyDefault.ts": onlyDefaultSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
   });
 });
 

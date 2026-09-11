@@ -4,12 +4,60 @@ import type {
   PathPointInspectorProps,
 } from "./PathPointInspector";
 
+/** Which of the two great-circle routes an arc draws. */
+export type RayPathKind = "short" | "long";
+
 export type RayPathInspectorSnapshot = Omit<
   PathPointInspectorProps,
-  "portalTarget" | "inline"
->;
+  "portalTarget" | "inline" | "hideTrigger" | "triggerLabel"
+> & {
+  /** Labels this owner's keyboard trigger; see `pathPointsTriggerLabel`. */
+  pathKind: RayPathKind;
+};
 
-interface RayPathInspectorEntry {
+/**
+ * In `pathMode: "both"` two arcs publish here, and each one needs its own
+ * keyboard entry point -- a single "Path points" trigger would only ever open
+ * the arbitrated owner's list, leaving the other route's points unreachable
+ * without a pointer (#872 review round 3). Named by route, not by owner id:
+ * the id is a path descriptor id and means nothing read aloud.
+ */
+export function pathPointsTriggerLabel(kind: RayPathKind): string {
+  return kind === "short" ? "Short path points" : "Long path points";
+}
+
+export interface RayPathInspectorTrigger {
+  ownerId: string;
+  pathKind: RayPathKind;
+  label: string;
+  onOpenList: (() => void) | undefined;
+}
+
+/**
+ * One trigger per owner that actually has points to list, ordered short route
+ * first so the tab order does not depend on which arc published last.
+ */
+export function selectTriggers(
+  entries: Record<string, { snapshot: RayPathInspectorSnapshot }>,
+): RayPathInspectorTrigger[] {
+  return Object.entries(entries)
+    .filter(([, entry]) => entry.snapshot.pointSet.points.length > 0)
+    .map(([ownerId, entry]) => ({
+      ownerId,
+      pathKind: entry.snapshot.pathKind,
+      label: pathPointsTriggerLabel(entry.snapshot.pathKind),
+      onOpenList: entry.snapshot.onOpenList,
+    }))
+    .sort((a, b) =>
+      a.pathKind === b.pathKind
+        ? a.ownerId.localeCompare(b.ownerId)
+        : a.pathKind === "short"
+          ? -1
+          : 1,
+    );
+}
+
+export interface RayPathInspectorEntry {
   snapshot: RayPathInspectorSnapshot;
   /** Publish order, so the newest of two equally open arcs wins. */
   seq: number;

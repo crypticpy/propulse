@@ -15,11 +15,35 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PathPointSet } from "@/lib/spots/pathPoints";
 import {
+  pathPointsTriggerLabel,
   selectActiveOwner,
+  selectTriggers,
   useRayPathInspectorStore,
   type RayPathInspectorSnapshot,
 } from "./rayPathInspectorStore";
 import type { PathPointInspectorOpen } from "./PathPointInspector";
+
+function pathPoint(pathId: string): PathPointSet["points"][number] {
+  return {
+    id: `${pathId}-point`,
+    pathId,
+    hopIndex: 0,
+    role: "ray-apex",
+    coordinates: { lat: 40, lon: -74 },
+    displayHeightKm: 300,
+    modeledHeightKm: 300,
+    layer: "F2",
+    locationPrecision: "modeled",
+    explanation: "Synthetic fixture point.",
+    model: {
+      name: "Fixture model",
+      version: "fixture",
+      modeledAtMs: 0,
+      inputsAsOfMs: null,
+      explanation: "Fixture.",
+    },
+  };
+}
 
 function emptyPointSet(pathId: string): PathPointSet {
   return { pathId, status: "ready", unavailableReason: null, points: [] };
@@ -30,6 +54,7 @@ function snapshot(
   open: PathPointInspectorOpen,
 ): RayPathInspectorSnapshot {
   return {
+    pathKind: pathId === "long" ? "long" : "short",
     pointSet: emptyPointSet(pathId),
     selectedId: open === "card" ? `${pathId}-point` : null,
     hoveredId: open === "hover" ? `${pathId}-point` : null,
@@ -37,6 +62,19 @@ function snapshot(
     anchor: { x: 10, y: 10 },
     onSelect: () => {},
     onClose: () => {},
+  };
+}
+
+/** The same snapshot with one listable point, so it earns a trigger. */
+function withPoints(
+  base: RayPathInspectorSnapshot,
+): RayPathInspectorSnapshot {
+  return {
+    ...base,
+    pointSet: {
+      ...base.pointSet,
+      points: [pathPoint(base.pointSet.pathId)],
+    },
   };
 }
 
@@ -123,5 +161,32 @@ describe("rayPathInspectorStore owner arbitration (#872 review)", () => {
 
   it("selects nothing from an empty entry map", () => {
     expect(selectActiveOwner({})).toBeNull();
+  });
+});
+
+describe("selectTriggers (#872 review round 3)", () => {
+  it("names one trigger per route so both arcs are keyboard-reachable", () => {
+    const triggers = selectTriggers({
+      long: { snapshot: withPoints(snapshot("long", "closed")) },
+      short: { snapshot: withPoints(snapshot("short", "card")) },
+    });
+    expect(triggers.map((trigger) => trigger.label)).toEqual([
+      "Short path points",
+      "Long path points",
+    ]);
+  });
+
+  it("skips an owner with nothing to list", () => {
+    const triggers = selectTriggers({
+      short: { snapshot: withPoints(snapshot("short", "closed")) },
+      long: { snapshot: snapshot("long", "closed") },
+    });
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].ownerId).toBe("short");
+  });
+
+  it("labels by route, never by owner id", () => {
+    expect(pathPointsTriggerLabel("short")).toBe("Short path points");
+    expect(pathPointsTriggerLabel("long")).toBe("Long path points");
   });
 });

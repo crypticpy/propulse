@@ -32,6 +32,12 @@ export interface PathPointInspectorProps {
   portalTarget?: Element | null;
   /** Skip the document portal when already mounted through drei Html. */
   inline?: boolean;
+  /** Suppress the built-in keyboard trigger when the host renders one per
+   * path instead (`RayPathInspectorOverlay`: two arcs, two triggers, one
+   * arbitrated panel). */
+  hideTrigger?: boolean;
+  /** Overrides the trigger's label so two of them can be told apart. */
+  triggerLabel?: string;
   onSelect: (id: string) => void;
   onClose: () => void;
   onOpenPathAnalysis?: () => void;
@@ -47,6 +53,8 @@ export function PathPointInspector({
   pathSummary,
   portalTarget,
   inline = false,
+  hideTrigger = false,
+  triggerLabel = "Path points",
   onSelect,
   onClose,
   onOpenPathAnalysis,
@@ -193,13 +201,15 @@ export function PathPointInspector({
 
   const overlay = (
     <>
-      <button
-        type="button"
-        className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-[12px] focus:text-su-text"
-        onClick={() => onOpenList?.()}
-      >
-        Path points
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-[12px] focus:text-su-text"
+          onClick={() => onOpenList?.()}
+        >
+          {triggerLabel}
+        </button>
+      )}
       {showHover && hovered && hoverPosition && (
         <div
           role="tooltip"

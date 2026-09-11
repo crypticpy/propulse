@@ -747,6 +747,7 @@ export function RayPathArc({
     }
 
     publishInspector(inspectorOwnerId, {
+      pathKind: pathMode,
       pointSet,
       selectedId,
       hoveredId,
@@ -772,6 +773,7 @@ export function RayPathArc({
     inspectorOwnerId,
     onOpenPathAnalysis,
     open,
+    pathMode,
     pointSet,
     publishInspector,
     result.summary,

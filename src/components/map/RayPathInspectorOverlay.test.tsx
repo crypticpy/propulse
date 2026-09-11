@@ -7,7 +7,8 @@
  * entry point to the path points -- it has to survive the closed state.
  */
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PathPointSet } from "@/lib/spots/pathPoints";
 import { RayPathInspectorOverlay } from "./RayPathInspectorOverlay";
 import {
@@ -17,16 +18,38 @@ import {
 import type { PathPointInspectorOpen } from "./PathPointInspector";
 
 function snapshot(
-  pathId: string,
+  pathId: "short" | "long",
   open: PathPointInspectorOpen,
+  onOpenList?: () => void,
 ): RayPathInspectorSnapshot {
   const pointSet: PathPointSet = {
     pathId,
     status: "ready",
     unavailableReason: null,
-    points: [],
+    points: [
+      {
+        id: `${pathId}-point`,
+        pathId,
+        hopIndex: 0,
+        role: "ray-apex",
+        coordinates: { lat: 40, lon: -74 },
+        displayHeightKm: 300,
+        modeledHeightKm: 300,
+        layer: "F2",
+        locationPrecision: "modeled",
+        explanation: "Synthetic fixture point.",
+        model: {
+          name: "Fixture model",
+          version: "fixture",
+          modeledAtMs: 0,
+          inputsAsOfMs: null,
+          explanation: "Fixture.",
+        },
+      },
+    ],
   };
   return {
+    pathKind: pathId,
     pointSet,
     selectedId: null,
     hoveredId: null,
@@ -34,7 +57,14 @@ function snapshot(
     anchor: { x: 20, y: 20 },
     onSelect: () => {},
     onClose: () => {},
+    onOpenList,
   };
+}
+
+function mountPortal() {
+  const portal = document.createElement("div");
+  document.body.appendChild(portal);
+  return portal;
 }
 
 beforeEach(() => {
@@ -57,7 +87,7 @@ describe("RayPathInspectorOverlay (#872)", () => {
     render(<RayPathInspectorOverlay portalTarget={portal} />);
 
     expect(
-      screen.getByRole("button", { name: "Path points" }),
+      screen.getByRole("button", { name: "Short path points" }),
     ).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
     portal.remove();
@@ -69,7 +99,9 @@ describe("RayPathInspectorOverlay (#872)", () => {
 
     render(<RayPathInspectorOverlay portalTarget={portal} />);
 
-    expect(screen.queryByRole("button", { name: "Path points" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /path points$/i }),
+    ).toBeNull();
     portal.remove();
   });
 
@@ -83,6 +115,57 @@ describe("RayPathInspectorOverlay (#872)", () => {
     render(<RayPathInspectorOverlay portalTarget={portal} />);
 
     expect(screen.getByRole("dialog", { name: "Path point details" })).toBeTruthy();
+    portal.remove();
+  });
+});
+
+describe("RayPathInspectorOverlay keyboard triggers per path (#872 review round 3)", () => {
+  it("mounts one trigger per arc in pathMode both, named by route", () => {
+    const portal = mountPortal();
+    const publish = useRayPathInspectorStore.getState().publish;
+    publish("short", snapshot("short", "card"));
+    publish("long", snapshot("long", "closed"));
+
+    render(<RayPathInspectorOverlay portalTarget={portal} />);
+
+    expect(
+      screen.getAllByRole("button", { name: /path points$/i }).map((button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual(["Short path points", "Long path points"]);
+    portal.remove();
+  });
+
+  it("opens each arc's own list from its own trigger", async () => {
+    const portal = mountPortal();
+    const openShort = vi.fn();
+    const openLong = vi.fn();
+    const publish = useRayPathInspectorStore.getState().publish;
+    publish("short", snapshot("short", "card", openShort));
+    publish("long", snapshot("long", "closed", openLong));
+
+    render(<RayPathInspectorOverlay portalTarget={portal} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Long path points" }));
+    expect(openLong).toHaveBeenCalledTimes(1);
+    expect(openShort).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Short path points" }));
+    expect(openShort).toHaveBeenCalledTimes(1);
+    expect(openLong).toHaveBeenCalledTimes(1);
+    portal.remove();
+  });
+
+  it("mounts exactly one trigger for a single path", () => {
+    const portal = mountPortal();
+    useRayPathInspectorStore.getState().publish("short", snapshot("short", "closed"));
+
+    render(<RayPathInspectorOverlay portalTarget={portal} />);
+
+    expect(screen.getAllByRole("button", { name: /path points$/i })).toHaveLength(
+      1,
+    );
     portal.remove();
   });
 });

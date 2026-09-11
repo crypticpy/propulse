@@ -162,16 +162,16 @@
     {
       "id": "existing_24x11_catalog",
       "status": "BLOCKED",
-      "workload": "24 instantaneous hourly samples x existing 11 catalog slots; 160m and6m eligibility separate, P533 parity only2–30MHz",
+      "workload": "24 instantaneous hourly samples x existing 11 catalog slots; 160m and 6m eligibility separate, P533 parity only 2–30MHz",
       "warm_p95_ms": 500,
       "first_usable_ms": 2000,
       "worker_mib": 128,
       "main_thread_task_ms": 50,
       "ensemble_p95_ms": 3000,
       "devices": [
-        "iPhone12 Safari",
-        "Pixel6 Chrome",
-        "four-core8GB laptop browser"
+        "iPhone 12 Safari",
+        "Pixel 6 Chrome",
+        "four-core 8GB laptop browser"
       ],
       "prerequisite": "G-RUNTIME"
     },

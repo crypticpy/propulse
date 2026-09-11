@@ -38,12 +38,33 @@ over UTF-8 newline-joined sorted IDs, without a trailing newline. Reordering is
 allowed; deletion, addition or replacement requires a reviewed protocol revision.
 This pins the partial inventory denominator without claiming complete coverage.
 
+Beyond that ID hash, the `gates`, `coverage_rows` and `comparators` inventories are
+pinned whole by SHA-256 of a canonical form in which records are sorted by content and
+list fields are sorted, so reordering stays legal while a changed gate owner or
+prerequisite, coverage owner/preregistration requirement/readiness status, or comparator
+arm fails as `"<section>: frozen contract text changed; bump the protocol revision"`.
+These record pins and the `measurement`, `replay`, `events`, `resampling`, `numerics`
+and `runtime_profiles` section pins are checked **last**, so every semantic check still
+names its own violation precisely; the semantic checks themselves only carry
+cross-revision invariants (blocked states cannot pass, prerequisite IDs exist).
+
 `fixture-manifest.json` contains only two analytic matrices and three synthetic
-label records. Fixture parameters are algebra examples, never fitted physical
+label records. Its `fixtures` and `labels` records are pinned the same way, and each
+required fixture ID is additionally bound to its role — `M12-geodesic-invalid` must stay
+the geodesic non-PSD counterexample with a negative minimum eigenvalue and
+`M12-chordal-valid` the chordal PSD case — with the `observed_snr`, `censored_upper_bound`
+and `unknown` label kinds all required. A manifest passed with `--manifest` is held to the
+same pins, so the regression records cannot be dropped or repurposed there either. Fixture parameters are algebra examples, never fitted physical
 priors. Known failed detection with only an upper SNR bound cannot become an
 ordinary observed SNR/MAE label. Observation labels naturally become available
 after their prediction issue; those label timestamps are different from the
 as-issued **input** availability rule in the protocol.
+
+The checks also run in CI: `.github/workflows/propagation-validation.yml` executes both
+commands on Python 3.10 and 3.12 for pull requests and `main` pushes that touch
+`ml/propagation_validation/**`, `docs/designs/propagation/**` or the workflow itself, plus
+`workflow_dispatch`. It has read-only `contents` permission and is independent of the
+station-workbench workflow.
 
 `fixture-manifest.schema.json` is a JSON Schema 2020-12 document using a deliberately
 small vocabulary. `validate.py` implements only `type` (object, array, string,
@@ -52,7 +73,9 @@ boolean, number, null), `const`, `enum`, `properties`, `required`,
 `exclusiveMinimum`, with metadata `$schema`, `title` and `description`. Unsupported
 keywords are errors; there is no general JSON Schema compliance claim, remote
 resolution or coercion. The loader rejects duplicate keys, NaN, Infinity and
-numeric overflow. Schema checks enforce fixture structure; protocol-specific
+numeric overflow, and a JSON integer too large to be a finite double (for example a
+400-digit integer) is reported as a structured consistency FAIL with a nonzero exit
+rather than an uncaught `OverflowError`. Schema checks enforce fixture structure; protocol-specific
 checks enforce candidate-state and event/gate invariants. They cannot verify
 that free-text scientific statements are true, or that future data/software
 matches a declared hash. Candidate contracts still require human review.

@@ -168,39 +168,63 @@ Bot review loops do not converge on their own: a fix agent addresses the
 named site, the bot finds the next edge, and nobody steps back to ask
 whether the design is right (PR #874 reached round 44, #894 round 13, each
 round a legitimate finding on a hand-rolled scanner or a process-table
-parser). After **five bot review rounds** on one PR (`@codex review` request
-comments, or distinct bot reviews that left inline findings, whichever is
-higher — counted by `scripts/review-cap.mjs`), the fix loop stops: no fix
+parser). After **five bot review rounds** on one PR — `max(requests, findings
+- 1)`, where `requests` is `@codex review` comments from a write-access
+allow-list (`crypticpy`, `propulse-bot[bot]`) and `findings` is distinct bot
+reviews that left inline findings; the `- 1` excludes Codex's automatic
+review-on-open, which precedes any request and is not a round the fix loop
+caused (counted by `scripts/review-cap.mjs`) — the fix loop stops: no fix
 agent is dispatched to chase another individual finding.
 
 No human is in this loop. `.github/workflows/review-cap.yml` runs
-`anthropics/claude-code-action@v1` as CI automation to read the diff, the
-files and every review thread across all rounds, then itself decides and
-posts the **architecture review**: is the thing being patched the right
-design, would a different structure end the family of findings, and a
-verdict — `ship` (file the residual edges as one follow-up issue, post the
-review, resolve every open thread with a pointer to that issue) or
-`redesign` (open an issue with the redesign plan, post the review, label the
-PR `needs-redesign`). New bot threads opened after the cap are answered by
-that same automation (a `post-cap-resolver` job triggered on new reviews),
-not by a fix agent and not by a person — they are resolved with a pointer to
-the follow-up issue, never fixed, never re-opened as more edits.
+`anthropics/claude-code-action@v1` (pinned to a commit sha, like every action
+this repo runs from a third party) as CI automation that reads the diff, the
+files under a read-only checkout of the PR head, and every review thread
+across all rounds, then names the finding family and decides `ship` or
+`redesign`. The model itself never holds a write tool: it can only write one
+JSON output file, which plain shell steps validate before doing anything —
+filing or reusing the follow-up issue, posting the **architecture review**
+comment, applying the verdict. On `ship`, the residual edges are filed as one
+follow-up issue (reused across pushes rather than refiled) and every open
+bot-started thread is resolved with a pointer to it; on `redesign`, an issue
+with the redesign plan is filed and the PR is labeled `needs-redesign`. New
+bot threads opened after the cap are answered by that same automation (a
+`post-cap-resolver` job triggered on new reviews), not by a fix agent and not
+by a person — a thread a write-access human started is left alone in both
+places, only bot-started threads are auto-resolved.
+
+Every trigger (`pull_request` synchronize, `pull_request_review` submitted,
+`issue_comment` created) is author-gated before anything runs: `pull_request`
+requires the head repo to be this repo (no fork PRs), the other two require
+`author_association` in `OWNER`/`MEMBER`/`COLLABORATOR`. The gate itself runs
+`scripts/review-cap.mjs` from a checkout of the **default branch**, never the
+PR head, in both `.github/workflows/review-cap.yml` and `pr-contract.yml` — a
+PR editing the script cannot change what grades it.
 
 - **How it is recorded**: one `**architecture review**` PR comment with an
   `- agent:` line, `- Reviewed: <head sha>`, and a bare `Verdict: ship (#N)`
   or `Verdict: redesign (#N)` line naming the follow-up or redesign issue.
   Counting and verdict-parsing are pure functions in `scripts/review-cap.mjs`
-  (node --test coverage in `scripts/review-cap.test.mjs`); only
-  `github-actions[bot]` (the automation), `propulse-bot[bot]`, or `crypticpy`
-  are accepted as the comment's author.
+  (node --test coverage in `scripts/review-cap.test.mjs`, run by pr-contract
+  on every push); only `github-actions[bot]` (the automation),
+  `propulse-bot[bot]`, or `crypticpy` are accepted as the comment's author,
+  and the `agent:` line must read exactly `Claude (review-cap automation)` or
+  the owner's break-glass form `crypticpy (break-glass)` — `crypticpy` is the
+  one human path through this gate, for when the automation cannot run, not a
+  substitute for it. When more than one valid comment matches a head, the
+  last one wins, so a corrected verdict supersedes an earlier mistake in
+  either direction.
 - **Gate**: `.github/workflows/review-cap.yml` labels the PR `review-capped`
   and posts the stop checklist once (write permissions live only in that
-  workflow); `pr-contract` stays read-only and fails the merge check until an
-  architecture review names the current head, reading the script's JSON
-  `status` output. A push after the review needs a new comment for the new
-  head, same as the design-review gate; if the `ANTHROPIC_API_KEY` secret is
-  missing, the automation posts a one-time notice instead of a review and the
-  gate stays red until the secret is added.
+  workflow, split across a `label` job and an `architect` job so an
+  architecture-review failure never blocks the label or vice versa);
+  `pr-contract` stays read-only and always evaluates the script's `capped`
+  field itself rather than trusting the label, then fails the merge check
+  until an architecture review names the current head. A push after the
+  review needs a new comment for the new head, same as the design-review
+  gate; if the `ANTHROPIC_API_KEY` secret is missing, the automation posts a
+  one-time notice instead of a review and the gate stays red until the
+  secret is added.
 
 ## Merging and Done
 

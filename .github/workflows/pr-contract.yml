@@ -24,9 +24,22 @@ jobs:
     # .github/workflows/review-cap.yml, which holds the write permissions
     # (docs/AGENT-CONSTITUTION.md, "Review cap").
     permissions:
+      contents: read
       issues: read
       pull-requests: read
     steps:
+      - name: Check out the base ref
+        # The review-cap gate below runs scripts/review-cap.mjs from this
+        # checkout; it must be the base ref, never the PR head, or a PR could
+        # neutralise its own gate by editing the script (docs/AGENT-CONSTITUTION.md,
+        # "Review cap").
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Run review-cap unit tests
+        # The script above is load-bearing for a required check; give it CI
+        # coverage on every pr-contract run now that this job has a checkout.
+        run: node --test scripts/review-cap.test.mjs
       - name: Check PR body contract
         env:
           BODY: ${{ github.event.pull_request.body }}
@@ -144,25 +157,26 @@ jobs:
         # Rule: docs/AGENT-CONSTITUTION.md, "Review cap". Counting and
         # verdict-parsing logic lives in scripts/review-cap.mjs (node --test
         # coverage in scripts/review-cap.test.mjs); this step only reads its
-        # JSON `status` output and the review-capped label. Adding the label,
-        # the stop checklist and the architecture review itself are done by
+        # JSON `status` output. Adding the review-capped label, the stop
+        # checklist and the architecture review itself are done by
         # .github/workflows/review-cap.yml, which holds the write
-        # permissions this job does not need.
+        # permissions this job does not need. The `status` call always runs
+        # here — the label is a human-visible marker only, never the gate's
+        # source of truth, so removing it cannot open the gate.
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          LABELS=$(gh api "repos/${REPO}/issues/${PR}/labels" --paginate --jq '.[].name') \
-            || { echo "::error::could not list labels; the review cap cannot be evaluated (re-run the check)"; exit 1; }
-          if ! printf '%s\n' "$LABELS" | grep -qx 'review-capped'; then
-            echo "Not review-capped; skipping."
-            exit 0
-          fi
           RESULT=$(node scripts/review-cap.mjs status "$REPO" "$PR" "$HEAD_SHA") \
             || { echo "::error::could not evaluate the review cap (re-run the check)"; exit 1; }
           echo "$RESULT"
+          CAPPED=$(printf '%s' "$RESULT" | jq -r '.capped')
+          if [ "$CAPPED" != "true" ]; then
+            echo "Not review-capped; skipping."
+            exit 0
+          fi
           OK=$(printf '%s' "$RESULT" | jq -r '.ok')
           VERDICT=$(printf '%s' "$RESULT" | jq -r '.verdict')
           ISSUE=$(printf '%s' "$RESULT" | jq -r '.issue')

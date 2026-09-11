@@ -1,37 +1,57 @@
 #!/usr/bin/env node
 /**
  * review-cap: count bot review rounds on a PR two ways (explicit
- * `@codex review` requests, and distinct bot reviews that left inline
- * findings) and, once either counter reaches the cap, evaluate whether a
- * valid `**architecture review**` comment already covers the current head.
- * The verdict decides whether `pr-contract` merges (`ship`), blocks
- * (`redesign` or pending), and whether the review-cap automation still needs
- * to run. See docs/AGENT-CONSTITUTION.md, "Review cap".
+ * `@codex review` requests from a write-access allow-list, and distinct bot
+ * reviews that left inline findings, minus one to exclude Codex's automatic
+ * first pass on open) and, once either counter reaches the cap, evaluate
+ * whether a valid `**architecture review**` comment already covers the
+ * current head. The verdict decides whether `pr-contract` merges (`ship`),
+ * blocks (`redesign` or pending), and whether the review-cap automation
+ * still needs to run. See docs/AGENT-CONSTITUTION.md, "Review cap".
+ *
+ * This script is only trustworthy when it runs from the default branch (a
+ * PR cannot edit the copy that gates it) — see the checkout steps in
+ * .github/workflows/pr-contract.yml and .github/workflows/review-cap.yml.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REVIEW_REQUEST = /^@codex review\b/i;
-const BOT_LOGIN = /\[bot\]$/i;
 const SOURCERY_LOGIN = /^sourcery-ai\[bot\]$/i;
+// A Codex review is identified by this badge on at least one of its inline
+// comments, whatever login posts it. Empirically (verified live against
+// #874 and #894) Codex posts as `chatgpt-codex-connector[bot]`, not "under
+// the linked user's login" as issue #1054 originally assumed; the
+// badge-based match is login-agnostic so that discrepancy does not matter.
 const BADGE = /img\.shields\.io\/badge\/P[123]\b/i;
 const HEADING = /\*\*architecture review\*\*/i;
 const AGENT_LINE = /^-\s*agent:\s*(.+?)\s*$/im;
 const REVIEWED_LINE = /^-\s*Reviewed:\s*([0-9a-f]{7,40})\b/im;
 const VERDICT_LINE = /^Verdict:\s*(ship|redesign)\s*\(#(\d+)\)\s*$/im;
 
+/** Accounts allowed to post the `**architecture review**` comment. `crypticpy` is the break-glass path (see BREAK_GLASS_AGENT). */
 export const ALLOWED_REVIEWERS = [
   "github-actions[bot]",
   "propulse-bot[bot]",
   "crypticpy",
 ];
 
-/** `@codex review` request comments (issue-level) from non-bot accounts. */
-export function countReviewRequests(issueComments) {
+/** Write-access logins allowed to spend an `@codex review` request round. */
+export const REQUEST_LOGINS = ["crypticpy", "propulse-bot[bot]"];
+
+export const AUTOMATION_AGENT = "Claude (review-cap automation)";
+export const BREAK_GLASS_AGENT = "crypticpy (break-glass)";
+const VALID_AGENTS = new Set(
+  [AUTOMATION_AGENT, BREAK_GLASS_AGENT].map((a) => a.toLowerCase()),
+);
+
+/** `@codex review` request comments (issue-level) from the write-access allow-list. */
+export function countReviewRequests(issueComments, allowedRequesters = REQUEST_LOGINS) {
+  const allowSet = new Set(allowedRequesters.map((login) => login.toLowerCase()));
   return issueComments.filter((comment) => {
-    const login = comment.user?.login ?? "";
-    if (BOT_LOGIN.test(login)) return false;
+    const login = (comment.user?.login ?? "").toLowerCase();
+    if (!allowSet.has(login)) return false;
     const body = (comment.body ?? "").trim();
     return REVIEW_REQUEST.test(body);
   }).length;
@@ -66,24 +86,39 @@ export function countFindingReviews({ reviews, reviewComments }) {
   return findingIds.size;
 }
 
-export function countRounds({ issueComments, reviews, reviewComments }) {
-  const requests = countReviewRequests(issueComments);
+/**
+ * `rounds` is `max(requests, findings - 1)`: Codex reviews automatically on
+ * PR open, before any `@codex review` request is ever posted, so that first
+ * finding review is not a "round" caused by the fix loop — only the ones
+ * that follow a request are. Verified against #1036 and #1035 (4 requests,
+ * 5 finding reviews each, merged cleanly, correctly not capped) and #874 (44
+ * requests, 44 finding reviews, correctly still capped after the -1).
+ */
+export function countRounds({ issueComments, reviews, reviewComments }, allowedRequesters) {
+  const requests = countReviewRequests(issueComments, allowedRequesters);
   const findings = countFindingReviews({ reviews, reviewComments });
-  return { requests, findings, rounds: Math.max(requests, findings) };
+  const rounds = Math.max(requests, Math.max(0, findings - 1));
+  return { requests, findings, rounds };
 }
 
-/** Returns `{ agent, reviewedSha, verdict, issue }` or `null`. */
+/**
+ * Returns `{ agent, reviewedSha, verdict, issue }` or `null`. The `agent`
+ * line must equal `AUTOMATION_AGENT` or the owner's break-glass form
+ * `BREAK_GLASS_AGENT`; anything else is not a valid architecture review.
+ */
 export function parseArchitectureReview(commentBody) {
   const body = commentBody ?? "";
   if (!HEADING.test(body)) return null;
   const agentMatch = body.match(AGENT_LINE);
   if (!agentMatch) return null;
+  const agent = agentMatch[1];
+  if (!VALID_AGENTS.has(agent.toLowerCase())) return null;
   const shaMatch = body.match(REVIEWED_LINE);
   if (!shaMatch) return null;
   const verdictMatch = body.match(VERDICT_LINE);
   if (!verdictMatch) return null;
   return {
-    agent: agentMatch[1],
+    agent,
     reviewedSha: shaMatch[1].toLowerCase(),
     verdict: verdictMatch[1].toLowerCase(),
     issue: Number(verdictMatch[2]),
@@ -94,7 +129,10 @@ export function parseArchitectureReview(commentBody) {
  * `ok` is the pr-contract merge signal: true when not capped, or when capped
  * and an allowed reviewer's comment carries a `ship` verdict for the current
  * head. `reviewed` is true whenever such a comment exists at all (ship or
- * redesign) — the review-cap automation uses it to avoid posting twice.
+ * redesign) — the review-cap automation uses it to avoid posting twice. When
+ * more than one valid comment matches the head, the *last* one (by comment
+ * order) wins, so a corrected verdict can supersede an earlier mistake in
+ * either direction.
  */
 export function evaluateReviewCap({
   issueComments,
@@ -102,13 +140,13 @@ export function evaluateReviewCap({
   reviewComments,
   headSha,
   allowedReviewers = ALLOWED_REVIEWERS,
+  allowedRequesters = REQUEST_LOGINS,
   cap = 5,
 }) {
-  const { requests, findings, rounds } = countRounds({
-    issueComments,
-    reviews,
-    reviewComments,
-  });
+  const { requests, findings, rounds } = countRounds(
+    { issueComments, reviews, reviewComments },
+    allowedRequesters,
+  );
   const capped = rounds >= cap;
   const head = (headSha ?? "").toLowerCase();
   const allowSet = new Set(
@@ -122,7 +160,8 @@ export function evaluateReviewCap({
     if (!parsed) continue;
     if (!head.startsWith(parsed.reviewedSha)) continue;
     reviewed = parsed;
-    break;
+    // No `break`: comments are in ascending creation order, so the last
+    // valid match wins and a later correction supersedes an earlier one.
   }
   const ok = !capped || (reviewed !== null && reviewed.verdict === "ship");
   let reason;

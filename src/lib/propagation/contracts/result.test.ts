@@ -307,6 +307,64 @@ describe("parseResult fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
+  it("rejects a probability interval that leaves [0, 1]", () => {
+    const bad = candidate("fullHfCircuit");
+    const head = headFor(bad, "conditional_decode");
+    head.calibrationId = "ft8-decode-calibration-0.1.0";
+    ((head.state as Mutable).value as Mutable).probability = 0.5;
+    head.uncertainty = {
+      kind: "model_spread",
+      intervalKind: "central",
+      coverageProbability: 0.8,
+      low: -0.2,
+      high: 1.2,
+    };
+    expect(reasonsAt(bad, "heads[2].uncertainty.low").join()).toMatch(
+      /inside \[0, 1\]/,
+    );
+  });
+
+  it("rejects a probability interval that does not bracket the point", () => {
+    const bad = candidate("fullHfCircuit");
+    const head = headFor(bad, "conditional_decode");
+    head.calibrationId = "ft8-decode-calibration-0.1.0";
+    ((head.state as Mutable).value as Mutable).probability = 0.9;
+    head.uncertainty = {
+      kind: "model_spread",
+      intervalKind: "central",
+      coverageProbability: 0.8,
+      low: 0.3,
+      high: 0.7,
+    };
+    expect(reasonsAt(bad, "heads[2].uncertainty.high").join()).toMatch(
+      /bracket the reported probability/,
+    );
+  });
+
+  it("accepts a probability interval inside [0, 1] around the point", () => {
+    const good = candidate("fullHfCircuit");
+    const head = headFor(good, "conditional_decode");
+    head.calibrationId = "ft8-decode-calibration-0.1.0";
+    ((head.state as Mutable).value as Mutable).probability = 0.5;
+    head.uncertainty = {
+      kind: "model_spread",
+      intervalKind: "central",
+      coverageProbability: 0.8,
+      low: 0.3,
+      high: 0.7,
+    };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a valid time with sub-millisecond precision", () => {
+    const bad = candidate("fullHfCircuit");
+    bad.validAt = "2026-09-11T19:00:00.0001Z";
+    expect(reasonsAt(bad, "validAt").join()).toMatch(
+      /at most millisecond precision/,
+    );
+  });
+
   it("rejects a mixed requested model id and version", () => {
     const bad = candidate("fullHfCircuit");
     (bad.provenance as Mutable).requestedModelVersion = null;

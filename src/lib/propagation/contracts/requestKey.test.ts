@@ -32,6 +32,19 @@ describe("requestKey identity", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
   });
 
+  it("rejects sub-millisecond instants rather than aliasing them onto one key", () => {
+    // Date.parse truncates to whole milliseconds, so the wire schema refuses
+    // any precision the canonical key could not carry.
+    for (const spelling of [
+      "2026-09-11T19:00:00.0001Z",
+      "2026-09-11T19:00:00.0002Z",
+    ]) {
+      const draft = structuredClone(cases.hfShortPath) as Mutable;
+      draft.validAt = spelling;
+      expect(parseRequest(draft).ok).toBe(false);
+    }
+  });
+
   it("keeps the key stable across two spellings of one instant", () => {
     const zulu = build();
     const offset = build((draft) => {

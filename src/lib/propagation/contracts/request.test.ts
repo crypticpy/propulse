@@ -268,6 +268,36 @@ describe("parseRequest fails closed", () => {
     expect(parseRequest(explicit).ok).toBe(true);
   });
 
+  it("rejects an explicit route azimuth on an ordinary path (M06)", () => {
+    const bad = candidate("hfShortPath");
+    (bad.route as Mutable).azimuthDeg = 71.5;
+    expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
+      /only for degenerate endpoints/,
+    );
+  });
+
+  it("rejects an instant with more than millisecond precision", () => {
+    const bad = candidate("hfShortPath");
+    bad.validAt = "2026-09-11T19:00:00.0001Z";
+    expect(reasonsAt(bad, "validAt").join()).toMatch(
+      /at most millisecond precision/,
+    );
+  });
+
+  it("accepts an instant with exactly three fractional digits", () => {
+    const good = candidate("hfShortPath");
+    good.validAt = "2026-09-11T19:00:00.250Z";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts an instant written with a numeric offset", () => {
+    const good = candidate("hfShortPath");
+    good.validAt = "2026-09-11T20:00:00+01:00";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("still accepts an ordinary path with a derived (null) azimuth", () => {
     const ordinary = candidate("hfShortPath");
     expect((ordinary.route as Mutable).azimuthDeg).toBeNull();

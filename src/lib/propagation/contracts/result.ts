@@ -394,6 +394,7 @@ const predictionHead = z
     const payload = PAYLOAD_SCHEMAS[value.quantity].safeParse(
       value.state.value,
     );
+
     if (!payload.success) {
       for (const issue of payload.error.issues) {
         ctx.addIssue({
@@ -403,6 +404,30 @@ const predictionHead = z
         });
       }
       return z.NEVER;
+    }
+    if (
+      QUANTITY_UNITS[value.quantity] === "probability" &&
+      value.uncertainty.kind !== "none"
+    ) {
+      // A probability-valued head is bounded by construction, so its interval
+      // is bounded too, and the interval must bracket the reported point.
+      const { low, high } = value.uncertainty;
+      if (low < 0 || high > 1) {
+        reject(
+          ctx,
+          ["uncertainty", low < 0 ? "low" : "high"],
+          "A probability interval lies inside [0, 1]",
+        );
+      }
+      const point = (payload.data as { probability: number | null })
+        .probability;
+      if (point !== null && (point < low || point > high)) {
+        reject(
+          ctx,
+          ["uncertainty", point < low ? "low" : "high"],
+          "A probability interval must bracket the reported probability",
+        );
+      }
     }
     if (
       value.quantity === "conditional_decode" &&

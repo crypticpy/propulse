@@ -23,8 +23,26 @@ export type ParseOutcome<T> =
 /** Non-empty, trimmed identifier. */
 export const identifier = z.string().trim().min(1);
 
-/** ISO 8601 instant with an explicit offset (protocol `replay` uses UTC). */
-export const instant = z.string().datetime({ offset: true });
+/** More than three fractional-second digits. */
+const SUB_MILLISECOND = /\.\d{4,}/;
+
+/**
+ * ISO 8601 instant with an explicit offset (protocol `replay` uses UTC), at
+ * most millisecond precision.
+ *
+ * Every timestamp comparison and the canonical request key run through
+ * `Date.parse`, which truncates to whole milliseconds, so a fourth fractional
+ * digit would make two distinct wire values one cache entry. Restricting the
+ * wire schema is the lossless choice and costs nothing here: every producer in
+ * this repository is a JavaScript `Date`, which emits exactly three digits.
+ */
+export const instant = z
+  .string()
+  .datetime({ offset: true })
+  .refine((value) => !SUB_MILLISECOND.test(value), {
+    message:
+      "An instant carries at most millisecond precision (three fractional digits)",
+  });
 
 /** A finite number. NaN, Infinity and -Infinity are all rejected. */
 export const finite = z.number().finite();

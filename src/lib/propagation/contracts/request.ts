@@ -275,7 +275,13 @@ export const predictionRequestSchema = z
     route: z
       .object({
         leg: z.enum(ROUTE_LEGS),
-        /** Required for degenerate geometry; otherwise derived (M06). */
+        /**
+         * M06: the departure tangent is derived uniquely from the endpoints
+         * and the leg, so an explicit azimuth is legal only where no tangent
+         * exists, that is for coincident or exactly antipodal endpoints. On
+         * any ordinary path this field must be null; a caller-supplied value
+         * would be a second, conflicting geometry.
+         */
         azimuthDeg: finite.min(0).lt(360).nullable(),
       })
       .strict(),
@@ -359,6 +365,13 @@ export const predictionRequestSchema = z
         ctx,
         ["route", "azimuthDeg"],
         "Coincident or antipodal endpoints have no derived short or long tangent; an explicit route azimuth is required (M06)",
+      );
+    }
+    if (!degenerate && value.route.azimuthDeg !== null) {
+      reject(
+        ctx,
+        ["route", "azimuthDeg"],
+        "An ordinary path derives its tangent from the endpoints and the leg; an explicit route azimuth is only for degenerate endpoints (M06)",
       );
     }
     const family = value.mechanismPolicy.family;

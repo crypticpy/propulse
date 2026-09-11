@@ -37,7 +37,11 @@ export function enqueueGearDeletionIntent(
   requestedAt = new Date().toISOString(),
 ): PendingGearDeletion[] {
   const key = gearDeletionKey({ table, recordId });
-  if (pending.some((entry) => gearDeletionKey(entry) === key)) {
+  if (
+    pending.some(
+      (entry) => gearDeletionKey(entry) === key && entry.ownerId === ownerId,
+    )
+  ) {
     return [...pending];
   }
   return [...pending, { table, recordId, requestedAt, ownerId }];

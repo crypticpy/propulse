@@ -117,4 +117,55 @@ describe("userStore.resetPreferences gear tombstones (#326)", () => {
       .sort();
     expect(keys).toEqual(["custom_radios:custom-1", "user_radios:radio-1"]);
   });
+
+  it("cascades a reset radio through referencing presets and chain nodes, tombstoning both (#326)", () => {
+    useShackStore.setState({
+      radios: [
+        {
+          id: "radio-1",
+          equipmentId: "ic-7300",
+          addedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      customRadios: [],
+      activeRadioId: "radio-1",
+      stationPresets: [
+        {
+          id: "preset-1",
+          name: "Preset 1",
+          radioId: "radio-1",
+          antennaId: "",
+          accessoryIds: [],
+          operatingPowerWatts: 100,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      activePresetId: "preset-1",
+      stationChains: [
+        {
+          id: "chain-1",
+          name: "Chain 1",
+          nodes: [{ type: "radio", radioId: "radio-1" }],
+          feedlineRuns: [],
+          operatingPowerWatts: 100,
+          shackAccessoryIds: [],
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      pendingGearDeletions: [],
+    });
+
+    useUserStore.getState().resetPreferences();
+
+    expect(useShackStore.getState().stationPresets).toEqual([]);
+    expect(useShackStore.getState().activePresetId).toBeNull();
+    expect(useShackStore.getState().stationChains[0].nodes).toEqual([]);
+    const keys = useShackStore
+      .getState()
+      .pendingGearDeletions.map((d) => `${d.table}:${d.recordId}`)
+      .sort();
+    expect(keys).toEqual(
+      ["user_radios:radio-1", "station_presets:preset-1"].sort(),
+    );
+  });
 });

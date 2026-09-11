@@ -20,6 +20,22 @@ describe("shackDeletionIntent", () => {
     expect(gearDeletionKey(second[0])).toBe("antennas:ant-1");
   });
 
+  it("keeps separate intents for the same table:recordId under different owners", () => {
+    const first = enqueueGearDeletionIntent([], "user-A", "antennas", "ant-1");
+    const second = enqueueGearDeletionIntent(
+      first,
+      "user-B",
+      "antennas",
+      "ant-1",
+    );
+
+    expect(second).toHaveLength(2);
+    expect(second.map((entry) => entry.ownerId).sort()).toEqual([
+      "user-A",
+      "user-B",
+    ]);
+  });
+
   it("records the owner id on each intent", () => {
     const pending = enqueueGearDeletionIntent([], "user-1", "antennas", "ant-1");
 

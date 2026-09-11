@@ -440,19 +440,25 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
           // Cascade the drops through the same referential cleanup a local
           // remove* action runs (dangling chain nodes/feedline runs left
-          // pointing at dropped radios), and tombstone them — reuses
-          // applyGearRemoval rather than re-implementing the cascade here
-          // (#326).
+          // pointing at dropped radios), and tombstone the dropped ids
+          // themselves — the server hasn't tombstoned them, so
+          // applyGearRemoval (which only enqueues dependent intents) would
+          // leave them active remotely and let a later pull resurrect them.
+          // removeGearWithTombstones also enqueues the primary ids (#326).
           const ownerId = currentOwnerId();
           if (droppedRadioIds.length > 0) {
             useShackStore
               .getState()
-              .applyGearRemoval("user_radios", droppedRadioIds, ownerId);
+              .removeGearWithTombstones("user_radios", droppedRadioIds, ownerId);
           }
           if (droppedCustomRadioIds.length > 0) {
             useShackStore
               .getState()
-              .applyGearRemoval("custom_radios", droppedCustomRadioIds, ownerId);
+              .removeGearWithTombstones(
+                "custom_radios",
+                droppedCustomRadioIds,
+                ownerId,
+              );
           }
         }
 
@@ -519,13 +525,14 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         });
 
         // Cascade the drops through the same referential cleanup a local
-        // remove* action runs, and tombstone them (#326). This matters
-        // most for a legacy backup that omits `stationChains` (the block
-        // above then retains the current chains as-is): without this,
-        // any retained chain node or feedline run referencing one of the
-        // just-dropped antennas/feedlines/accessories/inline components
-        // would be pushed dangling. Reuses applyGearRemoval rather than
-        // re-implementing the cascade here.
+        // remove* action runs, and tombstone the dropped ids themselves —
+        // the server hasn't tombstoned them, so leaving that to
+        // applyGearRemoval (dependent intents only) would let a later pull
+        // resurrect them (#326). This matters most for a legacy backup that
+        // omits `stationChains` (the block above then retains the current
+        // chains as-is): without this, any retained chain node or feedline
+        // run referencing one of the just-dropped antennas/feedlines/
+        // accessories/inline components would be pushed dangling.
         const ownerId = currentOwnerId();
         const cascades: Array<[GearDeletionTable, string[]]> = [
           ["antennas", droppedAntennaIds],
@@ -537,7 +544,9 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         ];
         for (const [table, ids] of cascades) {
           if (ids.length > 0) {
-            useShackStore.getState().applyGearRemoval(table, ids, ownerId);
+            useShackStore
+              .getState()
+              .removeGearWithTombstones(table, ids, ownerId);
           }
         }
       }

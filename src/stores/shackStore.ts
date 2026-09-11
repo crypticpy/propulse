@@ -332,6 +332,18 @@ interface ShackStore {
     ids: string[],
     ownerId: string,
   ) => void;
+  /**
+   * Local-removal counterpart to `applyGearRemoval`: the server hasn't
+   * tombstoned `ids` yet, so this also enqueues an owner-scoped intent for
+   * each primary id (in addition to the same referential cascade). Callers
+   * must remove `ids` from `table`'s own array themselves — this only
+   * cleans up dependent presets/chains/active-selection state (#326).
+   */
+  removeGearWithTombstones: (
+    table: GearDeletionTable,
+    ids: string[],
+    ownerId: string,
+  ) => void;
 
   // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
@@ -529,6 +541,44 @@ export const useShackStore = create<ShackStore>()(
                     deletionIntents,
                   )
                 : state.pendingGearDeletions,
+            radios: cascade.radios,
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+            activeRadioId: cascade.activeRadioId,
+            activePresetId: cascade.activePresetId,
+            activeChainId: cascade.activeChainId,
+          };
+        }),
+
+      removeGearWithTombstones: (table, ids, ownerId) =>
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table,
+            ids,
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          const deletionIntents = [
+            ...ids.map((recordId) => ({ table, recordId })),
+            ...cascade.removedRadioIds.map((recordId) => ({
+              table: "user_radios" as const,
+              recordId,
+            })),
+            ...cascade.orphanedPresetIds.map((recordId) => ({
+              table: "station_presets" as const,
+              recordId,
+            })),
+          ];
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              ownerId,
+              deletionIntents,
+            ),
             radios: cascade.radios,
             stationPresets: cascade.stationPresets,
             stationChains: cascade.stationChains,

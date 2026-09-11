@@ -46,7 +46,6 @@ import {
   useActiveUserRadio,
 } from "./shackStore";
 import { useAuthStore } from "./authStore";
-import { enqueueGearDeletionIntents } from "../lib/sync/shackDeletionIntent";
 
 // Re-export types that consumers import from userStore
 export type { SavedTarget, ServiceCredentials };
@@ -326,33 +325,30 @@ export const useUserStore = create<UserStore>()(() => ({
     // Matches original: full factory reset across all stores
     useSettingsStore.getState().resetPreferences();
     const currentShack = useShackStore.getState();
+    const radioIds = currentShack.radios.map((r) => r.id);
+    const customRadioIds = currentShack.customRadios.map((r) => r.id);
     // Clearing radios/customRadios here bypasses removeRadio/
-    // removeCustomRadio, so it must tombstone them itself or a later sync
-    // pull will resurrect them from the server (#326).
-    const droppedEntries = [
-      ...currentShack.radios.map((r) => ({
-        table: "user_radios" as const,
-        recordId: r.id,
-      })),
-      ...currentShack.customRadios.map((r) => ({
-        table: "custom_radios" as const,
-        recordId: r.id,
-      })),
-    ];
+    // removeCustomRadio, so the referential cascade (dependent presets,
+    // chain nodes, active ids) and the tombstones both have to be run by
+    // hand via removeGearWithTombstones, or a later sync pull will
+    // resurrect the gear from the server while presets/chains keep
+    // dangling references to it (#326).
     useShackStore.setState({
       radios: [],
       customRadios: [],
       activeRadioId: null,
-      ...(droppedEntries.length > 0
-        ? {
-            pendingGearDeletions: enqueueGearDeletionIntents(
-              currentShack.pendingGearDeletions,
-              useAuthStore.getState().user?.id ?? "",
-              droppedEntries,
-            ),
-          }
-        : {}),
     });
+    const ownerId = useAuthStore.getState().user?.id ?? "";
+    if (radioIds.length > 0) {
+      useShackStore
+        .getState()
+        .removeGearWithTombstones("user_radios", radioIds, ownerId);
+    }
+    if (customRadioIds.length > 0) {
+      useShackStore
+        .getState()
+        .removeGearWithTombstones("custom_radios", customRadioIds, ownerId);
+    }
     useProfileStore.setState({
       station: null,
       savedTargets: [],

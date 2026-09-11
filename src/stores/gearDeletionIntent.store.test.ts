@@ -224,4 +224,53 @@ describe("shackStore gear deletion intents (#326)", () => {
       }),
     ]);
   });
+
+  it("removeGearWithTombstones enqueues the primary id plus its cascade (#326)", () => {
+    useShackStore.setState({
+      antennas: [antenna("ant-1")],
+      stationPresets: [
+        preset("preset-1", { antennaId: "ant-1" }),
+        preset("preset-2", { antennaId: "other-antenna" }),
+      ],
+    });
+
+    useShackStore
+      .getState()
+      .removeGearWithTombstones("antennas", ["ant-1"], "user-1");
+
+    expect(
+      useShackStore.getState().stationPresets.map((p) => p.id),
+    ).toEqual(["preset-2"]);
+    const keys = useShackStore
+      .getState()
+      .pendingGearDeletions.map((d) => `${d.table}:${d.recordId}`)
+      .sort();
+    expect(keys).toEqual(["antennas:ant-1", "station_presets:preset-1"].sort());
+  });
+
+  it("removeGearWithTombstones on a user_radios removal with a dependent preset enqueues both the radio and the preset intents (#326)", () => {
+    useShackStore.setState({
+      radios: [],
+      stationPresets: [
+        preset("preset-1", { radioId: "radio-1" }),
+        preset("preset-2", { radioId: "other-radio" }),
+      ],
+      activeRadioId: null,
+    });
+
+    useShackStore
+      .getState()
+      .removeGearWithTombstones("user_radios", ["radio-1"], "user-1");
+
+    expect(
+      useShackStore.getState().stationPresets.map((p) => p.id),
+    ).toEqual(["preset-2"]);
+    const keys = useShackStore
+      .getState()
+      .pendingGearDeletions.map((d) => `${d.table}:${d.recordId}`)
+      .sort();
+    expect(keys).toEqual(
+      ["user_radios:radio-1", "station_presets:preset-1"].sort(),
+    );
+  });
 });

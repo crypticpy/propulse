@@ -16,7 +16,9 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   CAPABILITY_STATE_FOR_ROW_STATUS,
   isKnownBandLabel,
+  DOMAIN_GEOMETRY_CLASSES,
   isProtocolCoverage,
+  isProtocolGeometry,
   PERMITTED_GEOMETRY_CLASSES,
   permittedRelayKinds,
   protocolCoverageContainsHz,
@@ -511,6 +513,20 @@ export const modelCapabilitySchema = z
           input === "ephemeris"
             ? "A head on an orbital geometry must require an ephemeris (A21, M11)"
             : `A head advertising ${head.mechanismFamilies.join(", ")} must require ${input} (A02, M11)`,
+        );
+      }
+      for (const geometryClass of head.geometryClasses) {
+        // M11/A21: the head's domain is the population the frozen rows were
+        // taken over, and that population has a geometry. A head that
+        // advertises another one would route requests onto rows that say
+        // nothing about the path it actually answers.
+        if (isProtocolGeometry(head.domain, geometryClass)) continue;
+        reject(
+          ctx,
+          ["heads", index, "geometryClasses"],
+          `The protocol serves domain ${head.domain} on ${DOMAIN_GEOMETRY_CLASSES[
+            head.domain
+          ].join(", ")}, not on geometry class ${geometryClass} (M11, A21)`,
         );
       }
       for (const mechanism of head.mechanismFamilies) {

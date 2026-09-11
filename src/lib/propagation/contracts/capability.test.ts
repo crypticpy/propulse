@@ -7,6 +7,7 @@ import {
   isProtocolCoverage,
   mandatoryInputsForFamilies,
   MANDATORY_INPUTS_BY_FAMILY,
+  isProtocolGeometry,
   PERMITTED_GEOMETRY_CLASSES,
   permittedRelayKinds,
   protocolBandEnvelope,
@@ -137,8 +138,13 @@ function protocolHead(
     minHz: number;
     maxHz: number;
   };
-  // A21/A22: the geometry classes the row's mechanism is answered on.
-  head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[tuple.mechanism]];
+  // A21/A22: the geometry classes the row's mechanism is answered on, narrowed
+  // to the ones the row's own domain is served on (M11): the satellite family
+  // takes both earth_space and two_leg_relay, but an ephemeris-horizon row is
+  // a pass and a configured-two-leg row is a transponder circuit.
+  head.geometryClasses = PERMITTED_GEOMETRY_CLASSES[tuple.mechanism].filter(
+    (geometryClass) => isProtocolGeometry(tuple.domain, geometryClass),
+  );
   // A01: only a quantity with a receive chain names receiver classes.
   if (RECEIVER_PARTICIPATION[quantity] === "none") head.receiverClasses = [];
   // M02: an interval-valued head declares the interval lengths it answers.
@@ -1351,5 +1357,25 @@ describe("capabilityDigest (M24)", () => {
     expect(await capabilityDigest(outcome.value)).not.toBe(
       await capabilityDigest(parsed("hfPhysics")),
     );
+  });
+  it("rejects a routable head on a geometry its domain is not served on (M11, A21)", () => {
+    // The protocol froze conditional_decode on configured_two_leg_path for the
+    // satellite family, which also takes earth_space: without the domain
+    // pairing this head would advertise and route a direct pass onto the
+    // configured two-leg decode population.
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead(
+      "conditional_decode",
+      (tuple) => tuple.mechanism === "satellite",
+    );
+    head.geometryClasses = ["earth_space"];
+    (draft.heads as Mutable[]).push(head);
+    expect(reasonsAt(draft, "heads[3].geometryClasses").join()).toMatch(
+      /serves domain configured_two_leg_path on two_leg_relay, not on geometry class earth_space \(M11, A21\)/,
+    );
+
+    // The transponder circuit the row was frozen over is accepted.
+    head.geometryClasses = ["two_leg_relay"];
+    expect(parseCapability(draft).ok).toBe(true);
   });
 });

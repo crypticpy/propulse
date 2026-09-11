@@ -495,6 +495,14 @@ interface IntervalWindow {
   start: string;
   end: string;
   relation: "equals" | "within";
+  /**
+   * Which end of the window `validAt` is. A forecast window opens at the valid
+   * time (a request for 19:00 with 900 s asks about [19:00, 19:15)); an
+   * observation looks back from it, because the count is what had been
+   * reported as of that instant and an observation interval may not end after
+   * `issuedAt`.
+   */
+  anchor: "start" | "end";
   noun: string;
 }
 
@@ -509,24 +517,28 @@ const INTERVAL_WINDOWS: Record<PredictionQuantity, IntervalWindow | null> = {
     start: "bucketStartAt",
     end: "bucketEndAt",
     relation: "equals",
+    anchor: "start",
     noun: "detection bucket",
   },
   observed_activity: {
     start: "intervalStartAt",
     end: "intervalEndAt",
     relation: "equals",
+    anchor: "end",
     noun: "observation interval",
   },
   usable_burst: {
     start: "intervalStartAt",
     end: "intervalEndAt",
     relation: "equals",
+    anchor: "start",
     noun: "burst exposure window",
   },
   pass_geometry: {
     start: "aosAt",
     end: "losAt",
     relation: "within",
+    anchor: "start",
     noun: "predicted pass",
   },
 };
@@ -653,6 +665,13 @@ const predictionHead = z
      * is at or after `issuedAt`: a prediction is for now or for later, so this
      * instant is the one field on a head that is meant to follow issuance
      * (M02).
+     *
+     * On an interval-valued head it is also the anchor of the interval the head
+     * answers, matching the request contract's own `validAt`: a forecast window
+     * (detection bucket, burst exposure, satellite pass) opens at `validAt` and
+     * runs for `intervalSeconds`, and an observation interval ends at `validAt`
+     * and looks back over that length. Without the anchor an equally long
+     * window at an unrelated time would parse (M02).
      */
     validAt: instant,
     effectiveModelId: identifier,
@@ -763,6 +782,53 @@ const predictionHead = z
           ["state", "value", window.end],
           `The ${window.noun} is ${length} s long and does not fit in the ${echoed} s window it answers (A21, M02)`,
         );
+      }
+      /**
+       * M02: the length alone leaves the window free to float. `validAt` is
+       * the anchor the request states, so the searched interval is
+       * [validAt, validAt + intervalSeconds) for a forecast window and
+       * (validAt - intervalSeconds, validAt] for an observation. An equally
+       * long window at an unrelated time answers a different question, and a
+       * pass placed days outside the searched interval answers none.
+       */
+      const fields = payload.data as Record<string, string>;
+      const validAt = instantMs(value.validAt);
+      const searchStart =
+        window.anchor === "start" ? validAt : validAt - echoed * 1000;
+      const searchEnd = searchStart + echoed * 1000;
+      const tolerance = INTERVAL_MATCH_TOLERANCE_SECONDS * 1000;
+      const anchored: [string, number, number][] =
+        window.relation === "equals"
+          ? [
+              [window.start, instantMs(fields[window.start]), searchStart],
+              [window.end, instantMs(fields[window.end]), searchEnd],
+            ]
+          : [];
+      for (const [field, at, expected] of anchored) {
+        if (Math.abs(at - expected) <= tolerance) continue;
+        reject(
+          ctx,
+          ["state", "value", field],
+          `The ${window.noun} is anchored on validAt: ${field} must be ${new Date(expected).toISOString()} (M02, M19)`,
+        );
+      }
+      if (window.relation === "within") {
+        const aos = instantMs(fields[window.start]);
+        const los = instantMs(fields[window.end]);
+        if (aos < searchStart - tolerance) {
+          reject(
+            ctx,
+            ["state", "value", window.start],
+            `The ${window.noun} starts before the searched interval, which opens at validAt (A21, M02)`,
+          );
+        }
+        if (los > searchEnd + tolerance) {
+          reject(
+            ctx,
+            ["state", "value", window.end],
+            `The ${window.noun} ends after the searched interval, which closes ${echoed} s after validAt (A21, M02)`,
+          );
+        }
       }
     }
     if (value.uncertainty.kind !== "none" && !hasPointValue(value.quantity)) {

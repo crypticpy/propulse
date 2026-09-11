@@ -6,6 +6,8 @@ import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json"
 import { parseResult } from "@/lib/propagation/contracts/result";
 import {
   ALIGNED_PROTOCOL_ID,
+  DOMAIN_GEOMETRY_CLASSES,
+  PERMITTED_GEOMETRY_CLASSES,
   isProtocolCoverage,
   PROTOCOL_COVERAGE_TUPLES,
   protocolCoverageKey,
@@ -265,6 +267,42 @@ describe("the result contract carries what replay needs", () => {
         expect(head.modelHash).toMatch(SHA256);
         expect(head.preprocessingHash).toMatch(SHA256);
         expect(head.featureHash).toMatch(SHA256);
+      }
+    }
+  });
+  /**
+   * M11/A21: the domain/geometry table is derived from the protocol, not typed
+   * beside it. Every frozen row must have a geometry its own family and its own
+   * domain agree on, and every pairing the table permits must be one some
+   * frozen row could take, so the table can neither strand a row nor invent a
+   * population.
+   */
+  it("pairs every frozen coverage row with a geometry its domain serves", () => {
+    for (const row of PROTOCOL_COVERAGE_TUPLES) {
+      const shared = PERMITTED_GEOMETRY_CLASSES[row.mechanism].filter(
+        (geometryClass) =>
+          (DOMAIN_GEOMETRY_CLASSES[row.domain] as readonly string[]).includes(
+            geometryClass,
+          ),
+      );
+      expect(
+        shared,
+        `${row.event} on ${row.domain} via ${row.mechanism}`,
+      ).not.toEqual([]);
+    }
+  });
+
+  it("permits no domain/geometry pair no frozen row could take", () => {
+    for (const domain of PREDICTION_DOMAINS) {
+      const reachable = new Set<string>();
+      for (const row of PROTOCOL_COVERAGE_TUPLES) {
+        if (row.domain !== domain) continue;
+        for (const geometryClass of PERMITTED_GEOMETRY_CLASSES[row.mechanism]) {
+          reachable.add(geometryClass);
+        }
+      }
+      for (const geometryClass of DOMAIN_GEOMETRY_CLASSES[domain]) {
+        expect([...reachable], `${domain}`).toContain(geometryClass);
       }
     }
   });

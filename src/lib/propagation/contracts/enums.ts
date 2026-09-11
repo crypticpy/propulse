@@ -1019,13 +1019,84 @@ export function protocolCoverageKey(row: ProtocolCoverageRow): string {
   ].join("|");
 }
 
+/**
+ * M11/A21: the geometry classes each frozen coverage domain is defined on.
+ *
+ * A domain is not a label on a row, it is the population the row was frozen
+ * over: `configured_two_leg_path` is a configured two-leg circuit and
+ * `qualified_ephemeris_horizon` is a pass over the horizon. The mechanism
+ * family alone cannot separate them, because `satellite` takes both
+ * `earth_space` and `two_leg_relay`, which is exactly how an earth-space pass
+ * could otherwise borrow the two-leg decode population.
+ *
+ * Every entry is the union of `PERMITTED_GEOMETRY_CLASSES` over the mechanism
+ * families the protocol pairs with that domain, with one narrowing the protocol
+ * itself does not spell out and `protocolAlignment.test.ts` pins: the satellite
+ * family appears in two domains, and each of those domains takes the single
+ * geometry its own name states (a transponder relay for the configured two-leg
+ * path, a direct pass for the ephemeris horizon).
+ */
+export const DOMAIN_GEOMETRY_CLASSES: Record<
+  PredictionDomain,
+  readonly GeometryClass[]
+> = {
+  // ground_sky_coherent, regular_ef (great circle), groundwave, waveguide.
+  characterized_fixed_path: [
+    "terrestrial_great_circle",
+    "ground_wave",
+    "waveguide_mode",
+  ],
+  // relay, and satellite as a transponder rather than a direct pass.
+  configured_two_leg_path: ["two_leg_relay"],
+  // aircraft_scatter, meteor, rain_scatter.
+  known_exposure_interval: ["bistatic_scatter"],
+  // es, f2_daytime, tep_evening (great circle) and aurora (scatter).
+  mechanism_labeled_exposure: ["terrestrial_great_circle", "bistatic_scatter"],
+  // satellite, as the pass the ephemeris qualifies.
+  qualified_ephemeris_horizon: ["earth_space"],
+  // atmospheric_los.
+  qualified_los_atmosphere: ["terrestrial_great_circle"],
+  // eme.
+  qualified_lunar_station: ["earth_moon_earth"],
+  // terrain_troposphere.
+  qualified_terrain_climate: ["terrestrial_great_circle"],
+  // refractivity_pe.
+  qualified_terrain_profile: ["terrestrial_great_circle"],
+  // event_head.
+  versioned_event_population: ["terrestrial_great_circle"],
+};
+
+/**
+ * Whether the protocol serves this domain on this geometry. The request rule,
+ * the "auto" family narrowing and the capability head rule all read this one
+ * predicate, so no two of them can disagree about a pairing.
+ */
+export function isProtocolGeometry(
+  domain: PredictionDomain,
+  geometryClass: GeometryClass,
+): boolean {
+  return DOMAIN_GEOMETRY_CLASSES[domain].includes(geometryClass);
+}
+
 /** The rows that define this claim, one per band the protocol froze it for. */
 export function protocolCoverageRows(claim: {
   event: PredictionQuantity;
   domain: PredictionDomain;
   horizon: PredictionHorizon;
   mechanism: MechanismFamily;
+  /**
+   * The geometry the claim is made on, when the caller has one. A row is
+   * frozen over a domain, and a domain is served on its own geometry classes,
+   * so a claim on another geometry is on no row at all.
+   */
+  geometry?: GeometryClass;
 }): readonly ProtocolCoverageRow[] {
+  if (
+    claim.geometry !== undefined &&
+    !isProtocolGeometry(claim.domain, claim.geometry)
+  ) {
+    return [];
+  }
   return PROTOCOL_COVERAGE_TUPLES.filter(
     (row) =>
       row.event === claim.event &&
@@ -1049,6 +1120,7 @@ export function isProtocolCoverage(
     domain: PredictionDomain;
     horizon: PredictionHorizon;
     mechanism: MechanismFamily;
+    geometry?: GeometryClass;
   },
   range?: { minHz: number; maxHz: number },
 ): boolean {
@@ -1069,6 +1141,7 @@ export function protocolCoverageContainsHz(
     domain: PredictionDomain;
     horizon: PredictionHorizon;
     mechanism: MechanismFamily;
+    geometry?: GeometryClass;
   },
   frequencyHz: number,
   /**

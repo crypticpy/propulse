@@ -5,6 +5,7 @@ import {
   predictionRequestSchema,
 } from "@/lib/propagation/contracts/request";
 import {
+  DOMAIN_GEOMETRY_CLASSES,
   GEOMETRY_CLASSES,
   MECHANISM_FAMILIES,
   PERMITTED_GEOMETRY_CLASSES,
@@ -1014,5 +1015,65 @@ describe("parseRequest fails closed", () => {
       throw new Error(`must parse: ${JSON.stringify(outcome.issues)}`);
     }
     expect(outcome.value.rx.coordinates.longitudeDeg).toBe(-180);
+  });
+  /**
+   * The satellite family takes both earth_space and two_leg_relay, and the
+   * protocol froze conditional_decode on configured_two_leg_path for it. The
+   * satellitePass fixture moved onto that row is the reviewer's case: a direct
+   * pass scored against the population of configured two-leg circuits.
+   */
+  function twoLegDecodeCase(geometryClass: string): Mutable {
+    const draft = candidate("satellitePass");
+    draft.targetEvent = "conditional_decode";
+    const scope = draft.scope as Mutable;
+    scope.domain = "configured_two_leg_path";
+    scope.horizon = "current";
+    scope.aggregation = "instantaneous";
+    scope.intervalSeconds = null;
+    (draft.mechanismPolicy as Mutable).geometryClass = geometryClass;
+    return draft;
+  }
+
+  it("rejects an earth-space pass that borrows the two-leg decode population (M11, A21)", () => {
+    expect(
+      reasonsAt(
+        twoLegDecodeCase("earth_space"),
+        "mechanismPolicy.geometryClass",
+      ).join(),
+    ).toMatch(
+      /serves domain configured_two_leg_path on two_leg_relay, not on geometry class earth_space \(M11, A21\)/,
+    );
+
+    // The same satellite decode as a transponder circuit is the pairing the
+    // row was frozen over, and it still parses.
+    const outcome = parseRequest(twoLegDecodeCase("two_leg_relay"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("narrows an auto family resolution by the domain's geometry (M11, A21)", () => {
+    // The same predicate narrows "auto": no family's row on this domain is
+    // served on earth_space, so there is nothing left to resolve onto.
+    const bad = twoLegDecodeCase("earth_space");
+    (bad.mechanismPolicy as Mutable).family = "auto";
+    expect(reasonsAt(bad, "mechanismPolicy.geometryClass").join()).toMatch(
+      /not on geometry class earth_space/,
+    );
+    expect(reasonsAt(bad, "targetEvent").join()).toMatch(
+      /The protocol defines no conditional_decode on configured_two_leg_path/,
+    );
+  });
+
+  it("keeps every fixture on a geometry its own domain is served on (M11)", () => {
+    for (const name of Object.keys(cases)) {
+      const request = candidate(name);
+      const domain = (request.scope as Mutable).domain as string;
+      const geometryClass = (request.mechanismPolicy as Mutable)
+        .geometryClass as string;
+      expect(
+        DOMAIN_GEOMETRY_CLASSES[
+          domain as keyof typeof DOMAIN_GEOMETRY_CLASSES
+        ] as readonly string[],
+      ).toContain(geometryClass);
+    }
   });
 });

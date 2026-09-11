@@ -37,6 +37,8 @@ import {
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
+  isProtocolGeometry,
+  DOMAIN_GEOMETRY_CLASSES,
   protocolCoverageContainsHz,
   type RelayKind,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
@@ -585,6 +587,15 @@ export const predictionRequestSchema = z
     /** UI ownership only: preference and cancellation, never cache identity. */
     viewScopeId: identifier,
     issuedAt: instant,
+    /**
+     * The instant the answer is about, and the anchor of the interval when the
+     * scope names one (M02). A forecast interval opens here: a request valid at
+     * 19:00 with `intervalSeconds` 900 asks about [19:00, 19:15). An
+     * `observed_activity` scope looks back instead, because an observation
+     * cannot run past the moment it is reported, so its interval closes here.
+     * `parseResult` enforces the same anchoring on the answering head, which is
+     * how a result is tied to the window it was asked for.
+     */
     validAt: instant,
     targetEvent: z.enum(PREDICTION_QUANTITIES),
     scope: requestScope,
@@ -1049,6 +1060,22 @@ export const predictionRequestSchema = z
     // (event, domain, horizon, family) the protocol never froze, or one at a
     // frequency inside a gap between a grouped band's constituents, has no row
     // to be scored against and no capability head that could legally serve it.
+    /**
+     * M11/A21: a coverage row is frozen over a domain, and a domain is a
+     * population with a geometry: `configured_two_leg_path` is a configured
+     * two-leg circuit, `qualified_ephemeris_horizon` is a pass. Checking the
+     * row without the geometry lets an earth-space pass borrow the two-leg
+     * decode population, because the satellite family takes both classes.
+     */
+    if (!isProtocolGeometry(value.scope.domain, geometryClass)) {
+      reject(
+        ctx,
+        ["mechanismPolicy", "geometryClass"],
+        `The protocol serves domain ${value.scope.domain} on ${DOMAIN_GEOMETRY_CLASSES[
+          value.scope.domain
+        ].join(", ")}, not on geometry class ${geometryClass} (M11, A21)`,
+      );
+    }
     const servable = resolvable.filter((candidate) =>
       protocolCoverageContainsHz(
         {
@@ -1056,6 +1083,9 @@ export const predictionRequestSchema = z
           domain: value.scope.domain,
           horizon: value.scope.horizon,
           mechanism: candidate,
+          // The same narrowing applies to "auto": a family is only a candidate
+          // for a row the geometry the caller declared is served on.
+          geometry: geometryClass,
         },
         value.frequencyHz,
       ),

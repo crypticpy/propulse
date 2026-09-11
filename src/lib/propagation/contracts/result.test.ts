@@ -1248,12 +1248,15 @@ describe("parseResult fails closed", () => {
   it("rejects an observed interval that ends after issuance (M02)", () => {
     // The fixture is issued at 18:00Z; an observation running to 19:00Z would
     // be reporting reports that did not exist when the result was issued.
+    // An observation interval ends at `validAt` and looks back over the length
+    // it answers, so a fixture valid at 19:00 reports the hour up to 19:00 --
+    // an hour the result, issued at 18:00, could not have seen.
     const bad = scalarHeadCase(
       "observed_activity",
       "count",
       {
         count: 4,
-        intervalStartAt: "2026-09-11T17:30:00Z",
+        intervalStartAt: "2026-09-11T18:00:00Z",
         intervalEndAt: "2026-09-11T19:00:00Z",
         sourceCoverageIds: ["pskreporter-2026-09-11"],
       },
@@ -1264,12 +1267,17 @@ describe("parseResult fails closed", () => {
       reasonsAt(bad.result, "heads[1].state.value.intervalEndAt").join(),
     ).toMatch(/ends no later than issuedAt/);
 
+    // The same observation reported as of the issue time stands: an
+    // observation head is valid at the instant its interval closes.
     const good = structuredClone(bad.result);
+    good.validAt = "2026-09-11T18:00:00Z";
+    for (const head of heads(good)) head.validAt = good.validAt;
+    (
+      ((good.heads as Mutable[])[1].state as Mutable).value as Mutable
+    ).intervalStartAt = "2026-09-11T17:00:00Z";
     (
       ((good.heads as Mutable[])[1].state as Mutable).value as Mutable
     ).intervalEndAt = "2026-09-11T18:00:00Z";
-    // Shortening the observation shortens the interval it answers with it.
-    (good.heads as Mutable[])[1].intervalSeconds = 1800;
     const outcome = parseResult(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
@@ -1588,6 +1596,10 @@ describe("parseResult fails closed", () => {
       },
       EVENT_ROW,
     );
+    // An observation closes at the valid time, and this one is reported as of
+    // the issue time, so the whole result is valid at 18:00 (M02).
+    bad.result.validAt = "2026-09-11T18:00:00Z";
+    for (const head of heads(bad.result)) head.validAt = bad.result.validAt;
     // Quantiles of a count are counts: minus ten reports is not a bound on
     // anything the head could have observed.
     (bad.head.uncertainty as Mutable) = { ...SPREAD, low: -10, high: 2 };
@@ -1601,6 +1613,127 @@ describe("parseResult fails closed", () => {
       low: 0,
       high: 2,
     };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+  it("rejects a detection bucket that floats away from validAt (M02, M19)", () => {
+    // The fixture is valid at 19:00, so the hour it answers is [19:00, 20:00).
+    // An equally long bucket an hour later is a probability for another hour.
+    const bad = candidate("fullHfCircuit");
+    const detection = headFor(bad, "network_detection");
+    const served = headFor(bad, "snr2500");
+    detection.modelHash = served.modelHash;
+    detection.preprocessingHash = served.preprocessingHash;
+    detection.featureHash = served.featureHash;
+    detection.intervalSeconds = 3600;
+    detection.state = {
+      availability: "available",
+      value: {
+        probability: 0.3,
+        modelEventId: "model-event-2026-09-11T20",
+        exposureCellId: "cell-em12",
+        populationVersion: "pskreporter-population-2026-09",
+        bucketStartAt: "2026-09-11T20:00:00Z",
+        bucketEndAt: "2026-09-11T21:00:00Z",
+      },
+    };
+    expect(reasonsAt(bad, "heads[3].state.value.bucketStartAt").join()).toMatch(
+      /anchored on validAt: bucketStartAt must be 2026-09-11T19:00:00/,
+    );
+  });
+
+  it("rejects a burst exposure window that does not open at validAt (M02, M19)", () => {
+    const bad = scalarHeadCase(
+      "usable_burst",
+      "probability",
+      {
+        probability: 0.2,
+        criterionId: "msk144-decode-criterion-0.1.0",
+        intervalStartAt: "2026-09-11T19:30:00Z",
+        intervalEndAt: "2026-09-11T19:45:00Z",
+      },
+      BURST_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.intervalStartAt").join(),
+    ).toMatch(/anchored on validAt/);
+
+    // The same window opened at the valid time is the window that was asked
+    // about and stands.
+    const good = structuredClone(bad.result);
+    const value = ((good.heads as Mutable[])[1].state as Mutable)
+      .value as Mutable;
+    value.intervalStartAt = "2026-09-11T19:00:00Z";
+    value.intervalEndAt = "2026-09-11T19:15:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects an observation interval that does not close at validAt (M02)", () => {
+    // An observation looks back from the valid time, so its end is the anchor.
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 4,
+        intervalStartAt: "2026-09-11T16:00:00Z",
+        intervalEndAt: "2026-09-11T17:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    bad.result.validAt = "2026-09-11T18:00:00Z";
+    for (const head of heads(bad.result)) head.validAt = bad.result.validAt;
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.intervalEndAt").join(),
+    ).toMatch(/anchored on validAt: intervalEndAt must be 2026-09-11T18:00:00/);
+  });
+
+  it("rejects a predicted pass placed outside the searched interval (A21, M02)", () => {
+    const early = scalarHeadCase(
+      "pass_geometry",
+      "seconds",
+      {
+        aosAt: "2026-09-11T18:30:00Z",
+        losAt: "2026-09-11T18:40:00Z",
+        timingUncertaintySeconds: 2,
+        ephemerisAgeSeconds: 900,
+        horizonDeg: 5,
+      },
+      PASS_ROW,
+    );
+    (early.head.uncertainty as Mutable) = { kind: "none" };
+    early.head.intervalSeconds = 900;
+    expect(
+      reasonsAt(early.result, "heads[1].state.value.aosAt").join(),
+    ).toMatch(/starts before the searched interval, which opens at validAt/);
+
+    const late = scalarHeadCase(
+      "pass_geometry",
+      "seconds",
+      {
+        aosAt: "2026-09-11T19:10:00Z",
+        losAt: "2026-09-11T19:20:00Z",
+        timingUncertaintySeconds: 2,
+        ephemerisAgeSeconds: 900,
+        horizonDeg: 5,
+      },
+      PASS_ROW,
+    );
+    (late.head.uncertainty as Mutable) = { kind: "none" };
+    late.head.intervalSeconds = 900;
+    expect(reasonsAt(late.result, "heads[1].state.value.losAt").join()).toMatch(
+      /ends after the searched interval, which closes 900 s after validAt/,
+    );
+
+    // A pass inside the searched interval is the normal case.
+    const good = structuredClone(late.result);
+    const value = ((good.heads as Mutable[])[1].state as Mutable)
+      .value as Mutable;
+    value.aosAt = "2026-09-11T19:02:00Z";
+    value.losAt = "2026-09-11T19:12:00Z";
     const outcome = parseResult(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });

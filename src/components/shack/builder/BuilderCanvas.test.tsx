@@ -73,6 +73,12 @@ function canvasProps(chain: StationChain) {
   };
 }
 
+function canvasSvg() {
+  return screen.getByRole("img", {
+    name: /signal path builder: Home HF/i,
+  }) as unknown as SVGSVGElement;
+}
+
 function contentTransform() {
   return screen.getByTestId("builder-canvas-content").getAttribute("transform");
 }
@@ -117,9 +123,7 @@ it("attaches wheel after empty→populated and detaches on delete-last (#370)", 
   ).toBeNull();
 
   rerender(<BuilderCanvas {...canvasProps(longChain)} />);
-  const svg = screen.getByRole("img", {
-    name: /signal path builder: Home HF/i,
-  });
+  const svg = canvasSvg();
   wheelZoomIn(svg);
   expect(contentScale()).toBeCloseTo(1.1);
 
@@ -141,9 +145,7 @@ it("attaches wheel after empty→populated and detaches on delete-last (#370)", 
 
   rerender(<BuilderCanvas {...canvasProps(longChain)} />);
   expect(contentScale()).toBeCloseTo(1.1);
-  const svgAgain = screen.getByRole("img", {
-    name: /signal path builder: Home HF/i,
-  });
+  const svgAgain = canvasSvg();
   wheelZoomIn(svgAgain);
   expect(contentScale()).toBeCloseTo(1.2);
 });
@@ -161,9 +163,7 @@ it("Fit resets to scale(1) instead of a second container/svg width ratio (#370)"
 
 it("pans in viewBox units so 100 CSS pixels is not written as translate(100) (#370)", () => {
   render(<BuilderCanvas {...canvasProps(longChain)} />);
-  const svg = screen.getByRole("img", {
-    name: /signal path builder: Home HF/i,
-  });
+  const svg = canvasSvg();
   stubSvgViewport(svg, 400, 300);
 
   fireEvent.mouseDown(svg, { clientX: 40, clientY: 40 });

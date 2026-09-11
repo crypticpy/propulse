@@ -54,8 +54,7 @@ export function MoonTile() {
 
   // getMoonConditions deliberately skips the forward phase-event search that
   // getMoonSnapshot performs, which is what makes it safe on a ticking tile.
-  // The QTH zone goes in so rise/set belong to the operator's calendar day,
-  // exactly as HamClockMoonPanel does it.
+  // The QTH zone goes in so rise/set belong to the operator's calendar day.
   const moon = useMemo(
     () =>
       location

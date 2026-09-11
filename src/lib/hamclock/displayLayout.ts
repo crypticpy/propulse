@@ -1,31 +1,4 @@
-import type { TextScale } from "@/types/user";
 import type { HomeRegion } from "@/stores/hamclockDisplayStore";
-
-export const HAMCLOCK_TEXT_SCALE: Record<TextScale | "200" | "250", number> = {
-  sm: 0.9,
-  md: 1,
-  lg: 1.15,
-  xl: 1.375,
-  "200": 2,
-  "250": 2.5,
-};
-
-export function hamClockPanelWidths(
-  width: number,
-  scale: number,
-  smart: boolean,
-  infoVisible: boolean,
-  spotsVisible: boolean,
-) {
-  const info = infoVisible ? 260 * scale : 0;
-  const spots = spotsVisible ? 310 * scale : 0;
-  const mapSpace = smart
-    ? Math.min(640, width * 0.45)
-    : Math.min(320, width * 0.4);
-  const fit =
-    info + spots > 0 ? Math.min(1, (width - mapSpace) / (info + spots)) : 1;
-  return { info: Math.round(info * fit), spots: Math.round(spots * fit) };
-}
 
 /** Operating context: home plus the neighboring intercontinental paths. */
 export function hamClockHomeRegion(lat: number, lon: number): HomeRegion {

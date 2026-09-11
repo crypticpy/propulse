@@ -1271,8 +1271,11 @@ a.hca-row:focus-visible {
 
 }
 /* Sharing a rail with cluster must not use the rendered row count as the
- * flex basis: that feeds measurement changes back into the available slot. */
-.hc-rail:has(.hca-tile-list) > .hc-tile--grow {
+ * flex basis: that feeds measurement changes back into the available slot.
+ * `.hc-rows` is measured the same way (cluster, contests, dxpeditions), so it
+ * needs the same treatment. */
+.hc-rail:has(.hca-tile-list) > .hc-tile--grow,
+.hc-rail:has(.hc-rows) > .hc-tile--grow {
   flex-basis: 0;
 
 }

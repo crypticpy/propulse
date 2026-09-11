@@ -509,4 +509,62 @@ describe("buildLayerLegends", () => {
       spec.entries.find((e) => e.label === "20m")!.color,
     );
   });
+
+  describe("orbit track entry (#994 PR B)", () => {
+    it("adds an 'Orbit track' row only when satellites are on AND a track exists", () => {
+      const withoutTracks = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: false },
+      );
+      expect(withoutTracks.map((s) => s.key)).not.toContain(
+        "satelliteOrbitTrack",
+      );
+
+      const withTracks = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: true },
+      );
+      expect(withTracks.map((s) => s.key)).toContain("satelliteOrbitTrack");
+    });
+
+    it("never shows an orbit track entry when the satellites layer itself is off", () => {
+      const specs = buildLayerLegends(noLayers(), {
+        spotColorMode: "mode",
+        viewMode: "globe",
+        hasSatelliteTracks: true,
+      });
+      expect(specs.map((s) => s.key)).not.toContain("satelliteOrbitTrack");
+    });
+
+    it("has past/future swatches and a 10-min-marks note", () => {
+      const spec = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: true },
+      ).find((s) => s.key === "satelliteOrbitTrack")!;
+
+      expect(spec.title).toBe("Orbit track");
+      expect(spec.entries.map((e) => e.label)).toEqual(["Past", "Future"]);
+      expect(spec.note).toMatch(/10-min/);
+
+      // Same alphas GroundTrack (globe) and drawSatelliteTracks (flat map)
+      // draw past/future segments at, not arbitrary swatch colors.
+      const past = spec.entries.find((e) => e.label === "Past")!;
+      const future = spec.entries.find((e) => e.label === "Future")!;
+      expect(past.color).toContain("0.18");
+      expect(future.color).toContain("0.45");
+    });
+
+    it("omits the orbit track entry in azimuthal, where satellites never render", () => {
+      const specs = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        {
+          spotColorMode: "mode",
+          viewMode: "azimuthal",
+          hasSatelliteTracks: true,
+        },
+      );
+      expect(specs.map((s) => s.key)).not.toContain("satellites");
+      expect(specs.map((s) => s.key)).not.toContain("satelliteOrbitTrack");
+    });
+  });
 });

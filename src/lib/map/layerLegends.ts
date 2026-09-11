@@ -59,7 +59,7 @@ export interface LegendEntry {
 }
 
 export interface LayerLegendSpec {
-  key: keyof MapState["layers"] | "replay";
+  key: keyof MapState["layers"] | "replay" | "satelliteOrbitTrack";
   title: string;
   entries: LegendEntry[];
   note?: string;
@@ -236,6 +236,28 @@ function buildSatellitesSpec(): LayerLegendSpec {
       color: SATELLITE_CATEGORY_COLORS[category],
       label: CATEGORY_META[category].label,
     })),
+  };
+}
+
+/**
+ * "Map orbit" track styling (#994 PR B). Past/future segments share one
+ * satellite's category color at the same two alphas GroundTrack (globe) and
+ * FlatMapView's drawSatelliteTracks use — 0.18 dimmed past, 0.45 bright
+ * future — so the swatches read exactly as faint/bright the way the tracks
+ * themselves render, not an arbitrary pair of colors. White is the ISS
+ * marker's own color (CATEGORY_COLORS.iss) and the satellite most commonly
+ * tracked, kept as a marker swatch here the same way buildSatellitesSpec's
+ * own ISS row already renders it.
+ */
+function buildOrbitTrackSpec(): LayerLegendSpec {
+  return {
+    key: "satelliteOrbitTrack",
+    title: "Orbit track",
+    entries: [
+      { color: "rgba(255,255,255,0.18)", label: "Past" },
+      { color: "rgba(255,255,255,0.45)", label: "Future" },
+    ],
+    note: "10-min marks",
   };
 }
 
@@ -485,6 +507,8 @@ export function buildLayerLegends(
     viewMode: ViewMode;
     replayEnabled?: boolean;
     replaySpotCount?: number;
+    /** True when at least one satellite has a mapped orbit track (#994 PR B). */
+    hasSatelliteTracks?: boolean;
   },
 ): LayerLegendSpec[] {
   const specs: LayerLegendSpec[] = [];
@@ -507,6 +531,9 @@ export function buildLayerLegends(
   if (on("lunarSubpoint")) specs.push(buildLunarSubpointSpec());
   if (on("ft8Spotter")) specs.push(buildFt8SpotterSpec());
   if (on("satellites")) specs.push(buildSatellitesSpec());
+  if (on("satellites") && opts.hasSatelliteTracks) {
+    specs.push(buildOrbitTrackSpec());
+  }
   if (on("beacons")) specs.push(buildBeaconsSpec());
   if (on("geomagField")) specs.push(buildGeomagneticFieldSpec());
   if (on("wspr")) specs.push(buildWsprSpec());

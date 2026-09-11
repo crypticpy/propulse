@@ -33,10 +33,19 @@ function SatelliteTrackEvictionBadge() {
 
   useEffect(() => {
     if (!eviction) return;
-    const timer = setTimeout(
-      dismiss,
-      SATELLITE_TRACK_EVICTION_AUTO_DISMISS_MS,
-    );
+    // Anchor the window on the eviction's own timestamp, not "now" -- a
+    // fresh 8s window on every mount would show a stale notice as new after
+    // navigating away and back hours later (#994 PR B round 2 Codex thread
+    // 3). If the window has already elapsed, dismiss on the next tick
+    // (inside the effect, not during render) instead of scheduling a timer.
+    const remainingMs =
+      SATELLITE_TRACK_EVICTION_AUTO_DISMISS_MS -
+      (Date.now() - eviction.timestamp);
+    if (remainingMs <= 0) {
+      dismiss();
+      return;
+    }
+    const timer = setTimeout(dismiss, remainingMs);
     return () => clearTimeout(timer);
   }, [eviction, dismiss]);
 

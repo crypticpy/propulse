@@ -60,7 +60,9 @@ import { useSatellites } from "@/hooks/useSatellites";
 import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
 import {
   getCachedOrbitTrack,
+  getOrbitTrackMinuteBucket,
   projectOrbitTrack,
+  pruneOrbitTrackCache,
 } from "@/lib/map/satelliteTrack2D";
 import {
   drawSatelliteTracks,
@@ -3644,32 +3646,36 @@ export function FlatMapView({
   // Coarse clock so cached orbit-track propagations re-anchor on "now" once a
   // minute, mirroring SatelliteOverlay's minuteTick -- WITHOUT depending on
   // satPositions' identity, which changes every 5s satellite-position poll
-  // (#994 PR B round 2 item 1). getCachedOrbitTrack keys its cache on this
-  // tick (among other stable values), so the expensive SGP4 propagation only
-  // re-runs once a minute per satellite instead of every poll/selection
-  // change/resize.
-  const [satelliteTrackMinuteTick, setSatelliteTrackMinuteTick] = useState(0);
+  // (#994 PR B round 2 item 1). `satelliteTrackRenderTick` only forces the
+  // memo below to recompute once a minute; the cache key getCachedOrbitTrack
+  // actually uses is the absolute minute bucket computed inside the memo
+  // (`Math.floor(Date.now() / 60_000)`), not this counter. A component-local
+  // counter that resets to 0 on remount would otherwise collide with the
+  // module-level cache surviving the remount: reopening the view later with
+  // the same satellite/TLE/config would hit the stale `...|0` entry and draw
+  // a track anchored to the earlier visit for up to a minute (#994 PR B
+  // round 2 finding 1).
+  const [satelliteTrackRenderTick, setSatelliteTrackRenderTick] = useState(0);
   useEffect(() => {
     const id = setInterval(
-      () => setSatelliteTrackMinuteTick((t) => t + 1),
+      () => setSatelliteTrackRenderTick((t) => t + 1),
       60_000,
     );
     return () => clearInterval(id);
   }, []);
   const flatSatelliteTracks = useMemo((): FlatSatelliteTrackEntry[] => {
     if (!layers.satellites) return [];
+    const minuteBucket = getOrbitTrackMinuteBucket();
     const entries: FlatSatelliteTrackEntry[] = [];
+    const activeNoradIds = new Set<number>();
     for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
       const noradId = Number(noradIdStr);
+      activeNoradIds.add(noradId);
       const satellite = satPositions.find((s) => s.noradId === noradId);
       if (!satellite) continue;
-      // Expensive (SGP4) -- cached by identity/config/minuteTick, so this is
-      // an O(1) hit except once a minute per satellite.
-      const track = getCachedOrbitTrack(
-        satellite,
-        config,
-        satelliteTrackMinuteTick,
-      );
+      // Expensive (SGP4) -- cached by identity/config/minute bucket, so this
+      // is an O(1) hit except once a minute per satellite.
+      const track = getCachedOrbitTrack(satellite, config, minuteBucket);
       entries.push({
         satellite,
         // Cheap (O(n) projection) -- fine to redo every render.
@@ -3681,7 +3687,18 @@ export function FlatMapView({
         isSelected: selectedSat?.noradId === noradId,
       });
     }
+    // Free cached propagations for satellites no longer being tracked
+    // (#994 PR B round 2 Codex thread 2) instead of waiting for the LRU
+    // bound to evict them.
+    pruneOrbitTrackCache(activeNoradIds);
     return entries;
+    // satelliteTrackRenderTick is intentionally in the deps but not read in
+    // the body: it exists purely to force this memo to recompute once a
+    // minute (so a track's minute bucket advances even with no other prop
+    // change), while the cache *key* itself comes from the independent,
+    // non-resetting `getOrbitTrackMinuteBucket()` call above (#994 PR B
+    // round 3 Codex thread 1).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     layers.satellites,
     satelliteTracks,
@@ -3689,7 +3706,7 @@ export function FlatMapView({
     selectedSat,
     displaySize.width,
     displaySize.height,
-    satelliteTrackMinuteTick,
+    satelliteTrackRenderTick,
   ]);
 
   // Orbit-track label chip colors (#994 PR B round 2 item 2): resolved

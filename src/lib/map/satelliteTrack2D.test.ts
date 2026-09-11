@@ -1,12 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TLEData } from "@/types/satellite";
 import type { OrbitTrackPoint } from "@/lib/api/satellites";
 import {
   buildFlatSatelliteTrack,
   getCachedOrbitTrack,
+  getOrbitTrackMinuteBucket,
   projectOrbitTrack,
+  pruneOrbitTrackCache,
 } from "./satelliteTrack2D";
 import { MAX_TRACK_DOTS, MAX_TRACK_LABELS } from "./satelliteGeometry";
+import { MAX_SATELLITE_TRACKS } from "@/stores/mapStore";
 
 // Same fixture as src/lib/api/satellites.test.ts's ISS_TLE.
 const ISS_TLE: TLEData = {
@@ -229,6 +232,93 @@ describe("getCachedOrbitTrack", () => {
       { orbitsAhead: 2, showPast: false },
       5,
     );
+    expect(second).not.toBe(first);
+  });
+});
+
+// #994 PR B round 2 Codex thread 1: getCachedOrbitTrack's cache key must be
+// keyed on an absolute-time bucket, not a component-local render counter --
+// a counter resets to 0 on remount while the module-level cache survives, so
+// reopening the view with the same satellite/TLE/config would hit a stale
+// `...|0` entry from an earlier visit.
+describe("getOrbitTrackMinuteBucket", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("changes after 5 simulated minutes, producing a fresh cached track", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:30Z"));
+    const satellite: TLEData = { ...ISS_TLE, noradId: 900001 };
+    const config = { orbitsAhead: 1 as const, showPast: false };
+
+    const bucketAtM = getOrbitTrackMinuteBucket();
+    const first = getCachedOrbitTrack(satellite, config, bucketAtM);
+
+    vi.setSystemTime(new Date("2026-01-01T00:05:45Z"));
+    const bucketAtMPlus5 = getOrbitTrackMinuteBucket();
+    const second = getCachedOrbitTrack(satellite, config, bucketAtMPlus5);
+
+    // Reverting to a fixed/resettable counter (e.g. always 0) makes both of
+    // these fail: the bucket wouldn't change and the second call would be a
+    // stale cache hit instead of a fresh build.
+    expect(bucketAtMPlus5).not.toBe(bucketAtM);
+    expect(second).not.toBe(first);
+  });
+});
+
+// #994 PR B round 2 Codex thread 2: the propagation cache must not grow
+// unbounded -- it should track at most MAX_SATELLITE_TRACKS entries (the
+// same cap mapStore enforces on simultaneously tracked satellites) with LRU
+// eviction, and pruneOrbitTrackCache should drop a cleared track's entry
+// immediately rather than waiting for the LRU bound.
+describe("orbit-track propagation cache bound and pruning", () => {
+  const CACHE_TEST_CONFIG = { orbitsAhead: 1 as const, showPast: false };
+  const BASE_NORAD_ID = 910000;
+
+  function fixture(noradId: number): TLEData {
+    return { ...ISS_TLE, noradId };
+  }
+
+  it("evicts the least-recently-used satellite once more than MAX_SATELLITE_TRACKS are mapped", () => {
+    const ids = Array.from(
+      { length: MAX_SATELLITE_TRACKS + 1 },
+      (_, i) => BASE_NORAD_ID + i,
+    );
+    const builds = ids.map((id) =>
+      getCachedOrbitTrack(fixture(id), CACHE_TEST_CONFIG, 100),
+    );
+
+    // The first-mapped satellite should have been evicted to keep the cache
+    // at MAX_SATELLITE_TRACKS entries: calling it again with the identical
+    // key must rebuild (a fresh array), not return the cached one. Reverting
+    // the eviction loop makes this fail (`second === first`).
+    const rebuiltFirst = getCachedOrbitTrack(
+      fixture(ids[0]),
+      CACHE_TEST_CONFIG,
+      100,
+    );
+    expect(rebuiltFirst).not.toBe(builds[0]);
+
+    // The most recently added satellite must still be a cache hit.
+    const lastIndex = ids.length - 1;
+    const cachedLast = getCachedOrbitTrack(
+      fixture(ids[lastIndex]),
+      CACHE_TEST_CONFIG,
+      100,
+    );
+    expect(cachedLast).toBe(builds[lastIndex]);
+  });
+
+  it("pruneOrbitTrackCache removes a cleared satellite's entry immediately", () => {
+    const id = BASE_NORAD_ID + 100;
+    const first = getCachedOrbitTrack(fixture(id), CACHE_TEST_CONFIG, 200);
+
+    // Simulate clearSatelliteTrack: the active set no longer contains it.
+    pruneOrbitTrackCache(new Set());
+
+    const second = getCachedOrbitTrack(fixture(id), CACHE_TEST_CONFIG, 200);
+    // Reverting pruneOrbitTrackCache to a no-op makes this fail: the entry
+    // would still be cached under the identical key, so `second` would be
+    // `=== first`.
     expect(second).not.toBe(first);
   });
 });

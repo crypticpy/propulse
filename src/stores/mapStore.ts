@@ -959,7 +959,9 @@ export interface SatelliteTrackConfig {
 
 const SATELLITE_TRACKS_LS_KEY = "propulse-satellite-tracks";
 const SATELLITE_TRACKS_SCHEMA_VERSION = 1;
-const MAX_SATELLITE_TRACKS = 5;
+// Exported so `satelliteTrack2D.ts`'s orbit-track propagation cache can size
+// itself to match the store's own cap (#994 PR B round 2 Codex thread 2).
+export const MAX_SATELLITE_TRACKS = 5;
 
 function isValidSatelliteTrackConfig(
   value: unknown,

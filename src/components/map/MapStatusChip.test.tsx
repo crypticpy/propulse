@@ -135,4 +135,44 @@ describe("MapStatusChip", () => {
       useMapStore.getState().clearAllSatelliteTracks();
     });
   });
+
+  it("dismisses on mount when the eviction timestamp is already stale (#994 PR B round 3 Codex thread 3)", () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    // Simulates navigating away and returning after the 8s window has
+    // already elapsed elsewhere -- a fresh 8s window on mount would show
+    // this as a brand-new notice instead of dismissing it right away.
+    useMapStore.setState({
+      satelliteTrackEviction: { noradId: "1", timestamp: now - 10_000 },
+    });
+
+    render(<MapStatusChip />);
+
+    expect(screen.queryByText(/Orbit limit/)).toBeNull();
+    expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+  });
+
+  it("schedules only the remaining window when the eviction timestamp is partially elapsed (#994 PR B round 3 Codex thread 3)", () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    // 5s of the 8s window already elapsed before mount -- only 3s should
+    // remain, not a fresh 8s.
+    useMapStore.setState({
+      satelliteTrackEviction: { noradId: "1", timestamp: now - 5_000 },
+    });
+
+    render(<MapStatusChip />);
+    expect(screen.getByText(/Orbit limit/)).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(2999);
+    });
+    expect(screen.getByText(/Orbit limit/)).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.queryByText(/Orbit limit/)).toBeNull();
+    expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+  });
 });

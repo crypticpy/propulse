@@ -24,6 +24,7 @@ import {
   selectTrackDotIndices,
   selectTrackLabelIndices,
 } from "@/lib/map/satelliteGeometry";
+import { MAX_SATELLITE_TRACKS } from "@/stores/mapStore";
 
 export interface FlatTrackPoint {
   x: number;
@@ -163,6 +164,21 @@ export function buildFlatSatelliteTrack(
 // Per-satellite orbit-track propagation cache (#994 PR B round 2 item 1)
 // ---------------------------------------------------------------------------
 
+/**
+ * Absolute UTC minute bucket for `getCachedOrbitTrack`'s cache key --
+ * deliberately NOT a component-local render counter. A counter that resets
+ * to 0 on remount would collide with the module-level `orbitTrackCache`
+ * surviving the remount: reopening the view later with the same
+ * satellite/TLE/config would hit the stale `...|0` entry and draw a track
+ * anchored to the earlier visit for up to a minute (#994 PR B round 2 Codex
+ * thread 1). Callers should still drive re-renders with their own ticking
+ * state (recomputing this on every render is cheap); only the *value* fed
+ * into the cache key needs to be this absolute bucket.
+ */
+export function getOrbitTrackMinuteBucket(now: Date = new Date()): number {
+  return Math.floor(now.getTime() / 60_000);
+}
+
 interface CachedOrbitTrack {
   key: string;
   track: OrbitTrackPoint[];
@@ -170,11 +186,28 @@ interface CachedOrbitTrack {
 
 /**
  * Keyed by NORAD id rather than the full composite key below, so the cache
- * holds only the latest track per satellite (bounded by however many
- * distinct satellites have ever been tracked this session) instead of
- * growing one entry per minute tick forever.
+ * holds only the latest track per satellite instead of growing one entry per
+ * minute tick forever. Insertion order doubles as LRU order: a hit deletes
+ * and re-inserts its entry (moving it to the end, `Map` iterates in
+ * insertion order), so the least-recently-used entry is always the first one
+ * `.keys().next()` returns. Bounded at `MAX_SATELLITE_TRACKS` -- the same cap
+ * `mapStore` enforces on simultaneously tracked satellites -- so this can
+ * never grow unbounded across a session even without `pruneOrbitTrackCache`
+ * being called (#994 PR B round 2 Codex thread 2).
  */
 const orbitTrackCache = new Map<number, CachedOrbitTrack>();
+
+/**
+ * Drop cache entries for satellites that are no longer in the active
+ * `satelliteTracks` set. Called from `FlatMapView`'s memo (which already has
+ * the current set on hand) so clearing a track frees its cached propagation
+ * immediately, rather than waiting for the LRU bound to evict it.
+ */
+export function pruneOrbitTrackCache(activeNoradIds: ReadonlySet<number>): void {
+  for (const noradId of orbitTrackCache.keys()) {
+    if (!activeNoradIds.has(noradId)) orbitTrackCache.delete(noradId);
+  }
+}
 
 /**
  * Cached wrapper around `buildOrbitTrack`, keyed on everything that should
@@ -202,13 +235,25 @@ export function getCachedOrbitTrack(
 ): OrbitTrackPoint[] {
   const key = `${satellite.noradId}|${satellite.line1}|${satellite.line2}|${config.orbitsAhead}|${config.showPast}|${minuteTick}`;
   const cached = orbitTrackCache.get(satellite.noradId);
-  if (cached && cached.key === key) return cached.track;
+  if (cached && cached.key === key) {
+    // Refresh LRU order: delete + re-insert moves this entry to the end of
+    // the Map's iteration order.
+    orbitTrackCache.delete(satellite.noradId);
+    orbitTrackCache.set(satellite.noradId, cached);
+    return cached.track;
+  }
 
   const track = buildOrbitTrack(satellite, new Date(), {
     pastMin: config.showPast ? PAST_TRACK_MINUTES : 0,
     orbitsAhead: config.orbitsAhead,
     stepMin: 1,
   });
+  orbitTrackCache.delete(satellite.noradId);
   orbitTrackCache.set(satellite.noradId, { key, track });
+  while (orbitTrackCache.size > MAX_SATELLITE_TRACKS) {
+    const oldest = orbitTrackCache.keys().next().value;
+    if (oldest === undefined) break;
+    orbitTrackCache.delete(oldest);
+  }
   return track;
 }

@@ -1,6 +1,7 @@
 """Independent analytic regressions and invalid-manifest mutation checks."""
 import copy
 import json
+import re
 import math
 from pathlib import Path
 import subprocess
@@ -323,6 +324,25 @@ class CommandLineTests(unittest.TestCase):
         manifest["fixtures"][0]["ell_km"] = huge
         code, report = self.run_cli(manifest)
         self.assertEqual((code, report["consistency"]), (1, "FAIL"))
+        self.assertIn("finite double range", report["error"])
+
+    def test_cli_rejects_an_integer_beyond_the_interpreter_digit_limit(self):
+        # 5000 digits is past CPython's default 4300-digit int/str limit, so
+        # json.loads raises a bare ValueError unless parse_int rejects first.
+        # Written as raw text: json.dumps would hit the same limit here.
+        text = (HERE / "fixture-manifest.json").read_text()
+        match = re.search(r'"ell_km":\s*[-0-9.eE+]+', text)
+        self.assertIsNotNone(match)
+        text = text[:match.start()] + '"ell_km": ' + "9" * 5000 + text[match.end():]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(text)
+            completed = subprocess.run(
+                [sys.executable, str(HERE / "validate.py"), "--manifest", str(path)],
+                capture_output=True, text=True, check=False)
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual((report["consistency"], report["qualification"]), ("FAIL", "BLOCKED"))
         self.assertIn("finite double range", report["error"])
 
     def test_cli_rejects_a_manifest_that_drops_the_geodesic_counterexample(self):

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 import re
 
@@ -114,6 +115,9 @@ def require(condition, message):
         raise Invalid(message)
 
 
+MAX_FINITE_DOUBLE_DIGITS = len(str(int(sys.float_info.max)))  # 309
+
+
 def load_json(path):
     def pairs(items):
         result = {}
@@ -130,8 +134,18 @@ def load_json(path):
         require(math.isfinite(number), "nonfinite JSON number")
         return number
 
+    def finite_int(value):
+        # Reject by digit count before int() runs: CPython's int/str
+        # conversion limit (4300 digits by default) would otherwise raise a
+        # bare ValueError that is not a structured failure. Any integer with
+        # more digits than the largest finite double cannot be finite anyway.
+        require(len(value.lstrip("-")) <= MAX_FINITE_DOUBLE_DIGITS,
+                "number outside the finite double range")
+        return int(value)
+
     return json.loads(Path(path).read_text(), object_pairs_hook=pairs,
-                      parse_constant=invalid_constant, parse_float=finite_float)
+                      parse_constant=invalid_constant, parse_float=finite_float,
+                      parse_int=finite_int)
 
 
 def schema_check(value, schema, path="$", *, check_schema=True):

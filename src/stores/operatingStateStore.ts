@@ -60,6 +60,33 @@ export const REGISTRATION_TTL_MS = 90_000;
  */
 export const REGISTRATION_HEARTBEAT_MS = REGISTRATION_TTL_MS / 3;
 
+/**
+ * The ordering rule, in one place (#859 round 13). Everything in the cursor
+ * pipeline follows it, and the hooks that mirror the cursor onto the map
+ * (`useHamClockWallOperatingState`, `useMapOperationalContext`) point here.
+ *
+ * **A stamp is what orders writes. A value never does.**
+ *
+ * Concretely:
+ *
+ * - `null` is a value like any other. Clearing the cursor target, or clearing
+ *   the map target, is a write: it carries a stamp and it beats everything
+ *   older. A reconcile that skips a null because "there is nothing to apply"
+ *   silently keeps a target the operator explicitly cleared.
+ * - An equal value is still a write. Re-picking what is already held moves
+ *   the stamp forward, and peers must move with it. The only exception is one
+ *   message arriving twice (same `at`, same value), which is not a second
+ *   write at all.
+ * - "Unstamped" means *no stamp exists* — `at === 0` here,
+ *   `targetSetAt === undefined` on the map store — and nothing else. A stamp
+ *   whose value is null, empty, or unchanged is still a stamp, and still
+ *   orders.
+ *
+ * The cost of breaking it is always the same shape: a screen keeps a stale
+ * target forever, because the newer write was classified as "nothing to do"
+ * on the strength of what it carried instead of when it happened.
+ */
+
 /** Which write won a field, and when. */
 export interface FieldStamp {
   /**
@@ -85,6 +112,28 @@ export interface FieldStamp {
    * convergent place in the ordering instead.
    */
   by?: string;
+  /**
+   * The key this entry won its last equal-`at` comparison on: its author when
+   * it named one, otherwise the id of whoever delivered it (#859 round 13).
+   *
+   * This is *not* authorship and must never be read as any. It is retained
+   * for one reason: an equal-`at` comparison needs both sides' keys, and
+   * before round 13 the incoming side's key was borrowed for the comparison
+   * and then thrown away, so the *next* authorless write at the same `at` had
+   * nothing to lose to and was accepted unconditionally. Two old tabs writing
+   * in the same millisecond then settled differently on each receiver, and a
+   * `hello` relay flipped them again.
+   *
+   * Local to this screen: `currentPatch` builds each wire entry field by
+   * field and never includes it, so nothing downstream can mistake it for a
+   * first-hand claim — which is round 8's promise kept. Not persisted either:
+   * `partialize` keeps `followScreens` alone, so no stamp survives a reload
+   * and the tie key cannot outlive the entry it belongs to.
+   *
+   * `""` on a field never written, which loses to every real key — the same
+   * place `main` starts its `by` at.
+   */
+  tieKey: string;
   /**
    * This screen's `Date.now()` at the moment the write was *applied here*
    * (#859). Local-only: never sent on the wire (`currentPatch` sends `value`
@@ -169,9 +218,19 @@ export interface OperatingStateStoreActions {
    * phone picked (PR #694 review) — `workspaceId` alone is not unique across
    * devices.
    */
-  tune: (deviceId: string, workspaceId: string, frequencyKHz: number, mode: string | null) => void;
+  tune: (
+    deviceId: string,
+    workspaceId: string,
+    frequencyKHz: number,
+    mode: string | null,
+  ) => void;
   /** PR #694 review: the tuned screen reports back so TUNE is no longer fire-and-forget. */
-  reportTuneResult: (deviceId: string, workspaceId: string, ok: boolean, reason: string | null) => void;
+  reportTuneResult: (
+    deviceId: string,
+    workspaceId: string,
+    ok: boolean,
+    reason: string | null,
+  ) => void;
   setFollowScreens: (next: boolean) => void;
   /** Announces this screen; the returned function withdraws it. */
   registerWorkspace: (input: RegisterWorkspaceInput) => () => void;
@@ -182,7 +241,8 @@ export interface OperatingStateStoreActions {
   reset: () => void;
 }
 
-export type OperatingStateStore = OperatingStateStoreState & OperatingStateStoreActions;
+export type OperatingStateStore = OperatingStateStoreState &
+  OperatingStateStoreActions;
 
 const EMPTY_CURSOR: WorkflowCursor = {
   sessionId: null,
@@ -201,10 +261,10 @@ function newDeviceId(): string {
 
 function emptyStamps(): Record<CursorField, FieldStamp> {
   return {
-    sessionId: { at: 0, appliedAt: 0, appliedSeq: 0 },
-    band: { at: 0, appliedAt: 0, appliedSeq: 0 },
-    target: { at: 0, appliedAt: 0, appliedSeq: 0 },
-    contact: { at: 0, appliedAt: 0, appliedSeq: 0 },
+    sessionId: { at: 0, tieKey: "", appliedAt: 0, appliedSeq: 0 },
+    band: { at: 0, tieKey: "", appliedAt: 0, appliedSeq: 0 },
+    target: { at: 0, tieKey: "", appliedAt: 0, appliedSeq: 0 },
+    contact: { at: 0, tieKey: "", appliedAt: 0, appliedSeq: 0 },
   };
 }
 
@@ -262,17 +322,17 @@ function nextStamp(): number {
  */
 function beats(
   incoming: Pick<FieldStamp, "at" | "by">,
-  current: Pick<FieldStamp, "at" | "by">,
+  current: Pick<FieldStamp, "at" | "tieKey">,
   /** The envelope's sender — this screen's own id for a local write. */
   senderId: string,
 ): boolean {
   if (incoming.at !== current.at) return incoming.at > current.at;
-  // An authorless entry held here was keyed on its deliverer when it was
-  // accepted, and that key was dropped, so there is nothing left to compare
-  // it against. It yields, which is what `main` would do to it on the same
-  // ids more often than not and never leaves two screens deadlocked.
-  if (current.by === undefined) return true;
-  return (incoming.by ?? senderId) > current.by;
+  // Both sides keyed the same way `main` keys them: the author when the entry
+  // named one, otherwise whoever delivered it. The held key is kept on the
+  // stamp (`tieKey`) rather than borrowed and dropped, so two authorless
+  // writes in the same millisecond settle the same way on every receiver and
+  // in either delivery order (#859 round 13).
+  return (incoming.by ?? senderId) > current.tieKey;
 }
 
 /**
@@ -324,7 +384,10 @@ function beat(key: string): void {
     stopHeartbeat(key);
     return;
   }
-  const refreshed: WorkspaceRegistration = { ...registration, lastSeen: Date.now() };
+  const refreshed: WorkspaceRegistration = {
+    ...registration,
+    lastSeen: Date.now(),
+  };
   useOperatingStateStore.setState((state) => ({
     registrations: { ...state.registrations, [key]: refreshed },
   }));
@@ -422,6 +485,46 @@ function mergePatch(
     // what let a replay outrank a map target chosen in between (#859 round 5).
     const current = stamps[field];
     const incoming = { at: entry.at, by: entry.by };
+    // One logical wire write, delivered twice — a `hello` reply, or a relay
+    // keyed on its deliverer that `beats()` now lets through (#859 round 12).
+    // Identity is `at` *and* value: the same instant carrying the same value
+    // is the same write taking a second route here. There is nothing to
+    // apply, so nothing is applied: no new application number and no fresh
+    // `appliedAt`. Re-stamping a write already held is what let a replay
+    // outrank a map target chosen in between (round 5), and that guard has to
+    // survive the tie rule getting more permissive, not depend on it.
+    //
+    // Round 13 narrowed this from "the value is equal" to "the same write":
+    // an operator who re-picks the target they picked before produces a
+    // genuinely newer write that happens to carry an equal value, and it has
+    // to land with its new `at`/`appliedAt`/`appliedSeq` or every peer keeps
+    // the old stamp and a wall that picked something else in between never
+    // gives it up. Equal values do not short-circuit ordering; only a
+    // re-delivery of one message does. Deliberately keyed on `at` + value
+    // rather than also on the key: a legacy relay strips `by`, so the same
+    // message can arrive under two different keys, and demanding key equality
+    // would re-stamp it and bring round 5's bug back. Taking the higher key
+    // instead is order-independent and converges.
+    //
+    // Two things such a delivery can add: an author this screen never knew
+    // (the write arrived first from a tab too old to name one, and the relay
+    // states it — learned, not guessed, so the chip can name the screen the
+    // operator actually used), and a higher tie key for the next equal-`at`
+    // comparison.
+    const tieKey = entry.by ?? senderId;
+    if (
+      entry.at === current.at &&
+      sameCursorValue(cursor[field], entry.value)
+    ) {
+      const learnedBy = current.by ?? entry.by;
+      // The higher of the two keys, so the result does not depend on which
+      // route delivered the message first.
+      const raised = tieKey > current.tieKey ? tieKey : current.tieKey;
+      if (learnedBy === current.by && raised === current.tieKey) continue;
+      stamps[field] = { ...current, by: learnedBy, tieKey: raised };
+      changed = true;
+      continue;
+    }
     // One rule for both, authored and not: `beats()` orders an absent author
     // rather than the caller special-casing it here, so the absence cannot be
     // handled one way at this site and another at the next one.
@@ -432,25 +535,6 @@ function mergePatch(
     // left open across the deploy (round 7). An optional field plus a rule
     // for its absence is bidirectional; a bump is not.
     if (!beats(incoming, current, senderId)) continue;
-    // The value we already hold, delivered again — a `hello` reply, or a
-    // relay keyed on its deliverer that `beats()` now lets through (#859
-    // round 12). There is nothing to apply, so nothing is applied: no new
-    // application number and no fresh `appliedAt`. Re-stamping a write
-    // already held is what let a replay outrank a map target chosen in
-    // between (round 5), and that guard has to survive the tie rule getting
-    // more permissive, not depend on it.
-    //
-    // The one thing such a delivery can add is an author this screen never
-    // knew: the write arrived first from a tab too old to name one, and the
-    // relay states it. That is learned, not guessed — it is on the entry —
-    // so it is recorded, and only it. The chip can then name the screen the
-    // operator actually used.
-    if (sameCursorValue(cursor[field], entry.value)) {
-      if (current.by !== undefined || entry.by === undefined) continue;
-      stamps[field] = { ...current, by: entry.by };
-      changed = true;
-      continue;
-    }
     // Stamped here — the one place a stamp is written — so the local half
     // covers every accepted path: a local `writeField` (same moment as its
     // `nextStamp()`), an inbound `state` patch, a `hello` reply carrying a
@@ -459,6 +543,7 @@ function mergePatch(
     Object.assign(cursor, { [field]: entry.value });
     stamps[field] = {
       ...incoming,
+      tieKey,
       appliedAt: Date.now(),
       // This window's application order, minted here for every accepted
       // entry whatever its origin (#859 round 11). Carrying the writer's
@@ -476,7 +561,10 @@ function mergePatch(
 }
 
 /** Writes one field locally and, when following, sends it. */
-function writeField<K extends CursorField>(field: K, value: WorkflowCursor[K]): void {
+function writeField<K extends CursorField>(
+  field: K,
+  value: WorkflowCursor[K],
+): void {
   const state = useOperatingStateStore.getState();
   const at = nextStamp();
   // Named explicitly rather than left to the receiver's `senderId` fallback,
@@ -541,25 +629,45 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
       },
 
       flipPage: (workspaceId, pageIndex) => {
-        const command: OperatingCommand = { type: "flipPage", workspaceId, pageIndex };
+        const command: OperatingCommand = {
+          type: "flipPage",
+          workspaceId,
+          pageIndex,
+        };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
 
       setView: (workspaceId, viewId) => {
-        const command: OperatingCommand = { type: "setView", workspaceId, viewId };
+        const command: OperatingCommand = {
+          type: "setView",
+          workspaceId,
+          viewId,
+        };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
 
       tune: (deviceId, workspaceId, frequencyKHz, mode) => {
-        const command: OperatingCommand = { type: "tune", deviceId, workspaceId, frequencyKHz, mode };
+        const command: OperatingCommand = {
+          type: "tune",
+          deviceId,
+          workspaceId,
+          frequencyKHz,
+          mode,
+        };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
 
       reportTuneResult: (deviceId, workspaceId, ok, reason) => {
-        const command: OperatingCommand = { type: "tuneResult", deviceId, workspaceId, ok, reason };
+        const command: OperatingCommand = {
+          type: "tuneResult",
+          deviceId,
+          workspaceId,
+          ok,
+          reason,
+        };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
@@ -604,7 +712,9 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
           lastSeen: Date.now(),
         };
         const key = registrationKey(deviceId, input.workspaceId);
-        set((state) => ({ registrations: { ...state.registrations, [key]: registration } }));
+        set((state) => ({
+          registrations: { ...state.registrations, [key]: registration },
+        }));
         post({ kind: "register", registration });
         post({ kind: "hello" });
         startHeartbeat(key);
@@ -689,8 +799,12 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
             // that arrives out of order. Scoped to these two types: the
             // other commands (`flipPage`, `selectSpot`, `setView`) have no
             // comparable "acting twice on a stale replay" risk.
-            if (message.command.type === "tune" || message.command.type === "tuneResult") {
-              const lastSentAt = state.lastAppliedTuneSentAt[message.senderId] ?? 0;
+            if (
+              message.command.type === "tune" ||
+              message.command.type === "tuneResult"
+            ) {
+              const lastSentAt =
+                state.lastAppliedTuneSentAt[message.senderId] ?? 0;
               if (message.sentAt <= lastSentAt) break;
               set((current) => ({
                 lastAppliedTuneSentAt: {
@@ -728,7 +842,10 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
             break;
           }
           case "register": {
-            const key = registrationKey(message.registration.deviceId, message.registration.workspaceId);
+            const key = registrationKey(
+              message.registration.deviceId,
+              message.registration.workspaceId,
+            );
             set((current) => ({
               registrations: {
                 ...current.registrations,
@@ -796,7 +913,8 @@ export function selectLiveRegistrations(
   return Object.values(state.registrations)
     .filter((registration) => now - registration.lastSeen < REGISTRATION_TTL_MS)
     .sort((a, b) => {
-      if (a.deviceId === b.deviceId) return a.workspaceId.localeCompare(b.workspaceId);
+      if (a.deviceId === b.deviceId)
+        return a.workspaceId.localeCompare(b.workspaceId);
       if (a.deviceId === state.deviceId) return -1;
       if (b.deviceId === state.deviceId) return 1;
       return a.deviceId.localeCompare(b.deviceId);

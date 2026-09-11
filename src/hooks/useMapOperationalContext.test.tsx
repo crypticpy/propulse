@@ -20,8 +20,12 @@ class TestChannel {
   postMessage = vi.fn((_message: unknown) => {
     if (this.closed) throw new Error("Channel is closed");
   });
-  constructor() { TestChannel.instances.push(this); }
-  close() { this.closed = true; }
+  constructor() {
+    TestChannel.instances.push(this);
+  }
+  close() {
+    this.closed = true;
+  }
 }
 
 function Harness() {
@@ -49,27 +53,40 @@ afterEach(() => {
 describe("operational workspace synchronization cleanup", () => {
   it("discards pending publishes when StrictMode replaces the channel", async () => {
     vi.stubGlobal("BroadcastChannel", TestChannel);
-    const view = render(<StrictMode><Harness /></StrictMode>);
-    await act(async () => { await Promise.resolve(); });
+    const view = render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
     const [retired, active] = TestChannel.instances;
     expect(retired.closed).toBe(true);
     expect(retired.postMessage).toHaveBeenCalledTimes(1); // initial handshake only
     expect(active.closed).toBe(false);
     act(() => useMapOperationalStore.getState().setWorkspaceOpen(true));
     view.unmount();
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(active.postMessage).toHaveBeenCalledTimes(1);
   });
 
   it("still publishes updates while mounted", async () => {
     vi.stubGlobal("BroadcastChannel", TestChannel);
     const view = render(<Harness />);
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
     const [channel] = TestChannel.instances;
-    expect(channel.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-      kind: "snapshot", domain: "operational",
-      state: expect.objectContaining({ manualScope: "log" }),
-    }));
+    expect(channel.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "snapshot",
+        domain: "operational",
+        state: expect.objectContaining({ manualScope: "log" }),
+      }),
+    );
     view.unmount();
   });
 });
@@ -206,8 +223,12 @@ describe("map target synchronization", () => {
     // target it picked an hour ago. Both stamps are workspace windows on this
     // machine, one clock, so they compare directly — and only a strictly
     // newer one may install. An equal stamp is not newer either: that is the
-    // same window re-announcing what this one already has.
+    // same window re-announcing what this one already has, and where it is a
+    // genuine same-millisecond race the tie falls to the higher window id
+    // (round 13) — pinned below, so this test is about the ordering and not
+    // about which random id happened to sort higher.
     vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.stubGlobal("crypto", { randomUUID: () => "zzz-this-window" });
     useMapStore.setState({
       target: { lat: 40, lon: -80, name: "HELD" },
       targetSetAt: 5_000,
@@ -252,8 +273,102 @@ describe("map target synchronization", () => {
     });
     expect(useMapStore.getState().target).toMatchObject({ name: "NEWER" });
     expect(useMapStore.getState().targetSetAt).toBe(5_001);
-    expect(useMapStore.getState().targetSeq as number).toBeGreaterThan(seqBefore);
+    expect(useMapStore.getState().targetSeq as number).toBeGreaterThan(
+      seqBefore,
+    );
     view.unmount();
+  });
+
+  it("keeps a target this window cleared over an older handshake answer", async () => {
+    // #859 round 13, thread 3. `setTarget(null)` stamps `targetSetAt` like
+    // any other write, so a window that *cleared* its target at 5000 has
+    // something to lose: a pop-out suspended since 4000 answering the
+    // handshake must not put its hours-old target back. "Nothing to lose" is
+    // the absence of a stamp, never the nullness of the value.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    useMapStore.setState({
+      target: null,
+      targetSetAt: 5_000,
+      targetSeq: undefined,
+    });
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "suspended-popout",
+          domain: "map",
+          revision: 1,
+          state: {
+            target: { lat: 1, lon: 1, name: "STALE" },
+            targetSetAt: 4_000,
+          },
+        },
+      } as MessageEvent);
+    });
+
+    expect(useMapStore.getState().target).toBeNull();
+    expect(useMapStore.getState().targetSetAt).toBe(5_000);
+    // Declining is not an application, so no number was taken.
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
+    view.unmount();
+  });
+
+  it("settles a same-millisecond pick between two windows on one winner", async () => {
+    // #859 round 13, thread 4. Two editable windows picking different targets
+    // inside one millisecond each refused the other under a plain `<=` and
+    // stayed split for good. An exact tie now falls to the higher window id —
+    // the same direction the operating store breaks its ties — so whichever
+    // side you stand on, the same target wins. Nothing was added to the wire
+    // for it: the envelope already names its sender (round 10's lesson).
+    const settled: string[] = [];
+    for (const [local, remote] of [
+      ["aaa-window", "zzz-window"],
+      ["zzz-window", "aaa-window"],
+    ]) {
+      vi.stubGlobal("BroadcastChannel", TestChannel);
+      vi.stubGlobal("crypto", { randomUUID: () => local });
+      // This window's own pick, so the tie key it holds is its own id.
+      useMapStore.setState({
+        target: { lat: 2, lon: 2, name: local },
+        targetSetAt: 7_000,
+        targetSeq: undefined,
+      });
+      const view = render(<SyncOnly />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const channel = TestChannel.instances.at(-1) as TestChannel;
+
+      act(() => {
+        channel.onmessage?.({
+          data: {
+            kind: "snapshot",
+            sender: remote,
+            domain: "map",
+            revision: 1,
+            state: {
+              target: { lat: 3, lon: 3, name: remote },
+              targetSetAt: 7_000,
+            },
+          },
+        } as MessageEvent);
+      });
+
+      settled.push(useMapStore.getState().target?.name as string);
+      view.unmount();
+      vi.unstubAllGlobals();
+      TestChannel.instances = [];
+    }
+
+    // Both windows end on the higher id's pick rather than each keeping its
+    // own — convergence, not a deadlock.
+    expect(settled).toEqual(["zzz-window", "zzz-window"]);
   });
 
   it("leaves a legacy snapshot that carries no write time unstamped", async () => {

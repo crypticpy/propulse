@@ -48,8 +48,7 @@ export function useMapOperationalContext(): MapOperationalContext {
   const declaredAssisted =
     (
       activeSession?.categories as
-        | { assisted?: "assisted" | "non-assisted" }
-        | undefined
+        { assisted?: "assisted" | "non-assisted" } | undefined
     )?.assisted === "assisted";
   const stationOperationActive =
     rigConnected ||
@@ -88,11 +87,14 @@ export function useMapOperationalContext(): MapOperationalContext {
 /** Renderer adapter: preserve configured layers and derive focused visibility. */
 export function useScopedMapLayers() {
   const configuredLayers = useMapStore((state) => state.layers);
-  const hamClock = useMapStore(s => s.layoutMode === "hamclock");
-  const mode = useHamClockStore(s => s.hamclockMode);
-  const content = useHamClockDisplayStore(s => s.mapContent);
-  const projection = useMapStore(s => s.viewMode);
-  const hamClockContent = hamClock && (mode === "traffic" || mode === "bands") ? hamClockProjectionContent(projection, content) : undefined;
+  const hamClock = useMapStore((s) => s.layoutMode === "hamclock");
+  const mode = useHamClockStore((s) => s.hamclockMode);
+  const content = useHamClockDisplayStore((s) => s.mapContent);
+  const projection = useMapStore((s) => s.viewMode);
+  const hamClockContent =
+    hamClock && (mode === "traffic" || mode === "bands")
+      ? hamClockProjectionContent(projection, content)
+      : undefined;
   const { policy } = useMapOperationalContext();
   return useMemo(
     () => applyMapDataPolicyToLayers(configuredLayers, policy, hamClockContent),
@@ -105,10 +107,7 @@ type WorkspaceSnapshot = {
     ReturnType<typeof useMapOperationalStore.getState>,
     "manualScope" | "workspaceOpen" | "selectedReport"
   >;
-  qso: Pick<
-    ReturnType<typeof useQSOStore.getState>,
-    "form" | "operatingMode"
-  >;
+  qso: Pick<ReturnType<typeof useQSOStore.getState>, "form" | "operatingMode">;
   /**
    * The target's whole stamp travels with it, so the sending window's write
    * survives the hop. Applying the target alone would leave this window's
@@ -123,10 +122,7 @@ type WorkspaceSnapshot = {
    * honestly claim — `targetSetAt` still travels, as the sender's write time
    * for display and for the last-resort clock comparison.
    */
-  map: Pick<
-    ReturnType<typeof useMapStore.getState>,
-    "target" | "targetSetAt"
-  >;
+  map: Pick<ReturnType<typeof useMapStore.getState>, "target" | "targetSetAt">;
   dx: Pick<ReturnType<typeof useDXStore.getState>, "selectedSpot">;
   contest: Pick<
     ReturnType<typeof useContestStore.getState>,
@@ -216,10 +212,15 @@ export function useOperationalWorkspaceSync(): void {
     let publishQueued = false;
     let nextRevision = 0;
     const pendingDomains = new Set<WorkspaceDomain>();
-    const receivedRevisions = new Map<
-      string,
-      Map<WorkspaceDomain, number>
-    >();
+    const receivedRevisions = new Map<string, Map<WorkspaceDomain, number>>();
+    /**
+     * Which window wrote the map target this window currently holds: its own
+     * id while the local pick stands, the sender's once a remote snapshot has
+     * been applied. Used only to settle an equal-`targetSetAt` tie, and only
+     * here — it is never published, so the wire is unchanged (#859 round 13,
+     * and round 10's lesson: nothing new goes on the wire to order writes).
+     */
+    let targetTieKey: string = sender;
 
     const publish = (...domains: WorkspaceDomain[]) => {
       if (disposed || applyingRemote) return;
@@ -289,6 +290,9 @@ export function useOperationalWorkspaceSync(): void {
           state.targetSetAt !== previous.targetSetAt ||
           state.targetSeq !== previous.targetSeq
         ) {
+          // A local write takes back the tie key; a remote one is applied
+          // with `applyingRemote` set and keeps the key the applier gave it.
+          if (!applyingRemote) targetTieKey = sender;
           publish("map");
         }
       }),
@@ -417,18 +421,43 @@ export function useOperationalWorkspaceSync(): void {
             // windows on *this* machine, one clock (round 10's note), which
             // is exactly why the cursor's foreign `at` is not compared here.
             //
-            // Nothing held, or held unstamped, means there is nothing to
-            // lose: install. Equal or older: ignore it entirely, including
-            // the number — a snapshot this window declines to apply is not
-            // an application.
+            // "Nothing to lose" is *no stamp at all*, and nothing else
+            // (#859 round 13). It is not "the target is null": clearing the
+            // target goes through `setTarget(null)`, which stamps
+            // `targetSetAt` like any other write, so a window that cleared at
+            // 5000 has something to lose and must refuse a suspended
+            // pop-out's handshake target stamped 4000. This is the store's
+            // rule — see the "A stamp is what orders writes" block in
+            // `operatingStateStore` — applied on this channel: the stamp
+            // orders the write, the value never does.
+            //
+            // Equal stamps are settled, not deadlocked. Two editable windows
+            // picking different targets inside one millisecond would each
+            // refuse the other under a plain `<=` and stay split for good, so
+            // an exact tie falls to the higher window id — the same direction
+            // the operating store's `beats()` takes, so the two channels can
+            // never name different winners. The key is local
+            // (`targetTieKey`): the envelope already carries `sender`, and
+            // nothing needs adding to the wire.
+            //
+            // Residual, stated rather than papered over: `targetSetAt` is
+            // `Date.now()` on one machine, and a clock stepped backwards
+            // (NTP, manual change) makes a later write carry a smaller stamp,
+            // which this window then refuses. Both windows share the
+            // corrected clock, so it heals on the next write; a monotonic
+            // cross-window counter would need one on the wire, which round 10
+            // showed is the worse trade.
             const held = useMapStore.getState();
             if (Number.isFinite(map.targetSetAt)) {
               const senderAt = map.targetSetAt as number;
-              const nothingToLose =
-                held.target === null || held.targetSetAt === undefined;
-              if (!nothingToLose && senderAt <= (held.targetSetAt as number)) {
-                break;
+              if (held.targetSetAt !== undefined) {
+                const heldAt = held.targetSetAt;
+                if (senderAt < heldAt) break;
+                if (senderAt === heldAt && message.sender <= targetTieKey) {
+                  break;
+                }
               }
+              targetTieKey = message.sender;
               useMapStore.setState({
                 target: map.target,
                 targetSetAt: senderAt,
@@ -441,6 +470,7 @@ export function useOperationalWorkspaceSync(): void {
             // leave a legacy pop-out unable to move this window's target at
             // all. It carries no number either, so the wall never promotes
             // it over something it can order (round 9).
+            targetTieKey = message.sender;
             useMapStore.setState({
               target: map.target,
               targetSetAt: undefined,

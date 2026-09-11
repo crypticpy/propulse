@@ -4,7 +4,10 @@ import {
   OPERATING_PROTOCOL_VERSION,
   type OperatingMessage,
 } from "@/lib/workspace/operatingChannel";
-import { REGISTRATION_HEARTBEAT_MS, REGISTRATION_TTL_MS } from "./operatingStateStore";
+import {
+  REGISTRATION_HEARTBEAT_MS,
+  REGISTRATION_TTL_MS,
+} from "./operatingStateStore";
 
 type Bus = ReturnType<typeof createMemoryBus>;
 type StoreModule = typeof import("./operatingStateStore");
@@ -60,8 +63,10 @@ function legacyWouldAccept(message: OperatingMessage): boolean {
   // `main`: `if (raw.v !== OPERATING_PROTOCOL_VERSION) return null;` with the
   // constant at 1.
   if (raw.v !== 1) return false;
-  if (typeof raw.senderId !== "string" || raw.senderId.length === 0) return false;
-  if (typeof raw.sentAt !== "number" || !Number.isFinite(raw.sentAt)) return false;
+  if (typeof raw.senderId !== "string" || raw.senderId.length === 0)
+    return false;
+  if (typeof raw.sentAt !== "number" || !Number.isFinite(raw.sentAt))
+    return false;
   if (raw.kind !== "state") return true;
   const patch = raw.patch;
   if (typeof patch !== "object" || patch === null) return false;
@@ -200,12 +205,24 @@ describe("operatingStateStore", () => {
 
     a.store.setState({
       cursor: { ...a.store.getState().cursor, band: "20m" },
-      stamps: { ...a.store.getState().stamps, band: { at: 5_000, by: "aaa", appliedAt: 5_000, appliedSeq: 0 } },
+      stamps: {
+        ...a.store.getState().stamps,
+        band: {
+          at: 5_000,
+          by: "aaa",
+          tieKey: "aaa",
+          appliedAt: 5_000,
+          appliedSeq: 0,
+        },
+      },
     });
 
     // v2: the author is explicit, so the tie-break compares the writers.
     const patch = (band: string, by: string) =>
-      ({ kind: "state", patch: { band: { value: band, at: 5_000, by } } }) as const;
+      ({
+        kind: "state",
+        patch: { band: { value: band, at: 5_000, by } },
+      }) as const;
 
     a.store.getState().applyMessage({
       v: OPERATING_PROTOCOL_VERSION,
@@ -245,13 +262,24 @@ describe("operatingStateStore", () => {
       cursor: { ...a.store.getState().cursor, band: "20m" },
       stamps: {
         ...a.store.getState().stamps,
-        band: { at: 5_000, by: "aaa", appliedAt: 5_000, appliedSeq: 0 },
+        band: {
+          at: 5_000,
+          by: "aaa",
+          tieKey: "aaa",
+          appliedAt: 5_000,
+          appliedSeq: 0,
+        },
       },
     });
 
     // Equal `at`, delivering id sorts *below* the held author: rejected, and
     // the oracle agrees.
-    expect(legacyAccepts({ at: 5_000, senderId: "aa-low" }, { at: 5_000, by: "aaa" })).toBe(false);
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "aa-low" },
+        { at: 5_000, by: "aaa" },
+      ),
+    ).toBe(false);
     a.store.getState().applyMessage({
       v: OPERATING_PROTOCOL_VERSION,
       senderId: "aa-low",
@@ -262,7 +290,12 @@ describe("operatingStateStore", () => {
     expect(a.store.getState().cursor.band).toBe("20m");
 
     // Equal `at`, delivering id sorts above: accepted, as `main` would.
-    expect(legacyAccepts({ at: 5_000, senderId: "zzz-legacy" }, { at: 5_000, by: "aaa" })).toBe(true);
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "zzz-legacy" },
+        { at: 5_000, by: "aaa" },
+      ),
+    ).toBe(true);
     a.store.getState().applyMessage({
       v: OPERATING_PROTOCOL_VERSION,
       senderId: "zzz-legacy",
@@ -375,7 +408,13 @@ describe("operatingStateStore", () => {
       cursor: { ...held.store.getState().cursor, band: "20m" },
       stamps: {
         ...held.store.getState().stamps,
-        band: { at: 5_000, by: "aaa-held", appliedAt: 5_000, appliedSeq: 0 },
+        band: {
+          at: 5_000,
+          by: "aaa-held",
+          tieKey: "aaa-held",
+          appliedAt: 5_000,
+          appliedSeq: 0,
+        },
       },
     });
 
@@ -410,6 +449,122 @@ describe("operatingStateStore", () => {
 
     relay.disconnect();
     held.disconnect();
+  });
+
+  it("applies a newer write that happens to carry the value already held", async () => {
+    // #859 round 13, thread 1. Round 12 suppressed any accepted entry whose
+    // value equalled the one held, which is too broad: the operator who picks
+    // the target they picked before has made a genuinely newer write. Peers
+    // kept the *old* stamp for it, so a screen that picked something else in
+    // between still outranked it and never gave its own pick up. A stamp
+    // orders writes; an equal value does not short-circuit that.
+    const bus = createMemoryBus();
+    const a = await openScreen(bus, "a");
+
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000, by: "phone" } },
+    });
+    const firstSeq = a.store.getState().stamps.band.appliedSeq;
+    expect(a.store.getState().stamps.band.at).toBe(1_000);
+
+    // The same message a second time — one wire write delivered twice — is
+    // still not an application (round 5): nothing moves.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone",
+      sentAt: 2,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000, by: "phone" } },
+    });
+    expect(a.store.getState().stamps.band.appliedSeq).toBe(firstSeq);
+
+    // A *new* write carrying the same value does land, with its own stamp.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone",
+      sentAt: 3,
+      kind: "state",
+      patch: { band: { value: "20m", at: 3_000, by: "phone" } },
+    });
+    expect(a.store.getState().stamps.band.at).toBe(3_000);
+    expect(a.store.getState().stamps.band.appliedSeq as number).toBeGreaterThan(
+      firstSeq as number,
+    );
+
+    a.disconnect();
+  });
+
+  it("settles two same-millisecond authorless writes the same way in either order", async () => {
+    // #859 round 13, thread 5. The key an authorless entry won on used to be
+    // borrowed for the comparison and dropped, so the *next* authorless write
+    // at the same millisecond had nothing to lose to and was accepted
+    // unconditionally. Two old tabs writing in the same millisecond then
+    // settled differently on each receiver, purely by arrival order. The key
+    // is retained locally on the stamp, so the higher one wins wherever the
+    // two arrive.
+    const lower = {
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "aaa-legacy",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "80m", at: 5_000 } },
+    } satisfies OperatingMessage;
+    const higher = {
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzz-legacy",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "40m", at: 5_000 } },
+    } satisfies OperatingMessage;
+
+    // The deployed bundle keys both sides on the envelope sender, so this is
+    // the winner it picks too — the oracle, extended to the authorless case.
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "zzz-legacy" },
+        { at: 5_000, by: "aaa-legacy" },
+      ),
+    ).toBe(true);
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "aaa-legacy" },
+        { at: 5_000, by: "zzz-legacy" },
+      ),
+    ).toBe(false);
+
+    const bus = createMemoryBus();
+    const forward = await openScreen(bus, "forward", { connect: false });
+    forward.store.getState().applyMessage(lower);
+    forward.store.getState().applyMessage(higher);
+
+    const backward = await openScreen(bus, "backward", { connect: false });
+    backward.store.getState().applyMessage(higher);
+    backward.store.getState().applyMessage(lower);
+
+    expect(forward.store.getState().cursor.band).toBe("40m");
+    expect(backward.store.getState().cursor.band).toBe("40m");
+    // Still no author invented for either of them (round 8).
+    expect(forward.store.getState().stamps.band.by).toBeUndefined();
+    expect(backward.store.getState().stamps.band.by).toBeUndefined();
+
+    // And a `hello` relay of the settled value does not flip it back: a peer
+    // that has converged relays what it holds, which is the value already
+    // here at the same `at` — one write delivered twice, not a new one — so
+    // it is not applied however the relayer's id sorts.
+    const seqBefore = backward.store.getState().stamps.band.appliedSeq;
+    backward.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzzz-relay",
+      sentAt: 9,
+      kind: "state",
+      patch: { band: { value: "40m", at: 5_000 } },
+    });
+    expect(backward.store.getState().cursor.band).toBe("40m");
+    expect(backward.store.getState().stamps.band.appliedSeq).toBe(seqBefore);
   });
 
   describe("the Follow my other screens kill switch", () => {
@@ -500,7 +655,9 @@ describe("operatingStateStore", () => {
         grid: "QF22",
       });
       expect(b.store.getState().cursor.band).toBe("15m");
-      expect(b.store.getState().lastCommand?.command).toMatchObject({ type: "selectSpot" });
+      expect(b.store.getState().lastCommand?.command).toMatchObject({
+        type: "selectSpot",
+      });
       expect(b.store.getState().lastCommand?.senderId).toBe(a.deviceId);
 
       a.disconnect();
@@ -568,15 +725,21 @@ describe("operatingStateStore", () => {
         });
 
       tuneAt(1_000, 14195);
-      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 14195 });
+      expect(a.store.getState().lastCommand?.command).toMatchObject({
+        frequencyKHz: 14195,
+      });
 
       // A replay of the same (or an older) message must be dropped.
       tuneAt(1_000, 21_000);
-      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 14195 });
+      expect(a.store.getState().lastCommand?.command).toMatchObject({
+        frequencyKHz: 14195,
+      });
 
       // A genuinely newer tune from the same sender still applies.
       tuneAt(2_000, 7_074);
-      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 7_074 });
+      expect(a.store.getState().lastCommand?.command).toMatchObject({
+        frequencyKHz: 7_074,
+      });
 
       a.disconnect();
     });
@@ -623,7 +786,9 @@ describe("operatingStateStore", () => {
 
       const state = a.store.getState();
       expect(a.selectLiveRegistrations(state)).toHaveLength(1);
-      expect(a.selectLiveRegistrations(state, Date.now() + 120_000)).toHaveLength(0);
+      expect(
+        a.selectLiveRegistrations(state, Date.now() + 120_000),
+      ).toHaveLength(0);
 
       a.disconnect();
     });
@@ -763,7 +928,9 @@ describe("operatingStateStore", () => {
         capabilities: { canTune: false, canCommand: true },
         lastSeen: Date.now(),
       };
-      a.store.setState({ registrations: { [`${b.deviceId}::phone-default`]: stale } });
+      a.store.setState({
+        registrations: { [`${b.deviceId}::phone-default`]: stale },
+      });
 
       vi.advanceTimersByTime(REGISTRATION_TTL_MS + REGISTRATION_HEARTBEAT_MS);
 
@@ -788,8 +955,12 @@ describe("operatingStateStore", () => {
 
       late.connect();
 
-      expect(Object.values(listener.store.getState().registrations)).toHaveLength(1);
-      expect(Object.values(listener.store.getState().registrations)[0]).toMatchObject({
+      expect(
+        Object.values(listener.store.getState().registrations),
+      ).toHaveLength(1);
+      expect(
+        Object.values(listener.store.getState().registrations)[0],
+      ).toMatchObject({
         workspaceId: "wall-1",
         canvasType: "wall",
       });
@@ -843,9 +1014,11 @@ describe("operatingStateStore", () => {
     }
     // ...and the author really is on the wire, or the round 5 fix travels
     // nowhere.
-    expect(states.every((message) => message.kind === "state" && message.patch.band?.by)).toBe(
-      true,
-    );
+    expect(
+      states.every(
+        (message) => message.kind === "state" && message.patch.band?.by,
+      ),
+    ).toBe(true);
     // And no write sequence, deliberately (round 11): this channel spans
     // devices, and a counter minted here orders nothing on a phone. Every
     // receiver numbers the write itself when it applies it.
@@ -854,6 +1027,17 @@ describe("operatingStateStore", () => {
         (message) =>
           message.kind === "state" &&
           !("seq" in (message.patch.band as Record<string, unknown>)),
+      ),
+    ).toBe(true);
+    // And no tie key either (round 13). It is retained on the held stamp so
+    // an equal-`at` comparison has both sides, and it is *not* authorship:
+    // if it travelled, a peer would read a deliverer's id as a first-hand
+    // claim, which is exactly what round 8 forbade.
+    expect(
+      states.every(
+        (message) =>
+          message.kind === "state" &&
+          !("tieKey" in (message.patch.band as Record<string, unknown>)),
       ),
     ).toBe(true);
 
@@ -882,7 +1066,9 @@ describe("operatingStateStore", () => {
         expect.arrayContaining(["kind", "senderId", "sentAt", "v"]),
       );
       const serialized = JSON.stringify(message);
-      expect(serialized).not.toMatch(/token|password|secret|apikey|access_token/i);
+      expect(serialized).not.toMatch(
+        /token|password|secret|apikey|access_token/i,
+      );
     }
 
     a.disconnect();

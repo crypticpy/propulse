@@ -15,27 +15,41 @@ describe("HamClockWallCursorChip", () => {
     // The region must already be in the tree — with no content — before any
     // cursor is ever set, or a later update has nothing already-watched to
     // mutate into and announce.
-    const chip = screen.getByRole("status", { name: "Shared operating cursor" });
+    const chip = screen.getByRole("status", {
+      name: "Shared operating cursor",
+    });
     expect(chip.textContent).toBe("");
   });
 
   it("shows the shared target, band and the screen that wrote it, as a mutation of the same region", () => {
     const { container } = render(<HamClockWallCursorChip />);
-    const chipBefore = screen.getByRole("status", { name: "Shared operating cursor" });
+    const chipBefore = screen.getByRole("status", {
+      name: "Shared operating cursor",
+    });
 
     act(() => {
       useOperatingStateStore.setState((state) => ({
         cursor: {
           ...state.cursor,
-          target: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+          target: {
+            callsign: "K1ABC",
+            grid: "EM10",
+            lat: null,
+            lon: null,
+            spotId: null,
+          },
           band: "20m",
         },
-        stamps: { ...state.stamps, target: {
-          at: Date.now(),
-          by: "phone-device",
-          appliedAt: Date.now(),
-          appliedSeq: 1,
-        } },
+        stamps: {
+          ...state.stamps,
+          target: {
+            at: Date.now(),
+            by: "phone-device",
+            tieKey: "phone-device",
+            appliedAt: Date.now(),
+            appliedSeq: 1,
+          },
+        },
         registrations: {
           "phone-device::phone-canvas": {
             deviceId: "phone-device",
@@ -49,7 +63,9 @@ describe("HamClockWallCursorChip", () => {
       }));
     });
 
-    const chip = screen.getByRole("status", { name: "Shared operating cursor" });
+    const chip = screen.getByRole("status", {
+      name: "Shared operating cursor",
+    });
     // Same DOM node as before the update — the mutation an assistive
     // technology already watching the region would announce.
     expect(chip).toBe(chipBefore);
@@ -93,7 +109,13 @@ describe("HamClockWallCursorChip", () => {
         kind: "state",
         patch: {
           target: {
-            value: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+            value: {
+              callsign: "K1ABC",
+              grid: "EM10",
+              lat: null,
+              lon: null,
+              spotId: null,
+            },
             at,
           },
         },
@@ -106,7 +128,13 @@ describe("HamClockWallCursorChip", () => {
         kind: "state",
         patch: {
           target: {
-            value: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+            value: {
+              callsign: "K1ABC",
+              grid: "EM10",
+              lat: null,
+              lon: null,
+              spotId: null,
+            },
             at,
             by: "aaa-phone",
           },
@@ -115,7 +143,9 @@ describe("HamClockWallCursorChip", () => {
     });
 
     render(<HamClockWallCursorChip />);
-    const chip = screen.getByRole("status", { name: "Shared operating cursor" });
+    const chip = screen.getByRole("status", {
+      name: "Shared operating cursor",
+    });
     expect(chip.textContent).toContain("PHONE");
     expect(chip.textContent).not.toContain("WORKSTATION");
   });
@@ -124,19 +154,31 @@ describe("HamClockWallCursorChip", () => {
     useOperatingStateStore.setState((state) => ({
       cursor: {
         ...state.cursor,
-        target: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+        target: {
+          callsign: "K1ABC",
+          grid: "EM10",
+          lat: null,
+          lon: null,
+          spotId: null,
+        },
       },
-      stamps: { ...state.stamps, target: {
-        at: Date.now(),
-        by: "gone-device",
-        appliedAt: Date.now(),
-        appliedSeq: 1,
-      } },
+      stamps: {
+        ...state.stamps,
+        target: {
+          at: Date.now(),
+          by: "gone-device",
+          tieKey: "gone-device",
+          appliedAt: Date.now(),
+          appliedSeq: 1,
+        },
+      },
       registrations: {},
     }));
 
     render(<HamClockWallCursorChip />);
-    const chip = screen.getByRole("status", { name: "Shared operating cursor" });
+    const chip = screen.getByRole("status", {
+      name: "Shared operating cursor",
+    });
     expect(chip.textContent).toContain("K1ABC");
     expect(chip.textContent).not.toContain("FROM");
   });

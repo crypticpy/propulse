@@ -88,14 +88,22 @@ function relayedTarget(
  * had no way to name an author, so the entry carries only a value and a
  * stamp.
  */
-function authorlessRelay(relayId: string, callsign: string, grid: string | null, at: number) {
+function authorlessRelay(
+  relayId: string,
+  callsign: string,
+  grid: string | null,
+  at: number,
+) {
   return {
     v: OPERATING_PROTOCOL_VERSION,
     senderId: relayId,
     sentAt: Date.now(),
     kind: "state" as const,
     patch: {
-      target: { value: { callsign, grid, lat: null, lon: null, spotId: null }, at },
+      target: {
+        value: { callsign, grid, lat: null, lon: null, spotId: null },
+        at,
+      },
     },
   };
 }
@@ -137,7 +145,11 @@ describe("useHamClockWallOperatingState", () => {
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W3ABC",
+      lat: 40,
+      lon: -80,
+    });
     expect(useMapStore.getState().isolateTargetPath).toBe(true);
   });
 
@@ -192,12 +204,22 @@ describe("useHamClockWallOperatingState", () => {
     useOperatingStateStore
       .getState()
       .applyMessage(
-        inboundTarget("slow-phone", "K1ABC", "EM10", null, null, Date.now() - SKEW_MS),
+        inboundTarget(
+          "slow-phone",
+          "K1ABC",
+          "EM10",
+          null,
+          null,
+          Date.now() - SKEW_MS,
+        ),
       );
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC", grid: "EM10" });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "K1ABC",
+      grid: "EM10",
+    });
   });
 
   it("keeps a newer local target over a cursor from a device whose clock runs ahead", () => {
@@ -211,7 +233,14 @@ describe("useHamClockWallOperatingState", () => {
     useOperatingStateStore
       .getState()
       .applyMessage(
-        inboundTarget("fast-phone", "K1ABC", "EM10", null, null, Date.now() + SKEW_MS),
+        inboundTarget(
+          "fast-phone",
+          "K1ABC",
+          "EM10",
+          null,
+          null,
+          Date.now() + SKEW_MS,
+        ),
       );
 
     vi.advanceTimersByTime(5_000);
@@ -219,7 +248,11 @@ describe("useHamClockWallOperatingState", () => {
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W3ABC",
+      lat: 40,
+      lon: -80,
+    });
   });
 
   it("applies a cursor that arrived after a local target write in the same millisecond", () => {
@@ -242,7 +275,10 @@ describe("useHamClockWallOperatingState", () => {
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC", grid: "EM10" });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "K1ABC",
+      grid: "EM10",
+    });
   });
 
   it("keeps a local target written after a cursor arrival in the same millisecond", () => {
@@ -262,7 +298,11 @@ describe("useHamClockWallOperatingState", () => {
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W3ABC",
+      lat: 40,
+      lon: -80,
+    });
   });
 
   it("does not re-apply a cursor it already applied in the same millisecond", () => {
@@ -311,17 +351,27 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore
         .getState()
-        .applyMessage(relayedTarget("zzz-peer", "aaa-phone", "K1ABC", "EM10", cursorAt));
+        .applyMessage(
+          relayedTarget("zzz-peer", "aaa-phone", "K1ABC", "EM10", cursorAt),
+        );
     });
 
     // The relay changed nothing: same author, same arrival stamp as the
     // original application.
-    expect(useOperatingStateStore.getState().stamps.target.by).toBe("aaa-phone");
-    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(cursorAt);
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe(
+      "aaa-phone",
+    );
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(
+      cursorAt,
+    );
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W3ABC",
+      lat: 40,
+      lon: -80,
+    });
   });
 
   it("still applies a genuinely newer cursor from the relaying peer", () => {
@@ -339,7 +389,10 @@ describe("useHamClockWallOperatingState", () => {
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W2XYZ",
+      grid: "FN20",
+    });
   });
 
   it("keeps a local target when an old tab relays the cursor without an author", () => {
@@ -362,16 +415,26 @@ describe("useHamClockWallOperatingState", () => {
 
     vi.advanceTimersByTime(5_000);
     act(() => {
-      useOperatingStateStore.getState().applyMessage(authorlessRelay("zzz-peer", "K1ABC", "EM10", cursorAt));
+      useOperatingStateStore
+        .getState()
+        .applyMessage(authorlessRelay("zzz-peer", "K1ABC", "EM10", cursorAt));
     });
 
     // Nothing moved: same author, same arrival stamp as the first application.
-    expect(useOperatingStateStore.getState().stamps.target.by).toBe("aaa-phone");
-    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(cursorAt);
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe(
+      "aaa-phone",
+    );
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(
+      cursorAt,
+    );
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "W3ABC",
+      lat: 40,
+      lon: -80,
+    });
   });
 
   it("still applies an authorless cursor that arrived after the local pick", () => {
@@ -391,9 +454,13 @@ describe("useHamClockWallOperatingState", () => {
 
     vi.advanceTimersByTime(5_000);
     act(() => {
-      useOperatingStateStore.getState().applyMessage(authorlessRelay("zzz-peer", "W2XYZ", "FN20", Date.now()));
+      useOperatingStateStore
+        .getState()
+        .applyMessage(authorlessRelay("zzz-peer", "W2XYZ", "FN20", Date.now()));
     });
-    expect(useOperatingStateStore.getState().cursor.target?.callsign).toBe("W2XYZ");
+    expect(useOperatingStateStore.getState().cursor.target?.callsign).toBe(
+      "W2XYZ",
+    );
 
     renderHook(() => useHamClockWallOperatingState());
 
@@ -617,7 +684,9 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore
         .getState()
-        .applyMessage(inboundTarget("phone", "K1ABC", "EM10", null, null, phoneAt));
+        .applyMessage(
+          inboundTarget("phone", "K1ABC", "EM10", null, null, phoneAt),
+        );
     });
     const cursorSeq = useOperatingStateStore.getState().stamps.target
       .appliedSeq as number;
@@ -636,7 +705,9 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore
         .getState()
-        .applyMessage(relayedTarget("zzz-relay", "phone", "K1ABC", "EM10", phoneAt));
+        .applyMessage(
+          relayedTarget("zzz-relay", "phone", "K1ABC", "EM10", phoneAt),
+        );
     });
     expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(
       cursorSeq,
@@ -674,7 +745,9 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore
         .getState()
-        .applyMessage(inboundTarget("phone", "W2XYZ", "FN20", null, null, phoneAt + 1));
+        .applyMessage(
+          inboundTarget("phone", "W2XYZ", "FN20", null, null, phoneAt + 1),
+        );
     });
     expect(
       useOperatingStateStore.getState().stamps.target.appliedSeq as number,
@@ -732,7 +805,11 @@ describe("useHamClockWallOperatingState", () => {
     const heldSeq = useMapStore.getState().targetSeq as number;
 
     // The stale pop-out answers with a target stamped an hour ago.
-    const stale = (revision: number, name: string, setAt: number): MessageEvent =>
+    const stale = (
+      revision: number,
+      name: string,
+      setAt: number,
+    ): MessageEvent =>
       ({
         data: {
           kind: "snapshot",
@@ -775,12 +852,65 @@ describe("useHamClockWallOperatingState", () => {
     useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
     useMapStore.setState({ isolateTargetPath: true });
     vi.advanceTimersByTime(60_000);
-    useOperatingStateStore.getState().applyMessage(inboundTarget("phone-device", "K1ABC", null));
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", null));
 
     renderHook(() => useHamClockWallOperatingState());
 
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
     expect(useMapStore.getState().isolateTargetPath).toBe(true);
+  });
+
+  it("clears the map target when the cursor was cleared while the wall was unmounted", () => {
+    // #859 round 13, thread 2. A phone changing band drops the shared target,
+    // which is a write: it carries a stamp, and the live subscription below
+    // applies it as `setTarget(null)`. The mount reconcile used to look at
+    // the resolved *value* first, so a stamped clear that landed while the
+    // wall was off screen was skipped and the wall kept the old target for
+    // good. A stamp orders writes; a null value does not opt out of that.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    vi.advanceTimersByTime(60_000);
+    useOperatingStateStore.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "phone-device",
+      sentAt: Date.now(),
+      kind: "state" as const,
+      patch: { target: { value: null, at: Date.now(), by: "phone-device" } },
+    });
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toBeNull();
+  });
+
+  it("applies a cursor re-picked at the same value after the wall picked another", () => {
+    // #859 round 13, thread 1. The phone picks K1ABC, the wall picks W3ABC
+    // while the cursor is unwatched, then the operator goes back to the phone
+    // and picks K1ABC again. That last pick is a new write; suppressing it
+    // because the value equalled the one the cursor already held left every
+    // peer on the *old* stamp, and the wall kept W3ABC for good.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    vi.advanceTimersByTime(60_000);
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("phone-device", "K1ABC", "EM10", null, null, Date.now()),
+      );
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
   });
 
   it("applies a non-null cursor on mount when the map has no target yet", () => {
@@ -801,7 +931,10 @@ describe("useHamClockWallOperatingState", () => {
     // RecentContactsReport, QuickTargets). An empty shared cursor means
     // "nothing shared", not "clear the map" — and `setTarget(null)` would
     // also reset `isolateTargetPath`.
-    useMapStore.setState({ target: { lat: 40, lon: -80, name: "W3ABC" }, isolateTargetPath: true });
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "W3ABC" },
+      isolateTargetPath: true,
+    });
 
     renderHook(() => useHamClockWallOperatingState());
 
@@ -820,14 +953,18 @@ describe("useHamClockWallOperatingState", () => {
     });
 
     unmount();
-    expect(useOperatingStateStore.getState().registrations[key]).toBeUndefined();
+    expect(
+      useOperatingStateStore.getState().registrations[key],
+    ).toBeUndefined();
   });
 
   it("moves the wall's map target when another screen's cursor changes, resolving a grid to a lat/lon", () => {
     renderHook(() => useHamClockWallOperatingState());
 
     act(() => {
-      useOperatingStateStore.getState().applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
     });
 
     const target = useMapStore.getState().target;
@@ -842,23 +979,32 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore
         .getState()
-        .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10", 40.1, -74.2));
+        .applyMessage(
+          inboundTarget("phone-device", "K1ABC", "EM10", 40.1, -74.2),
+        );
     });
 
-    expect(useMapStore.getState().target).toMatchObject({ lat: 40.1, lon: -74.2 });
+    expect(useMapStore.getState().target).toMatchObject({
+      lat: 40.1,
+      lon: -74.2,
+    });
   });
 
   it("stops applying the inbound cursor once follow is switched off", () => {
     renderHook(() => useHamClockWallOperatingState());
 
     act(() => {
-      useOperatingStateStore.getState().applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
     });
     expect(useMapStore.getState().target?.name).toBe("K1ABC");
 
     act(() => {
       useOperatingStateStore.getState().setFollowScreens(false);
-      useOperatingStateStore.getState().applyMessage(inboundTarget("phone-device", "W2XYZ", "FN20"));
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone-device", "W2XYZ", "FN20"));
     });
 
     expect(useMapStore.getState().target?.name).toBe("K1ABC");

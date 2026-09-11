@@ -45,7 +45,6 @@ import {
 /** Fixed: the wall is one screen, not a set of interchangeable workspaces. */
 export const HAMCLOCK_WALL_WORKSPACE_ID = "hamclock-wall";
 
-
 /**
  * Does the shared operating cursor outrank this window's map target?
  *
@@ -73,7 +72,10 @@ export const HAMCLOCK_WALL_WORKSPACE_ID = "hamclock-wall";
  */
 function cursorBeatsMapTarget(
   stamp: Pick<FieldStamp, "at" | "appliedAt" | "appliedSeq">,
-  map: Pick<ReturnType<typeof useMapStore.getState>, "targetSetAt" | "targetSeq">,
+  map: Pick<
+    ReturnType<typeof useMapStore.getState>,
+    "targetSetAt" | "targetSeq"
+  >,
 ): boolean {
   // `at === 0` is "no cursor has ever been written", which loses to anything.
   if (stamp.at === 0) return false;
@@ -113,7 +115,12 @@ const HAMCLOCK_WALL_CAN_COMMAND = HAMCLOCK_WALL_CANVAS_TYPE !== "wall";
 function toMapTarget(target: OperatingTarget | null): TargetLocation | null {
   if (!target) return null;
   if (target.lat != null && target.lon != null) {
-    return { lat: target.lat, lon: target.lon, name: target.callsign, grid: target.grid ?? undefined };
+    return {
+      lat: target.lat,
+      lon: target.lon,
+      name: target.callsign,
+      grid: target.grid ?? undefined,
+    };
   }
   if (target.grid && isValidGrid(target.grid)) {
     const { lat, lon } = gridToLatLon(target.grid);
@@ -169,12 +176,25 @@ export function useHamClockWallOperatingState(): void {
     const operating = useOperatingStateStore.getState();
     const initial = operating.cursor.target;
     const resolved = toMapTarget(initial);
-    // `resolved == null` is a callsign-only cursor with no location yet, and
-    // an empty cursor is "nothing shared yet" — neither means "clear the
-    // map", and `setTarget(null)` would also reset `isolateTargetPath`.
     const map = useMapStore.getState();
     const stamp = operating.stamps.target;
-    if (resolved && cursorBeatsMapTarget(stamp, map)) {
+    // A cursor cleared on purpose — a phone changing band drops the target —
+    // is a write like any other, and the store's ordering rule (see the
+    // "A stamp is what orders writes" block in `operatingStateStore`) says a
+    // value never decides whether it lands. Before round 13 the reconcile
+    // only looked at `resolved`, so a stamped clear that happened while the
+    // wall was unmounted was skipped and the wall kept the old target for
+    // good, even though the live subscription below would have cleared it.
+    // `stamp.at !== 0` is what separates it from the initial cursor, which
+    // is null because nothing has ever been written, not because someone
+    // cleared it.
+    //
+    // A *non-null* cursor that resolves to nothing is different: it is a
+    // callsign-only pick from a screen with no location yet, not an
+    // instruction to clear the map (and `setTarget(null)` would also reset
+    // `isolateTargetPath`), so the map keeps what it has.
+    const explicitClear = initial === null && stamp.at !== 0;
+    if ((resolved || explicitClear) && cursorBeatsMapTarget(stamp, map)) {
       map.setTarget(resolved);
     }
 

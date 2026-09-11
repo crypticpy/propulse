@@ -4,6 +4,7 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   PREDICTION_QUANTITIES,
   isProtocolCoverage,
+  PERMITTED_GEOMETRY_CLASSES,
   PROTOCOL_BAND_EDGES,
   PROTOCOL_COVERAGE_TUPLES,
   RECEIVER_PARTICIPATION,
@@ -108,6 +109,8 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   head.mechanismFamilies = [tuple.mechanism];
   // The row's own band, so the head is inside the coverage the protocol froze.
   head.frequencyRangeHz = { ...PROTOCOL_BAND_EDGES[tuple.band] };
+  // A21/A22: the geometry classes the row's mechanism is answered on.
+  head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[tuple.mechanism]];
   // A01: only a quantity with a receive chain names receiver classes.
   if (RECEIVER_PARTICIPATION[quantity] === "none") head.receiverClasses = [];
   return { head, tuple };
@@ -551,6 +554,15 @@ describe("parseCapability fails closed", () => {
     };
     const outcome = parseCapability(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a routable head pairing a family with an alien geometry (A21, A22)", () => {
+    const bad = candidate("hfPhysics");
+    const head = (bad.heads as Mutable[])[1];
+    head.geometryClasses = ["terrestrial_great_circle", "earth_space"];
+    expect(reasonsAt(bad, "heads[1].geometryClasses").join()).toMatch(
+      /regular_ef is not answered on geometry class earth_space/,
+    );
   });
 
   it("accepts every routable head in the capability fixtures", () => {

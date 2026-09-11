@@ -134,6 +134,53 @@ export type RelayKind = "orbital" | "fixed";
  * - `two_leg_relay` (A21): either an orbital repeater or a fixed, surveyed one.
  * - every direct class: no relay leg at all.
  */
+/**
+ * A21/A22: which geometry classes each mechanism family may be requested on.
+ * Family and geometry are two names for one physical path, so a declaration
+ * that pairs them freely can route a satellite request down a terrestrial
+ * great circle.
+ *
+ * Sources, per entry:
+ * - `satellite`, `relay`, `eme` come from the frozen protocol's own coverage
+ *   rows, which pair the family with a domain that names its geometry:
+ *   satellite with `qualified_ephemeris_horizon` (earth-space) and with
+ *   `configured_two_leg_path`, relay with `configured_two_leg_path`, and eme
+ *   with `qualified_lunar_station`. Satellite therefore keeps both classes:
+ *   the protocol froze a two-leg decode through a satellite as well as a pass.
+ * - `groundwave` and `waveguide` take the geometry class the contract names
+ *   with the same word (`ground_wave`, `waveguide_mode`).
+ * - the scatter families (`meteor`, `aircraft_scatter`, `rain_scatter`) take
+ *   `bistatic_scatter`, the class A22 defines for a scattering volume off the
+ *   great circle.
+ * - the remaining ionospheric and tropospheric families are single-great-
+ *   circle physics and take `terrestrial_great_circle`.
+ * - `event_head` is an aggregate over a versioned event population rather than
+ *   a path, so it constrains no geometry.
+ */
+export const PERMITTED_GEOMETRY_CLASSES: Record<
+  MechanismFamily,
+  readonly GeometryClass[]
+> = {
+  aircraft_scatter: ["bistatic_scatter"],
+  atmospheric_los: ["terrestrial_great_circle"],
+  aurora: ["terrestrial_great_circle"],
+  eme: ["earth_moon_earth"],
+  es: ["terrestrial_great_circle"],
+  event_head: GEOMETRY_CLASSES,
+  f2_daytime: ["terrestrial_great_circle"],
+  ground_sky_coherent: ["terrestrial_great_circle"],
+  groundwave: ["ground_wave"],
+  meteor: ["bistatic_scatter"],
+  rain_scatter: ["bistatic_scatter"],
+  refractivity_pe: ["terrestrial_great_circle"],
+  regular_ef: ["terrestrial_great_circle"],
+  relay: ["two_leg_relay"],
+  satellite: ["earth_space", "two_leg_relay"],
+  tep_evening: ["terrestrial_great_circle"],
+  terrain_troposphere: ["terrestrial_great_circle"],
+  waveguide: ["waveguide_mode"],
+};
+
 export const PERMITTED_RELAY_KINDS: Record<
   GeometryClass,
   readonly RelayKind[]

@@ -107,6 +107,23 @@ describe("parseRequest fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
+  it("rejects a mechanism family on a geometry class it never takes (A21, A22)", () => {
+    const bad = candidate("hfShortPath");
+    // satellite physics on a single terrestrial great circle with no relay:
+    // the two fields name one path and this pair contradicts itself.
+    (bad.mechanismPolicy as Mutable).family = "satellite";
+    expect(reasonsAt(bad, "mechanismPolicy.geometryClass").join()).toMatch(
+      /satellite is not requested on geometry class terrestrial_great_circle/,
+    );
+  });
+
+  it("accepts every request fixture's family and geometry pair (A21, A22)", () => {
+    for (const name of Object.keys(cases)) {
+      const outcome = parseRequest(candidate(name));
+      expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    }
+  });
+
   it("rejects a fixed relay antipodal to one of its endpoints (M06, A21)", () => {
     for (const end of ["tx", "rx"] as const) {
       const bad = candidate("fixedRelay");
@@ -442,6 +459,21 @@ describe("parseRequest fails closed", () => {
     (explicit.route as Mutable).leg = null;
     const outcome = parseRequest(explicit);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("treats a point a few hundred metres short of the antipode as an ordinary path (M06)", () => {
+    // 0.0029 deg of longitude off the antipode is about 280 m on the surface:
+    // a dot-product guard of 1e-9 would swallow it (the dot product varies
+    // quadratically near pi), the angular guard of 1e-12 rad does not. The
+    // path keeps its leg.
+    const nearly = nearAntipodalCase(0.0029, 1);
+    const outcome = parseRequest(nearly);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    const noLeg = nearAntipodalCase(0.0029, 1);
+    (noLeg.route as Mutable).leg = null;
+    expect(reasonsAt(noLeg, "route.leg").join()).toMatch(
+      /A direct path must declare the short/,
+    );
   });
 
   it("accepts the two geographic poles as exact antipodes (M06)", () => {

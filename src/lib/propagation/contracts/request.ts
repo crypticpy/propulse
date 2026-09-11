@@ -27,6 +27,7 @@ import {
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
   type PredictionQuantity,
+  PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
@@ -67,23 +68,16 @@ const EARTH_RADIUS_M = 6371000;
  * any position uncertainty. 1e-9 rad is about 6 mm on the surface.
  */
 const NUMERIC_GUARD_RAD = 1e-9;
-/** The same floating-point guard, applied to a dimensionless dot product. */
-const NUMERIC_GUARD = 1e-9;
-
-/** Unit vector for a coordinate on the sphere. */
-function unitVector(point: { latitudeDeg: number; longitudeDeg: number }): {
-  x: number;
-  y: number;
-  z: number;
-} {
-  const lat = (point.latitudeDeg * Math.PI) / 180;
-  const lon = (point.longitudeDeg * Math.PI) / 180;
-  return {
-    x: Math.cos(lat) * Math.cos(lon),
-    y: Math.cos(lat) * Math.sin(lon),
-    z: Math.sin(lat),
-  };
-}
+/**
+ * The guard for the exact-antipode test, in radians of the angle still
+ * separating the endpoints from a half turn. `atan2(|u x v|, u . v)` is linear
+ * in that residual near pi, so this is a true angular scale and not a squared
+ * one: 1e-12 rad is about 6 micrometres on the surface, far below any
+ * coordinate a caller can express, while still absorbing the few ulps the
+ * trigonometry costs. (A guard on `u . v + 1` would not do: the dot product
+ * varies quadratically near pi, so 1e-9 there admits about 285 m.)
+ */
+const ANTIPODAL_GUARD_RAD = 1e-12;
 
 /** M06: theta = atan2(|u x v|, u . v), stable at both 0 and pi. */
 function angularSeparationRad(
@@ -207,20 +201,21 @@ function degeneracyToleranceRad(
  * a distance. Only here is the short/long distinction meaningless, so only
  * here may a request omit its leg.
  *
- * The floating-point guard covers the trigonometry of the comparison, nothing
- * else; declared position uncertainty deliberately plays no part.
+ * The guard covers the trigonometry of the comparison, nothing else; declared
+ * position uncertainty deliberately plays no part.
  */
 function isExactlyAntipodal(
   a: { latitudeDeg: number; longitudeDeg: number },
   b: { latitudeDeg: number; longitudeDeg: number },
 ): boolean {
-  // The dot product of the two canonical unit vectors is -1 exactly for
-  // opposite points. Comparing vectors rather than longitudes also catches the
-  // two geographic poles, whose canonical longitude is 0 at both ends.
-  const left = unitVector(canonicalCoordinates(a));
-  const right = unitVector(canonicalCoordinates(b));
-  const dot = left.x * right.x + left.y * right.y + left.z * right.z;
-  return Math.abs(dot + 1) <= NUMERIC_GUARD;
+  // The stable separation of the two canonical positions is a half turn.
+  // Measuring the angle rather than the longitudes also catches the two
+  // geographic poles, whose canonical longitude is 0 at both ends.
+  const separation = angularSeparationRad(
+    canonicalCoordinates(a),
+    canonicalCoordinates(b),
+  );
+  return Math.PI - separation <= ANTIPODAL_GUARD_RAD;
 }
 
 /**
@@ -693,6 +688,18 @@ export const predictionRequestSchema = z
       );
     }
     const family = value.mechanismPolicy.family;
+    if (
+      family !== "auto" &&
+      !PERMITTED_GEOMETRY_CLASSES[family].includes(
+        value.mechanismPolicy.geometryClass,
+      )
+    ) {
+      reject(
+        ctx,
+        ["mechanismPolicy", "geometryClass"],
+        `Mechanism family ${family} is not requested on geometry class ${value.mechanismPolicy.geometryClass} (A21, A22)`,
+      );
+    }
     const terrainDependent = (
       TERRAIN_DEPENDENT_FAMILIES as readonly string[]
     ).includes(family);

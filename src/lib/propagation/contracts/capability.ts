@@ -14,6 +14,7 @@ import {
   ANTENNA_CLASSES,
   CALIBRATION_REQUIRED_QUANTITIES,
   isProtocolCoverage,
+  PERMITTED_GEOMETRY_CLASSES,
   protocolCoverageRows,
   RECEIVER_PARTICIPATION,
   type AntennaClass,
@@ -311,6 +312,19 @@ export const modelCapabilitySchema = z
           ["heads", index, "calibrationId"],
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
         );
+      }
+      for (const mechanism of head.mechanismFamilies) {
+        // A21/A22: family and geometry name one physical path, so a routable
+        // head may not advertise a geometry class its family never takes.
+        const permitted = PERMITTED_GEOMETRY_CLASSES[mechanism];
+        for (const geometryClass of head.geometryClasses) {
+          if (permitted.includes(geometryClass)) continue;
+          reject(
+            ctx,
+            ["heads", index, "geometryClasses"],
+            `Mechanism family ${mechanism} is not answered on geometry class ${geometryClass} (A21, A22)`,
+          );
+        }
       }
       for (const horizon of head.horizons) {
         for (const mechanism of head.mechanismFamilies) {

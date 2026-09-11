@@ -2052,6 +2052,20 @@ function findBracketClose(source: string, openIndex: number): number {
   return -1;
 }
 
+/** True when the `(` at `source[openIndex]` is a plain grouping paren rather
+ * than a call's own argument-list opener -- i.e. the character immediately
+ * before it is not an identifier/`$`/`)`/`]` character, so `foo(styles)`
+ * (a call) is distinguished from `(styles)` or `return (styles)` (a
+ * redundant grouping around a bare reference). Used only to decide whether
+ * `resolveMemberAccess` may treat a `)` right after a resolved identifier as
+ * transparent and keep walking a chain that continues past it, e.g.
+ * `(styles).safe` -- never for `cn(styles).safe`, where the `.safe` binds to
+ * `cn`'s return value, not to `styles` (Codex, PR #874 round 41 thread 1). */
+function isGroupingOpenParen(source: string, openIndex: number): boolean {
+  const prev = source[openIndex - 1];
+  return prev === undefined || !/[\w$)\]]/.test(prev);
+}
+
 /** Resolves every access chain in `raw` that starts at a resolved const's
  * name -- a run of `.key`, `["key"]`/`['key']`, and `[computed]` segments,
  * however deep, e.g. `AMSAT_STATUS_STYLES[amsatStatus.status].badge` -- so
@@ -2073,7 +2087,24 @@ function findBracketClose(source: string, openIndex: number): number {
  * walk exists to avoid -- Codex, PR #874 round 17 follow-up). A trailing
  * call (`f(live)`) is never part of the chain -- `(` matches nothing here,
  * so the walk simply stops and leaves the call for the generic bare-`f`
- * pass, same as an identifier with no accessor at all. */
+ * pass, same as an identifier with no accessor at all.
+ *
+ * Each step also tolerates the syntax a real TSX file can put between two
+ * chain segments without changing what's being navigated: a TypeScript
+ * non-null assertion (`styles!.safe`, `styles!["safe"]`, mixed forms like
+ * `a?.b!.c`) is a type-only annotation with no runtime effect, and optional
+ * chaining (`styles?.safe`, `styles?.["safe"]`) still reads the same
+ * property when the base is non-nullish -- both are read the same as their
+ * unguarded counterparts here, since this walk only cares about which
+ * entries a reference could statically point to, not runtime nullishness. A
+ * single grouping paren directly around the base identifier (`(styles).safe`)
+ * is unwrapped via `isGroupingOpenParen` so the chain that follows it is
+ * still recognized (Codex, PR #874 round 41 thread 1 -- before this, none of
+ * `?.`, `!`, or a wrapping `(...)` was recognized as a chain continuation, so
+ * the walk gave up immediately and left the base identifier for
+ * `resolveConstRefs`'s generic bare-identifier fallback, which resolves the
+ * WHOLE object's flattened literal instead of the one precise key -- a false
+ * positive whenever an unrelated sibling key on the same object pulses). */
 function resolveMemberAccess(
   raw: string,
   decls: ConstDecl[],
@@ -2094,24 +2125,39 @@ function resolveMemberAccess(
     let candidates: ConstEntry[] = [{ literal: decl.literal, entries: decl.entries }];
     let chainEnd = start + name.length;
     let matchedChain = false;
+
+    // A grouping paren directly wrapping the base identifier is transparent
+    // to the chain that follows it -- unwrap one level so the walk below
+    // sees the same continuation it already knows how to read past a bare
+    // identifier.
+    if (raw[chainEnd] === ")" && raw[start - 1] === "(" && isGroupingOpenParen(raw, start - 1)) {
+      chainEnd += 1;
+    }
+
     while (true) {
-      if (raw[chainEnd] === ".") {
-        const keyMatch = /^[A-Za-z_$][\w$]*/.exec(raw.slice(chainEnd + 1));
-        if (!keyMatch) break;
-        const key = keyMatch[0];
-        const narrowed = candidates
-          .map((cand) => cand.entries?.get(key))
-          .filter((c): c is ConstEntry => c !== undefined);
-        if (narrowed.length === 0) break;
-        candidates = narrowed;
-        chainEnd += 1 + key.length;
-        matchedChain = true;
-        continue;
+      let pos = chainEnd;
+      // A non-null assertion has no runtime effect on what's being
+      // navigated -- skip it before looking for the next real segment.
+      if (raw[pos] === "!") pos += 1;
+
+      let dotStart = -1;
+      let bracketStart = -1;
+      if (raw[pos] === "?" && raw[pos + 1] === ".") {
+        pos += 2;
+        if (raw[pos] === "[") bracketStart = pos;
+        else dotStart = pos;
+      } else if (raw[pos] === ".") {
+        dotStart = pos + 1;
+      } else if (raw[pos] === "[") {
+        bracketStart = pos;
+      } else {
+        break;
       }
-      if (raw[chainEnd] === "[") {
-        const closeIdx = findBracketClose(raw, chainEnd);
+
+      if (bracketStart !== -1) {
+        const closeIdx = findBracketClose(raw, bracketStart);
         if (closeIdx === -1) break;
-        const inner = raw.slice(chainEnd + 1, closeIdx);
+        const inner = raw.slice(bracketStart + 1, closeIdx);
         const quoted = /^\s*(["'])((?:(?!\1)[\s\S])*)\1\s*$/.exec(inner);
         if (quoted) {
           const key = quoted[2];
@@ -2129,7 +2175,17 @@ function resolveMemberAccess(
         matchedChain = true;
         continue;
       }
-      break;
+
+      const keyMatch = /^[A-Za-z_$][\w$]*/.exec(raw.slice(dotStart));
+      if (!keyMatch) break;
+      const key = keyMatch[0];
+      const narrowed = candidates
+        .map((cand) => cand.entries?.get(key))
+        .filter((c): c is ConstEntry => c !== undefined);
+      if (narrowed.length === 0) break;
+      candidates = narrowed;
+      chainEnd = dotStart + key.length;
+      matchedChain = true;
     }
 
     if (!matchedChain) continue;
@@ -4722,11 +4778,30 @@ function collectExportedPulseBindings(
       const combinedDecls = [...localDecls, ...importedDecls];
       const destKeys = moduleKeysForFile(candidate.file);
       let destPulsing = byModule.get(destKeys[0]);
+      // Round 41 thread 2: resolve every exported name FIRST, and only
+      // decide afterward whether to keep any of them -- mirroring stage
+      // one's own `hasPulsing` flag (round 37), which keeps EVERY exported
+      // member of a module once ANY of them pulses, rather than filtering
+      // key-by-key. Before this round, the loop below tested each
+      // export's own resolved literal independently and skipped straight
+      // to the next one when it came up clean, so a clean sibling export
+      // living alongside a pulsing one via this import-alias path (`import
+      // { pulse } from "./a"; export const alert = pulse; export const
+      // safe = "text-green";`) never made it into `byModule`'s copy at
+      // all. A namespace import/re-export of that module then had no
+      // `safe` entry to narrow against, so `ns.safe` fell back to the
+      // namespace's own aggregate literal -- which DOES still carry
+      // `alert`'s pulsing class -- and was wrongly flagged, exactly the
+      // false positive stage one's own round-37 fix already closed for a
+      // module's directly-written exports.
+      const resolvedByName = new Map<string, { decl: ConstDecl; literal: string }>();
+      let candidateHasPulsing = false;
       for (const [exportedName, localName] of candidate.exportedNames) {
         if (destPulsing?.has(exportedName)) continue;
         const decl = moduleLevelByName.get(localName);
         if (!decl) continue;
         const resolvedLiteral = resolveConstRefs(decl.literal, combinedDecls, decl.index);
+        resolvedByName.set(exportedName, { decl, literal: resolvedLiteral });
         // Round 36b: same recursive `entries` check as stage one's gate,
         // needed here for the exact case stage one's own
         // `rawSource.includes(PULSE_CLASS)` prefilter skips outright -- a
@@ -4737,12 +4812,16 @@ function collectExportedPulseBindings(
         // this stage's own candidate list (`importAliasCandidates`, built
         // from a `/\bimport\b/ && /\bexport\b/` regex) is independent of
         // that prefilter.
-        if (!PULSE_CLASS_RE.test(resolvedLiteral) && !entriesHavePulseClass(decl.entries, combinedDecls, decl.index)) {
-          continue;
+        if (PULSE_CLASS_RE.test(resolvedLiteral) || entriesHavePulseClass(decl.entries, combinedDecls, decl.index)) {
+          candidateHasPulsing = true;
         }
-        destPulsing ??= new Map();
-        destPulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
-        changed = true;
+      }
+      if (candidateHasPulsing) {
+        for (const [exportedName, { decl, literal }] of resolvedByName) {
+          destPulsing ??= new Map();
+          destPulsing.set(exportedName, { ...decl, literal });
+          changed = true;
+        }
       }
       if (destPulsing) {
         for (const key of destKeys) byModule.set(key, destPulsing);
@@ -5581,6 +5660,82 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture =
       'const alert = "animate-pulse";\nconst styles = { safe: "text-green" };\nexport function A() { return <span className={styles.alert}>Idle</span>; }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through OPTIONAL CHAINING (`styles?.safe`) instead of falling back to the whole object's flattened literal (#874 round 41 thread 1)", () => {
+    // Before round 41, `?.` was not recognized as a chain continuation at
+    // all, so the walk gave up on `styles` immediately and left it for
+    // `resolveConstRefs`'s generic bare-identifier fallback, which resolves
+    // the WHOLE object's flattened literal -- including the unrelated
+    // pulsing `alert` key -- instead of the one precise, clean `safe` key. A
+    // false positive on a genuinely clean element. Verified red on revert
+    // against c8e4bc7d.
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles?.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("still flags the genuinely pulsing key through the same OPTIONAL CHAINING form", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles?.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through OPTIONAL BRACKET ACCESS (`styles?.[\"safe\"]`) (#874 round 41 thread 1)", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles?.["safe"]}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through a NON-NULL ASSERTION (`styles!.safe`) (#874 round 41 thread 1)", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles!.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through a NON-NULL ASSERTION with bracket access (`styles![\"safe\"]`)", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles!["safe"]}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through a PARENTHESISED base (`(styles).safe`) (#874 round 41 thread 1)", () => {
+    // `isGroupingOpenParen` distinguishes this from a call like
+    // `cn(styles).safe`, where `.safe` would bind to `cn`'s return value, not
+    // to `styles` -- see the next fixture.
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={(styles).safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("does not treat a CALL's own closing paren as a grouping paren, even when its sole argument is a resolvable identifier (`cn(styles).safe`)", () => {
+    // `cn(styles)` is a call, not a grouping paren -- `isGroupingOpenParen`
+    // sees the identifier character `n` immediately before `(` and refuses
+    // to unwrap, so `resolveMemberAccess` never chain-narrows `.safe`
+    // against `styles`'s own `safe` key (that would be wrong: `.safe` binds
+    // to `cn`'s return value here, not to `styles`). `styles` is instead left
+    // for the generic bare-identifier pass, which resolves it to its own
+    // flattened literal -- the SAME pre-existing, imprecise behavior any
+    // other bare identifier passed as a call argument already gets (see
+    // "resolves an identifier-only const alias passed through a cn() call
+    // alongside a literal" above); not a new guarantee this round adds or
+    // regresses, just confirming the grouping-paren unwrap doesn't
+    // over-reach into it.
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={cn(styles).safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("keeps a clean sibling key precise through a MIXED chain of optional-chaining and non-null assertion (`a?.mid!.safe`) (#874 round 41 thread 1)", () => {
+    const fixture =
+      'const a = { mid: { safe: "text-green", alert: "text-red animate-pulse" } };\nexport function A() { return <span className={a?.mid!.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("still flags the genuinely pulsing key through the same MIXED chain form", () => {
+    const fixture =
+      'const a = { mid: { safe: "text-green", alert: "text-red animate-pulse" } };\nexport function A() { return <span className={a?.mid!.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
   });
 
   it("resolves a class alias introduced by destructuring a resolvable config object", () => {
@@ -6775,6 +6930,156 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
     const bSource =
       'import * as styles from "./m";\nexport function B() { return <span className={styles.missing}>Idle</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/m.ts": mSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps a namespace import's clean sibling precise when the SOURCE module only became pulsing through an IMPORTED alias (#874 round 41 thread 2)", () => {
+    // `middle.ts` never contains the pulse class literally -- it only
+    // becomes pulsing by importing `pulse` from `base.ts` and re-exporting a
+    // local alias of it (`export const alert = pulse;`), the round-33
+    // import-alias path (stage three), not the direct-export path (stage
+    // one) round 37's own `hasPulsing`-retains-every-member fix already
+    // covers. Before round 41, stage three's own loop tested and kept each
+    // export independently, so `safe` (clean, resolves to no pulse class)
+    // was filtered out of `middle`'s copy in `byModule` entirely -- a
+    // namespace import of `middle` had no `safe` entry to narrow against,
+    // so `styles.safe` fell back to the namespace's aggregate literal
+    // (which DOES carry `alert`'s `"animate-pulse"`) and was wrongly
+    // flagged. Verified red on revert against c8e4bc7d.
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nexport const alert = pulse;\nexport const safe = "text-green";';
+    const bSource =
+      'import * as styles from "./middle";\nexport function B() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the genuinely pulsing imported-alias export through the same namespace import", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nexport const alert = pulse;\nexport const safe = "text-green";';
+    const bSource =
+      'import * as styles from "./middle";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("carries the same fix through a LOCAL NAMED export list (`export { alert as pulseClass, safe };`), not just inline `export const` (#874 round 41 thread 2 sweep)", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nconst alert = pulse;\nconst safe = "text-green";\nexport { alert as pulseClass, safe };';
+    const bSource =
+      'import * as styles from "./middle";\nexport function B() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("carries the same clean-sibling fix through a NAMED BARREL re-export (`export { alert, safe } from \"./middle\";`) (#874 round 41 thread 2 sweep)", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nexport const alert = pulse;\nexport const safe = "text-green";';
+    const barrelSource = 'export { alert, safe } from "./middle";';
+    const bSource =
+      'import * as ns from "./barrel";\nexport function B() { return <span className={ns.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/barrel.ts": barrelSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the pulsing member through the same named-barrel re-export of an imported-alias module", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nexport const alert = pulse;\nexport const safe = "text-green";';
+    const barrelSource = 'export { alert, safe } from "./middle";';
+    const bSource =
+      'import * as ns from "./barrel";\nexport function B() { return <span className={ns.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/barrel.ts": barrelSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("carries the same clean-sibling fix through an `export * from` BARREL of an imported-alias module (#874 round 41 thread 2 sweep)", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nexport const alert = pulse;\nexport const safe = "text-green";';
+    const barrelSource = 'export * from "./middle";';
+    const bSource =
+      'import * as ns from "./barrel";\nexport function B() { return <span className={ns.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/barrel.ts": barrelSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("carries the same clean-sibling fix through a DEFAULT re-export alongside a named one (`export { default as pulseClass, safe } from \"./middle\";`) (#874 round 41 thread 2 sweep)", () => {
+    // `middle.ts` exports a LOCAL alias of the import (`const alert = pulse;`)
+    // as its DEFAULT export (not a named one) alongside a clean named `safe`
+    // export -- exercising the same stage-three retention fix for the
+    // `"default"` key specifically, since `collectExportedNames`'s
+    // `defaultRe` and `resolveImportedDecls`'s own `pulsing.get("default")`
+    // path both key off that reserved name. (`export default pulse;` --
+    // re-exporting the bare IMPORTED identifier directly, with no local
+    // declaration of its own -- is a separate, pre-existing gap in stage
+    // three unrelated to this round: `moduleLevelByName` only ever holds
+    // LOCAL `const`/`let`/`var` declarations, never a bare import, so
+    // `"default"`'s own localName lookup misses entirely regardless of the
+    // retention fix; using a local alias here, the same shape
+    // `collectExportedPulseBindings`'s existing "resolves a local
+    // identifier-only alias of an imported pulsing binding" fixture already
+    // covers for a NAMED export, avoids that unrelated gap and keeps this
+    // fixture discriminating for the retention fix specifically.)
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nconst alert = pulse;\nexport default alert;\nexport const safe = "text-green";';
+    const barrelSource = 'export { default as pulseClass, safe } from "./middle";';
+    const bSource =
+      'import * as ns from "./barrel";\nexport function B() { return <span className={ns.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/barrel.ts": barrelSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the default-exported pulsing alias through the same barrel", () => {
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const middleSource =
+      'import { pulse } from "./base";\nconst alert = pulse;\nexport default alert;\nexport const safe = "text-green";';
+    const barrelSource = 'export { default as pulseClass, safe } from "./middle";';
+    const bSource =
+      'import * as ns from "./barrel";\nexport function B() { return <span className={ns.pulseClass}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/middle.ts": middleSource,
+      "src/lib/barrel.ts": barrelSource,
+      "src/lib/b.tsx": bSource,
+    });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
   });
 

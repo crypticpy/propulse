@@ -19,6 +19,11 @@ import {
   getAllImageIds,
 } from "@/lib/db/imageStore";
 import type { SyncModule, SyncableTable } from "../types";
+import {
+  computeImagePullCheckpoint,
+  imageSyncDeltaFilter,
+  parseImageSyncCursor,
+} from "./imageSyncCursor";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -205,10 +210,19 @@ export const imageSync: SyncModule = {
     const supabase = getSupabase();
 
     // Fetch user_images rows (delta if since is provided)
-    let query = untypedFrom("user_images").select("*").eq("user_id", userId);
+    let query = untypedFrom("user_images")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
 
-    if (since) {
-      query = query.gt("created_at", since);
+    const deltaFilter = imageSyncDeltaFilter(parseImageSyncCursor(since));
+    if (deltaFilter?.op === "gt") {
+      query = query.gt("created_at", deltaFilter.createdAt);
+    } else if (deltaFilter?.op === "compound") {
+      query = query.or(
+        `created_at.gt.${deltaFilter.createdAt},and(created_at.eq.${deltaFilter.createdAt},id.gt.${deltaFilter.afterId})`,
+      );
     }
 
     const { data: rows, error: queryError } = (await query) as {
@@ -230,16 +244,12 @@ export const imageSync: SyncModule = {
     const localIds = new Set(await getAllImageIds());
 
     let downloadedCount = 0;
-    let maxCreatedAt: string | null = null;
+    const processedIds = new Set<string>();
 
     for (const row of rows) {
-      // Track max created_at for delta sync cursor
-      if (!maxCreatedAt || row.created_at > maxCreatedAt) {
-        maxCreatedAt = row.created_at;
-      }
-
       // Skip images already in IDB
       if (localIds.has(row.id)) {
+        processedIds.add(row.id);
         continue;
       }
 
@@ -265,6 +275,7 @@ export const imageSync: SyncModule = {
 
         // Store in IDB with the existing server ID
         await storeImageWithId(row.id, blob, row.width, row.height);
+        processedIds.add(row.id);
         downloadedCount++;
       } catch (err) {
         console.error(
@@ -278,7 +289,7 @@ export const imageSync: SyncModule = {
       `[imageSync] Downloaded ${downloadedCount} of ${rows.length} images`,
     );
 
-    return maxCreatedAt;
+    return computeImagePullCheckpoint(rows, (id) => processedIds.has(id));
   },
 
   // ── processQueue — not used (push handles via full scan) ──────────────────

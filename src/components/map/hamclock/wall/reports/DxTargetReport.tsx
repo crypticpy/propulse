@@ -85,14 +85,26 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
     ? weatherCodeToDescription(weather.weatherCode).toUpperCase()
     : "NO DATA";
 
+  // `approximate` is tri-state. Most of the ~47 setTarget writers (plain map
+  // click, saved pin, mini-map, deep link, undo) leave it undefined, which is
+  // "we do not know", not "a locator was reported" -- treating undefined as
+  // REPORTED asserted a provenance nobody supplied. Only the resolvers that
+  // actually classify the location set the flag, so the fact is omitted
+  // entirely when it is absent. `.hcr-facts` is a two-column grid whose
+  // `:nth-last-child(-n + 2):nth-child(odd)` rule already spans a trailing
+  // odd item, so dropping to five facts lays out correctly.
   const facts: WallReportFact[] = [
     { label: "CALLSIGN", value: callsign },
     { label: "GRID", value: grid },
     { label: "COORDINATES", value: coordinates(target.lat, target.lon) },
-    {
-      label: "LOCATION",
-      value: target.approximate ? "APPROXIMATE" : "REPORTED",
-    },
+    ...(target.approximate === undefined
+      ? []
+      : [
+          {
+            label: "LOCATION",
+            value: target.approximate ? "APPROXIMATE" : "REPORTED",
+          },
+        ]),
     {
       label: "SHORT PATH",
       value: metrics ? `${Math.round(metrics.shortPath.bearing)}°` : "—",

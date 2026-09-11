@@ -263,7 +263,14 @@ export interface TargetLocation {
   lon: number;
   name?: string;
   grid?: string;
-  /** True when lat/lon is a prefix or continent centroid, not a reported locator. */
+  /**
+   * Location provenance, tri-state on purpose:
+   * - `true`  — lat/lon is a prefix or continent centroid, not a reported locator
+   * - `false` — the producer classified this as a reported locator/coordinate
+   * - absent  — **unknown**; the writer did not classify it. Most setTarget
+   *   callers (plain map click, saved pin, mini-map, deep link, undo) are in
+   *   this bucket, so readers must not treat absent as `false`.
+   */
   approximate?: boolean;
 }
 

@@ -33,11 +33,14 @@ import {
 } from "./provider";
 import {
   canonicalCoordinates,
+  deepFreeze,
   IonosphereAssetError,
+  IonosphereQueryError,
   known,
   nmF2FromFoF2,
   parseInstant,
   unknown,
+  type CanonicalCoordinates,
   type IonosphereQuery,
 } from "./types";
 
@@ -298,6 +301,85 @@ describe("query canonicalisation", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("validates coordinates at the boundary, not at the helper", () => {
+    // `CanonicalCoordinates` is structural: nothing stops a caller building the
+    // object literally and skipping `canonicalCoordinates()`. The grid edge
+    // logic and the sunrise hour angle both have geographic domains, so the
+    // check has to live at the entry point.
+    const raw = (latitude: number, longitude: number): IonosphereQuery => ({
+      coordinates: { latitude, longitude } as CanonicalCoordinates,
+      validAt: "2026-04-15T12:00:00Z",
+      r12: known(80),
+      mode: "reference",
+    });
+    expect(() => provider.state(raw(91, 181))).toThrow(IonosphereQueryError);
+    expect(() => provider.state(raw(-91, 0))).toThrow(IonosphereQueryError);
+    expect(() => provider.state(raw(0, 181))).toThrow(IonosphereQueryError);
+    expect(() => provider.state(raw(0, -180.5))).toThrow(IonosphereQueryError);
+    expect(() => provider.state(raw(Number.NaN, 0))).toThrow(
+      IonosphereQueryError,
+    );
+    expect(() => provider.state(raw(0, Number.POSITIVE_INFINITY))).toThrow(
+      IonosphereQueryError,
+    );
+    // A query error is a RangeError, so callers that already catch RangeError
+    // keep working.
+    expect(() => provider.state(raw(91, 0))).toThrow(RangeError);
+  });
+
+  it("canonicalises an uncanonical query and echoes the canonical form", () => {
+    const state = provider.state({
+      coordinates: { latitude: -0, longitude: 180 } as CanonicalCoordinates,
+      validAt: "2026-04-15T12:00:00Z",
+      r12: known(80),
+      mode: "reference",
+    });
+    expect(state.coordinates.longitude).toBe(-180);
+    expect(Object.is(state.coordinates.latitude, 0)).toBe(true);
+  });
+
+  it("does not freeze the caller's own coordinate object", () => {
+    // The state is deep-frozen. If it held the caller's object, freezing it
+    // would reach back out of the provider and change the caller's value.
+    const coordinates = { latitude: 30, longitude: 60 };
+    provider.state({
+      coordinates: coordinates as CanonicalCoordinates,
+      validAt: "2026-04-15T12:00:00Z",
+      r12: known(80),
+      mode: "reference",
+    });
+    expect(Object.isFrozen(coordinates)).toBe(false);
+  });
+
+  it("rejects a mode it does not implement", () => {
+    const query = {
+      coordinates: canonicalCoordinates(30, 60),
+      validAt: "2026-04-15T12:00:00Z",
+      r12: known(80),
+      mode: "Reference",
+    } as unknown as IonosphereQuery;
+    expect(() => provider.state(query)).toThrow(IonosphereQueryError);
+  });
+
+  it("rejects a malformed solar index", () => {
+    const query = (r12: unknown): IonosphereQuery =>
+      ({
+        coordinates: canonicalCoordinates(30, 60),
+        validAt: "2026-04-15T12:00:00Z",
+        r12,
+        mode: "reference",
+      }) as IonosphereQuery;
+    expect(() =>
+      provider.state(query({ known: true, value: Number.NaN })),
+    ).toThrow(IonosphereQueryError);
+    expect(() => provider.state(query({ known: true, value: -1 }))).toThrow(
+      IonosphereQueryError,
+    );
+    expect(() => provider.state(query(undefined))).toThrow(
+      IonosphereQueryError,
+    );
+  });
+
   it("gives the same answer at every meridian at a pole", () => {
     const at = (longitude: number) =>
       provider.state({
@@ -477,6 +559,46 @@ describe("time modes", () => {
     expect(Math.abs(after.m3000F2 - before.m3000F2)).toBeLessThan(1e-4);
   });
 
+  it("keeps the solar geometry continuous across the leap-year seam", () => {
+    // The reference's solar model reads the day number as orbital phase. On a
+    // leap year that number reaches 366 and then resets to 1, which is three
+    // quarters of a day of orbit in one millisecond. Enhanced mode maps the
+    // calendar onto the model's own year length instead.
+    const solarAt = (validAt: string, mode: IonosphereQuery["mode"]) =>
+      provider.state({
+        coordinates: canonicalCoordinates(45, 0),
+        validAt,
+        r12: known(80),
+        mode,
+      }).solar;
+    const before = solarAt("2028-12-31T23:59:59.999Z", "enhanced");
+    const after = solarAt("2029-01-01T00:00:00Z", "enhanced");
+    expect(Math.abs(after.zenithAngleDeg - before.zenithAngleDeg)).toBeLessThan(
+      1e-6,
+    );
+    expect(Math.abs(after.declinationDeg - before.declinationDeg)).toBeLessThan(
+      1e-6,
+    );
+    expect(
+      Math.abs(after.equationOfTimeMinutes - before.equationOfTimeMinutes),
+    ).toBeLessThan(1e-4);
+  });
+
+  it("keeps the solar geometry continuous across an ordinary year seam", () => {
+    const solarAt = (validAt: string) =>
+      provider.state({
+        coordinates: canonicalCoordinates(45, 0),
+        validAt,
+        r12: known(80),
+        mode: "enhanced",
+      }).solar;
+    const before = solarAt("2026-12-31T23:59:59.999Z");
+    const after = solarAt("2027-01-01T00:00:00Z");
+    expect(Math.abs(after.zenithAngleDeg - before.zenithAngleDeg)).toBeLessThan(
+      1e-6,
+    );
+  });
+
   it("interpolates monotonically between two monthly anchors", () => {
     const january = at("2026-01-15T12:00:00Z", "enhanced").foF2MHz;
     const february = at("2026-02-15T12:00:00Z", "enhanced").foF2MHz;
@@ -575,6 +697,55 @@ describe("determinism", () => {
     expect(later).not.toBe(base);
   });
 
+  it("separates two requests that clip to the same model input", async () => {
+    // R12 200 and 250 both clip to the model ceiling of 160, so the modelled
+    // numbers are identical, but the two states carry different
+    // `requestedR12` values and different clipping assumptions. The digest is
+    // the identity of the whole state, so a cache keyed by it returns exactly
+    // the state that was stored, metadata included.
+    const query = (r12: number): IonosphereQuery => ({
+      coordinates: canonicalCoordinates(30, 60),
+      validAt: "2026-04-15T09:00:00Z",
+      r12: known(r12),
+      mode: "reference",
+    });
+    const loud = provider.state(query(200));
+    const louder = provider.state(query(250));
+    expect(louder.foF2MHz).toBe(loud.foF2MHz);
+    expect(louder.solarIndex.r12).toBe(160);
+    expect(loud.solarIndex.r12).toBe(160);
+    expect(louder.solarIndex.requestedR12).not.toBe(
+      loud.solarIndex.requestedR12,
+    );
+    expect(await ionosphereStateDigest(louder)).not.toBe(
+      await ionosphereStateDigest(loud),
+    );
+  });
+
+  it("covers the assumptions and the solar geometry, not only foF2", async () => {
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    const digest = await ionosphereStateDigest(state);
+    const tweak = (patch: Partial<Record<string, unknown>>) =>
+      ionosphereStateDigest({
+        ...state,
+        ...patch,
+      } as typeof state);
+    expect(
+      await tweak({ assumptions: [...state.assumptions, "extra"] }),
+    ).not.toBe(digest);
+    expect(
+      await tweak({
+        solar: {
+          ...state.solar,
+          zenithAngleDeg: state.solar.zenithAngleDeg + 1,
+        },
+      }),
+    ).not.toBe(digest);
+    expect(
+      await tweak({ magneticDip300kmDeg: state.magneticDip300kmDeg + 1 }),
+    ).not.toBe(digest);
+  });
+
   it("does not depend on the ambient clock or locale", async () => {
     const before = await ionosphereStateDigest(
       provider.state(DETERMINISM_PROBE_QUERY),
@@ -667,9 +838,127 @@ describe("coefficient ownership", () => {
     expect(await ionosphereStateDigest(after)).toBe(beforeDigest);
     resetNumericalMapAssetCache();
   });
+
+  it("protects providers created after the returned arrays are mutated", async () => {
+    // The order that matters: mutate what the public loader handed out, and
+    // only then build a provider. A private per-provider copy alone would copy
+    // the damage, because it copies from the shared cache.
+    resetNumericalMapAssetCache();
+    const pristine = await createCcirIonosphereProvider(assetBytes);
+    const expected = pristine.state(DETERMINISM_PROBE_QUERY);
+    const expectedDigest = await ionosphereStateDigest(expected);
+
+    const handed = await loadNumericalMapAsset(assetBytes);
+    for (const levels of handed.blocks) {
+      for (const level of levels) {
+        (level.foF2 as unknown as Float64Array).fill(3);
+        (level.m3000F2 as unknown as Float64Array).fill(3);
+      }
+    }
+    const later = await createCcirIonosphereProvider(assetBytes);
+    const actual = later.state(DETERMINISM_PROBE_QUERY);
+    expect(actual.foF2MHz).toBe(expected.foF2MHz);
+    expect(actual.m3000F2).toBe(expected.m3000F2);
+    expect(await ionosphereStateDigest(actual)).toBe(expectedDigest);
+    expect(later.artifactHash).toBe(pristine.artifactHash);
+    resetNumericalMapAssetCache();
+  });
+
+  it("hands every caller an independent copy", async () => {
+    resetNumericalMapAssetCache();
+    const first = await loadNumericalMapAsset(assetBytes);
+    const second = await loadNumericalMapAsset(assetBytes);
+    expect(second.artifactHash).toBe(first.artifactHash);
+    expect(second.blocks[0][0].foF2).not.toBe(first.blocks[0][0].foF2);
+    const original = second.blocks[0][0].foF2[0];
+    (first.blocks[0][0].foF2 as unknown as Float64Array)[0] = 42;
+    expect(second.blocks[0][0].foF2[0]).toBe(original);
+    resetNumericalMapAssetCache();
+  });
+});
+
+describe("shared state", () => {
+  it("exports capabilities that cannot be edited through any provider", async () => {
+    const provider = await freshProvider();
+    expect(Object.isFrozen(CAPABILITIES)).toBe(true);
+    expect(Object.isFrozen(CAPABILITIES.foF2)).toBe(true);
+    expect(() => {
+      (CAPABILITIES.foF2 as { status: string }).status = "supported";
+    }).toThrow(TypeError);
+    expect(provider.capabilities.foF1.status).toBe("unsupported");
+  });
+
+  it("exports a determinism probe that cannot be edited", () => {
+    expect(Object.isFrozen(DETERMINISM_PROBE_QUERY)).toBe(true);
+    expect(Object.isFrozen(DETERMINISM_PROBE_QUERY.coordinates)).toBe(true);
+    expect(Object.isFrozen(DETERMINISM_PROBE_QUERY.r12)).toBe(true);
+  });
+
+  it("does not read the solar climatology out of a mutable shared import", async () => {
+    // `manifest.json` is a module object every importer shares. The provider
+    // takes its own frozen snapshot at load, so a consumer editing the import
+    // cannot move the R12 the fallback reports.
+    const provider = await freshProvider();
+    const query: IonosphereQuery = {
+      coordinates: canonicalCoordinates(30, 60),
+      validAt: "2026-04-15T09:00:00Z",
+      r12: unknown("not supplied"),
+      mode: "reference",
+    };
+    const before = provider.state(query).solarIndex.requestedR12;
+    const months = manifest.solar_index_climatology.months;
+    const last = months[months.length - 1];
+    const original = last.smoothed_sn_v2;
+    last.smoothed_sn_v2 = 9999;
+    try {
+      expect(provider.state(query).solarIndex.requestedR12).toBe(before);
+    } finally {
+      last.smoothed_sn_v2 = original;
+    }
+  });
+
+  it("rejects an unknown solar index without a reason string", async () => {
+    const provider = await freshProvider();
+    expect(() =>
+      provider.state({
+        coordinates: canonicalCoordinates(30, 60),
+        validAt: "2026-04-15T09:00:00Z",
+        r12: { known: false, reason: 42 } as unknown as IonosphereQuery["r12"],
+        mode: "reference",
+      }),
+    ).toThrow(IonosphereQueryError);
+  });
+
+  it("deep-freezes through an already shallow-frozen object", () => {
+    // The short-circuit on `Object.isFrozen` used to stop at the top level, so
+    // anything built with a plain `Object.freeze` kept mutable children.
+    const value = Object.freeze({ nested: { mutable: 1 } });
+    deepFreeze(value);
+    expect(Object.isFrozen(value.nested)).toBe(true);
+  });
+
+  it("deep-freezes a self-referential object without recursing forever", () => {
+    const cyclic: Record<string, unknown> = { name: "cycle" };
+    cyclic.self = cyclic;
+    expect(() => deepFreeze(cyclic)).not.toThrow();
+    expect(Object.isFrozen(cyclic)).toBe(true);
+  });
 });
 
 describe("provider registry", () => {
+  it("refuses a provider without a usable id", async () => {
+    const provider = await freshProvider();
+    expect(() => registerIonosphereProvider({ ...provider, id: "  " })).toThrow(
+      IonosphereQueryError,
+    );
+    expect(() =>
+      registerIonosphereProvider({
+        ...provider,
+        id: undefined as unknown as string,
+      }),
+    ).toThrow(IonosphereQueryError);
+  });
+
   it("registers and resolves an alternative provider by id", async () => {
     clearIonosphereProviders();
     const provider = await freshProvider();

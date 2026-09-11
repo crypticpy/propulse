@@ -77,6 +77,30 @@ export function parseInstant(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+/**
+ * A query this provider refuses to answer.
+ *
+ * It extends `RangeError` so that callers already catching `RangeError` keep
+ * working, and it names the offending field so a caller can report which part
+ * of the query was rejected rather than guessing from a message.
+ *
+ * Every public entry point validates its own inputs with this error. The query
+ * types are structural: `CanonicalCoordinates` can be written as an object
+ * literal, and a `mode` can arrive from JSON, so a type is a statement of
+ * intent and not a guarantee.
+ */
+export class IonosphereQueryError extends RangeError {
+  readonly field: string;
+  readonly value: unknown;
+
+  constructor(field: string, value: unknown, detail: string) {
+    super(`ionosphere query field "${field}" is invalid: ${detail}`);
+    this.name = "IonosphereQueryError";
+    this.field = field;
+    this.value = value;
+  }
+}
+
 // swap to @/lib/propagation/contracts after #1099
 export interface CanonicalCoordinates {
   /** Degrees north, -90 to 90 inclusive. */
@@ -95,18 +119,54 @@ export function canonicalCoordinates(
   longitude: number,
 ): CanonicalCoordinates {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new RangeError(
-      `coordinates must be finite, received (${latitude}, ${longitude})`,
+    throw new IonosphereQueryError(
+      "coordinates",
+      { latitude, longitude },
+      "latitude and longitude must both be finite",
     );
   }
   if (latitude < -90 || latitude > 90) {
-    throw new RangeError(`latitude ${latitude} is outside -90..90`);
+    throw new IonosphereQueryError(
+      "coordinates.latitude",
+      latitude,
+      "outside -90..90",
+    );
   }
   let lon = ((((longitude + 180) % 360) + 360) % 360) - 180;
   const lat = latitude === 0 ? 0 : latitude;
   if (lat === 90 || lat === -90) lon = 0;
   if (lon === 0) lon = 0;
   return Object.freeze({ latitude: lat, longitude: lon });
+}
+
+/**
+ * Canonicalise coordinates that arrived as a plain object.
+ *
+ * `canonicalCoordinates` folds any longitude into range, which is right for a
+ * value the caller asked to be canonicalised but wrong at an entry point: 181
+ * degrees east is a mistake, not a synonym for -179, and answering it would
+ * hide the mistake. Longitude is therefore range-checked first and folded
+ * afterwards, so only the exact half-open-interval edge (+180) is folded.
+ */
+export function requireCanonicalCoordinates(
+  coordinates: CanonicalCoordinates,
+): CanonicalCoordinates {
+  if (coordinates === null || typeof coordinates !== "object") {
+    throw new IonosphereQueryError(
+      "coordinates",
+      coordinates,
+      "must be an object with latitude and longitude",
+    );
+  }
+  const { latitude, longitude } = coordinates;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new IonosphereQueryError(
+      "coordinates.longitude",
+      longitude,
+      "must be a finite value within -180..180",
+    );
+  }
+  return canonicalCoordinates(latitude, longitude);
 }
 
 // swap to @/lib/propagation/contracts after #1099
@@ -244,12 +304,18 @@ export class IonosphereAssetError extends Error {
 }
 
 /** Recursively freeze a plain object graph so a returned state cannot be edited. */
-export function deepFreeze<T>(value: T): T {
+export function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== "object") return value;
-  if (Object.isFrozen(value)) return value;
-  Object.freeze(value);
-  for (const child of Object.values(value as Record<string, unknown>)) {
-    deepFreeze(child);
+  const object = value as object;
+  // `Object.isFrozen` is not the recursion guard: an object built with a plain
+  // `Object.freeze` is frozen at the top and mutable underneath, and stopping
+  // there is how a frozen-looking export keeps writable children. The guard is
+  // the seen set, which also terminates on a cycle.
+  if (seen.has(object)) return value;
+  seen.add(object);
+  Object.freeze(object);
+  for (const child of Object.values(object as Record<string, unknown>)) {
+    deepFreeze(child, seen);
   }
   return value;
 }

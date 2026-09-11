@@ -18,6 +18,8 @@ import {
   ionosphereStateDigest,
 } from "./provider";
 import {
+  QF,
+  QM,
   bilinearInterpolation,
   blendBySolarIndex,
   evaluateMap,
@@ -65,6 +67,18 @@ const GRID_ROWS = fixtures.rows.filter(
 );
 const GRID_TOLERANCE_MHZ = 2e-4;
 const GRID_TOLERANCE_M3000 = 1e-5;
+
+describe("exported basis tables", () => {
+  it("freezes the shared exponent tables", () => {
+    // QF and QM define the shape of every basis this module builds and are
+    // exported. A writable module-level array is a channel between consumers.
+    expect(Object.isFrozen(QF)).toBe(true);
+    expect(Object.isFrozen(QM)).toBe(true);
+    expect(() => {
+      (QF as unknown as number[])[0] = 0;
+    }).toThrow(TypeError);
+  });
+});
 
 describe("CCIR numerical map basis", () => {
   it("emits exactly the term counts the coefficient blocks are sized for", () => {

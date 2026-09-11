@@ -75,15 +75,18 @@ import {
   timeTerms,
   type GridNode,
 } from "./numericalMap";
-import { solarParameters } from "./solar";
+import { orbitalPhaseDay, solarParameters } from "./solar";
 import {
   canonicalCoordinates,
   deepFreeze,
   known,
   IonosphereAssetError,
+  IonosphereQueryError,
   nmF2FromFoF2,
   parseInstant,
+  requireCanonicalCoordinates,
   type ArtifactHash,
+  type Known,
   type CapabilityState,
   type IonosphereQuantity,
   type IonosphereQuery,
@@ -101,6 +104,23 @@ export const PROVIDER_VERSION = "1.0.0";
  */
 const SILSO_V2_TO_CLASSIC = 1.43;
 
+/**
+ * The provider's own snapshot of the bundled solar-index climatology.
+ *
+ * `manifest.json` is a module object every importer shares and can write to.
+ * The fallback R12 is part of a state's identity, so it is copied and frozen
+ * here at load rather than read out of the shared import on every query.
+ */
+const SOLAR_INDEX_CLIMATOLOGY = deepFreeze({
+  series: manifest.solar_index_climatology.series,
+  captured_at: manifest.solar_index_climatology.captured_at,
+  months: manifest.solar_index_climatology.months.map((month) => ({
+    year: month.year,
+    month: month.month,
+    smoothed_sn_v2: month.smoothed_sn_v2,
+  })),
+});
+
 const ADOPTED_MODEL_ASSUMPTION =
   "Adopted model: ITU-R P.533-14 monthly median climatology over the CCIR " +
   "numerical map (ITU-R P.1239 Annex 1), coefficient set " +
@@ -108,7 +128,7 @@ const ADOPTED_MODEL_ASSUMPTION =
 
 export const CAPABILITIES: Readonly<
   Record<IonosphereQuantity, CapabilityState>
-> = Object.freeze({
+> = deepFreeze({
   foF2: { status: "supported", note: "CCIR numerical map, MHz" },
   m3000F2: { status: "supported", note: "CCIR numerical map, dimensionless" },
   foE: { status: "supported", note: "ITU-R P.1239-2 section 3, MHz" },
@@ -337,11 +357,21 @@ interface ResolvedSolarIndex {
 }
 
 function resolveSolarIndex(query: IonosphereQuery): ResolvedSolarIndex {
+  const r12 = query.r12 as Known<number> | undefined;
+  if (r12 === undefined || typeof r12 !== "object" || !("known" in r12)) {
+    throw new IonosphereQueryError(
+      "r12",
+      r12,
+      "must be a Known<number>: { known: true, value } or { known: false, reason }",
+    );
+  }
   if (query.r12.known) {
     const requested = query.r12.value;
     if (!Number.isFinite(requested) || requested < 0) {
-      throw new RangeError(
-        `r12 must be a finite non-negative number, got ${requested}`,
+      throw new IonosphereQueryError(
+        "r12.value",
+        requested,
+        "must be a finite, non-negative sunspot number",
       );
     }
     return {
@@ -352,7 +382,16 @@ function resolveSolarIndex(query: IonosphereQuery): ResolvedSolarIndex {
       assumption: null,
     };
   }
-  const table = manifest.solar_index_climatology;
+  const reason = query.r12.known ? null : query.r12.reason;
+  if (typeof reason !== "string" || reason.trim() === "") {
+    throw new IonosphereQueryError(
+      "r12.reason",
+      reason,
+      "an unknown solar index must say why: the reason is quoted in the " +
+        "state's assumptions and is part of its identity",
+    );
+  }
+  const table = SOLAR_INDEX_CLIMATOLOGY;
   const latest = table.months[table.months.length - 1];
   const requested = latest.smoothed_sn_v2 / SILSO_V2_TO_CLASSIC;
   return {
@@ -361,7 +400,7 @@ function resolveSolarIndex(query: IonosphereQuery): ResolvedSolarIndex {
     clipped: requested > MAX_R12,
     source: "bundled-climatology",
     assumption:
-      `R12 was not supplied (${query.r12.reason}); substituted ` +
+      `R12 was not supplied (${reason}); substituted ` +
       `${requested.toFixed(1)} from the bundled ${table.series}, last defined ` +
       `month ${latest.year}-${String(latest.month).padStart(2, "0")} ` +
       `(${latest.smoothed_sn_v2} divided by ${SILSO_V2_TO_CLASSIC} to convert ` +
@@ -374,14 +413,27 @@ function buildState(
   asset: NumericalMapAsset,
   query: IonosphereQuery,
 ): IonosphereState {
-  const instant = parseInstant(query.validAt);
-  if (instant === null) {
-    throw new RangeError(
-      `validAt "${query.validAt}" is not an instant with an explicit offset and ` +
-        "at most three fractional-second digits",
+  if (query.mode !== "reference" && query.mode !== "enhanced") {
+    throw new IonosphereQueryError(
+      "mode",
+      query.mode,
+      'must be "reference" or "enhanced"',
     );
   }
-  const { latitude, longitude } = query.coordinates;
+  const instant = parseInstant(query.validAt);
+  if (instant === null) {
+    throw new IonosphereQueryError(
+      "validAt",
+      query.validAt,
+      "must be a real calendar instant with an explicit offset and at most " +
+        "three fractional-second digits",
+    );
+  }
+  // The query types are structural, so this is the only place the geographic
+  // domain is actually established. Everything downstream - the grid edge
+  // rules, the sunrise hour angle, the modified dip - assumes it.
+  const coordinates = requireCanonicalCoordinates(query.coordinates);
+  const { latitude, longitude } = coordinates;
   const latitudeRad = latitude * D2R;
   const longitudeRad = longitude * D2R;
   const { year, monthIndex, dayOfYear, utcHours } = timePoint(instant);
@@ -469,7 +521,7 @@ function buildState(
       longitudeRad,
       monthIndex,
       utcHours,
-      dayOfYear,
+      orbitalPhaseDay(fractionalDayOfYear, daysInYear(year)),
     );
     // foE depends on the month only through the polar-winter branch, so the
     // same two-anchor blend keeps it continuous across the seam.
@@ -513,7 +565,7 @@ function buildState(
     providerVersion: PROVIDER_VERSION,
     artifactHash: asset.artifactHash,
     mode: query.mode,
-    coordinates: query.coordinates,
+    coordinates,
     validAt: query.validAt,
     foF2MHz,
     m3000F2,
@@ -547,38 +599,14 @@ function buildState(
 export async function createCcirIonosphereProvider(
   byteSource?: AssetByteSource,
 ): Promise<IonosphereProvider> {
-  const asset = privateCopy(await loadNumericalMapAsset(byteSource));
+  // The loader hands out a copy nobody else holds, so this provider owns it.
+  const asset = await loadNumericalMapAsset(byteSource);
   return Object.freeze({
     id: PROVIDER_ID,
     version: PROVIDER_VERSION,
     artifactHash: asset.artifactHash,
     capabilities: CAPABILITIES,
     state: (query: IonosphereQuery) => buildState(asset, query),
-  });
-}
-
-/**
- * Take the provider's own copy of the coefficients.
- *
- * The loader hands out read-only views, but a caller holding the asset can cast
- * that away, and the loader caches one asset for every provider. A provider that
- * closed over the shared arrays could therefore have its coefficients rewritten
- * after the digest was checked. 274 kB per provider buys the guarantee that a
- * state is a function of the artifact hash it reports.
- */
-function privateCopy(asset: NumericalMapAsset): NumericalMapAsset {
-  const copyBlock = (block: CoefficientBlock): CoefficientBlock =>
-    Object.freeze({
-      foF2: Float64Array.from(block.foF2),
-      m3000F2: Float64Array.from(block.m3000F2),
-    });
-  return Object.freeze({
-    artifactHash: asset.artifactHash,
-    blocks: Object.freeze(
-      asset.blocks.map((levels) =>
-        Object.freeze([copyBlock(levels[0]), copyBlock(levels[1])] as const),
-      ),
-    ),
   });
 }
 
@@ -593,16 +621,31 @@ function quantise(value: number): string {
 /**
  * The identity of a state, and the only thing a cache key should be built from.
  *
+ * The contract is exact: the digest covers the *whole emitted state* - every
+ * modelled number at the declared precision, and every identity-bearing field
+ * around them (mode, provider id and version, artifact hash, coordinates,
+ * validAt, the solar-index metadata including the value the caller asked for
+ * and whether it was clipped, and the assumption strings). A cache keyed by the
+ * digest therefore returns exactly the state that was stored, never a state
+ * that merely models the same numbers.
+ *
+ * The clipping case is why the metadata is in. R12 200 and R12 250 both clip to
+ * the model ceiling of 160 and model identically, but they are different
+ * requests and their states say different things about what was done to them;
+ * a digest over the modelled numbers alone would let a cache answer one with
+ * the other.
+ *
  * `Math.sin` and `Math.pow` are permitted a 1-ulp spread between engines, so
  * two correct implementations can return states that differ in the last bit.
  * Rounding to 1e-6 (MHz, or dimensionless) before digesting makes the identity
  * stable across engines while staying four orders of magnitude finer than the
- * model's own uncertainty.
+ * model's own uncertainty. `JSON.stringify` of the field list, rather than a
+ * join on a separator, keeps a string field from spelling a field boundary.
  */
 export async function ionosphereStateDigest(
   state: IonosphereState,
 ): Promise<ArtifactHash> {
-  const canonical = [
+  const canonical = JSON.stringify([
     state.providerId,
     state.providerVersion,
     state.artifactHash,
@@ -613,9 +656,22 @@ export async function ionosphereStateDigest(
     quantise(state.foF2MHz),
     quantise(state.m3000F2),
     quantise(state.foEMHz),
+    quantise(state.nmF2PerM3),
     quantise(state.solarIndex.r12),
+    quantise(state.solarIndex.requestedR12),
+    state.solarIndex.clipped,
     state.solarIndex.source,
-  ].join("|");
+    quantise(state.solar.zenithAngleDeg),
+    quantise(state.solar.declinationDeg),
+    quantise(state.solar.hourAngleDeg),
+    quantise(state.solar.equationOfTimeMinutes),
+    quantise(state.solar.sunriseUtcHours),
+    quantise(state.solar.sunsetUtcHours),
+    quantise(state.solar.solarNoonUtcHours),
+    quantise(state.magneticDip300kmDeg),
+    quantise(state.gyrofrequency300kmMHz),
+    state.assumptions,
+  ]);
   const subtle = globalThis.crypto?.subtle;
   if (subtle === undefined) {
     throw new IonosphereAssetError(
@@ -644,10 +700,12 @@ export async function ionosphereStateDigest(
  * exactly one of the two assertions fails and the failure names the
  * environment.
  *
- * Regenerate the digest only when the coefficient asset or a declared precision
- * changes, and say which in the commit message.
+ * Regenerate the digest only when the coefficient asset, a declared precision,
+ * or the set of fields the digest covers changes, and say which in the commit
+ * message. It last changed when the digest was widened from the modelled
+ * numbers to the whole emitted state.
  */
-export const DETERMINISM_PROBE_QUERY: IonosphereQuery = Object.freeze({
+export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
   coordinates: canonicalCoordinates(30, 60),
   validAt: "2026-04-15T09:00:00Z",
   r12: known(80),
@@ -655,7 +713,7 @@ export const DETERMINISM_PROBE_QUERY: IonosphereQuery = Object.freeze({
 });
 
 export const DETERMINISM_PROBE_DIGEST: ArtifactHash =
-  "sha256:d6062fb1354c1f78a877b8beea1d070ed759a9d55453f570adb8c31b900dacb5";
+  "sha256:5cde37633c7fbd8dbd312c5aa1bca8118051daf4e846b093250693a7bb2c90ea";
 
 const registry = new Map<string, IonosphereProvider>();
 
@@ -665,7 +723,15 @@ const registry = new Map<string, IonosphereProvider>();
  * every state names the model that produced it.
  */
 export function registerIonosphereProvider(provider: IonosphereProvider): void {
-  registry.set(provider.id, provider);
+  const id = provider?.id;
+  if (typeof id !== "string" || id.trim() === "") {
+    throw new IonosphereQueryError(
+      "provider.id",
+      id,
+      "a provider needs a non-empty id: it is the key every state is traced by",
+    );
+  }
+  registry.set(id, provider);
 }
 
 export function getIonosphereProvider(

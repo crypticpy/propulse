@@ -34,8 +34,11 @@ import { D2R, modifiedDipLatitudeRad } from "./modip";
 import type { ReadonlyFloat64Array } from "./types";
 
 /** Latitude-term counts per longitude harmonic, foF2 (K = 76) and M(3000)F2 (K = 49). */
-export const QF = [11, 11, 8, 4, 1, 0, 0, 0, 0] as const;
-export const QM = [6, 7, 5, 2, 1, 0, 0] as const;
+// Frozen because they are exported: these tables define the shape of every
+// basis this module builds, and a writable module-level array is a channel
+// between every consumer of the leaf.
+export const QF = Object.freeze([11, 11, 8, 4, 1, 0, 0, 0, 0] as const);
+export const QM = Object.freeze([6, 7, 5, 2, 1, 0, 0] as const);
 
 export const FOF2_GEOGRAPHIC_TERMS = 76;
 export const FOF2_TIME_TERMS = 13;

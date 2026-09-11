@@ -280,6 +280,16 @@ describe("foE branches and seams", () => {
 });
 
 describe("solar parameter conventions", () => {
+  it("exports its anchor table as a frozen array", () => {
+    // Exported and shared by every caller: a writable module-level array is a
+    // cross-consumer channel, and an edit here would silently move the
+    // reference model's month anchors.
+    expect(Object.isFrozen(MONTH_ANCHOR_DAY_OF_YEAR)).toBe(true);
+    expect(() => {
+      (MONTH_ANCHOR_DAY_OF_YEAR as unknown as number[])[0] = 1;
+    }).toThrow(TypeError);
+  });
+
   it("anchors every month on its 15th, as P.533's monthly medians require", () => {
     expect(MONTH_ANCHOR_DAY_OF_YEAR).toHaveLength(12);
     expect(MONTH_ANCHOR_DAY_OF_YEAR[0]).toBe(15);

@@ -6,6 +6,16 @@
  * deliberately does not model, and `assets/manifest.json` for the provenance
  * and the measured parity residuals against the ITU's own data files.
  *
+ * Where the validation lives: `provider.state()` is the leaf's boundary. It
+ * validates every field of `IonosphereQuery` - coordinates (finite, in domain,
+ * then canonicalised), `validAt` (a real calendar instant with an offset),
+ * `r12` (a well-formed `Known<number>`, finite and non-negative, or a reason
+ * string) and `mode` - and rejects with `IonosphereQueryError`, a `RangeError`.
+ * The model primitives exported below (`evaluateMap`, `geographicFunctions`,
+ * `solarParameters`, `foE`, `magneticField`, ...) are the internals of that
+ * model: they are pure, they assume inputs the boundary has already checked,
+ * and they deliberately do not re-validate.
+ *
  * Within-month foF2 decile variability ("P1239-3 Decile Factors") is deferred
  * to #1102: the reference consumes it in `MUFVariability`, which is a circuit
  * concern rather than a point climatology.
@@ -38,6 +48,8 @@ export {
 export {
   canonicalCoordinates,
   deepFreeze,
+  IonosphereQueryError,
+  requireCanonicalCoordinates,
   foF2FromNmF2,
   IonosphereAssetError,
   isArtifactHash,
@@ -73,4 +85,9 @@ export {
   GRID_LONGITUDES,
   MAX_R12,
 } from "./numericalMap";
-export { solarParameters, MONTH_ANCHOR_DAY_OF_YEAR } from "./solar";
+export {
+  orbitalPhaseDay,
+  solarParameters,
+  MODEL_YEAR_DAYS,
+  MONTH_ANCHOR_DAY_OF_YEAR,
+} from "./solar";

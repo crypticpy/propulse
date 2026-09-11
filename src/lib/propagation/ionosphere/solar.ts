@@ -23,14 +23,20 @@
 import { D2R, R2D } from "./modip";
 
 /** Day of year of the first of each month (non-leap), as the reference has it. */
-const DAY_OF_YEAR = [
+const DAY_OF_YEAR = Object.freeze([
   0, 31, 59, 90, 120, 152, 181, 212, 243, 273, 304, 334,
-] as const;
+] as const);
 
-/** Day of year of the 15th of each month: the reference's monthly anchors. */
-export const MONTH_ANCHOR_DAY_OF_YEAR = [
+/**
+ * Day of year of the 15th of each month: the reference's monthly anchors.
+ *
+ * Frozen because it is exported: a module-level array every consumer shares is
+ * a channel between them, and an edit here would move the reference model's
+ * anchors for the whole process.
+ */
+export const MONTH_ANCHOR_DAY_OF_YEAR = Object.freeze([
   15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349,
-] as const;
+] as const);
 
 const DEGREES_PER_DAY = 0.98565327;
 const MINUTES_PER_DEGREE = 3.98891967;
@@ -59,24 +65,57 @@ export interface SolarParameters {
 }
 
 /**
+ * The model's own year length in days, `360 / DEGREES_PER_DAY` = 365.2322.
+ *
+ * Everything the reference derives from the day number - the mean anomaly, the
+ * folded mean sun angle, the declination - is exactly periodic with this
+ * period, so shifting the phase by it changes no output.
+ */
+export const MODEL_YEAR_DAYS = 360 / DEGREES_PER_DAY;
+
+/**
+ * Map a calendar day of year onto the model's orbital phase.
+ *
+ * The reference feeds the day number straight in as phase, which is fine for a
+ * single month but not across a year boundary: the number resets to 1 while the
+ * orbit does not, and in a leap year it has reached 366 first, so the phase
+ * jumps by three quarters of a day in one millisecond (0.063 degrees of zenith
+ * angle at 45 N). Scaling the fraction of the elapsed year onto
+ * `MODEL_YEAR_DAYS` keeps the phase calendar-locked - 15 March is the same
+ * fraction of every year, leap or not, which is what the leap-aware month
+ * anchors assume - and makes the seam an exact multiple of the model's period,
+ * so every output is continuous through it.
+ *
+ * @param fractionalDayOfYear day of year plus the fraction of the day, 1-based
+ * @param daysInYear 365 or 366, the real length of that calendar year
+ */
+export function orbitalPhaseDay(
+  fractionalDayOfYear: number,
+  daysInYear: number,
+): number {
+  return 1 + (fractionalDayOfYear - 1) * (MODEL_YEAR_DAYS / daysInYear);
+}
+
+/**
  * @param latitudeRad geographic latitude, radians
  * @param longitudeRad geographic longitude, radians, positive east
  * @param monthIndex 0 = January
  * @param utcHours UTC hour, may be fractional in `enhanced` mode
- * @param dayOfYear day of year; defaults to the reference's 15th-of-month anchor
+ * @param phaseDay orbital phase in days, fractional, including the time of day;
+ *   defaults to the reference's 15th-of-month anchor plus the hour fraction
  */
 export function solarParameters(
   latitudeRad: number,
   longitudeRad: number,
   monthIndex: number,
   utcHours: number,
-  dayOfYear = DAY_OF_YEAR[monthIndex] + 15,
+  phaseDay = DAY_OF_YEAR[monthIndex] + 15 + utcHours / 24.0,
 ): SolarParameters {
   const longitudeHours = longitudeRad / (15.0 * D2R);
   const timeZone = Math.trunc(longitudeHours);
   const localTime = utcHours + timeZone;
 
-  const d = dayOfYear + utcHours / 24.0;
+  const d = phaseDay;
 
   // Mean and true anomaly of the Earth's orbit, measured from the perihelion,
   // which the reference places on 2 January.

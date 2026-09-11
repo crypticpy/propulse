@@ -161,17 +161,43 @@ function decode(bytes: ArrayBuffer, hash: ArtifactHash): NumericalMapAsset {
   return Object.freeze({ artifactHash: hash, blocks: Object.freeze(blocks) });
 }
 
+/**
+ * The verified master. Never returned: `loadNumericalMapAsset` copies out of
+ * it, so nothing a caller holds is the thing the next caller will read.
+ */
 let cached: Promise<NumericalMapAsset> | null = null;
 
+/** An independent copy of the verified coefficients, safe to hand out. */
+function copyAsset(asset: NumericalMapAsset): NumericalMapAsset {
+  const copyBlock = (block: CoefficientBlock): CoefficientBlock =>
+    Object.freeze({
+      foF2: Float64Array.from(block.foF2),
+      m3000F2: Float64Array.from(block.m3000F2),
+    });
+  return Object.freeze({
+    artifactHash: asset.artifactHash,
+    blocks: Object.freeze(
+      asset.blocks.map((levels) =>
+        Object.freeze([copyBlock(levels[0]), copyBlock(levels[1])] as const),
+      ),
+    ),
+  });
+}
+
 /**
- * Load, verify and decode the coefficient asset. The result is cached for the
- * lifetime of the module; a failed load is not cached, so a transient network
- * error can be retried.
+ * Load, verify and decode the coefficient asset.
+ *
+ * The fetch and the digest check happen once; a failed load is not cached, so a
+ * transient network error can be retried. Every call then returns its own copy
+ * of the coefficients. The copy is 274 kB and the alternative is worse: the
+ * arrays are typed read-only but a cast defeats that, and a caller who wrote
+ * into a shared cache would change the numbers used by every provider built
+ * afterwards while they all went on reporting the verified artifact hash.
  */
 export function loadNumericalMapAsset(
   byteSource: AssetByteSource = defaultByteSource,
 ): Promise<NumericalMapAsset> {
-  if (cached !== null) return cached;
+  if (cached !== null) return cached.then(copyAsset);
   const pending = (async () => {
     if (!isArtifactHash(ASSET_SHA256)) {
       throw new IonosphereAssetError(
@@ -195,7 +221,7 @@ export function loadNumericalMapAsset(
   pending.catch(() => {
     if (cached === pending) cached = null;
   });
-  return pending;
+  return pending.then(copyAsset);
 }
 
 /** Test-only: drop the module-level cache so a fresh load can be observed. */

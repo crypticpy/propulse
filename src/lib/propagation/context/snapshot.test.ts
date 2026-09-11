@@ -482,6 +482,29 @@ describe("buildContextSnapshot: a declared driver never silently disappears", ()
   });
 });
 
+describe("the snapshot is the only way into the trajectory", () => {
+  it("does not publish the trajectory builder", async () => {
+    // `buildTrajectory` reads a `Selected` and a mode it cannot re-derive, so
+    // an outcome produced for another instant or another mode would be placed
+    // at horizon zero unchecked. The census is the only producer of its
+    // inputs, so it stays internal to the leaf.
+    const barrel = await import("./index");
+    expect(Object.keys(barrel)).not.toContain("buildTrajectory");
+  });
+
+  it("cannot place an observation selected after the issue instant", async () => {
+    // Every record of the row is observed at 17:45, so a snapshot issued at
+    // 17:00 has no eligible observation and horizon zero says so instead of
+    // reading a later state.
+    const built = await snapshot({
+      issuedAt: "2026-09-11T17:00:00Z",
+      trajectoryHours: 1,
+    });
+    expect(built.sources.kp).toMatchObject({ state: "excluded" });
+    expect(built.trajectory[0].drivers.kp?.origin).toBe("absent");
+  });
+});
+
 describe("buildContextSnapshot: the identity does not depend on input order", () => {
   const daily = (value: number, day: string) => ({
     sourceId: "f107_forecast",

@@ -354,6 +354,22 @@ describe("selectAsOf: bounds, outages and modes (M11)", () => {
     expect(selected.state).toBe("selected");
   });
 
+  it("excludes an observation shipped inside an offline pack", () => {
+    // `origin` is the caller's own label. M11 excludes observation residuals
+    // in offline mode by rule, so a Kp measurement does not become a bundled
+    // asset by being packed as one; only a source the ledger calls bundled is.
+    const packed = record({ observedIntervalEndAt: ISSUED, origin: "bundled" });
+    const selected = selectAsOf([packed], {
+      issuedAt: ISSUED,
+      entry: KP,
+      mode: "offline",
+    });
+    expect(selected).toMatchObject({
+      state: "excluded",
+      reason: "offline_mode",
+    });
+  });
+
   it("keeps a cached observation eligible inside its bound and discloses its age", () => {
     const cached = record({
       observedIntervalEndAt: "2026-09-11T11:31:00.000Z",
@@ -710,6 +726,48 @@ describe("admitRecord: the ledger is the only authority on a record", () => {
   });
 });
 
+describe("a forecast issue time is part of the causal order", () => {
+  const issuedAfter = (forecastIssuedAt: string): SourceRecord =>
+    record({
+      sourceId: "f107_forecast",
+      variable: "f107",
+      observedIntervalEndAt: "2026-09-11T00:30:00.000Z",
+      publishedAt: "2026-09-11T00:30:00.000Z",
+      capturedAt: "2026-09-11T00:35:00.000Z",
+      publicationKind: "declared",
+      forecastIssuedAt,
+      validFrom: "2026-09-11T01:00:00.000Z",
+      validTo: "2026-09-11T04:00:00.000Z",
+    });
+
+  it("refuses a forecast issued after it was published", () => {
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("f107_forecast"),
+        issuedAfter("2026-09-11T00:32:00.000Z"),
+      ),
+    ).toThrow(ContextStampError);
+  });
+
+  it("refuses a forecast issued after this service captured it", () => {
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("f107_forecast"),
+        issuedAfter("2026-09-11T00:40:00.000Z"),
+      ),
+    ).toThrow(ContextStampError);
+  });
+
+  it("admits one issued, published and captured in that order", () => {
+    expect(() =>
+      admitRecord(
+        getLedgerEntry("f107_forecast"),
+        issuedAfter("2026-09-11T00:30:00.000Z"),
+      ),
+    ).not.toThrow();
+  });
+});
+
 describe("an instant is a calendar date, not whatever Date.parse salvages", () => {
   it("rejects a day that does not exist in its month", () => {
     expect(() => instantMs("2026-02-31T00:00:00Z")).toThrow(ContextTimeError);
@@ -788,7 +846,7 @@ const ADMISSION_COVERAGE: Readonly<Record<string, string>> = Object.freeze({
   "record.stamps.capturedAt":
     "calendar and causal: at or after the publication",
   "record.stamps.forecastIssuedAt":
-    "kind: required on a forecast record, and the origin the horizon is measured from",
+    "causal and kind: no later than the publication or the capture, required on a forecast record, and the origin the horizon is measured from",
   "record.stamps.validFrom":
     "validity: stated with validTo, well ordered, inside the declared horizon",
   "record.stamps.validTo": "validity: see validFrom",

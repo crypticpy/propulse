@@ -152,6 +152,25 @@ export function admitRecord(
       "captured before it was published",
     );
   }
+  // A forecast is issued as part of the same act of publication, so an issue
+  // time later than the publication or the capture describes a product this
+  // service held before its producer made it (M02, M14).
+  const forecastIssued = record.stamps.forecastIssuedAt;
+  if (forecastIssued !== null) {
+    const issuedMs = instantMs(forecastIssued, "forecastIssuedAt");
+    if (issuedMs > published) {
+      throw new ContextStampError(
+        record.sourceId,
+        "issued after it was published",
+      );
+    }
+    if (issuedMs > captured) {
+      throw new ContextStampError(
+        record.sourceId,
+        "issued after this service captured it",
+      );
+    }
+  }
   const start = record.stamps.observedIntervalStartAt;
   if (
     start !== null &&

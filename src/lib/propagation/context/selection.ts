@@ -47,13 +47,25 @@ export interface SelectOptions {
   readonly requireVerifiedArchive?: boolean;
 }
 
-function eligibleInMode(record: SourceRecord, mode: SourceMode): boolean {
+function eligibleInMode(
+  record: SourceRecord,
+  entry: SourceLedgerEntry,
+  mode: SourceMode,
+): boolean {
   // M11: offline mode explicitly excludes observation residuals. A bundled
   // asset is available in every mode; a cached or network record is available
   // in both live modes, because connectivity alone is not eligibility and the
   // difference between them is which history the caller hands in, not which
   // rule applies.
-  if (mode === "offline") return record.origin === "bundled";
+  //
+  // `origin` is the caller's own label on one record, so it cannot be the
+  // whole test: a Kp measurement shipped inside an offline pack would
+  // otherwise be selected and read as the state, which is exactly the
+  // residual M11 excludes. The ledger says which sources are standing bundled
+  // products, and both have to agree.
+  if (mode === "offline") {
+    return record.origin === "bundled" && entry.kind === "bundled";
+  }
   return true;
 }
 
@@ -163,7 +175,7 @@ function exclusionFor(
   );
   const captured = instantMs(record.stamps.capturedAt, "capturedAt");
 
-  if (!eligibleInMode(record, mode)) return "offline_mode";
+  if (!eligibleInMode(record, entry, mode)) return "offline_mode";
   if (observed > issued) return "not_yet_observed";
   if (published > issued) return "not_yet_published";
   if (captured > issued) return "not_yet_captured";

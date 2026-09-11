@@ -250,6 +250,11 @@ function priorAppliesAt(
   return at >= admitted.validity.fromMs && at < admitted.validity.toMs;
 }
 
+/**
+ * Internal to this leaf. Its inputs are a `Selected` outcome and a mode it
+ * cannot re-derive, so it is not exported from the barrel: `buildContextSnapshot`
+ * is the public entry and its census is the only producer of these inputs.
+ */
 export function buildTrajectory(options: TrajectoryOptions): Trajectory {
   const issued = instantMs(options.issuedAt, "issuedAt");
   const hours = options.hours ?? DEFAULT_GRID_HOURS;

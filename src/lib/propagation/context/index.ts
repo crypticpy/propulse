@@ -50,13 +50,16 @@ export {
   type ContextSnapshotOptions,
   type EvidenceSourceProjection,
 } from "@/lib/propagation/context/snapshot";
+// `buildTrajectory` is deliberately not exported. It reads a `Selected`
+// outcome and a mode it cannot re-derive, so an outcome produced for another
+// issue instant or another mode would reach horizon zero unchecked.
+// `buildContextSnapshot` is the only public entry and the census is the only
+// producer of those inputs; the leaf's own tests import it directly.
 export {
-  buildTrajectory,
   ContextForecastError,
   DEFAULT_GRID_HOURS,
   GRID_STEP_SECONDS,
   type Trajectory,
-  type TrajectoryOptions,
 } from "@/lib/propagation/context/trajectory";
 export {
   ageSecondsAt,

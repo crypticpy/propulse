@@ -17,6 +17,17 @@ import type { SourceMode } from "@/lib/propagation/contracts/enums";
 /** ISO 8601 instant with an offset, at most millisecond precision. */
 export type Instant = string;
 
+/**
+ * Date, time and an explicit UTC offset.
+ *
+ * `Date.parse` reads an offset-less string as the host's local time, so the
+ * same stamp would replay differently in Austin and in Berlin. A context whose
+ * meaning depends on where it is replayed is not an as-of context, so the
+ * offset is required rather than assumed.
+ */
+const INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+
 export const CONTEXT_SCHEMA_VERSION = 1 as const;
 
 /**
@@ -182,6 +193,27 @@ export interface BucketWindow {
 }
 
 /**
+ * The outcome for one variable of one source, as published in the census.
+ *
+ * Selection is per variable, not per source: `magnetic_field` carries bt, bx,
+ * by and bz, and one of them can be non-finite or arrive late while the others
+ * are fine. Rolling the source up to a single record would drop three of the
+ * four and hide the difference.
+ */
+export type PublishedOutcome =
+  | {
+      readonly state: "selected";
+      readonly record: SourceRecord;
+      readonly ageSeconds: number;
+    }
+  | {
+      readonly state: "excluded";
+      readonly reason: ExclusionReason;
+      readonly latest: DatedRecord | null;
+    }
+  | { readonly state: "absent"; readonly reason: "no_record_in_history" };
+
+/**
  * One source's entry in the snapshot census. Every declared source has one,
  * including the ones that produced nothing, so the snapshot answers "what was
  * considered" and not only "what was used".
@@ -190,6 +222,9 @@ export type SnapshotEntry =
   | {
       readonly state: "selected";
       readonly sourceId: string;
+      /** Every declared variable of this source, decided one at a time. */
+      readonly variables: Readonly<Record<string, PublishedOutcome>>;
+      /** The newest selected record, which dates the source as a whole. */
       readonly record: SourceRecord;
       readonly ageSeconds: number;
       readonly sourceVersion: string;
@@ -197,6 +232,7 @@ export type SnapshotEntry =
   | {
       readonly state: "excluded";
       readonly sourceId: string;
+      readonly variables: Readonly<Record<string, PublishedOutcome>>;
       readonly reason: ExclusionReason;
       readonly latest: DatedRecord | null;
       readonly sourceVersion: string;
@@ -204,6 +240,7 @@ export type SnapshotEntry =
   | {
       readonly state: "absent";
       readonly sourceId: string;
+      readonly variables: Readonly<Record<string, PublishedOutcome>>;
       readonly reason: "no_record_in_history";
       readonly sourceVersion: "unknown";
     };
@@ -237,8 +274,11 @@ export class ContextTimeError extends Error {
   }
 }
 
-/** Milliseconds since epoch, or a thrown error. Never NaN. */
+/** Milliseconds since epoch, or a thrown error. Never NaN, never local time. */
 export function instantMs(value: Instant, field = "instant"): number {
+  if (typeof value !== "string" || !INSTANT_PATTERN.test(value)) {
+    throw new ContextTimeError(field, value);
+  }
   const at = Date.parse(value);
   if (!Number.isFinite(at)) throw new ContextTimeError(field, value);
   return at;

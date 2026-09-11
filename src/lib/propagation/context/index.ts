@@ -63,6 +63,7 @@ export {
   type ExclusionReason,
   type Instant,
   type PublicationClass,
+  type PublishedOutcome,
   type RecordOrigin,
   type Selected,
   type SnapshotEntry,

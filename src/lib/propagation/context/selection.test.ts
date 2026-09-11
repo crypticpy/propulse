@@ -14,7 +14,13 @@ import {
   selectAsOf,
   ContextStampError,
 } from "./selection";
-import type { RecordOrigin, SourceActivity, SourceRecord } from "./types";
+import {
+  ContextTimeError,
+  instantMs,
+  type RecordOrigin,
+  type SourceActivity,
+  type SourceRecord,
+} from "./types";
 
 interface RecordOptions {
   observedIntervalEndAt: string;
@@ -512,5 +518,41 @@ describe("selectAsOf: the ledger is the gate", () => {
         true,
       );
     }
+  });
+});
+
+describe("an instant without a UTC offset is not an instant", () => {
+  it("rejects an offset-less string rather than reading it as local time", () => {
+    expect(() =>
+      instantMs("2026-09-11T12:00:00", "observedIntervalEndAt"),
+    ).toThrow(ContextTimeError);
+    expect(() => instantMs("2026-09-11", "observedIntervalEndAt")).toThrow(
+      ContextTimeError,
+    );
+    expect(() => instantMs("11 Sep 2026 12:00:00 GMT", "capturedAt")).toThrow(
+      ContextTimeError,
+    );
+  });
+
+  it("accepts the Z form and a numeric offset, and reads them as the same instant", () => {
+    expect(instantMs("2026-09-11T12:00:00Z")).toBe(
+      instantMs("2026-09-11T17:00:00+05:00"),
+    );
+    expect(instantMs("2026-09-11T12:00:00.500Z")).toBe(
+      instantMs("2026-09-11T12:00:00Z") + 500,
+    );
+    expect(instantMs("2026-09-11T07:00:00-05:00")).toBe(
+      instantMs("2026-09-11T12:00:00Z"),
+    );
+  });
+
+  it("rejects a record stamped without an offset wherever it enters selection", () => {
+    expect(() =>
+      selectAsOf([record({ observedIntervalEndAt: "2026-09-11T11:50:00" })], {
+        issuedAt: "2026-09-11T12:00:00Z",
+        entry: getLedgerEntry("kp"),
+        mode: "cached_live",
+      }),
+    ).toThrow(ContextTimeError);
   });
 });

@@ -242,3 +242,90 @@ describe("toEvidenceSources: the PROP-04 projection", () => {
     expect(kp?.sourceVersion).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
+
+describe("buildContextSnapshot: a forecast source never stands in for an observation", () => {
+  /** A predicted Kp bin, issued and captured before the issue instant. */
+  const predictedKp = {
+    sourceId: "kp_forecast",
+    variable: "kp",
+    units: "dimensionless (Kp, thirds)",
+    value: 7,
+    stamps: {
+      observedIntervalStartAt: null,
+      observedIntervalEndAt: "2026-09-11T17:55:00.000Z",
+      publication: {
+        kind: "bounded_by_capture" as const,
+        publishedAt: "2026-09-11T17:55:00.000Z",
+      },
+      capturedAt: "2026-09-11T17:55:00.000Z",
+      forecastIssuedAt: "2026-09-11T17:55:00.000Z",
+      validFrom: "2026-09-11T18:00:00.000Z",
+      validTo: "2026-09-11T21:00:00.000Z",
+      intervalSeconds: 10800,
+      revision: "kp-forecast test",
+      archiveClass: "capture_bounded" as const,
+    },
+    origin: "network" as const,
+    activity: "not_reported" as const,
+    qualityFlags: ["predicted"],
+  };
+
+  it("drives horizon zero from the measurement, not from the prediction", async () => {
+    const built = await snapshot({
+      histories: { ...historiesFrom(ROW), kp_forecast: [predictedKp] },
+      forecasts: { kp: [predictedKp] },
+      trajectoryHours: 2,
+    });
+    const first = built.trajectory[0].drivers.kp;
+    expect(first.origin).toBe("observed_at_issue");
+    if (first.origin === "absent") return;
+    expect(first.value).toBe(3);
+    expect(first.sourceId).toBe("kp");
+    // One sample later the forecast is the only thing that speaks.
+    expect(built.trajectory[1].drivers.kp.origin).toBe("issued_forecast");
+  });
+});
+
+describe("buildContextSnapshot: a multi-variable source keeps every variable", () => {
+  it("exposes all four magnetic field components, not only the first", async () => {
+    const built = await snapshot();
+    const field = built.sources.magnetic_field;
+    expect(field.state).toBe("selected");
+    expect(Object.keys(field.variables).sort()).toEqual([
+      "bt",
+      "bx_gsm",
+      "by_gsm",
+      "bz_gsm",
+    ]);
+    for (const [variable, outcome] of Object.entries(field.variables)) {
+      expect(outcome.state, `${variable} was not selected`).toBe("selected");
+      if (outcome.state !== "selected") continue;
+      expect(Number.isFinite(outcome.record.value)).toBe(true);
+    }
+    const values = Object.fromEntries(
+      Object.entries(field.variables).map(([variable, outcome]) => [
+        variable,
+        outcome.state === "selected" ? outcome.record.value : null,
+      ]),
+    );
+    expect(values).toEqual({ bt: 6, bx_gsm: 1, by_gsm: 2, bz_gsm: -3 });
+  });
+
+  it("changes identity when one component of a shared source changes", async () => {
+    const base = await snapshot();
+    const southward = await snapshot({
+      histories: historiesFrom({ ...ROW, bz_gsm: -12 }),
+    });
+    expect(southward.contextId).not.toBe(base.contextId);
+  });
+
+  it("drives every component of the trajectory at horizon zero", async () => {
+    const built = await snapshot({ trajectoryHours: 1 });
+    const drivers = built.trajectory[0].drivers;
+    for (const variable of ["bt", "bx_gsm", "by_gsm", "bz_gsm"]) {
+      expect(drivers[variable]?.origin, `${variable} has no driver`).toBe(
+        "observed_at_issue",
+      );
+    }
+  });
+});

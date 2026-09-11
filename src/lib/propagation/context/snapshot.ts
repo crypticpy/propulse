@@ -24,6 +24,7 @@ import {
   SOURCE_LEDGER,
 } from "@/lib/propagation/context/ledger";
 import {
+  ContextVariableError,
   inactiveBarrierAsOf,
   selectAsOf,
 } from "@/lib/propagation/context/selection";
@@ -34,9 +35,12 @@ import {
 import {
   ageSecondsAt,
   CONTEXT_SCHEMA_VERSION,
+  instantMs,
   type ContextSnapshot,
   type DatedRecord,
+  type ExclusionReason,
   type Instant,
+  type PublishedOutcome,
   type Selected,
   type SnapshotEntry,
   type SourceHistory,
@@ -134,76 +138,173 @@ function assumptionsFor(mode: SourceMode): readonly string[] {
   ];
 }
 
+/** The provenance of a record, without the number nobody may use (M11). */
+function dated(record: SourceRecord): DatedRecord {
+  const { value: _excludedValue, ...rest } = record;
+  return rest;
+}
+
+function published(outcome: Selected): PublishedOutcome {
+  if (outcome.state === "selected") {
+    return {
+      state: "selected",
+      record: outcome.record,
+      ageSeconds: outcome.ageSeconds,
+    };
+  }
+  if (outcome.state === "excluded") {
+    return {
+      state: "excluded",
+      reason: outcome.reason,
+      latest: outcome.latest === null ? null : dated(outcome.latest),
+    };
+  }
+  return { state: "absent", reason: "no_record_in_history" };
+}
+
+/**
+ * Decide one source, one variable at a time.
+ *
+ * `magnetic_field` carries four components and `solar_wind` three. Selecting
+ * once per source would keep whichever record happened to sort first and drop
+ * the rest, so each declared variable gets its own history and its own answer.
+ */
+function selectSource(
+  sourceId: string,
+  options: ContextSnapshotOptions,
+): Record<string, Selected> {
+  const entry = getLedgerEntry(sourceId);
+  const history = options.histories[sourceId] ?? [];
+  for (const record of history) {
+    if (
+      record.sourceId !== sourceId ||
+      !entry.variables.includes(record.variable)
+    ) {
+      throw new ContextVariableError(record.sourceId, record.variable);
+    }
+  }
+  const barrier = inactiveBarrierAsOf(history, { issuedAt: options.issuedAt });
+
+  const outcomes: Record<string, Selected> = {};
+  for (const variable of entry.variables) {
+    const forVariable = history.filter(
+      (record) => record.variable === variable,
+    );
+    outcomes[variable] =
+      forVariable.length === 0
+        ? { state: "absent", reason: "no_record_in_history" }
+        : selectAsOf(forVariable, {
+            issuedAt: options.issuedAt,
+            entry,
+            mode: options.mode,
+            barrier,
+            requireVerifiedArchive: options.requireVerifiedArchive,
+          });
+  }
+  return outcomes;
+}
+
 export async function buildContextSnapshot(
   options: ContextSnapshotOptions,
 ): Promise<ContextSnapshot> {
   const { issuedAt, mode } = options;
 
-  const selections = new Map<string, Selected>();
+  const selections = new Map<string, Record<string, Selected>>();
   for (const sourceId of CENSUS_SOURCE_IDS) {
-    const history = options.histories[sourceId] ?? [];
-    if (history.length === 0) {
-      selections.set(sourceId, {
-        state: "absent",
-        reason: "no_record_in_history",
-      });
-      continue;
-    }
-    selections.set(
-      sourceId,
-      selectAsOf(history, {
-        issuedAt,
-        entry: getLedgerEntry(sourceId),
-        mode,
-        barrier: inactiveBarrierAsOf(history, { issuedAt }),
-        requireVerifiedArchive: options.requireVerifiedArchive,
-      }),
-    );
+    selections.set(sourceId, selectSource(sourceId, options));
   }
 
   const sources: Record<string, SnapshotEntry> = {};
-  for (const [sourceId, selected] of selections) {
-    if (selected.state === "selected") {
+  for (const [sourceId, outcomes] of selections) {
+    const variables: Record<string, PublishedOutcome> = {};
+    for (const [variable, outcome] of Object.entries(outcomes)) {
+      variables[variable] = published(outcome);
+    }
+
+    // The source is dated by its newest selected record, and pinned by the
+    // digest of every record it contributed, so a change in any one component
+    // changes the source version and with it the context identity.
+    const selectedRecords: SourceRecord[] = [];
+    let representative: { record: SourceRecord; ageSeconds: number } | null =
+      null;
+    let excluded: {
+      reason: ExclusionReason;
+      latest: SourceRecord | null;
+    } | null = null;
+    let excludedAt = Number.NEGATIVE_INFINITY;
+
+    for (const outcome of Object.values(outcomes)) {
+      if (outcome.state === "selected") {
+        selectedRecords.push(outcome.record);
+        const at = instantMs(outcome.record.stamps.observedIntervalEndAt);
+        if (
+          representative === null ||
+          at > instantMs(representative.record.stamps.observedIntervalEndAt)
+        ) {
+          representative = {
+            record: outcome.record,
+            ageSeconds: outcome.ageSeconds,
+          };
+        }
+        continue;
+      }
+      if (outcome.state !== "excluded") continue;
+      const at =
+        outcome.latest === null
+          ? Number.NEGATIVE_INFINITY
+          : instantMs(outcome.latest.stamps.observedIntervalEndAt);
+      if (excluded === null || at > excludedAt) {
+        excluded = { reason: outcome.reason, latest: outcome.latest };
+        excludedAt = at;
+      }
+    }
+
+    if (representative !== null) {
       sources[sourceId] = {
         state: "selected",
         sourceId,
-        record: selected.record,
-        ageSeconds: selected.ageSeconds,
-        sourceVersion: await sourceVersionOf(selected.record),
+        variables,
+        record: representative.record,
+        ageSeconds: representative.ageSeconds,
+        sourceVersion: `sha256:${await sha256Hex(canonical(selectedRecords))}`,
       };
       continue;
     }
-    if (selected.state === "excluded") {
-      // The digest pins the record as it was, value included; the published
-      // entry keeps only the provenance, so an excluded number cannot be read
-      // back out of the census (M11).
-      const { value: _excludedValue, ...dated } = selected.latest ?? {};
+    if (excluded !== null) {
       sources[sourceId] = {
         state: "excluded",
         sourceId,
-        reason: selected.reason,
-        latest: selected.latest === null ? null : (dated as DatedRecord),
+        variables,
+        reason: excluded.reason,
+        latest: excluded.latest === null ? null : dated(excluded.latest),
         sourceVersion:
-          selected.latest === null
+          excluded.latest === null
             ? "unknown"
-            : await sourceVersionOf(selected.latest),
+            : await sourceVersionOf(excluded.latest),
       };
       continue;
     }
     sources[sourceId] = {
       state: "absent",
       sourceId,
+      variables,
       reason: "no_record_in_history",
       sourceVersion: "unknown",
     };
   }
 
   // The observation a driver may use at horizon zero, keyed by the variable it
-  // carries rather than by its source, because that is what the grid asks for.
+  // carries rather than by its source. Only a declared observation source may
+  // fill it: a forecast record is a prediction whatever instant it was issued
+  // at, and labelling one `observed_at_issue` would report a guess as a
+  // measurement (M14).
   const observations: Record<string, Selected> = {};
-  for (const selected of selections.values()) {
-    if (selected.state !== "selected") continue;
-    observations[selected.record.variable] = selected;
+  for (const [sourceId, outcomes] of selections) {
+    if (getLedgerEntry(sourceId).kind !== "observation") continue;
+    for (const [variable, outcome] of Object.entries(outcomes)) {
+      if (outcome.state !== "selected") continue;
+      observations[variable] = outcome;
+    }
   }
 
   const trajectory = buildTrajectory({

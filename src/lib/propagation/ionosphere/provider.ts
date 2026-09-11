@@ -619,29 +619,36 @@ export async function createCcirIonosphereProvider(
   });
 }
 
-/** Precision the determinism digest rounds to, chosen well inside model error. */
+/** Precision the determinism digest rounds derived model outputs to. */
 const DIGEST_PRECISION = 1e-6;
 
 /**
- * Above this magnitude the absolute grid stops being a quantisation.
+ * A number the caller supplied, written exactly.
  *
- * Rounding to 1e-6 only absorbs an engine's last-bit spread while 1e-6 is
- * coarser than the spacing of the doubles themselves: `ulp(x)` passes 1e-6 at
- * |x| = 2^52 * 1e-6 = 4.5e9, and `x / 1e-6` overflows to Infinity above
- * ~1.8e302, which would map every larger value to a single symbol. Below the
- * limit the grid is at least 4.5e3 ulps wide; at or above it the value is
- * written exactly instead, which is sound because no field that ever reaches
- * that magnitude comes from transcendental arithmetic - it is either the
- * caller's own number or the result of correctly rounded IEEE-754 operations,
- * identical in every conformant engine.
+ * Identity, not measurement: nothing rounded it on the way in and nothing may
+ * round it on the way out, because the state echoes it verbatim and two states
+ * that echo different numbers are different states. `String` is the shortest
+ * decimal that round-trips the double, is specified by ECMAScript to the bit,
+ * and keeps NaN, Infinity and -Infinity distinct from one another.
  */
-const DIGEST_ABSOLUTE_LIMIT = 1e9;
+function exact(value: number): string {
+  return String(value);
+}
 
+/**
+ * A number the model derived, rounded onto a tolerance grid.
+ *
+ * `Math.sin` and `Math.pow` are permitted a 1-ulp spread between engines, so
+ * two correct implementations can return states that differ in the last bit;
+ * the grid absorbs that. It can only do so while 1e-6 is coarser than the
+ * spacing of the doubles themselves, which holds for every derived field here
+ * by construction: all of them are angles, hours, MHz or small dimensionless
+ * ratios bounded well inside 1e3, where a double is spaced by at most 2.3e-13
+ * and the grid is at least 4.5e6 ulps wide. No derived field is unbounded, so
+ * the rule is a classification of fields and not a test on their magnitude.
+ */
 function quantise(value: number): string {
-  // NaN, +Infinity and -Infinity are distinct states of the model and must not
-  // collapse onto one another.
   if (!Number.isFinite(value)) return String(value);
-  if (Math.abs(value) >= DIGEST_ABSOLUTE_LIMIT) return String(value);
   return (Math.round(value / DIGEST_PRECISION) * DIGEST_PRECISION).toFixed(6);
 }
 
@@ -662,17 +669,18 @@ function quantise(value: number): string {
  * a digest over the modelled numbers alone would let a cache answer one with
  * the other.
  *
- * `Math.sin` and `Math.pow` are permitted a 1-ulp spread between engines, so
- * two correct implementations can return states that differ in the last bit.
- * Rounding to 1e-6 (MHz, degrees, hours, or dimensionless) before digesting
- * makes the identity stable across engines while staying four orders of
- * magnitude finer than the model's own uncertainty - but only where 1e-6 is
- * coarser than the spacing of the doubles themselves, which is why `quantise`
- * switches to the exact decimal above `DIGEST_ABSOLUTE_LIMIT`. Every digested
- * number is either bounded well inside that limit (coordinates <= 180, foF2 and
- * foE in MHz, M(3000)F2 ~3, the solar angles <= 360, the dip <= 90, the
- * gyrofrequency ~1.5, R12 <= 160) or written exactly (`requestedR12`, which is
- * the caller's own unbounded number).
+ * Every digested number is classified, and the classification decides how it is
+ * written. A *caller-supplied identity* field - the coordinates the state
+ * echoes, the R12 the caller asked for and the clipped value the model was
+ * actually run with - is written exactly: nothing rounded it on the way in, and
+ * rounding it here would let two states that say different things share one
+ * identity (200.0000001 and 200.0000002 both clip to 160 and both read "200.0"
+ * in the assumptions, so `requestedR12` is the only thing telling them apart).
+ * A *derived model output* - foF2, M(3000)F2, foE, the solar geometry, the dip
+ * and the gyrofrequency - is rounded onto the 1e-6 tolerance grid, which
+ * absorbs the 1-ulp spread engines are permitted in `Math.sin` and `Math.pow`
+ * while staying four orders of magnitude finer than the model's own
+ * uncertainty. The two kinds never mix.
  *
  * A field that another digested field already determines is left out rather
  * than digested twice: `nmF2PerM3` is exactly `nmF2FromFoF2(foF2MHz)`, so it
@@ -690,17 +698,19 @@ export async function ionosphereStateDigest(
     state.providerVersion,
     state.artifactHash,
     state.mode,
-    state.coordinates.latitude.toFixed(6),
-    state.coordinates.longitude.toFixed(6),
+    // Caller-supplied identity, exact.
+    exact(state.coordinates.latitude),
+    exact(state.coordinates.longitude),
     state.validAt,
+    // Derived model outputs, on the tolerance grid.
     quantise(state.foF2MHz),
     quantise(state.m3000F2),
     quantise(state.foEMHz),
     // `nmF2PerM3` is deliberately absent: it is exactly `nmF2FromFoF2(foF2MHz)`
     // and so carries no information the digested foF2 does not already carry,
     // while its ~1e12 magnitude is one no absolute grid can quantise.
-    quantise(state.solarIndex.r12),
-    quantise(state.solarIndex.requestedR12),
+    exact(state.solarIndex.r12),
+    exact(state.solarIndex.requestedR12),
     state.solarIndex.clipped,
     state.solarIndex.source,
     quantise(state.solar.zenithAngleDeg),
@@ -744,9 +754,9 @@ export async function ionosphereStateDigest(
  *
  * Regenerate the digest only when the coefficient asset, a declared precision,
  * or the set of fields the digest covers changes, and say which in the commit
- * message. It last changed when `nmF2PerM3` - a pure function of the digested
- * foF2, at a magnitude coarser than the 1e-6 grid - was dropped from the field
- * list; the move is by design, not a change in any modelled number.
+ * message. It last changed when the caller-supplied identity fields
+ * (coordinates, R12, requested R12) moved from the tolerance grid to their
+ * exact decimals; the move is by design, not a change in any modelled number.
  */
 export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
   coordinates: canonicalCoordinates(30, 60),
@@ -756,7 +766,7 @@ export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
 });
 
 export const DETERMINISM_PROBE_DIGEST: ArtifactHash =
-  "sha256:cea2275a16de0b3c4fb3affeab162153378b8343c58ba15e08e90dd832f285c8";
+  "sha256:1d57d04de4b339fb8554f6517ebb4e8bcd303b8a8ca0a3e87223f9841ad5df60";
 
 const registry = new Map<string, IonosphereProvider>();
 

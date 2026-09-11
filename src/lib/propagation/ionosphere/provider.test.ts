@@ -781,6 +781,41 @@ describe("determinism", () => {
     expect(state.nmF2PerM3).toBe(nmF2FromFoF2(state.foF2MHz));
   });
 
+  it("separates two requested R12 values a tolerance grid would merge", async () => {
+    // Both clip to the ceiling of 160, so every modelled number is identical
+    // and both assumption strings render the request as "200.0"; the only thing
+    // that tells the two states apart is `requestedR12` itself. A caller's own
+    // number is identity, not a measurement, so it is digested exactly - a
+    // tolerance grid here lets a cache answer one request with another's
+    // metadata.
+    const query = (r12: number): IonosphereQuery => ({
+      coordinates: canonicalCoordinates(30, 60),
+      validAt: "2026-04-15T09:00:00Z",
+      r12: known(r12),
+      mode: "reference",
+    });
+    const low = provider.state(query(200.0000001));
+    const high = provider.state(query(200.0000002));
+    expect(high.foF2MHz).toBe(low.foF2MHz);
+    expect(high.assumptions).toEqual(low.assumptions);
+    expect(high.solarIndex.requestedR12).not.toBe(low.solarIndex.requestedR12);
+    expect(await ionosphereStateDigest(high)).not.toBe(
+      await ionosphereStateDigest(low),
+    );
+  });
+
+  it("separates two coordinates a tolerance grid would merge", async () => {
+    // The echoed coordinates are the caller's own numbers too.
+    const at = (latitude: number) =>
+      ionosphereStateDigest(
+        provider.state({
+          ...DETERMINISM_PROBE_QUERY,
+          coordinates: canonicalCoordinates(latitude, 60),
+        }),
+      );
+    expect(await at(30.0000001)).not.toBe(await at(30.0000002));
+  });
+
   it("separates two requested R12 values beyond the absolute grid", async () => {
     // `requestedR12` is the caller's own number and is bounded by nothing but
     // binary64. Dividing by 1e-6 overflows above ~1.8e302, so an absolute grid

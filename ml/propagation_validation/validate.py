@@ -23,6 +23,7 @@ GATES = {
     "G-REVIEW", "G-SOURCES", "G-DATA", "G-POWER", "G-COMPARATOR",
     "G-FAMILY", "G-NUMERICS", "G-RUNTIME", "G-ACCURACY",
 }
+ACCURACY_PREREQUISITES = GATES - {"G-ACCURACY", "G-RUNTIME"}
 EVENT_METRICS = {
     "circuit_support": "support_classification_error", "snr2500": "weighted_mae_db",
     "network_detection": "brier_and_log_loss", "observed_activity": "coverage_and_count_integrity",
@@ -145,6 +146,12 @@ def validate_protocol(protocol):
                 f"{gate['id']}: missing prerequisites")
         for prerequisite in gate["prerequisites"]:
             nonempty(prerequisite, gate["id"] + ".prerequisite")
+            require(not prerequisite.startswith("G-") or prerequisite in GATES,
+                    f"{gate['id']}: prerequisite names an unknown gate")
+    accuracy = next(gate for gate in gates if gate["id"] == "G-ACCURACY")
+    require(set(accuracy["prerequisites"]) == ACCURACY_PREREQUISITES and
+            len(accuracy["prerequisites"]) == len(ACCURACY_PREREQUISITES),
+            "G-ACCURACY: prerequisite gate set changed")
     events = protocol.get("events")
     require(isinstance(events, dict), "events missing")
     required_events = {"circuit_support": "boolean", "snr2500": "dB",

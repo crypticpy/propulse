@@ -110,6 +110,17 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid, "experimental SNR"):
             self.check()
 
+    def test_accuracy_gate_prerequisites_are_pinned(self):
+        accuracy = next(g for g in self.protocol["gates"] if g["id"] == "G-ACCURACY")
+        frozen = list(accuracy["prerequisites"])
+        for mutated in (["whatever"], frozen[:-1], frozen + ["G-RUNTIME"],
+                        frozen + [frozen[0]], ["G-UNKNOWN"] + frozen[1:]):
+            accuracy["prerequisites"] = list(mutated)
+            with self.assertRaisesRegex(Invalid, "G-ACCURACY|unknown gate"):
+                self.check()
+        accuracy["prerequisites"] = list(reversed(frozen))
+        self.assertEqual(self.check()["consistency"], "PASS")
+
     def test_resampling_status_cannot_pass(self):
         for status in ("PASS", "validated", "blocked", "READY: pending", ""):
             self.protocol["resampling"]["status"] = status

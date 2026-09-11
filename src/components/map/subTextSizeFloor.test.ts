@@ -160,6 +160,17 @@
  * a whole: 0 leading-decimal text classes, 0 `em` text classes, 0 inline
  * leading-decimal `fontSize` values, so both fixes are matcher-proved rather
  * than site-proved.
+ *
+ * #833 round 3 (review): the px grammar was the one unit still written as
+ * integers only, so `text-[12.0px]` and `text-[11.5px]` read as clean while
+ * rendering at the floor and below it. All four px matchers now share the
+ * `(\d*\.?\d+)` numeric part the relative units already had and compare
+ * numerically instead of textually: `SIZE_RE` (< 12), the floor spelling
+ * (== 12 exactly), the #925 map class scan (== 12 or == 13), and the inline
+ * `fontSize` scan (== 12 or == 13, numeric or string px). Census of `src/`
+ * for decimal px text classes at this round: 0, so this too is matcher-proved
+ * -- and the census now runs as an assertion of its own so a first decimal px
+ * class cannot land unnoticed.
  */
 
 import { fileURLToPath } from "node:url";
@@ -247,7 +258,14 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
 ];
 
-const SIZE_RE = /text-\[(\d+)px\]/g;
+/**
+ * `text-[Npx]` arbitrary sizes. The numeric part accepts decimals
+ * (`text-[11.5px]`, and the leading-dot form `text-[.5px]`) for the same
+ * reason `RELATIVE_SIZE_RE` does: they are valid CSS, they render smaller
+ * than the floor, and an integer-only grammar reported the file clean
+ * (#833 review round 3). The comparison below is numeric, not textual.
+ */
+const SIZE_RE = /text-\[(\d*\.?\d+)px\]/g;
 
 /**
  * The same floor written as an inline style rather than a Tailwind class:
@@ -353,7 +371,16 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
  * `text-xs` at the default root, but it ignores the text-scale multiplier.
  * `/tight` and other modifiers still match because the class starts with
  * this token. */
-const FLOOR_PX_RE = /text-\[12px\]/;
+const FLOOR_PX_RE = /text-\[(\d*\.?\d+)px\]/g;
+
+/** True when a line spells the floor itself as an arbitrary px value, at any
+ * decimal spelling of 12 (`text-[12px]`, `text-[12.0px]`). Sub-floor values
+ * are `findSubFloorSites`'s job; anything above the floor is legitimate. */
+function hasFloorPxSpelling(line: string): boolean {
+  return [...line.matchAll(FLOOR_PX_RE)].some(
+    (match) => Number(match[1]) === FLOOR_PX,
+  );
+}
 
 /** rem/em/pt arbitrary sizes. 1rem = 16px; 1pt = 4/3 px. Values at or
  * below 12px are the same dodge as `text-[11px]`, just in a unit
@@ -396,7 +423,7 @@ function findFloorDodgeSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
-    if (FLOOR_PX_RE.test(line) || CLAMP_SIZE_RE.test(line)) {
+    if (hasFloorPxSpelling(line) || CLAMP_SIZE_RE.test(line)) {
       sites.push({ file, line: index + 1, text: line });
       return;
     }
@@ -425,10 +452,16 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
 
   it("flags the #833 injections and clears text-xs", () => {
     // Red-on-revert proof for the two forms the old SIZE_RE missed.
-    expect(FLOOR_PX_RE.test("text-[12px]")).toBe(true);
-    expect(FLOOR_PX_RE.test("text-[12px]/tight")).toBe(true);
-    expect(FLOOR_PX_RE.test("text-xs")).toBe(false);
-    expect(FLOOR_PX_RE.test("text-[11px]")).toBe(false);
+    expect(hasFloorPxSpelling("text-[12px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[12px]/tight")).toBe(true);
+    expect(hasFloorPxSpelling("text-xs")).toBe(false);
+    expect(hasFloorPxSpelling("text-[11px]")).toBe(false);
+    // Decimal px spellings render exactly the same and must read the same
+    // (#833 review round 3): the floor written as 12.0px is still the floor,
+    // and 11.5px is still below it.
+    expect(hasFloorPxSpelling("text-[12.0px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[11.5px]")).toBe(false);
+    expect(hasFloorPxSpelling("text-[13px]")).toBe(false);
 
     const relativeHits = (text: string) =>
       [...text.matchAll(RELATIVE_SIZE_RE)].filter((match) =>
@@ -460,7 +493,17 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
 
 /** Fixed 12/13 px classes sit at or just above the floor but ignore the root
  * text-scale multiplier; #925 converts them to `text-xs`/`text-sm`. */
-const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
+const FIXED_MAP_TEXT_RE = /text-\[(\d*\.?\d+)px\]/g;
+
+/** True when a line carries a fixed 12px/13px text class at any decimal
+ * spelling (`text-[12.0px]`, `text-[13.0px]`). An integer-only grammar
+ * certified a file that still pinned its type (#833 review round 3). */
+function hasFixedMapTextSize(line: string): boolean {
+  return [...line.matchAll(FIXED_MAP_TEXT_RE)].some((match) => {
+    const value = Number(match[1]);
+    return value === 12 || value === 13;
+  });
+}
 
 /** The same defect spelled as an inline style. A class scanner alone would
  * certify `src/components/map` while `style={{ fontSize: 12 }}` sites kept
@@ -469,7 +512,16 @@ const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
  * Numeric and string px forms both count; rem values are the fix, so they do
  * not match. */
 const FIXED_MAP_INLINE_SIZE_RE =
-  /fontSize:\s*(?:(?:12|13)\s*[,}]|["'](?:12|13)px["'])/;
+  /fontSize:\s*(?:(\d*\.?\d+)\s*[,}]|["'](\d*\.?\d+)px["'])/g;
+
+/** True when a line pins an inline font size at 12 or 13, numeric or string,
+ * integer or decimal (`fontSize: 12.0`, `fontSize: "13.0px"`). */
+function hasFixedMapInlineSize(line: string): boolean {
+  return [...line.matchAll(FIXED_MAP_INLINE_SIZE_RE)].some((match) => {
+    const value = Number(match[1] ?? match[2]);
+    return value === 12 || value === 13;
+  });
+}
 
 /** Sites outside #925's file set, left for a follow-up rather than edited by
  * this PR (BandConditionsPanel is being changed by concurrent work). Listed
@@ -504,7 +556,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
       const rel = file.slice(REPO_ROOT.length + 1);
       const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, index) => {
-        if (FIXED_MAP_TEXT_RE.test(line)) {
+        if (hasFixedMapTextSize(line)) {
           violations.push(`${rel}:${index + 1}: ${line.trim()}`);
         }
       });
@@ -523,7 +575,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
       if (INLINE_SIZE_FOLLOWUP_FILES.has(rel)) continue;
       const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, index) => {
-        if (FIXED_MAP_INLINE_SIZE_RE.test(line)) {
+        if (hasFixedMapInlineSize(line)) {
           violations.push(`${rel}:${index + 1}: ${line.trim()}`);
         }
       });
@@ -534,16 +586,56 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
     ).toEqual([]);
   });
 
+  it("the class matcher reads decimal px spellings", () => {
+    // `text-[12.0px]` and `text-[11.5px]` render as 12px and 11.5px; an
+    // integer-only grammar read both as clean (#833 review round 3).
+    const subFloorHits = (text: string) =>
+      [...text.matchAll(SIZE_RE)].filter((match) => Number(match[1]) < FLOOR_PX)
+        .length;
+    expect(subFloorHits("text-[11.5px]")).toBe(1);
+    expect(subFloorHits("text-[.5px]")).toBe(1);
+    expect(subFloorHits("text-[11px]")).toBe(1);
+    expect(subFloorHits("text-[12.0px]")).toBe(0);
+    expect(subFloorHits("text-[12px]")).toBe(0);
+    expect(hasFixedMapTextSize("text-[12.0px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[13.0px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[14px]")).toBe(false);
+    expect(hasFixedMapTextSize("text-[11.5px]")).toBe(false);
+  });
+
+  it("has no decimal px text class anywhere under src (census)", () => {
+    const decimalPx = /text-\[\d*\.\d+px\]/;
+    const violations: string[] = [];
+    for (const file of walkMapSourceFiles(resolve(REPO_ROOT, "src"))) {
+      const rel = file.slice(REPO_ROOT.length + 1);
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          if (decimalPx.test(line)) {
+            violations.push(`${rel}:${index + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      violations,
+      `decimal px text classes under src:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
   it("the inline-size matcher reads both spellings and clears rem", () => {
     // Guards the guard: a regex that missed the numeric form would have let
     // #925's two LayersPopover sites through, and one that matched rem would
     // reject the fix itself.
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 12,")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 13 }")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "12px",`)).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: '13px',")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "0.75rem",`)).toBe(false);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 120,")).toBe(false);
+    expect(hasFixedMapInlineSize("fontSize: 12,")).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: 13 }")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "12px",`)).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: '13px',")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "0.75rem",`)).toBe(false);
+    expect(hasFixedMapInlineSize("fontSize: 120,")).toBe(false);
+    // Decimal spellings of the same pinned size (#833 review round 3).
+    expect(hasFixedMapInlineSize("fontSize: 12.0,")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "13.0px",`)).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: 12.5,")).toBe(false);
   });
 
   it("every follow-up file still has the inline sites it is listed for", () => {
@@ -551,9 +643,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
     // follow-up lands, so the list has to keep earning its exemption.
     for (const rel of INLINE_SIZE_FOLLOWUP_FILES) {
       const lines = readFileSync(resolve(REPO_ROOT, rel), "utf8").split("\n");
-      const hits = lines.filter((line) =>
-        FIXED_MAP_INLINE_SIZE_RE.test(line),
-      ).length;
+      const hits = lines.filter((line) => hasFixedMapInlineSize(line)).length;
       expect(
         hits,
         `${rel}: no inline 12/13px font sizes left -- drop it from INLINE_SIZE_FOLLOWUP_FILES`,

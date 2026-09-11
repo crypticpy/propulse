@@ -26,15 +26,17 @@ import type { BandCorrelationSummary } from "./spotCorrelation";
 import { getHistoricalNote } from "@/lib/data/historicalPropagation";
 
 /**
- * Mode-specific minimum SNR thresholds
- * Signals below these levels are not usable for the mode
+ * Mode-specific minimum SNR thresholds, in the 2500 Hz reference bandwidth.
+ *
+ * There is one table for the whole engine: `MODE_PARAMETERS[mode].minSNR` in
+ * signal.ts. This module used to carry a second, uncited copy (SSB -6, CW -15,
+ * FT8 -21, RTTY -10) that disagreed with it by up to 9 dB, so the same SNR
+ * could be "usable" to the recommendation score and "closed" to the path
+ * status ladder (PROP-02 #948 finding 6).
  */
-const MODE_SNR_THRESHOLDS: Record<OperatingMode, number> = {
-  SSB: -6,
-  CW: -15,
-  FT8: -21,
-  RTTY: -10,
-};
+function modeThresholdDb(mode: OperatingMode): number {
+  return MODE_PARAMETERS[mode].minSNR;
+}
 
 /**
  * Calculate a confidence score (0-100) from band condition data
@@ -48,7 +50,7 @@ function calculateScore(
   condition: PathBandCondition,
   mode: OperatingMode,
 ): number {
-  const threshold = MODE_SNR_THRESHOLDS[mode];
+  const threshold = modeThresholdDb(mode);
   const snrMargin = condition.snrEstimate - threshold;
 
   // Base score from SNR margin (0-60 points)
@@ -111,7 +113,7 @@ function generateReason(
   }
 
   // Add mode-specific context
-  const threshold = MODE_SNR_THRESHOLDS[mode];
+  const threshold = modeThresholdDb(mode);
   const margin = condition.snrEstimate - threshold;
   if (margin >= 15) {
     parts.push(`excellent margin for ${mode}`);
@@ -317,7 +319,7 @@ export function getBestTimeWindows(
   const currentHour = time.getUTCHours();
 
   // Filter windows based on mode SNR threshold
-  const threshold = MODE_SNR_THRESHOLDS[mode];
+  const threshold = modeThresholdDb(mode);
 
   return windows
     .filter((w) => w.peakSnr >= threshold)

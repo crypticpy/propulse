@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculateConfidenceInterval,
   calculateExpectedSNR,
+  calculateReferenceNoise,
   getSignalClass,
   predictSignalStrength,
   MODE_PARAMETERS,
@@ -37,11 +38,114 @@ function auditConditions(mode: "FT8" | "SSB", txPowerWatts = 100) {
   );
 }
 
-describe("PROP-02 noise-environment policy (M09/M10)", () => {
-  it("an omitted noise environment is the declared default, not a second noise model", () => {
-    // Audit: omitted gave +35.0 dB, any explicit environment about -12 dB (47 dB swing).
-    const omitted = calculateExpectedSNR(100, 140, "FT8", 0, 14);
-    const explicitDefault = calculateExpectedSNR(
+/**
+ * Physical constants recomputed here from their primary definitions, so a
+ * change to signal.ts cannot silently redefine them. k is the exact SI value
+ * fixed by the 2019 redefinition; T0 = 290 K is the ITU-R P.372 noise-factor
+ * reference temperature; 2500 Hz is the WSJT-X reference bandwidth the mode
+ * thresholds are quoted in.
+ */
+const BOLTZMANN_J_PER_K = 1.380649e-23;
+const T0_KELVIN = 290;
+const REFERENCE_BANDWIDTH_HZ = 2500;
+const KT0_DBM_PER_HZ = 10 * Math.log10((BOLTZMANN_J_PER_K * T0_KELVIN) / 1e-3);
+const KT0B_DBM = KT0_DBM_PER_HZ + 10 * Math.log10(REFERENCE_BANDWIDTH_HZ);
+
+/**
+ * ITU-R P.372-16 external noise factor, recomputed from the documented
+ * formulas and table coefficients rather than by calling the code under test:
+ *   man-made  Fam = c - d*log10(f)      (Table 1 category coefficients)
+ *   galactic  Fag = 52 - 23*log10(f)
+ *   atmos.    Faa = 100 - 33*log10(f), -10 dB daytime, -5 dB winter,
+ *                                      -5 dB above 55 deg latitude
+ *   total     Fa  = 10*log10(sum 10^(Fi/10))
+ */
+function expectedFaDb(
+  frequencyMHz: number,
+  manMade: { c: number; d: number },
+  opts: { isDaytime?: boolean; winter?: boolean; highLatitude?: boolean } = {},
+): number {
+  const lg = Math.log10(frequencyMHz);
+  const fam = Math.max(0, manMade.c - manMade.d * lg);
+  const fag = Math.max(0, 52 - 23 * lg);
+  const faa = Math.max(
+    0,
+    100 -
+      33 * lg +
+      (opts.isDaytime ? -10 : 0) +
+      (opts.winter ? -5 : 0) +
+      (opts.highLatitude ? -5 : 0),
+  );
+  return (
+    10 * Math.log10(10 ** (fam / 10) + 10 ** (fag / 10) + 10 ** (faa / 10))
+  );
+}
+
+/** P.372-16 Table 1 residential coefficients (Fam at 1 MHz and slope). */
+const RESIDENTIAL_COEFFS = { c: 72.5, d: 27.7 };
+
+describe("PROP-02 noise plane is kT0B + Fa (M09/M10)", () => {
+  it("pins kT0 and kT0B in the 2500 Hz reference bandwidth", () => {
+    // k*T0 / 1 mW = 4.00388e-18 -> -173.9752 dBm/Hz (the usual "-174").
+    expect(KT0_DBM_PER_HZ).toBeCloseTo(-173.9752, 4);
+    expect(KT0B_DBM).toBeCloseTo(-139.9958, 4);
+
+    // The engine's floor must be exactly that thermal term plus Fa, with no
+    // extra fudge: noiseFloorDbm - fa_dB is the bandwidth-referenced kT0B.
+    const noise = calculateReferenceNoise(14, "residential", {
+      isDaytime: true,
+      month: 3,
+      latitude: 30,
+    });
+    expect(noise.referenceBandwidthHz).toBe(REFERENCE_BANDWIDTH_HZ);
+    expect(noise.noiseFloorDbm - noise.fa_dB).toBeCloseTo(KT0B_DBM, 6);
+    expect(noise.noiseFloorDbm).toBeCloseTo(KT0B_DBM + noise.fa_dB, 12);
+  });
+
+  it("reproduces Fa at 14 MHz, residential, daytime from the P.372 formulas", () => {
+    const noise = calculateReferenceNoise(14, "residential", {
+      isDaytime: true,
+      month: 3, // March, northern mid-latitude: not the winter case
+      latitude: 30, // below the 55 deg high-latitude threshold
+    });
+    // Fam 40.752, Fag 25.639, Faa 62.178 - 10 = 52.178 -> Fa 52.4888 dB.
+    const expected = expectedFaDb(14, RESIDENTIAL_COEFFS, { isDaytime: true });
+    expect(expected).toBeCloseTo(52.4888, 4);
+    expect(noise.fa_dB).toBeCloseTo(expected, 6);
+    expect(noise.noiseFloorDbm).toBeCloseTo(KT0B_DBM + expected, 6);
+  });
+
+  it("applies the daytime, winter and high-latitude atmospheric corrections", () => {
+    // Regression for the PROP-02 blocker: the options existed in noiseModel.ts
+    // but calculateReferenceNoise never forwarded them, so every prediction
+    // used the worst-case night/summer/low-latitude Faa. Each correction must
+    // move the floor, and each must match the independently computed value.
+    const night = calculateReferenceNoise(14, "residential");
+    const day = calculateReferenceNoise(14, "residential", {
+      isDaytime: true,
+      month: 3,
+      latitude: 30,
+    });
+    const winterDayPolar = calculateReferenceNoise(14, "residential", {
+      isDaytime: true,
+      month: 1, // January, northern winter
+      latitude: 65, // above the 55 deg threshold
+    });
+
+    expect(night.fa_dB).toBeCloseTo(expectedFaDb(14, RESIDENTIAL_COEFFS), 6);
+    expect(winterDayPolar.fa_dB).toBeCloseTo(
+      expectedFaDb(14, RESIDENTIAL_COEFFS, {
+        isDaytime: true,
+        winter: true,
+        highLatitude: true,
+      }),
+      6,
+    );
+    expect(day.fa_dB).toBeLessThan(night.fa_dB - 5);
+    expect(winterDayPolar.fa_dB).toBeLessThan(day.fa_dB - 5);
+
+    // And the options must reach the SNR, not just the noise object.
+    const snrNight = calculateExpectedSNR(
       100,
       140,
       "FT8",
@@ -49,7 +153,49 @@ describe("PROP-02 noise-environment policy (M09/M10)", () => {
       14,
       "residential",
     );
-    expect(DEFAULT_NOISE_ENVIRONMENT).toBe("residential");
+    const snrDay = calculateExpectedSNR(100, 140, "FT8", 0, 14, "residential", {
+      isDaytime: true,
+      month: 3,
+      latitude: 30,
+    });
+    expect(snrDay - snrNight).toBeCloseTo(night.fa_dB - day.fa_dB, 1);
+  });
+
+  it("rejects a non-finite frequency instead of returning a fabricated SNR", () => {
+    expect(() =>
+      calculateExpectedSNR(100, 140, "FT8", 0, Number.NaN, "residential"),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateExpectedSNR(
+        100,
+        140,
+        "FT8",
+        0,
+        Number.POSITIVE_INFINITY,
+        "residential",
+      ),
+    ).toThrow(RangeError);
+  });
+});
+
+describe("PROP-02 noise-environment policy (M09/M10)", () => {
+  it("an omitted noise environment is the declared default, not a second noise model", () => {
+    // Audit: omitted gave +35.0 dB, any explicit environment about -12 dB (47 dB swing).
+    // Anchor on the physics: the omitted path must land on the residential
+    // floor computed from the P.372 coefficients, not on an uncited constant.
+    const omitted = calculateExpectedSNR(100, 140, "FT8", 0, 14);
+    const explicitDefault = calculateExpectedSNR(
+      100,
+      140,
+      "FT8",
+      0,
+      14,
+      DEFAULT_NOISE_ENVIRONMENT,
+    );
+    const txPowerDbm = 30 + 10 * Math.log10(100);
+    const expectedSNR =
+      txPowerDbm - 140 - (KT0B_DBM + expectedFaDb(14, RESIDENTIAL_COEFFS));
+    expect(omitted).toBeCloseTo(expectedSNR, 1);
     expect(omitted).toBe(explicitDefault);
   });
 
@@ -87,13 +233,68 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
       expect(band20!.notes).toContain("MUF exceeded");
       expect(band20!.status).toBe("closed");
       expect(band20!.signalPrediction?.support).toBe("above_basic_muf");
-      expect(band20!.signalPrediction?.expectedSNR).toBe(
-        Number.NEGATIVE_INFINITY,
-      );
       expect(band20!.signalPrediction?.signalClass).toBe("none");
       expect(band20!.sUnit?.value).toBe(0);
+      expect(band20!.sUnit?.dBm).toBe(Number.NEGATIVE_INFINITY);
       expect(band20!.snrEstimate).toBeLessThanOrEqual(-30);
+      // The displayed prediction carries the display floor, not -Infinity, so
+      // the centre stays inside its own (pinned) range; the raw engine value
+      // is asserted separately below.
+      expect(band20!.signalPrediction?.expectedSNR).toBe(-30);
+      expect(band20!.signalPrediction?.snrLow).toBe(-30);
+      expect(band20!.signalPrediction?.snrHigh).toBe(-30);
     }
+  });
+
+  it("an unsupported circuit carries no power and no confidence", () => {
+    // Raw engine output (not the display object): zero received power is
+    // -Infinity dBm, and there is nothing to be confident about, so the
+    // confidence and both of its bounds are 0 rather than the 65-75 the
+    // distance/hop heuristic would otherwise produce (PROP-02 #948).
+    const unsupported = predictSignalStrength(
+      28,
+      3000,
+      1,
+      5,
+      100,
+      "SSB",
+      0,
+      "residential",
+      undefined,
+      2,
+      150,
+      10,
+      "above_basic_muf",
+    );
+    expect(unsupported.expectedSNR).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.snrLow).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.snrHigh).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.sUnit.value).toBe(0);
+    expect(unsupported.sUnit.dBm).toBe(Number.NEGATIVE_INFINITY);
+    expect(unsupported.signalClass).toBe("none");
+    expect(unsupported.confidence).toBe(0);
+    expect(unsupported.confidenceLow).toBe(0);
+    expect(unsupported.confidenceHigh).toBe(0);
+
+    // Same inputs, supported: the heuristic confidence is back and non-zero,
+    // so the 0 above is the support branch and not a degenerate case.
+    const supported = predictSignalStrength(
+      28,
+      3000,
+      1,
+      5,
+      100,
+      "SSB",
+      0,
+      "residential",
+      undefined,
+      2,
+      150,
+      10,
+      "supported",
+    );
+    expect(supported.confidence).toBeGreaterThan(0);
+    expect(Number.isFinite(supported.expectedSNR)).toBe(true);
   });
 
   it("10x power does not change circuit support", () => {
@@ -105,17 +306,24 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
         c100.signalPrediction?.support,
       );
       if (c100.signalPrediction?.support === "supported") {
-        expect(
-          c1000.signalPrediction!.expectedSNR -
-            c100.signalPrediction!.expectedSNR,
-        ).toBeCloseTo(10, 6);
+        // The displayed centre is the physics value put through whole-dB
+        // rounding and the [-30, +30] display clamp, so a 10x power step moves
+        // it by exactly 10 dB unless it was already pinned to a display limit.
+        // (Unclamped 10 dB linearity is asserted on the raw budget above.)
+        const a = c100.snrEstimate;
+        const b = c1000.snrEstimate;
+        if (a > -30) {
+          expect(b, c100.band).toBe(Math.min(30, a + 10));
+        } else {
+          expect(b, c100.band).toBeGreaterThanOrEqual(-30);
+        }
       } else {
         expect(c1000.status).toBe("closed");
       }
     }
   });
 
-  it("a band is closed exactly when it is unsupported or below the mode threshold", () => {
+  it("a band is closed exactly when it is unsupported or its margin is below -3 dB", () => {
     const scenarios = [
       { lat2: 41, lon2: 0, date: NOON },
       { lat2: 40, lon2: 20, date: NOON },
@@ -142,10 +350,14 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
         );
         for (const c of conditions) {
           const pred = c.signalPrediction!;
-          const closedByCircuit =
-            pred.support !== "supported" || pred.signalClass === "none";
+          // Derived from the number the UI shows and the published mode
+          // threshold, not from the engine's own class: "closed" means the
+          // decode margin is more than 3 dB below threshold (see the margin
+          // ladder note above), or the circuit carries no power at all.
+          const margin = c.snrEstimate - MODE_PARAMETERS[mode].minSNR;
+          const closedByMargin = pred.support !== "supported" || margin < -3;
           expect(c.status === "closed", `${mode} ${c.band} ${c.notes}`).toBe(
-            closedByCircuit,
+            closedByMargin,
           );
         }
       }
@@ -154,23 +366,156 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
 });
 
 describe("PROP-02 status uses the selected mode sensitivity", () => {
-  it("maps the one signal-class ladder onto path status", () => {
-    const modes: OperatingMode[] = ["SSB", "CW", "FT8", "RTTY"];
-    for (const mode of modes) {
-      const t = MODE_PARAMETERS[mode].minSNR;
-      expect(classifyPathStatus(t + 20, mode)).toBe("excellent");
-      expect(classifyPathStatus(t + 10, mode)).toBe("good");
-      expect(classifyPathStatus(t + 3, mode)).toBe("fair");
-      expect(classifyPathStatus(t - 3, mode)).toBe("poor");
-      expect(classifyPathStatus(t - 3.1, mode)).toBe("closed");
-      expect(getSignalClass(t + 20, mode)).toBe("strong");
+  /**
+   * The ladder is the decode/copy margin above the mode's own threshold, in
+   * the 2500 Hz reference bandwidth. The 20 / 10 / 3 / -3 dB steps are the
+   * ITU-R P.533 / P.842 reliability convention: P.842 derives circuit
+   * reliability from the required-SNR margin, and roughly 3 dB of margin marks
+   * the 50%-of-days threshold case, 10 dB a comfortably reliable circuit and
+   * 20 dB a circuit that stays up through normal day-to-day variability.
+   * Below -3 dB the mode is not expected to copy at all. Contract M10: this is
+   * a threshold margin, NOT a calibrated QSO probability.
+   *
+   * These are absolute dB values, not `threshold + 20` restatements of the
+   * implementation: changing MODE_PARAMETERS.minSNR must break this test.
+   */
+  const LADDER: Record<
+    OperatingMode,
+    {
+      excellent: number;
+      good: number;
+      fair: number;
+      poor: number;
+      closed: number;
+    }
+  > = {
+    SSB: { excellent: 23, good: 13, fair: 6, poor: 0, closed: -0.1 },
+    CW: { excellent: 12, good: 2, fair: -5, poor: -11, closed: -11.1 },
+    FT8: { excellent: -1, good: -11, fair: -18, poor: -24, closed: -24.1 },
+    RTTY: { excellent: 15, good: 5, fair: -2, poor: -8, closed: -8.1 },
+  };
+
+  it("classifies each mode at its published absolute SNR boundaries", () => {
+    for (const mode of Object.keys(LADDER) as OperatingMode[]) {
+      const l = LADDER[mode];
+      expect(classifyPathStatus(l.excellent, mode), `${mode} excellent`).toBe(
+        "excellent",
+      );
+      expect(classifyPathStatus(l.good, mode), `${mode} good`).toBe("good");
+      expect(classifyPathStatus(l.fair, mode), `${mode} fair`).toBe("fair");
+      expect(classifyPathStatus(l.poor, mode), `${mode} poor`).toBe("poor");
+      expect(classifyPathStatus(l.closed, mode), `${mode} closed`).toBe(
+        "closed",
+      );
+      // The boundaries are the mode threshold plus the documented margins.
+      expect(l.poor - MODE_PARAMETERS[mode].minSNR).toBeCloseTo(-3, 6);
+      expect(getSignalClass(l.excellent, mode)).toBe("strong");
     }
   });
 
-  it("an SNR that is excellent for FT8 is closed for SSB", () => {
+  it("an SNR that is good for FT8 is closed for SSB", () => {
     // -10 dB in 2500 Hz: FT8 margin +11 (good), SSB margin -13 (closed).
     expect(classifyPathStatus(-10, "FT8")).toBe("good");
     expect(classifyPathStatus(-10, "SSB")).toBe("closed");
+  });
+});
+
+describe("PROP-02 the displayed centre is the classified centre", () => {
+  /**
+   * Blocker 2 / Codex round 1: the status was classified on the raw adjusted
+   * SNR (22.6 dB -> "good") while the whole-dB value shown was 23 dB, which
+   * the same ladder calls "excellent"; and the centre spread into the display
+   * prediction was the unshifted, unclamped number, so it could sit far
+   * outside its own [snrLow, snrHigh] range.
+   */
+  const CASES = [
+    { lat2: 41, lon2: 0, kp: 2, label: "short path, quiet" },
+    { lat2: 51.5, lon2: -0.1, kp: 2, label: "medium path, quiet" },
+    { lat2: 35.7, lon2: 139.7, kp: 5, label: "long path, storm" },
+    { lat2: -33.9, lon2: 151.2, kp: 7, label: "antipodal, severe storm" },
+  ];
+
+  it("keeps snrLow <= expectedSNR <= snrHigh and classifies the returned value", () => {
+    for (const mode of ["SSB", "CW", "FT8"] as const) {
+      for (const c of CASES) {
+        const conditions = getEnhancedBandConditions(
+          40,
+          0,
+          c.lat2,
+          c.lon2,
+          c.kp,
+          150,
+          NOON,
+          100,
+          mode === "CW" ? "SSB" : mode,
+          0,
+          "rural",
+        );
+        for (const cond of conditions) {
+          const p = cond.signalPrediction!;
+          const where = `${mode} ${c.label} ${cond.band}`;
+          expect(p.expectedSNR, where).toBe(cond.snrEstimate);
+          expect(p.snrLow!, where).toBeLessThanOrEqual(p.expectedSNR);
+          expect(p.snrHigh!, where).toBeGreaterThanOrEqual(p.expectedSNR);
+          const effectiveMode = mode === "CW" ? "SSB" : mode;
+          expect(classifyPathStatus(p.expectedSNR, effectiveMode), where).toBe(
+            cond.status,
+          );
+          expect(getSignalClass(p.expectedSNR, effectiveMode), where).toBe(
+            p.signalClass,
+          );
+        }
+      }
+    }
+  });
+
+  it("a Kp penalty that crosses a class boundary moves the status with it", () => {
+    // Same path and date, Kp 2 (no penalty) vs Kp 7 (-10 dB). The status must
+    // follow the number that is returned, at both ends, for every band.
+    const quiet = getEnhancedBandConditions(
+      40,
+      0,
+      51.5,
+      -0.1,
+      2,
+      150,
+      NOON,
+      100,
+      "FT8",
+      0,
+      "rural",
+    );
+    const storm = getEnhancedBandConditions(
+      40,
+      0,
+      51.5,
+      -0.1,
+      7,
+      150,
+      NOON,
+      100,
+      "FT8",
+      0,
+      "rural",
+    );
+    let crossings = 0;
+    for (const q of quiet) {
+      const st = storm.find((c) => c.band === q.band)!;
+      expect(classifyPathStatus(q.snrEstimate, "FT8"), q.band).toBe(q.status);
+      expect(classifyPathStatus(st.snrEstimate, "FT8"), st.band).toBe(
+        st.status,
+      );
+      if (
+        q.signalPrediction!.support === "supported" &&
+        q.status !== st.status
+      ) {
+        crossings += 1;
+        expect(st.snrEstimate).toBeLessThan(q.snrEstimate);
+      }
+    }
+    // The scenario is only meaningful if the penalty actually crossed a
+    // boundary somewhere.
+    expect(crossings).toBeGreaterThan(0);
   });
 });
 
@@ -205,6 +550,7 @@ describe("PROP-02 uncertainty bounds are ordered and contain the point", () => {
       const p = c.signalPrediction!;
       expect(p.snrLow!, c.band).toBeLessThanOrEqual(c.snrEstimate);
       expect(p.snrHigh!, c.band).toBeGreaterThanOrEqual(c.snrEstimate);
+      expect(p.expectedSNR, c.band).toBe(c.snrEstimate);
     }
   });
 });

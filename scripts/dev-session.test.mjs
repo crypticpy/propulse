@@ -23,6 +23,7 @@ import {
   filterViteProcessLines,
   findDisallowedForwardedArgs,
   findForwardedOverrideFlags,
+  findOtherAccountSessions,
   findUnmanagedViteProcesses,
   isViteExecutableCommand,
   listSessions,
@@ -663,6 +664,132 @@ test("startSession accepts { registry } and rejects an already-claimed port befo
       lockPath: await lockFile(t),
     }),
     /already running/,
+  );
+});
+
+// PR #894 round 11 P2: REGISTRY and STARTUP_LOCK_PATH are both scoped to
+// this account's uid, so two authorized `dev:session start` invocations
+// under different accounts (each with DEV_SERVER_ALLOW_EXTRA=1 and a
+// distinct port) can both pass refuseIfServerRunning and bind before either
+// sees the other. findOtherAccountSessions is the machine-wide,
+// cross-account half of the fix: it scans every account's registry
+// directory for a live session that isn't the one passed in.
+test("findOtherAccountSessions finds a live session in a sibling account's registry", async (t) => {
+  const tmpRoot = await mkdtemp(
+    path.join(os.tmpdir(), "propulse-cross-account-test-"),
+  );
+  t.after(() => rm(tmpRoot, { recursive: true, force: true }));
+  const ownRegistry = path.join(tmpRoot, "propulse-dev-1000");
+  const otherRegistry = path.join(tmpRoot, "propulse-dev-2000");
+  await mkdir(ownRegistry, { recursive: true });
+  await mkdir(otherRegistry, { recursive: true });
+  const ownSession = { id: "own", filename: path.join(ownRegistry, "5173.json") };
+  await writeFile(ownSession.filename, JSON.stringify({ ...ownSession, pid: process.pid }));
+  await writeFile(
+    path.join(otherRegistry, "5180.json"),
+    JSON.stringify({
+      id: "foreign",
+      owner: "other-account-agent",
+      task: "unrelated-task",
+      pid: process.pid, // alive: reuses this test process's own real pid
+      port: 5180,
+      url: "http://127.0.0.1:5180",
+    }),
+  );
+  const found = await findOtherAccountSessions(ownSession, { tmpdir: tmpRoot });
+  assert.equal(found.length, 1);
+  assert.equal(found[0].owner, "other-account-agent");
+});
+
+test("findOtherAccountSessions ignores its own session and a dead-pid session in another account's registry", async (t) => {
+  const tmpRoot = await mkdtemp(
+    path.join(os.tmpdir(), "propulse-cross-account-test-"),
+  );
+  t.after(() => rm(tmpRoot, { recursive: true, force: true }));
+  const ownRegistry = path.join(tmpRoot, "propulse-dev-1000");
+  const otherRegistry = path.join(tmpRoot, "propulse-dev-2000");
+  await mkdir(ownRegistry, { recursive: true });
+  await mkdir(otherRegistry, { recursive: true });
+  const ownSession = { id: "own", filename: path.join(ownRegistry, "5173.json") };
+  await writeFile(ownSession.filename, JSON.stringify({ ...ownSession, pid: process.pid }));
+  await writeFile(
+    path.join(otherRegistry, "5180.json"),
+    JSON.stringify({ id: "dead", pid: 999999999, port: 5180 }),
+  );
+  const found = await findOtherAccountSessions(ownSession, { tmpdir: tmpRoot });
+  assert.deepEqual(found, []);
+});
+
+// Integration-level coverage of the same fix through startSession itself:
+// a fake `importVite` stands in for the real Vite dev server (never binds a
+// real port), and `findOtherAccountSessions`/`findUnmanaged` are injected so
+// the test controls exactly what the post-bind rescan "sees" — real on
+// revert: without the rescan, startSession has no way to notice a foreign
+// session at all and this would hang waiting for a rejection that never
+// comes.
+test("startSession stops itself when the post-bind rescan finds a foreign account session", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  let closed = false;
+  await assert.rejects(
+    startSession({
+      ...base,
+      registry: dir,
+      port,
+      lockPath: await lockFile(t),
+      importVite: () =>
+        Promise.resolve({
+          createServer: async () => ({
+            listen: async () => {},
+            close: async () => {
+              closed = true;
+            },
+          }),
+        }),
+      findOtherAccountSessions: async () => [
+        {
+          owner: "other-account-agent",
+          task: "unrelated-task",
+          pid: 999999,
+          url: "http://127.0.0.1:5199",
+        },
+      ],
+      findUnmanaged: () => [],
+    }),
+    /Another dev server appeared while starting/,
+  );
+  assert.equal(closed, true, "the post-bind rescan must stop our own child");
+  const remaining = await readdir(dir).catch(() => []);
+  assert.deepEqual(
+    remaining,
+    [],
+    "the post-bind rescan must release this session's claim",
+  );
+});
+
+test("startSession succeeds when the post-bind rescan finds only itself", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  await startSession({
+    ...base,
+    registry: dir,
+    port,
+    lockPath: await lockFile(t),
+    importVite: () =>
+      Promise.resolve({
+        createServer: async () => ({
+          listen: async () => {},
+          close: async () => {},
+        }),
+      }),
+    findOtherAccountSessions: async () => [],
+    findUnmanaged: () => [],
+  });
+  const remaining = await readdir(dir);
+  assert.equal(
+    remaining.length,
+    1,
+    "a successful start must leave its own claim in place",
   );
 });
 

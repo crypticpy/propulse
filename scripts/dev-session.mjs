@@ -422,6 +422,10 @@ export async function withReclaimLock(filename, fn, { renameFn = rename } = {}) 
 // behavior; the bounded retry loop exists only to let racing callers settle
 // a stale-lock reclaim, and fails closed with the same refusal message if
 // it is somehow never able to.
+// Scoped to this account's uid, same as REGISTRY: it only ever serializes
+// same-account starts. Cross-account serialization is NOT this lock's job —
+// see findOtherAccountSessions and its post-`server.listen()` use in
+// startSession, which closes that gap from the other side instead.
 export const STARTUP_LOCK_PATH = path.join(
   os.tmpdir(),
   `propulse-dev-session-${os.userInfo().uid}.lock`,
@@ -717,6 +721,54 @@ export async function findLiveSession(registry = REGISTRY) {
   );
 }
 
+// PR #894 round 11 P2: REGISTRY and STARTUP_LOCK_PATH are both scoped to the
+// calling OS account (os.userInfo().uid), so two authorized `dev:session
+// start` invocations under DIFFERENT accounts — each with
+// DEV_SERVER_ALLOW_EXTRA=1 and a distinct --port — acquire two unrelated
+// locks and claim in two unrelated registries; each passes
+// refuseIfServerRunning (which only ever reads its own account's registry)
+// before either has bound anything, so both proceed. Closing that gap from
+// the start side is not workable: a machine-wide filesystem lock across
+// accounts would need cross-user rename/unlink on a sticky-bit /tmp, which
+// is exactly what the tombstone reclaim above cannot do. Instead, this scans
+// every account's registry directory (`propulse-dev-<uid>`, sibling to this
+// account's own REGISTRY, all under the same os.tmpdir()) for a live session
+// that is not the one just passed in, so a caller can check *after* binding
+// whether a same-moment racer under another account also got through.
+// `isAlive` (used by listSessions under the hood) already tolerates a
+// cross-account pid — `kill(pid, 0)` reports EPERM rather than ESRCH for a
+// live process owned by someone else, and isAlive treats anything but ESRCH
+// as alive — so this correctly sees a foreign account's live session.
+export async function findOtherAccountSessions(
+  ownSession,
+  { tmpdir = os.tmpdir() } = {},
+) {
+  const entries = await readdir(tmpdir, { withFileTypes: true }).catch(
+    (error) => {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    },
+  );
+  const registries = entries
+    .filter(
+      (entry) => entry.isDirectory() && /^propulse-dev-\d+$/.test(entry.name),
+    )
+    .map((entry) => path.join(tmpdir, entry.name));
+  const foreign = [];
+  for (const registryDir of registries) {
+    const sessions = await listSessions(registryDir);
+    for (const entry of sessions) {
+      if (
+        entry.processState === "running-or-starting" &&
+        entry.filename !== ownSession.filename
+      ) {
+        foreign.push(entry);
+      }
+    }
+  }
+  return foreign;
+}
+
 // Node runtime options that can appear before the entry script in
 // `node <options...> <entry-script> <args...>`, and must be skipped rather
 // than mistaken for the script itself. `-r`/`--require`, `--loader`,
@@ -894,6 +946,10 @@ export async function startSession(options) {
     throw new Error("Run from the ProPulse checkout/worktree root.");
   const registry = options.registry ?? REGISTRY;
   const lockPath = options.lockPath ?? STARTUP_LOCK_PATH;
+  const importVite = options.importVite ?? (() => import("vite"));
+  const findOtherAccounts =
+    options.findOtherAccountSessions ?? findOtherAccountSessions;
+  const findUnmanaged = options.findUnmanaged ?? findUnmanagedViteProcesses;
   // Held from the first check through claim + spawn, released in `finally` —
   // see the startup-lock comment above claimPort. Not held across the
   // server's running lifetime: once spawned, refuseIfServerRunning's own
@@ -903,6 +959,7 @@ export async function startSession(options) {
     await refuseIfServerRunning({
       registry,
       port: options.port ?? SHARED_PORT,
+      findUnmanaged,
     });
     const session = await claimSession({
       ...options,
@@ -946,7 +1003,7 @@ export async function startSession(options) {
       // managed session's real identity apart from the plain-`npm run dev`
       // fallback, without registering a second copy of the middleware here.
       process.env.PROPULSE_DEV_SESSION = JSON.stringify(session);
-      const { createServer } = await import("vite");
+      const { createServer } = await importVite();
       server = await createServer({
         root,
         cacheDir: path.join(
@@ -967,6 +1024,39 @@ export async function startSession(options) {
         return;
       }
       await server.listen();
+      // PR #894 round 11 P2: the startup lock above only serializes starts
+      // under this same OS account, so a same-moment racer under a
+      // different account (each with DEV_SERVER_ALLOW_EXTRA=1 and a
+      // distinct port) can pass refuseIfServerRunning and bind before
+      // either sees the other. This closes that race from the other side:
+      // now that our own Vite has bound, re-run the machine-wide half of
+      // the pre-start scan — every account's registry
+      // (findOtherAccountSessions) plus any unmanaged vite-looking process
+      // (findUnmanaged) — excluding this session itself. Both racers can
+      // find each other here and both yield; that is fine, since the
+      // invariant is "at most one", and the next `start` after either exits
+      // succeeds.
+      const foreignSessions = await findOtherAccounts(session);
+      const foreignProcesses = findUnmanaged();
+      if (foreignSessions.length || foreignProcesses.length) {
+        const details = [
+          ...foreignSessions.map(
+            (foreign) =>
+              `owner=${foreign.owner ?? "unknown"} task=${foreign.task ?? "unknown"} ` +
+              `pid=${foreign.pid ?? "unknown"} url=${foreign.url ?? "unknown"}`,
+          ),
+          ...foreignProcesses.map(
+            (proc) =>
+              `pid=${proc.pid} port=${proc.port ?? "unknown"} command=${proc.command}`,
+          ),
+        ].join("\n");
+        throw new Error(
+          `Another dev server appeared while starting (pid=${session.pid} ` +
+            `port=${session.port}):\n${details}\n${SINGLE_SERVER_RULE} This ` +
+            "session is stopping itself so at most one remains — retry once " +
+            "only one server is left.",
+        );
+      }
       console.log(JSON.stringify({ ...session, state: "ready" }, null, 2));
       console.log(
         "Keep this foreground session for handoff. Ctrl-C stops only this server. Never put credentials in owner/task metadata.",

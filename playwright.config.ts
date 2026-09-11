@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { resolveE2EPort } from "./tests/support/sharedServer";
+import { resolveE2EPort, resolveE2EProfile } from "./tests/support/sharedServer";
 
 // Defaults to the one shared machine-wide dev server (port 5173). This suite
 // never starts one on its own: webServer is only defined when explicitly
@@ -32,10 +32,14 @@ export default defineConfig({
   webServer: allowStart
     ? {
         // Only used when explicitly opted in (see allowStart above); this
-        // spawns the shared server itself when nothing is listening.
+        // spawns the shared server itself when nothing is listening. Profile
+        // matches resolveE2EProfile() — the same PROPULSE_E2E_GUEST-derived
+        // value globalSetup is about to require — so a guest-mode run never
+        // autostarts a `local` server that sharedServer.ts immediately
+        // rejects.
         command:
           process.env.PROPULSE_E2E_SERVER_COMMAND ??
-          "node scripts/dev-session.mjs start --owner playwright --task solar-browser-tests --profile local",
+          `node scripts/dev-session.mjs start --owner playwright --task solar-browser-tests --profile ${resolveE2EProfile()}`,
         url: `${baseURL}/solar`,
         reuseExistingServer: true,
         gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },

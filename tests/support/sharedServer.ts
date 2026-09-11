@@ -6,6 +6,20 @@ import {
 } from "../../scripts/dev-session.mjs";
 
 /**
+ * The profile PROPULSE_E2E_GUEST implies: "connected" when set (guest.spec.ts
+ * needs disposable configured auth, not the local AuthGate bypass), "local"
+ * otherwise. Shared by this file's own globalSetup (assertSharedServerIdentity
+ * below) and by both playwright.config.ts/playwright.home.config.ts's opt-in
+ * autostart command (PROPULSE_E2E_ALLOW_START=1) — so a spawned server is
+ * always started with the exact profile globalSetup is about to require,
+ * never a mismatch that fails every guest test at globalSetup before any of
+ * them run.
+ */
+export function resolveE2EProfile(): "connected" | "local" {
+  return process.env.PROPULSE_E2E_GUEST === "1" ? "connected" : "local";
+}
+
+/**
  * One shared machine-wide dev server, not a Playwright-managed one: both
  * browser suites default to it (port 5173). PROPULSE_E2E_PORT is an
  * orchestrator/human-only override for a one-off check against a different,
@@ -63,12 +77,13 @@ export default async function globalSetup(): Promise<void> {
     profile?: string;
   };
   const thisRoot = await realpath(process.cwd());
-  const guestMode = process.env.PROPULSE_E2E_GUEST === "1";
+  const profile = resolveE2EProfile();
   assertSharedServerIdentity(identity, {
     root: thisRoot,
-    profile: guestMode ? "connected" : "local",
-    reason: guestMode
-      ? "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server"
-      : "both Playwright commands request --profile local for the AuthGate bypass",
+    profile,
+    reason:
+      profile === "connected"
+        ? "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server"
+        : "both Playwright commands request --profile local for the AuthGate bypass",
   });
 }

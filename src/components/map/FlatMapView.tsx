@@ -59,6 +59,19 @@ import {
 import type { AuroraData } from "@/lib/api/aurora";
 import { useSatellites } from "@/hooks/useSatellites";
 import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
+import {
+  getCachedOrbitTrack,
+  getOrbitTrackMinuteBucket,
+  projectOrbitTrack,
+  pruneOrbitTrackCache,
+} from "@/lib/map/satelliteTrack2D";
+import {
+  drawSatelliteTracks,
+  resolveSatelliteTrackLabelColors,
+  observeSatelliteTrackLabelColors,
+  type FlatSatelliteTrackEntry,
+  type SatelliteTrackLabelColors,
+} from "@/lib/map/satelliteTrackDraw2D";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 import { useFlatMapGestures } from "@/hooks/useFlatMapGestures";
 import { MapTooltip } from "./MapTooltip";
@@ -3631,6 +3644,97 @@ export function FlatMapView({
   const { satellites: satPositions, selectedSatellite: selectedSat } =
     useSatellites(layers.satellites || layers.satelliteFootprints);
 
+  // Store-driven "Map orbit" tracks (#994 PR B), companion to the globe's
+  // GroundTrack in SatelliteOverlay.tsx.
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  // Coarse clock so cached orbit-track propagations re-anchor on "now" once a
+  // minute, mirroring SatelliteOverlay's minuteTick -- WITHOUT depending on
+  // satPositions' identity, which changes every 5s satellite-position poll
+  // (#994 PR B round 2 item 1). `satelliteTrackRenderTick` only forces the
+  // memo below to recompute once a minute; the cache key getCachedOrbitTrack
+  // actually uses is the absolute minute bucket computed inside the memo
+  // (`Math.floor(Date.now() / 60_000)`), not this counter. A component-local
+  // counter that resets to 0 on remount would otherwise collide with the
+  // module-level cache surviving the remount: reopening the view later with
+  // the same satellite/TLE/config would hit the stale `...|0` entry and draw
+  // a track anchored to the earlier visit for up to a minute (#994 PR B
+  // round 2 finding 1).
+  const [satelliteTrackRenderTick, setSatelliteTrackRenderTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setSatelliteTrackRenderTick((t) => t + 1),
+      60_000,
+    );
+    return () => clearInterval(id);
+  }, []);
+  const flatSatelliteTracks = useMemo((): FlatSatelliteTrackEntry[] => {
+    if (!layers.satellites) return [];
+    const minuteBucket = getOrbitTrackMinuteBucket();
+    const entries: FlatSatelliteTrackEntry[] = [];
+    const activeNoradIds = new Set<number>();
+    for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
+      const noradId = Number(noradIdStr);
+      activeNoradIds.add(noradId);
+      const satellite = satPositions.find((s) => s.noradId === noradId);
+      if (!satellite) continue;
+      // Expensive (SGP4) -- cached by identity/config/minute bucket, so this
+      // is an O(1) hit except once a minute per satellite.
+      const track = getCachedOrbitTrack(satellite, config, minuteBucket);
+      entries.push({
+        satellite,
+        // Cheap (O(n) projection) -- fine to redo every render.
+        geometry: projectOrbitTrack(
+          track,
+          displaySize.width,
+          displaySize.height,
+        ),
+        isSelected: selectedSat?.noradId === noradId,
+      });
+    }
+    // Free cached propagations for satellites no longer being tracked
+    // (#994 PR B round 2 Codex thread 2) instead of waiting for the LRU
+    // bound to evict them.
+    pruneOrbitTrackCache(activeNoradIds);
+    return entries;
+    // satelliteTrackRenderTick is intentionally in the deps but not read in
+    // the body: it exists purely to force this memo to recompute once a
+    // minute (so a track's minute bucket advances even with no other prop
+    // change), while the cache *key* itself comes from the independent,
+    // non-resetting `getOrbitTrackMinuteBucket()` call above (#994 PR B
+    // round 3 Codex thread 1).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    layers.satellites,
+    satelliteTracks,
+    satPositions,
+    selectedSat,
+    displaySize.width,
+    displaySize.height,
+    satelliteTrackRenderTick,
+  ]);
+
+  // Orbit-track label chip colors (#994 PR B round 2 item 2): resolved
+  // against the themed HamClock element (not a bare document.documentElement
+  // -- see resolveSatelliteTrackLabelColors), held in state, and re-resolved
+  // whenever the active theme changes rather than on every canvas frame.
+  const [satelliteTrackColors, setSatelliteTrackColors] =
+    useState<SatelliteTrackLabelColors>(() =>
+      resolveSatelliteTrackLabelColors(),
+    );
+  // Only install the observer while a track is actually active -- with no
+  // tracked satellite, re-resolving on a theme change would still trigger a
+  // state update (and a FlatMapView re-render) for a color nothing on
+  // screen uses (#994 PR B round 4 Codex thread 1).
+  const hasSatelliteTracks = Object.keys(satelliteTracks).length > 0;
+  useEffect(() => {
+    if (!hasSatelliteTracks) return;
+    // Catch any theme change that happened while gated off above.
+    setSatelliteTrackColors(resolveSatelliteTrackLabelColors());
+    return observeSatelliteTrackLabelColors(() =>
+      setSatelliteTrackColors(resolveSatelliteTrackLabelColors()),
+    );
+  }, [hasSatelliteTracks]);
+
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
   const { earthquakeData, weatherAlerts, lightningStrikes, fireHotspots } =
@@ -6004,6 +6108,16 @@ export function FlatMapView({
         selectedSat,
       );
     }
+    if (layers.satellites && flatSatelliteTracks.length > 0) {
+      drawSatelliteTracks(
+        ctx,
+        flatSatelliteTracks,
+        SAT_CATEGORY_COLORS,
+        satelliteTrackColors,
+        zoom.scale,
+        labelScale,
+      );
+    }
     if (layers.satellites && satPositions.length > 0) {
       drawSatellites(
         ctx,
@@ -6232,6 +6346,8 @@ export function FlatMapView({
     matchedSpotIds,
     satPositions,
     selectedSat,
+    flatSatelliteTracks,
+    satelliteTrackColors,
     earthquakeData,
     weatherAlerts,
     lightningStrikes,

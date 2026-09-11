@@ -193,6 +193,46 @@ describe("traceRayPath", () => {
   });
 });
 
+describe("PROP-03 (#949): iteration bounds that come from the caller", () => {
+  it("refuses a hop count it would otherwise loop over", () => {
+    // `calculateReflectionPoints` walks the count it is handed. A billion is a
+    // perfectly good integer and an unbounded loop.
+    for (const numHops of [0, -1, 2.5, 1_000_000_000, Number.NaN]) {
+      expect(() =>
+        calculateReflectionPoints(
+          NY.lat,
+          NY.lon,
+          TOKYO.lat,
+          TOKYO.lon,
+          numHops,
+          DATE,
+        ),
+      ).toThrow(RangeError);
+    }
+  }, 2000);
+
+  it("throws on an unusable mirror height instead of hanging the caller", () => {
+    // The engine reaches `minimumHopCount` before `hopGeometry` validates
+    // anything, so a zero or NaN mirror height used to spin inside the hop
+    // count search rather than reporting a bad request.
+    for (const mirrorHeightKm of [0, -1, Number.NaN]) {
+      expect(() =>
+        traceRayPath({
+          startLat: NY.lat,
+          startLon: NY.lon,
+          endLat: TOKYO.lat,
+          endLon: TOKYO.lon,
+          frequencyMHz: 14.074,
+          date: DATE,
+          sfi: 150,
+          kp: 2,
+          mirrorHeightKm,
+        }),
+      ).toThrow(RangeError);
+    }
+  }, 2000);
+});
+
 describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings", () => {
   // London to New York at 08:00 UTC on the equinox. The first hop's midpoint
   // is in daylight and its exit penetration point is past the terminator, so
@@ -230,7 +270,10 @@ describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings
     if (geometry.kind !== "supported") throw new Error("unreachable");
 
     const hop = result.hops[0];
-    const entry = routeSampleAtFraction(route, geometry.penetrationFractions[0]);
+    const entry = routeSampleAtFraction(
+      route,
+      geometry.penetrationFractions[0],
+    );
     const exit = routeSampleAtFraction(route, geometry.penetrationFractions[1]);
     const entryCrossing = crossingAt(entry, TERMINATOR_DATE, SFI);
     const exitCrossing = crossingAt(exit, TERMINATOR_DATE, SFI);
@@ -267,7 +310,10 @@ describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings
 
   it("makes the mode total the exact sum of its hops", () => {
     const result = terminatorTrace();
-    const summed = result.hops.reduce((total, hop) => total + hop.absorptionDb, 0);
+    const summed = result.hops.reduce(
+      (total, hop) => total + hop.absorptionDb,
+      0,
+    );
     // Exact, not close: the total is that sum, not a second evaluation of the
     // same crossings that is free to disagree with it.
     expect(result.totalAbsorptionDb).toBe(summed);

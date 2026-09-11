@@ -243,6 +243,53 @@ describe("input validation", () => {
       }),
     ).toThrow(RangeError);
   });
+
+  it("throws on a mirror height that cannot be solved instead of spinning", () => {
+    // Each of these makes `maximumHopGroundDistanceKm` return 0 or NaN, so the
+    // hop count starts at Infinity or NaN, the elevation comparison is never
+    // satisfied and the increment loop never terminates. A bad value arriving
+    // through the mirror-height option used to hang the event loop; the engine
+    // reaches `minimumHopCount` before `hopGeometry` gets a chance to validate
+    // anything.
+    for (const mirrorHeightKm of [
+      0,
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      expect(() => minimumHopCount(3000, mirrorHeightKm)).toThrow(RangeError);
+      expect(() => maximumHopGroundDistanceKm(mirrorHeightKm)).toThrow(
+        RangeError,
+      );
+    }
+    expect(() => minimumHopCount(Number.NaN, 300)).toThrow(RangeError);
+    expect(() => minimumHopCount(-1, 300)).toThrow(RangeError);
+    expect(() => minimumHopCount(Number.POSITIVE_INFINITY, 300)).toThrow(
+      RangeError,
+    );
+    // A zero-length circuit has no mode, but counting its hops is still one.
+    expect(minimumHopCount(0, 300)).toBe(1);
+  }, 2000);
+
+  it("bounds the search instead of incrementing a count it cannot change", () => {
+    // Every input here is finite and positive, so validation passes, but the
+    // starting count is so large that `hopCount + 1` is the same float: the
+    // loop can never reach a positive elevation and can never advance either.
+    expect(() => minimumHopCount(Number.MAX_VALUE, 300)).toThrow(RangeError);
+    expect(() => minimumHopCount(Number.MAX_VALUE, 300)).toThrow(/hop count/i);
+  }, 2000);
+
+  it("refuses a hop count no mode could have", () => {
+    // The penetration-point loop runs `hopCount` times, so an absurd count is
+    // an unbounded loop wearing the clothes of a valid integer.
+    expect(() =>
+      hopGeometry({
+        groundDistanceKm: 3000,
+        hopCount: 1_000_000_000,
+        mirrorHeightKm: 300,
+      }),
+    ).toThrow(RangeError);
+  }, 2000);
 });
 
 describe("memoisation", () => {

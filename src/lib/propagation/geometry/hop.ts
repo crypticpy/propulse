@@ -67,6 +67,17 @@ export const ABSORPTION_INCIDENCE_HEIGHT_KM = 110;
 /** Upper bound on the mirror height, km. P.533-14 section 5.1. */
 export const MAX_MIRROR_HEIGHT_KM = 500;
 
+/**
+ * Largest hop count this module will name or solve.
+ *
+ * Not a physical claim: the longest circuit on Earth is the circumference, and
+ * at the lowest mirror height anyone would call ionospheric that is under two
+ * hundred hops. The bound exists so that no loop here can be driven by a
+ * caller's number without end, including the case where the count is so large
+ * that adding one to it is the same float.
+ */
+export const MAX_HOP_COUNT = 1000;
+
 export interface HopGeometryInputs {
   /** Ground distance of the whole circuit along its resolved route, km. */
   readonly groundDistanceKm: number;
@@ -141,12 +152,22 @@ export function mirrorHeightFromM3000F2(m3000F2: number): number {
   return Math.min(1490 / m3000F2 - 176, MAX_MIRROR_HEIGHT_KM);
 }
 
+/** The one mirror-height check, so every entry point rejects the same set. */
+function assertMirrorHeight(mirrorHeightKm: number): void {
+  if (!Number.isFinite(mirrorHeightKm) || mirrorHeightKm <= 0) {
+    throw new RangeError(
+      `mirrorHeightKm must be positive and finite, received ${String(mirrorHeightKm)}.`,
+    );
+  }
+}
+
 /**
  * Longest single hop a mirror at `hr` can reach, km.
  *
  * The limit is the grazing ray, `delta = 0`, at which `cos(psi) = R0/(R0+hr)`.
  */
 export function maximumHopGroundDistanceKm(mirrorHeightKm: number): number {
+  assertMirrorHeight(mirrorHeightKm);
   const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + mirrorHeightKm);
   return 2 * EARTH_RADIUS_KM * Math.acos(ratio);
 }
@@ -189,14 +210,35 @@ export function minimumHopCount(
   groundDistanceKm: number,
   mirrorHeightKm: number,
 ): number {
+  // `traceRayPath` reaches this before it reaches `hopGeometry`, so this is
+  // where a mirror height arriving from an option is first seen. An unchecked
+  // zero or NaN here does not produce a wrong answer, it produces no answer:
+  // the count starts at Infinity or NaN, the elevation test is never satisfied
+  // and the loop below cannot end.
+  assertMirrorHeight(mirrorHeightKm);
+  if (!Number.isFinite(groundDistanceKm) || groundDistanceKm < 0) {
+    throw new RangeError(
+      `groundDistanceKm must be a non-negative finite number, received ${String(groundDistanceKm)}.`,
+    );
+  }
+
   const maxHop = maximumHopGroundDistanceKm(mirrorHeightKm);
   let hopCount = Math.max(1, Math.ceil(groundDistanceKm / maxHop));
-  while (
-    !(elevationAngleRadFor(groundDistanceKm / hopCount, mirrorHeightKm) > 0)
-  ) {
+  while (hopCount <= MAX_HOP_COUNT) {
+    if (elevationAngleRadFor(groundDistanceKm / hopCount, mirrorHeightKm) > 0) {
+      return hopCount;
+    }
     hopCount += 1;
   }
-  return hopCount;
+  // The bound is the exit, not an afterthought inside the body: a count large
+  // enough that adding one to it is the same float would otherwise loop for
+  // ever, and a count this module would refuse to solve is not one it should
+  // recommend either.
+  throw new RangeError(
+    `no hop count at or below ${String(MAX_HOP_COUNT)} gives a positive ` +
+      `elevation angle over ${String(groundDistanceKm)} km with a mirror at ` +
+      `${String(mirrorHeightKm)} km.`,
+  );
 }
 
 /** Angle of incidence at height `h` for a ray of elevation `delta`. */
@@ -292,16 +334,15 @@ export function hopGeometry(inputs: HopGeometryInputs): HopGeometry {
       `groundDistanceKm must be positive and finite, received ${String(groundDistanceKm)}.`,
     );
   }
-  if (!Number.isInteger(hopCount) || hopCount < 1) {
+  // The upper bound is load-bearing, not decorative: the penetration-point
+  // loop below runs once per hop, so an absurd count is an unbounded loop
+  // wearing the clothes of a valid integer.
+  if (!Number.isInteger(hopCount) || hopCount < 1 || hopCount > MAX_HOP_COUNT) {
     throw new RangeError(
-      `hopCount must be a positive integer, received ${String(hopCount)}.`,
+      `hopCount must be an integer between 1 and ${String(MAX_HOP_COUNT)}, received ${String(hopCount)}.`,
     );
   }
-  if (!Number.isFinite(mirrorHeightKm) || mirrorHeightKm <= 0) {
-    throw new RangeError(
-      `mirrorHeightKm must be positive and finite, received ${String(mirrorHeightKm)}.`,
-    );
-  }
+  assertMirrorHeight(mirrorHeightKm);
 
   const key = `${inputs.stateDigest ?? ""}|${groundDistanceKm}|${hopCount}|${mirrorHeightKm}`;
   const cached = memo.get(key);

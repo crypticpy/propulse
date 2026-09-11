@@ -52,7 +52,11 @@ import {
   type ResolvedRoute,
   type RouteResolution,
 } from "@/lib/propagation/geometry/route";
-import { hopGeometry, minimumHopCount } from "@/lib/propagation/geometry/hop";
+import {
+  hopGeometry,
+  MAX_HOP_COUNT,
+  minimumHopCount,
+} from "@/lib/propagation/geometry/hop";
 import {
   dRegionAbsorption,
   type DRegionCrossing,
@@ -335,6 +339,14 @@ export function calculateReflectionPoints(
   date: Date,
   pathMode: "short" | "long" = "short",
 ): ReflectionPoint[] {
+  // The loop below runs once per hop, so the count is an iteration bound the
+  // caller supplies. It is checked against the same limit the geometry solver
+  // applies, rather than trusted because it happens to be an integer.
+  if (!Number.isInteger(numHops) || numHops < 1 || numHops > MAX_HOP_COUNT) {
+    throw new RangeError(
+      `numHops must be an integer between 1 and ${String(MAX_HOP_COUNT)}, received ${String(numHops)}.`,
+    );
+  }
   const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
   if (!isResolved(route)) return [];
 
@@ -619,7 +631,10 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   // crossings. Equation (20) is linear in the crossing terms, so summing the
   // n single-hop losses is the n-hop loss exactly, and the two can no longer
   // disagree about the circuit they describe.
-  const totalAbsorptionDb = hops.reduce((total, h) => total + h.absorptionDb, 0);
+  const totalAbsorptionDb = hops.reduce(
+    (total, h) => total + h.absorptionDb,
+    0,
+  );
   const absorptionPassCount = hopAbsorptions.reduce(
     (total, a) => total + a.passCount,
     0,

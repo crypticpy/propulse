@@ -19,7 +19,7 @@ import type {
   NoiseAssumption,
 } from "../../types/signal";
 import { getExternalNoiseFigure, resolveNoiseEnvironment } from "./noiseModel";
-import type { NoiseEnvironment } from "./noiseModel";
+import type { AtmosphericNoiseOptions, NoiseEnvironment } from "./noiseModel";
 
 /**
  * Reference bandwidth (Hz) for SNR reporting.
@@ -329,13 +329,24 @@ export function sUnitsTodBm(sUnits: number): number {
  * @param frequencyMHz - Operating frequency in MHz (Fa is frequency dependent)
  * @param noiseEnvironment - Optional caller environment; omitted resolves to
  *   the declared default with `source: "assumed"`
+ * @param atmosphericOptions - Receiver time/season/latitude context for the
+ *   P.372 atmospheric term Faa. Omitting it is not neutral: the daytime
+ *   (-10 dB), winter (-5 dB) and high-latitude (-5 dB) corrections then never
+ *   apply and Faa is reported at its worst case, which dominates the power sum
+ *   across the whole HF range. Callers that know the receiver's local time,
+ *   month and latitude must pass them (PROP-02 #948).
  */
 export function calculateReferenceNoise(
   frequencyMHz: number,
   noiseEnvironment?: NoiseEnvironment,
+  atmosphericOptions?: AtmosphericNoiseOptions,
 ): NoiseAssumption {
   const { environment, source } = resolveNoiseEnvironment(noiseEnvironment);
-  const fa_dB = getExternalNoiseFigure(frequencyMHz, environment);
+  const fa_dB = getExternalNoiseFigure(
+    frequencyMHz,
+    environment,
+    atmosphericOptions,
+  );
   const thermalNoiseDbm =
     THERMAL_NOISE_DBM_PER_HZ + 10 * Math.log10(REFERENCE_BANDWIDTH_HZ);
   return {
@@ -386,7 +397,18 @@ export function calculateExpectedSNR(
   antennaGainDbi: number = 0,
   frequencyMHz: number,
   noiseEnvironment?: NoiseEnvironment,
+  atmosphericOptions?: AtmosphericNoiseOptions,
 ): number {
+  // A non-finite frequency has no noise floor and no path: it can only come
+  // from a caller bug, never from a user input (0 W below is a real user
+  // input, so that one keeps its sentinel). Throw rather than return a
+  // fabricated SNR that would be classified and displayed as physics.
+  if (!Number.isFinite(frequencyMHz)) {
+    throw new RangeError(
+      `calculateExpectedSNR: frequencyMHz must be finite, received ${frequencyMHz}`,
+    );
+  }
+
   // Guard against invalid inputs
   if (txPowerWatts <= 0) {
     return -100;
@@ -403,6 +425,7 @@ export function calculateExpectedSNR(
   const noiseFloor = calculateReferenceNoise(
     frequencyMHz,
     noiseEnvironment,
+    atmosphericOptions,
   ).noiseFloorDbm;
 
   // Received signal level
@@ -650,9 +673,12 @@ export function calculateConfidenceInterval(
  * @param muf - Maximum Usable Frequency in MHz for confidence interval calculation
  * @param support - Circuit support from the path solver (contract M07). An
  *   unsupported mode contributes no power: the loss breakdown is still
- *   reported, but expectedSNR and the SNR bounds are -Infinity, sUnit is S0
- *   and signalClass is "none". Defaults to "supported" for callers that have
- *   already established support.
+ *   reported, but expectedSNR and the SNR bounds are -Infinity, sUnit is S0,
+ *   signalClass is "none" and the confidence and its bounds are 0. Defaults to
+ *   "supported" for callers that have already established support.
+ * @param atmosphericOptions - Receiver time/season/latitude context for the
+ *   ITU-R P.372 atmospheric noise term. Omitting it is not neutral -- see
+ *   calculateReferenceNoise.
  * @returns Complete SignalPrediction object with optional confidence intervals
  *
  * @example
@@ -696,6 +722,7 @@ export function predictSignalStrength(
   sfi?: number,
   muf?: number,
   support: CircuitSupport = "supported",
+  atmosphericOptions?: AtmosphericNoiseOptions,
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
@@ -714,7 +741,11 @@ export function predictSignalStrength(
   }
 
   // One noise plane for the SNR and the reported assumption (M09/M10)
-  const noise = calculateReferenceNoise(frequencyMHz, noiseEnvironment);
+  const noise = calculateReferenceNoise(
+    frequencyMHz,
+    noiseEnvironment,
+    atmosphericOptions,
+  );
 
   // An unsupported ordinary mode contributes no power (M07): zero received
   // power is -Infinity dBm, so SNR and S-meter follow from that, not from a
@@ -730,6 +761,7 @@ export function predictSignalStrength(
         antennaGainDbi,
         frequencyMHz,
         noiseEnvironment,
+        atmosphericOptions,
       )
     : Number.NEGATIVE_INFINITY;
 
@@ -745,8 +777,13 @@ export function predictSignalStrength(
   // Classify signal strength
   const signalClass = getSignalClass(expectedSNR, mode);
 
-  // Calculate prediction confidence
-  const confidence = calculateConfidence(distanceKm, hops, expectedSNR, mode);
+  // Calculate prediction confidence. An unsupported mode has no predicted
+  // signal to be confident about, so the confidence is 0, not the distance/hop
+  // heuristic's 65-75 (PROP-02 #948). The interval below collapses to [0, 0]
+  // for the same reason: there is no spread around "no circuit".
+  const confidence = isSupported
+    ? calculateConfidence(distanceKm, hops, expectedSNR, mode)
+    : 0;
 
   // Build base prediction
   const prediction: SignalPrediction = {
@@ -764,7 +801,12 @@ export function predictSignalStrength(
   };
 
   // Calculate confidence intervals when solar/geomagnetic data is available
-  if (kp !== undefined && sfi !== undefined) {
+  if (kp !== undefined && sfi !== undefined && !isSupported) {
+    prediction.confidenceLow = 0;
+    prediction.confidenceHigh = 0;
+    prediction.snrLow = Number.NEGATIVE_INFINITY;
+    prediction.snrHigh = Number.NEGATIVE_INFINITY;
+  } else if (kp !== undefined && sfi !== undefined) {
     const modeParams = MODE_PARAMETERS[mode];
     const snrMargin = expectedSNR - modeParams.minSNR;
     const mufRatio = muf && muf > 0 ? frequencyMHz / muf : 0.6; // Default 0.6 if MUF unknown

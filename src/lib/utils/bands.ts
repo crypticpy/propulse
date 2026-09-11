@@ -9,7 +9,7 @@ import type {
   OverallCondition,
   VHFCondition,
 } from "../../types/solar";
-import { getIonosphericParameters } from "./ionosphere";
+import { calculateZenithAngle, getIonosphericParameters } from "./ionosphere";
 import { getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
 import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
@@ -877,6 +877,19 @@ export function getEnhancedBandConditions(
   // Get ionospheric parameters at path midpoint
   const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
 
+  // Receiver context for the ITU-R P.372 atmospheric noise term Faa. Faa is a
+  // property of the *receiving* station, not of the path midpoint, so the
+  // daytime test uses the home station's own solar zenith angle. Omitting
+  // these corrections leaves Faa at its worst case (night, summer, low
+  // latitude), which dominates the power sum and floods every band with
+  // 10-20 dB of noise that is not there (PROP-02 #948).
+  // `month` is 1-based: noiseModel's winter test is Nov-Feb / May-Aug.
+  const receiverNoiseContext = {
+    isDaytime: calculateZenithAngle(homeLat, homeLon, date) < 90,
+    month: date.getUTCMonth() + 1,
+    latitude: homeLat,
+  };
+
   // Compute geomagnetic-based polar path assessment
   const crossesAuroral = pathCrossesAuroralZone(
     homeLat,
@@ -934,6 +947,7 @@ export function getEnhancedBandConditions(
       sfi,
       pathMuf,
       rayResult.isPathViable ? "supported" : "above_basic_muf",
+      receiverNoiseContext,
     );
 
     // Build notes array
@@ -1007,19 +1021,26 @@ export function getEnhancedBandConditions(
     // Remember the total penalty so the uncertainty interval can be shifted
     // by the same amount — the displayed center must sit inside its range.
     // (For an unsupported mode expectedSNR is -Infinity and the shift is NaN;
-    // the bounds are -Infinity too, so the clamp below still pins them.)
+    // the bounds are pinned explicitly below, so the shift is never used.)
     const snrShift = adjustedSNR - signalPred.expectedSNR;
 
-    // Status and signal class from the same unclipped, mode-referenced number
-    // (PROP-02 #948). An unsupported mode has -Infinity SNR and is "closed";
-    // there is no separate blanket SFI/day-night closure any more, because
+    // One display transform for the centre and both bounds: whole-dB rounding
+    // then the [-30, +30] display clamp. Both steps are monotone
+    // non-decreasing, so low <= centre <= high survives them and the centre
+    // can never fall outside its own interval. Rounding the centre while
+    // leaving the bounds at 0.1 dB would break that containment.
+    // -Infinity (an unsupported mode) pins to the -30 floor.
+    const toDisplaySNR = (snr: number): number =>
+      Math.max(-30, Math.min(30, Math.round(snr)));
+
+    // Status and signal class are derived from the number that is actually
+    // returned and rendered, not from the pre-rounding value (Codex round 1:
+    // 22.6 dB was classed "good" while "23" — excellent — was displayed).
+    // There is no separate blanket SFI/day-night closure any more, because
     // those rules could contradict the circuit the ray solver just returned.
+    adjustedSNR = toDisplaySNR(adjustedSNR);
     const status = classifyPathStatus(adjustedSNR, mode);
     const adjustedClass = getSignalClass(adjustedSNR, mode);
-
-    // Display range: one monotone clamp to [-30, +30] on the center and (below)
-    // both bounds, so order and containment are preserved.
-    adjustedSNR = Math.max(-30, Math.min(30, Math.round(adjustedSNR)));
 
     // Sporadic E annotation for 6m and 10m
     if (
@@ -1036,13 +1057,13 @@ export function getEnhancedBandConditions(
       }
     }
 
-    const { sUnit } = signalPred;
-
     // Shift the uncertainty interval by the same Kp/SFI penalties applied to
-    // the center estimate so the displayed center, range, status and class
-    // all come from one number, then apply the same display clamp.
+    // the centre estimate, then put all three through `toDisplaySNR`, so the
+    // displayed centre, range, status and class all come from one number and
+    // snrLow <= expectedSNR <= snrHigh holds by construction.
     const displayPred: SignalPrediction = {
       ...signalPred,
+      expectedSNR: adjustedSNR,
       signalClass: adjustedClass,
     };
     if (signalPred.support !== "supported") {
@@ -1050,18 +1071,19 @@ export function getEnhancedBandConditions(
       displayPred.snrHigh = -30;
     } else {
       if (displayPred.snrLow !== undefined) {
-        displayPred.snrLow = Math.max(
-          -30,
-          Math.min(30, Math.round((displayPred.snrLow + snrShift) * 10) / 10),
-        );
+        displayPred.snrLow = toDisplaySNR(displayPred.snrLow + snrShift);
       }
       if (displayPred.snrHigh !== undefined) {
-        displayPred.snrHigh = Math.max(
-          -30,
-          Math.min(30, Math.round((displayPred.snrHigh + snrShift) * 10) / 10),
-        );
+        displayPred.snrHigh = toDisplaySNR(displayPred.snrHigh + snrShift);
       }
     }
+
+    // The S-meter reading shown next to the SNR must come from the same
+    // prediction object the UI renders (finding 3, PROP-02 #948). For an
+    // unsupported mode it is S0 at -Infinity dBm: no power arrives. Renderers
+    // must branch on `support` and print the unsupported state rather than a
+    // number — see BandConditionsPanel.
+    const { sUnit } = displayPred;
 
     return {
       band: band.name,

@@ -8,7 +8,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
-import type { MapDataScope } from "@/lib/map/operationalScope";
 
 export type OpsDockTab = "dx" | "log" | "contest";
 
@@ -40,20 +39,6 @@ interface ContestUIState {
   // Ops dock state
   // ---------------------------------------------------------------------------
   dockTabBySessionId: Record<string, OpsDockTab>;
-  /**
-   * The operating scope under which the operator last *explicitly* chose the
-   * dock tab, keyed the same way as `dockTabBySessionId` (#884 round 10).
-   *
-   * The explicit intent itself is ephemeral by design, so a window that opens
-   * later — or the clicking window after a reload — hydrates the persisted tab
-   * with no way to tell an explicit choice from a stale one, and reconciles it
-   * away. This marker is what tells them apart. It is set when the reconciler
-   * consumes an intent (the point where the scope has settled) and cleared by
-   * `setDockTab`, which every automatic write goes through, so it can never
-   * outlive one scope change or one session.
-   */
-  explicitDockTabScopeByDockKey: Record<string, MapDataScope>;
-  markExplicitDockTab: (dockKey: string, scope: MapDataScope) => void;
   setDockTab: (sessionId: string, tab: OpsDockTab) => void;
   getDockTab: (sessionId: string | null | undefined) => OpsDockTab;
 
@@ -123,36 +108,13 @@ export const useContestUIStore = create<ContestUIState>()(
   persist(
     (set, get) => ({
       dockTabBySessionId: {},
-      explicitDockTabScopeByDockKey: {},
-      // Any write through this setter is an automatic one unless the caller
-      // marks it afterwards, so it clears the explicit marker. That keeps the
-      // marker honest for writers this file has never heard of.
       setDockTab: (sessionId, tab) =>
-        set((state) => {
-          const explicit = { ...state.explicitDockTabScopeByDockKey };
-          delete explicit[sessionId];
-          return {
-            dockTabBySessionId: {
-              ...state.dockTabBySessionId,
-              [sessionId]: tab,
-            },
-            explicitDockTabScopeByDockKey: explicit,
-          };
-        }),
-      // Idempotent: re-marking the same scope must not churn the store, or
-      // every window that consumes the same intent would publish a redundant
-      // snapshot to the others.
-      markExplicitDockTab: (dockKey, scope) =>
-        set((state) =>
-          state.explicitDockTabScopeByDockKey[dockKey] === scope
-            ? state
-            : {
-                explicitDockTabScopeByDockKey: {
-                  ...state.explicitDockTabScopeByDockKey,
-                  [dockKey]: scope,
-                },
-              },
-        ),
+        set((state) => ({
+          dockTabBySessionId: {
+            ...state.dockTabBySessionId,
+            [sessionId]: tab,
+          },
+        })),
       getDockTab: (sessionId) => {
         if (!sessionId) {
           return "dx";
@@ -271,26 +233,15 @@ export const useContestUIStore = create<ContestUIState>()(
     {
       name: "propulse-contest-ui",
       storage: createJSONStorage(() => localStorage),
-      version: 4,
+      version: 3,
       migrate: (persisted, version) => {
-        if (version >= 4) {
+        if (version >= 3) {
           return persisted as ContestUIState;
         }
 
         const state = persisted as Partial<ContestUIState>;
-        if (version === 3) {
-          // v4 adds the explicit dock-tab scope marker (#884 round 10). There
-          // is no way to recover which stored tabs were explicit, so every
-          // dock starts unmarked and the first reconcile treats them as
-          // automatic.
-          return {
-            ...state,
-            explicitDockTabScopeByDockKey: {},
-          } as ContestUIState;
-        }
         return {
           dockTabBySessionId: state.dockTabBySessionId ?? {},
-          explicitDockTabScopeByDockKey: {},
           bandBySessionId: state.bandBySessionId ?? {},
           modeBySessionId: state.modeBySessionId ?? {},
           draftBySessionId: state.draftBySessionId ?? {},
@@ -315,7 +266,6 @@ export const useContestUIStore = create<ContestUIState>()(
       },
       partialize: (state) => ({
         dockTabBySessionId: state.dockTabBySessionId,
-        explicitDockTabScopeByDockKey: state.explicitDockTabScopeByDockKey,
         bandBySessionId: state.bandBySessionId,
         modeBySessionId: state.modeBySessionId,
         draftBySessionId: state.draftBySessionId,

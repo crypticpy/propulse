@@ -88,19 +88,6 @@ export function normalizeOperationalState(
   return patch;
 }
 
-/**
- * The explicit dock-tab scope marker travels with the tab it qualifies, so both
- * windows agree on which tab was chosen deliberately (#884 round 10).
- */
-function normalizeExplicitDockTabScopes(
-  value: unknown,
-): Record<string, MapDataScope> | undefined {
-  if (!isRecord(value)) return undefined;
-  return Object.fromEntries(
-    Object.entries(value).filter(([, scope]) => isScope(scope)),
-  ) as Record<string, MapDataScope>;
-}
-
 /** Per-session maps in `contestUi`, keyed by session id. */
 const SESSION_MAP_FIELDS = [
   "bandBySessionId",
@@ -122,12 +109,6 @@ export function normalizeContestUiState(state: unknown): ContestUiWirePatch {
       isDockTab(tab),
     );
     patch.dockTabBySessionId = Object.fromEntries(tabs);
-  }
-  const explicitScopes = normalizeExplicitDockTabScopes(
-    state.explicitDockTabScopeByDockKey,
-  );
-  if (explicitScopes !== undefined) {
-    patch.explicitDockTabScopeByDockKey = explicitScopes;
   }
   for (const field of SESSION_MAP_FIELDS) {
     if (isRecord(state[field])) patch[field] = state[field];

@@ -17,11 +17,11 @@
  *   its own, in a separate document with its own store instances.
  *
  * **Host contract (#884 round 11): a host must have applied every startup input
- * to the derived scope before it mounts this hook.** The first run is the one
- * that decides whether a persisted explicit tab (rule 4) stands, so a host that
+ * to the derived scope before it mounts this hook.** The first run records the
+ * scope every later transition is measured against (rule 4), so a host that
  * opens the workspace, hydrates a draft or applies a session *after* mounting
- * would have the reconciler judge the tab against a scope the window is about
- * to leave — and clear the marker on the way past. `PropSphereOpsWindow` sets
+ * would make its own startup look like a transition and reconcile a persisted
+ * explicit tab away. `PropSphereOpsWindow` sets
  * `workspaceOpen` in an outer component and renders the console only once that
  * is done. The inputs and where each settles:
  * - `manualScope`, contest session, QSO draft callsign — persisted stores,
@@ -32,8 +32,7 @@
  *   arrives later is a genuine scope change, not startup, and is reconciled as
  *   one.
  * - a remote snapshot arriving on join — also a genuine change: it moves the
- *   scope through the same stores, and it carries the marker with it, so the
- *   tab it explains and the scope it belongs to arrive together.
+ *   scope through the same stores, together with the tab it explains.
  *
  * The rule:
  * 1. While an explicit tab click (`dockTabIntent`) is outstanding the
@@ -55,16 +54,21 @@
  *    actually changed. Both are recorded on every run — including a run the
  *    posture gate rejects — so a later posture change cannot replay a stale
  *    reconcile.
- * 4. A window that was not there for the click (a late-joining popout, or this
- *    one after a reload) has no ephemeral intent. It reads
- *    `explicitDockTabScopeByDockKey`: a marker equal to the current scope means
- *    the persisted tab was chosen deliberately and still stands (#884 round
- *    10).
  * 3. Contact and Desk own the dock tab, so Work does not hide the band map —
  *    except when the operator has just picked a scope in
  *    `OperationalScopeControl` (`scopeReconcileRequestId`). Choosing Log takes
  *    the desk in the same event, so the gate would otherwise swallow the very
  *    change that was asked for (#884 round 6).
+ * 4. A window's first run never writes and never clears: it adopts whatever
+ *    tab is persisted for its dock (#884 round 13). Windows legitimately start
+ *    at different scopes — the popout is the workspace and starts at Log, a
+ *    reloaded main window is collapsed at Observe — so a startup scope that
+ *    differs from the one the operator chose the tab under proves nothing. The
+ *    consequence is deliberate: when a window later *observes* a transition it
+ *    reconciles and broadcasts the automatic tab, even if a peer is sitting at
+ *    the scope the tab was chosen for. That is the same behaviour two live
+ *    windows have had since round 9 — the last real transition anywhere wins —
+ *    and it is what keeps one rule instead of a per-window negotiation.
  */
 
 import { useEffect, useRef } from "react";
@@ -79,14 +83,6 @@ export function useDockTabReconciler(): void {
   const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const dockKey = dockKeyForSession(sessionId);
   const setDockTab = useContestUIStore((s) => s.setDockTab);
-  const markExplicitDockTab = useContestUIStore((s) => s.markExplicitDockTab);
-  // The scope under which the operator last explicitly chose this dock's tab.
-  // The intent is ephemeral, so this persisted marker is the only thing a
-  // late-joining window (or this one after a reload) has to tell an explicit
-  // tab from a stale one (#884 round 10).
-  const explicitScope = useContestUIStore(
-    (s) => s.explicitDockTabScopeByDockKey[dockKey],
-  );
   const posture = useOpsPostureStore((s) => s.posture);
   const { scope } = useMapOperationalContext();
   const dockTabIntent = useContestUIEphemeralStore((s) => s.dockTabIntent);
@@ -124,10 +120,6 @@ export function useDockTabReconciler(): void {
       }
       if (dockTabIntent.scope === scope) {
         clearDockTabIntent();
-        // The scope has settled, so this is the moment to record what the
-        // choice was made under; every window that hydrates the tab later can
-        // then tell it is explicit.
-        markExplicitDockTab(dockKey, scope);
         heldAgainst.current = null;
         reconciled.current = { scope, dockKey };
         return;
@@ -147,12 +139,16 @@ export function useDockTabReconciler(): void {
     }
     const previous = reconciled.current;
     reconciled.current = { scope, dockKey };
-    if (previous === null && explicitScope === scope) {
-      // First run in this window — a new /map/ops window, or this one after a
-      // reload. The persisted tab was explicitly chosen under the scope that is
-      // still current, so it stands exactly as it would have in the window that
-      // made the choice: until the scope changes once, or the session does (a
-      // session change is a different dock key, so the marker cannot match).
+    if (previous === null) {
+      // First run in this window: adopt the persisted tab as it stands and
+      // write nothing (#884 round 13). A window's startup scope is its own —
+      // the popout is the workspace and runs at Log while a freshly reloaded
+      // main window is collapsed at Observe (#884 round 12) — so a startup
+      // scope that differs from the one the tab was chosen under is not
+      // evidence that the tab is stale. Only a transition this window actually
+      // observes reconciles. A tab from an old session cannot leak in: the tab
+      // is keyed by the session dock key.
+      handledScopeRequestId.current = scopeReconcileRequestId;
       return;
     }
     // An explicit scope selection is the operator speaking, exactly like a tab
@@ -179,8 +175,6 @@ export function useDockTabReconciler(): void {
     clearDockTabIntent,
     dockKey,
     dockTabIntent,
-    explicitScope,
-    markExplicitDockTab,
     stampDockTabIntent,
     posture,
     scope,

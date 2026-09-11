@@ -112,10 +112,7 @@ beforeEach(() => {
     selectedReport: null,
   });
   useOpsPostureStore.getState().reset();
-  useContestUIStore.setState({
-    dockTabBySessionId: {},
-    explicitDockTabScopeByDockKey: {},
-  });
+  useContestUIStore.setState({ dockTabBySessionId: {} });
   useContestUIEphemeralStore.setState({
     dockTabIntent: null,
     scopeReconcileRequestId: 0,
@@ -385,12 +382,11 @@ describe("dock tab across the /map/ops popout", () => {
   // #884 round 10 (Codex, useDockTabReconciler.ts:119): the intent is
   // ephemeral, so a window that opens *later* hydrated the persisted Contest
   // tab, had no intent, no `previous`, and reconciled the operator's choice
-  // away — then broadcast that reversal to the window that made it.
-  it("keeps a persisted explicit tab when a late-joining window shares the scope", async () => {
+  // away — then broadcast that reversal to the window that made it. Since
+  // round 13 the rule is simply that a first run never writes.
+  it("keeps a persisted tab when a late-joining window shares the scope", async () => {
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-      // Chosen under Observe, which is still the derived scope here.
-      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "observe" },
     });
 
     render(<Window />);
@@ -400,33 +396,43 @@ describe("dock tab across the /map/ops popout", () => {
     expect(dockTab()).toBe("contest");
     // Nothing was written, so there is no reversal to broadcast.
     expect(snapshotsSince(joiner, 0)).toEqual([]);
-    // The marker stands until the scope actually changes, so a third window
-    // joining now honours it too.
-    expect(
-      useContestUIStore.getState().explicitDockTabScopeByDockKey[
-        NO_SESSION_DOCK_KEY
-      ],
-    ).toBe("observe");
   });
 
-  // The other half of the rule: a marker from a scope that has since moved is
-  // stale, so the late joiner reconciles normally and drops it.
-  it("reconciles a persisted tab whose explicit scope has since changed", async () => {
+  // #884 round 13 (Codex, useDockTabReconciler.ts:150): windows legitimately
+  // start at different scopes, so a startup scope that differs from the one the
+  // tab was chosen under is not evidence that the tab is stale. The first run
+  // adopts it either way; only a transition this window observes reconciles.
+  it("adopts a persisted tab on the first run even at a different scope", async () => {
+    useRigStore.setState({ connected: true }); // scope Log, auto tab would be Log
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-      // Chosen under Log; the derived scope here is Observe.
-      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
     });
 
     render(<Window />);
     await flush();
+    const joiner = TestChannel.instances.at(-1) as TestChannel;
 
-    expect(dockTab()).toBe("dx");
-    expect(
-      useContestUIStore.getState().explicitDockTabScopeByDockKey[
-        NO_SESSION_DOCK_KEY
-      ],
-    ).toBeUndefined();
+    expect(dockTab()).toBe("contest");
+    expect(snapshotsSince(joiner, 0)).toEqual([]);
+  });
+
+  // The other half of the rule: a transition the window actually sees does
+  // reconcile, and writes the automatic tab.
+  it("reconciles on a scope transition the window observes", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+    });
+
+    render(<Window />);
+    await flush();
+    expect(dockTab()).toBe("contest");
+
+    act(() => {
+      useRigStore.setState({ connected: true });
+    });
+    await flush();
+
+    expect(dockTab()).toBe("log");
   });
 
   // The clicking window has `previous === null` after a reload too, so it lost
@@ -440,12 +446,7 @@ describe("dock tab across the /map/ops popout", () => {
       useContestUIStore.getState().setDockTab(NO_SESSION_DOCK_KEY, "contest");
     });
     await flush();
-    // Consuming the intent is what records the scope the choice was made under.
-    expect(
-      useContestUIStore.getState().explicitDockTabScopeByDockKey[
-        NO_SESSION_DOCK_KEY
-      ],
-    ).toBe("observe");
+    expect(dockTab()).toBe("contest");
 
     // Reload: the document goes away with everything ephemeral in it, and the
     // persisted stores come back.
@@ -470,10 +471,8 @@ describe("dock tab across the /map/ops popout", () => {
   // and wrote DX before the second run settled on Log. The startup state is now
   // applied before the console (and the reconciler) mounts.
   it("keeps an explicit tab when the popout opens the workspace on startup", async () => {
-    // The choice was made while the workspace was open, so it belongs to Log.
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
     });
     useMapOperationalStore.setState({ workspaceOpen: false });
 
@@ -485,11 +484,6 @@ describe("dock tab across the /map/ops popout", () => {
     // produced.
     expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
     expect(dockTab()).toBe("contest");
-    expect(
-      useContestUIStore.getState().explicitDockTabScopeByDockKey[
-        NO_SESSION_DOCK_KEY
-      ],
-    ).toBe("log");
     // No DX write, so no reversal to broadcast to the window that made the
     // choice.
     expect(snapshotsSince(popout, 0)).toEqual([]);
@@ -502,7 +496,6 @@ describe("dock tab across the /map/ops popout", () => {
     useRigStore.setState({ connected: true });
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
     });
 
     render(<Window />);
@@ -515,6 +508,31 @@ describe("dock tab across the /map/ops popout", () => {
     expect(snapshotsSince(reloaded, 0)).toEqual([]);
   });
 
+  // #884 round 13 (Codex, useDockTabReconciler.ts:150): the popout is open at
+  // Log with the operator's Contest tab; the main window is reloaded and starts
+  // collapsed at Observe. Its first run used to reject the tab because the
+  // startup scopes differed, write DX and broadcast that over the popout's
+  // choice. A first run now never writes, so both windows keep Contest.
+  it("keeps the popout's explicit tab when the main window reloads collapsed", async () => {
+    // The popout made the choice under Log; the store is what a reload rehydrates.
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+    });
+    // The reloaded main window: workspace collapsed, no rig, so scope Observe.
+    useMapOperationalStore.setState({ workspaceOpen: false });
+    useRigStore.setState({ connected: false });
+
+    render(<Window />);
+    await flush();
+    const reloaded = TestChannel.instances.at(-1) as TestChannel;
+    for (let turn = 0; turn < 3; turn += 1) await flush();
+
+    // Contest stands in the shared persisted state both windows read...
+    expect(dockTab()).toBe("contest");
+    // ...and no DX write was broadcast to the popout.
+    expect(snapshotsSince(reloaded, 0)).toEqual([]);
+  });
+
   // #884 round 12 (Codex, PropSphereOpsWindow.tsx:31): the popout applies its
   // startup state before the sync subscription exists, so that write is never
   // published. It then sends the startup request and the main window — whose
@@ -524,7 +542,6 @@ describe("dock tab across the /map/ops popout", () => {
   it("keeps its own workspace flag when the handshake reply says otherwise", async () => {
     useContestUIStore.setState({
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
     });
     useMapOperationalStore.setState({ workspaceOpen: false });
 
@@ -552,11 +569,6 @@ describe("dock tab across the /map/ops popout", () => {
     // all stand, and it has no reversal to broadcast.
     expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
     expect(dockTab()).toBe("contest");
-    expect(
-      useContestUIStore.getState().explicitDockTabScopeByDockKey[
-        NO_SESSION_DOCK_KEY
-      ],
-    ).toBe("log");
     expect(snapshotsSince(popout, before)).toEqual([]);
   });
 

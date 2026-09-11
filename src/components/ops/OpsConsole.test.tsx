@@ -60,10 +60,7 @@ describe("OpsConsole dock tabs", () => {
       selectedReport: null,
     });
     useOpsPostureStore.getState().reset();
-    useContestUIStore.setState({
-      dockTabBySessionId: {},
-      explicitDockTabScopeByDockKey: {},
-    });
+    useContestUIStore.setState({ dockTabBySessionId: {} });
     useRigStore.setState({ connected: false });
     useQSOStore.setState({ form: { ...DEFAULT_QSO_FORM } });
     useContestStore.setState({ activeSession: null });
@@ -187,9 +184,10 @@ describe("OpsConsole dock tabs", () => {
       </StrictMode>,
     );
 
-    // Automatic scope is Observe, so arriving in PropSphere reconciles to DX.
+    // #884 round 13: the first run adopts the persisted tab rather than
+    // reconciling it, so StrictMode's double mount writes nothing either.
     expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
-      "dx",
+      "log",
     );
 
     await user.click(screen.getByRole("button", { name: "Contest" }));
@@ -282,9 +280,11 @@ describe("OpsConsole dock tabs", () => {
   it("writes the Log tab when the scope control picks Log from Observe", async () => {
     const user = userEvent.setup();
     renderConsole();
-    expect(useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY]).toBe(
-      "dx",
-    );
+    // #884 round 13: nothing is persisted and the first run does not write; the
+    // console falls back to DX for display.
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBeUndefined();
 
     await user.selectOptions(
       screen.getByLabelText("PropSphere operating scope"),

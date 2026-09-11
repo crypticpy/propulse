@@ -136,7 +136,6 @@ type WorkspaceSnapshot = {
   contestUi: Pick<
     ReturnType<typeof useContestUIStore.getState>,
     | "dockTabBySessionId"
-    | "explicitDockTabScopeByDockKey"
     | "bandBySessionId"
     | "modeBySessionId"
     | "draftBySessionId"
@@ -191,10 +190,9 @@ type WorkspaceMessage =
  * broadcast that reversal to the new window (#884 round 9). The cost of a bump
  * is a brief loss of cross-window sync during the deploy overlap, which a
  * reload restores; that is cheaper than capability negotiation, and far cheaper
- * than a peer undoing the operator's choice. v4 adds
- * `explicitDockTabScopeByDockKey`: a v3 receiver ignores it, cannot tell an
- * explicit tab from a stale one when it joins, and reconciles the operator's
- * choice away (#884 round 10) — the same failure the v3 bump was for.
+ * than a peer undoing the operator's choice. v4 dropped `workspaceOpen` (it is
+ * per-window, #884 round 12) and, with it, any field a v3 receiver would act on
+ * differently.
  *
  * This is the only wire that carries `contestUi` or the dock-tab intent. The
  * other BroadcastChannels are separate protocols with their own versions:
@@ -235,7 +233,6 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
     },
     contestUi: {
       dockTabBySessionId: contestUi.dockTabBySessionId,
-      explicitDockTabScopeByDockKey: contestUi.explicitDockTabScopeByDockKey,
       bandBySessionId: contestUi.bandBySessionId,
       modeBySessionId: contestUi.modeBySessionId,
       draftBySessionId: contestUi.draftBySessionId,
@@ -353,8 +350,6 @@ export function useOperationalWorkspaceSync(): void {
       useContestUIStore.subscribe((state, previous) => {
         if (
           state.dockTabBySessionId !== previous.dockTabBySessionId ||
-          state.explicitDockTabScopeByDockKey !==
-            previous.explicitDockTabScopeByDockKey ||
           state.bandBySessionId !== previous.bandBySessionId ||
           state.modeBySessionId !== previous.modeBySessionId ||
           state.draftBySessionId !== previous.draftBySessionId ||

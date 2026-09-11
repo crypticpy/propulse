@@ -10,7 +10,7 @@ import type {
   VHFCondition,
 } from "../../types/solar";
 import { getIonosphericParameters } from "./ionosphere";
-import { getSignalClass, predictSignalStrength } from "./signal";
+import { dBmToSUnits, getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
 import type { AtmosphericNoiseOptions } from "./noiseModel";
 import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
@@ -858,7 +858,7 @@ export function getEnhancedBandConditions(
   sfi: number,
   date: Date,
   txPowerWatts: number = 100,
-  mode: "SSB" | "CW" | "FT8" = "FT8",
+  mode: OperatingMode = "FT8",
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
   farEndGainDbi: number | ((band: string) => number) = 0,
@@ -1079,11 +1079,28 @@ export function getEnhancedBandConditions(
       }
     }
 
+    // The Kp/SFI penalties are a propagation loss, so they move the received
+    // level too. Leaving `sUnit` at the pre-penalty value let a 14 dB Kp
+    // penalty drop the SNR by 14 dB while the S-meter beside it stayed two
+    // S-units stronger (Codex round 2, PR #1081). One shift, one pair of
+    // numbers that agree.
+    if (signalPred.support === "supported" && snrShift !== 0) {
+      // The penalty is excess propagation loss, so it lands on `pathLoss`
+      // first. That keeps both identities `predictSignalStrength` builds:
+      // rx = txDbm + gain - pathLoss, and SNR = rx - noiseFloor. The itemised
+      // free-space / absorption / ground components stay as the ray solver
+      // reported them, so they no longer sum to `pathLoss`; the difference is
+      // exactly this empirical Kp/SFI excess.
+      displayPred.pathLoss =
+        Math.round((signalPred.pathLoss - snrShift) * 10) / 10;
+      displayPred.sUnit = dBmToSUnits(signalPred.sUnit.dBm + snrShift);
+    }
+
     // The S-meter reading shown next to the SNR must come from the same
     // prediction object the UI renders (finding 3, PROP-02 #948). For an
     // unsupported mode it is S0 at -Infinity dBm: no power arrives. Renderers
     // must branch on `support` and print the unsupported state rather than a
-    // number — see BandConditionsPanel.
+    // number -- see BandConditionsPanel.
     const { sUnit } = displayPred;
 
     return {
@@ -1093,7 +1110,7 @@ export function getEnhancedBandConditions(
       snrEstimate: adjustedSNR,
       notes: notes.length > 0 ? notes.join(", ") : getDefaultNote(status),
       sUnit,
-      pathLoss: signalPred.pathLoss,
+      pathLoss: displayPred.pathLoss,
       absorptionLoss: absorptionDb,
       signalPrediction: displayPred,
       antennaGainDbi,
@@ -1277,7 +1294,12 @@ function getPathIlluminationAtTime(
  */
 export interface ForecastStationParams {
   txPowerWatts: number;
-  mode: "SSB" | "CW" | "FT8";
+  /**
+   * Any operating mode, RTTY included. Narrowing this to SSB/CW/FT8 made
+   * callers translate RTTY to SSB, which classified every RTTY circuit against
+   * the SSB threshold (Codex round 2, PR #1081).
+   */
+  mode: OperatingMode;
   antennaGainDbi: number;
   noiseEnvironment?: NoiseEnvironment;
   /** Extra dBi folded from far-end public ERP (0 = our envelope only). */

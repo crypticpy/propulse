@@ -194,7 +194,11 @@ export function getOptimalBand(
     sfi,
     time,
     txPowerWatts,
-    mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
+    // The requested mode reaches the classifier unchanged. Collapsing RTTY to
+    // SSB here classified RTTY circuits against the SSB threshold, so an SNR
+    // of -4 dB (poor but usable for RTTY) was filtered out as closed before
+    // scoring ever ran (Codex round 2, PR #1081).
+    mode,
     antennaGainDbi,
     noiseEnvironment,
   );
@@ -256,7 +260,11 @@ export function getAlternateBands(
     sfi,
     time,
     txPowerWatts,
-    mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
+    // The requested mode reaches the classifier unchanged. Collapsing RTTY to
+    // SSB here classified RTTY circuits against the SSB threshold, so an SNR
+    // of -4 dB (poor but usable for RTTY) was filtered out as closed before
+    // scoring ever ran (Codex round 2, PR #1081).
+    mode,
     antennaGainDbi,
     noiseEnvironment,
   );
@@ -304,6 +312,11 @@ export function getBestTimeWindows(
   mode: OperatingMode,
   station?: ForecastStationParams,
 ): TimeWindow[] {
+  // The forecast's per-hour statuses are mode-specific, and `getBestWindows`
+  // builds and discards windows from them before the threshold filter below
+  // runs. With the rig on SSB and FT8 selected, every hour SSB called closed
+  // was dropped and the filter could not bring it back. The requested mode
+  // wins over the rig's (Codex round 2, PR #1081).
   const forecast = getForecastForPath(
     homeLat,
     homeLon,
@@ -312,7 +325,7 @@ export function getBestTimeWindows(
     kp,
     sfi,
     time,
-    station,
+    station ? { ...station, mode } : undefined,
   );
 
   const windows = getBestWindows(forecast);

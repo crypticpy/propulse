@@ -16,6 +16,11 @@ import {
 } from "./signal";
 import { DEFAULT_NOISE_ENVIRONMENT } from "./noiseModel";
 import { getEnhancedBandConditions, classifyPathStatus } from "./bands";
+import {
+  getAlternateBands,
+  getBestTimeWindows,
+  getOptimalBand,
+} from "./recommendations";
 import type { OperatingMode } from "../../types/signal";
 
 // Audit case: 40N 0E -> 41N 0E (111 km, one near-vertical hop), equinox noon.
@@ -577,5 +582,162 @@ describe("PROP-02 uncertainty bounds are ordered and contain the point", () => {
       expect(p.snrHigh!, c.band).toBeGreaterThanOrEqual(c.snrEstimate);
       expect(p.expectedSNR, c.band).toBe(c.snrEstimate);
     }
+  });
+});
+
+/**
+ * Codex round 2 on PR #1081. Three variations on one mistake: a mode-specific
+ * status or an empirical penalty is applied to one number while a sibling the
+ * user reads beside it is left alone.
+ */
+describe("PROP-02 a penalty moves every number it should (Codex r2)", () => {
+  /** Same path and time; only Kp changes, so only the penalty differs. */
+  function atKp(kp: number) {
+    return getEnhancedBandConditions(
+      AUDIT_PATH.homeLat,
+      AUDIT_PATH.homeLon,
+      AUDIT_PATH.targetLat,
+      AUDIT_PATH.targetLon,
+      kp,
+      150,
+      NOON,
+      100,
+      "SSB",
+      0,
+      "rural",
+    );
+  }
+
+  it("drops the S-meter by the same loss it drops the SNR", () => {
+    // Kp 2 applies no penalty; Kp 9 applies (9-2)*2 = 14 dB, which is 2.33
+    // S-units at 6 dB each. Before the fix the S-meter was identical in both
+    // runs while the SNR fell 14 dB.
+    const calm = atKp(2);
+    const storm = atKp(9);
+    let checked = 0;
+    for (const band of calm) {
+      const stormBand = storm.find((b) => b.band === band.band)!;
+      if (band.signalPrediction?.support !== "supported") continue;
+      if (stormBand.signalPrediction?.support !== "supported") continue;
+      checked += 1;
+      const dropDbm =
+        band.signalPrediction.sUnit.dBm - stormBand.signalPrediction.sUnit.dBm;
+      expect(dropDbm, `${band.band} received level`).toBeCloseTo(14, 0);
+      // And the excess loss is carried on pathLoss, so rx = tx + gain - loss
+      // still holds for the number that is displayed.
+      const txPowerDbm = 30 + 10 * Math.log10(100);
+      expect(
+        stormBand.signalPrediction.sUnit.dBm,
+        `${band.band} budget`,
+      ).toBeCloseTo(txPowerDbm - stormBand.signalPrediction.pathLoss, 0);
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("classifies RTTY against the RTTY threshold, not SSB's", () => {
+    // -4 dB in 2500 Hz: RTTY threshold -5 (margin +1, poor/usable), SSB
+    // threshold +3 (margin -7, closed). getOptimalBand used to translate RTTY
+    // to SSB before this classifier ran.
+    expect(classifyPathStatus(-4, "RTTY")).toBe("poor");
+    expect(classifyPathStatus(-4, "SSB")).toBe("closed");
+
+    // The recommendation path is where the collapse happened: getOptimalBand
+    // and getAlternateBands handed the enhanced calculation "SSB" whenever the
+    // requested mode was RTTY. At 0.2 W over this path, 30 m (-8 dB) and 20 m
+    // (-1 dB) are usable for RTTY and closed for SSB, so they must survive
+    // into the RTTY recommendation.
+    const qrpArgs = [
+      AUDIT_PATH.homeLat,
+      AUDIT_PATH.homeLon,
+      51.5,
+      -0.13,
+      2,
+      150,
+      new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),
+    ] as const;
+    const optimal = getOptimalBand(
+      ...qrpArgs,
+      "RTTY",
+      undefined,
+      0,
+      "rural",
+      0.2,
+    );
+    const alternates = getAlternateBands(
+      ...qrpArgs,
+      "RTTY",
+      undefined,
+      0,
+      "rural",
+      0.2,
+    );
+    const recommended = [optimal, ...alternates]
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .map((r) => r.band);
+    const ssbWouldClose = new Set(
+      getEnhancedBandConditions(...qrpArgs, 0.2, "SSB", 0, "rural")
+        .filter((c) => c.status === "closed")
+        .map((c) => c.band),
+    );
+    expect(recommended.some((band) => ssbWouldClose.has(band))).toBe(true);
+
+    // And the enhanced calculation must accept RTTY rather than be handed SSB.
+    const rtty = getEnhancedBandConditions(
+      AUDIT_PATH.homeLat,
+      AUDIT_PATH.homeLon,
+      AUDIT_PATH.targetLat,
+      AUDIT_PATH.targetLon,
+      2,
+      150,
+      NOON,
+      100,
+      "RTTY",
+      0,
+      "rural",
+    );
+    for (const band of rtty) {
+      expect(band.signalPrediction?.mode, band.band).toBe("RTTY");
+      expect(classifyPathStatus(band.snrEstimate, "RTTY"), band.band).toBe(
+        band.status,
+      );
+    }
+  });
+
+  it("builds forecast windows with the selected mode, not the rig's", () => {
+    // Active rig on SSB, operator asking about FT8. Every window the SSB
+    // statuses closed used to be dropped before the FT8 threshold could see
+    // it, so the FT8 answer could only ever be a subset of the SSB one.
+    const station = {
+      txPowerWatts: 100,
+      mode: "SSB" as const,
+      antennaGainDbi: 0,
+      noiseEnvironment: "rural" as const,
+    };
+    const args = [
+      AUDIT_PATH.homeLat,
+      AUDIT_PATH.homeLon,
+      AUDIT_PATH.targetLat,
+      AUDIT_PATH.targetLon,
+      2,
+      150,
+      NOON,
+    ] as const;
+
+    const ft8Windows = getBestTimeWindows(...args, "FT8", station);
+    const ssbWindows = getBestTimeWindows(...args, "SSB", station);
+
+    // FT8 copies ~24 dB below SSB, so asking about FT8 while the rig sits on
+    // SSB must not return fewer opportunities than asking about SSB.
+    expect(ft8Windows.length).toBeGreaterThanOrEqual(ssbWindows.length);
+    expect(ft8Windows.length).toBeGreaterThan(0);
+    // The windows reported for FT8 must clear the FT8 threshold, and at least
+    // one must be an hour/band SSB would have called closed.
+    const ssbKeys = new Set(
+      ssbWindows.map((w) => `${w.band}:${w.startHour}-${w.endHour}`),
+    );
+    const onlyForFt8 = ft8Windows.filter(
+      (w) => !ssbKeys.has(`${w.band}:${w.startHour}-${w.endHour}`),
+    );
+    expect(onlyForFt8.length).toBeGreaterThan(0);
   });
 });

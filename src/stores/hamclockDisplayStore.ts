@@ -530,7 +530,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 10,
+      version: 11,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
@@ -605,6 +605,17 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             "right",
             "solar",
             ["moon", "greyLine", "muf", "reliability"],
+          );
+        }
+        if (version < 11) {
+          // RIM tile (B23 / HW-69) ships on the Weather left rail. A
+          // session still on the pre-B23 shipped composition adopts it; a
+          // rail the operator rearranged is left exactly as it is.
+          state.railLayout = adoptShippedRailPage(
+            state.railLayout,
+            "left",
+            "weather",
+            ["weather", "alerts"],
           );
         }
         return state as unknown as HamClockDisplayState;

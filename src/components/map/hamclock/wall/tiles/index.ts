@@ -4,6 +4,7 @@ import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore"
 import type { WallTileProps } from "../HamClockTile";
 import { recentContactsConfig } from "../config/recentContactsConfig";
 import { PskStationTile } from "./PskStationTile";
+import { RimTile } from "./RimTile";
 import { WsjtxTile } from "./WsjtxTile";
 import { ActivationsTile } from "./ActivationsTile";
 import { AlertsTile } from "./AlertsTile";
@@ -53,6 +54,7 @@ export type TileId =
   | "reliability"
   | "muf"
   | "alerts"
+  | "rim"
   | "emcomm"
   | "sdrScope"
   | "wsjtx"
@@ -88,6 +90,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   reliability: { title: "24h reliability", Component: ReliabilityTile },
   muf: { title: "MUF", Component: MufTile },
   alerts: { title: "Weather alerts", Component: AlertsTile },
+  rim: { title: "Radio impact", Component: RimTile },
   emcomm: { title: "Emcomm", Component: EmcommTile },
   wsjtx: { title: "WSJT-X", Component: WsjtxTile },
   sdrScope: { title: "Band scope", Component: SdrScopeTile },

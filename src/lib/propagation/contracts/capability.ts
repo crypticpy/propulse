@@ -1175,6 +1175,15 @@ interface ResultBinding {
    * carrier) have nothing to read.
    */
   onUnavailableTarget: boolean;
+  /**
+   * Whether the check cannot run at all without a payload to read. This is the
+   * only reason a row may decline an unavailable target head, so the table is
+   * fully determined: `onUnavailableTarget` is true for exactly the rows that
+   * carry a check and read no payload. A row whose identity half reads no
+   * payload and whose remainder does (the mode profile) is written here as
+   * false and guards the payload half on `"value" in head.state`.
+   */
+  readsPayload: boolean;
   /** Why a result cannot carry this dimension at all, or null when bound. */
   exemption: string | null;
   /** The head field a violation is reported on. */
@@ -1196,6 +1205,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "domain",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "domain",
@@ -1207,6 +1217,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "horizons",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "horizon",
@@ -1218,6 +1229,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "mechanismFamilies",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "mechanismFamily",
@@ -1232,9 +1244,15 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "geometryClasses",
     onUnavailableTarget: true,
-    appliesTo: "target",
+    readsPayload: false,
+    appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
+    // A21/A22: the geometry class is the caller's description of the physical
+    // path, and every head answers that one path, so this binds every served
+    // head rather than the target alone. The family a head answers is its own
+    // (a decode row may be frozen on another mechanism than the SNR row
+    // beside it); the path it is answered over is not.
     check: (head, request) => {
       const geometryClass = request.mechanismPolicy.geometryClass;
       if (
@@ -1252,9 +1270,12 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "scatterBasis",
     onUnavailableTarget: true,
-    appliesTo: "target",
+    readsPayload: false,
+    appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
+    // As above: one request locates one scattering region, and a head whose
+    // family scatters on another basis is describing a different geometry.
     check: (head, request) => {
       if (request.route.kind !== "scatter") return null;
       const basis = SCATTER_BASIS_BY_MECHANISM[head.mechanismFamily];
@@ -1265,14 +1286,18 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "modelKind",
-    appliesTo: "target",
+    appliesTo: "served",
     onUnavailableTarget: true,
+    readsPayload: false,
     exemption: null,
     path: "effectiveModelKind",
     check: (head, request) => {
       // M11/M19: physics_only is a constraint on what may answer, not a
-      // preference. The head names what produced it, because the capability
-      // digest beside it is opaque and this pass is offline.
+      // preference, and it binds every head that carries a value: a result
+      // whose target is physics can still serve a companion head from a
+      // learned fallback, and that head is a learned answer to a request that
+      // refused learned answers. The head names what produced it, because the
+      // capability digest beside it is opaque and this pass is offline.
       const admitted = MODEL_KINDS_BY_POLICY[
         request.requestedModel.policy
       ] as readonly string[];
@@ -1283,12 +1308,14 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "relayKinds",
-    appliesTo: "target",
+    appliesTo: "served",
     onUnavailableTarget: true,
+    readsPayload: false,
     exemption: null,
     path: "mechanismFamily",
     check: (head, request) => {
-      // A21/A22: the request side applies this to a named family, but a
+      // A21/A22: one request has one relay leg, so this binds every served
+      // head. The request side applies this to a named family, but a
       // request that asked for "auto" leaves the router free, and geometry
       // alone does not pin the family: two_leg_relay admits both a fixed
       // ground repeater and a transponder, so a satellite head could answer a
@@ -1320,6 +1347,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "intervalSecondsRange",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "intervalSeconds",
@@ -1330,7 +1358,8 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "frequencyRangeHz",
-    onUnavailableTarget: false,
+    onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
@@ -1346,11 +1375,15 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
       )
         ? null
         : `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} at ${request.frequencyHz} Hz (M11)`,
+    // The coverage row is identity, not payload: an unavailable target head
+    // claims a population at the requested frequency just as a served one
+    // does, and a gap on a tuple the protocol never froze is misattributed.
   },
   {
     field: "payloadFrequency",
     appliesTo: "served",
     onUnavailableTarget: false,
+    readsPayload: true,
     exemption: null,
     path: (head) =>
       payloadCarrierFields(head.quantity).length === 0
@@ -1375,17 +1408,23 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "modeProfileIds",
-    onUnavailableTarget: false,
+    onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "served",
     exemption: null,
     path: "effectiveModeProfileId",
     check: (head, request) => {
-      // M07/M11: the profile is a routing dimension, so a served head answers
-      // the profile that was asked for and no other.
+      // M07/M11: the profile is a routing dimension, so a head answers the
+      // profile that was asked for and no other. The equality half reads no
+      // payload and therefore also binds an unavailable target: a gap tagged
+      // with another profile is counted against the wrong population. The
+      // decoder and attempt length below are payload and are guarded.
       if (head.effectiveModeProfileId !== request.modeProfileId) {
         return `A served head answers the requested mode profile ${request.modeProfileId}, not ${head.effectiveModeProfileId ?? "none"} (M07, M11)`;
       }
       if (head.quantity !== "conditional_decode") return null;
+      // No payload, so nothing further to resolve: an unavailable target head
+      // has been checked for the profile it claims and that is all there is.
       if (!("value" in head.state)) return null;
       // A decode probability is conditioned on a decoder and on the length of
       // one attempt. Both are properties of the profile, so a head that
@@ -1422,6 +1461,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "sourceModes",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result records the sources it used, not the posture it was issued under; the as-issued evidence rules bound every posture alike.",
@@ -1431,6 +1471,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "antennaClasses",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result carries no station description; the stations enter the request key and the context identity the result echoes.",
@@ -1440,6 +1481,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "receiverClasses",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result carries no receive chain description; the receiver classes enter the request key and the context identity the result echoes.",

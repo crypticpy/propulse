@@ -1764,6 +1764,51 @@ describe("parseResultForRequest binds a result to its request", () => {
     );
   });
 
+  it("rejects a learned companion head answering a physics_only request (M11, M19)", async () => {
+    // The residual: the kind bound on the target alone, so a physics target
+    // could be served beside a companion head that a learned fallback
+    // produced, and parseResultForRequest handed the caller that value.
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    const result = boundResult((draft) => {
+      unnamedModel(draft);
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "circuit_support",
+      ) as Mutable;
+      head.effectiveModelKind = "observation_assisted";
+    });
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[0].effectiveModelKind",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Model policy physics_only admits physics, and this head was produced by an? observation_assisted model/,
+    );
+  });
+
+  it("rejects an unavailable target head tagged with another mode profile (M07, M11)", async () => {
+    // A gap is attributed to a population: an FT8 request answered by a gap
+    // that was evaluated on FT4 counts the FT4 gap against FT8 operators.
+    const result = boundResult((draft) => {
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.effectiveModeProfileId = "ft4-wsjtx-2.7.0-7.5s";
+      head.uncertainty = { kind: "none" };
+      head.state = { availability: "unavailable", reason: "no_solar_input" };
+    });
+    const issues = await bind(result);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[1].effectiveModeProfileId",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /answers the requested mode profile ft8-wsjtx-2\.7\.0-15s, not ft4-wsjtx-2\.7\.0-7\.5s/,
+    );
+  });
+
   it("accepts a physics head answering a physics_only request (M11, M19)", async () => {
     const request = boundRequest((draft) => {
       (draft.requestedModel as Mutable).policy = "physics_only";
@@ -1927,19 +1972,17 @@ describe("parseResultForRequest binds a result to its request", () => {
         expect(binding.exemption, `binding for ${field}`).toBeNull();
       }
     }
-    // Every row says whether it survives an unavailable target head, and a row
-    // that reads a value cannot: there is none to read.
+    // Every row says whether it survives an unavailable target head, and the
+    // answer is not a choice: a declared gap is attributed to a request
+    // population, so every check that reads no payload binds the gap too. Only
+    // a row with nothing to check, or one that cannot run without a value, may
+    // decline. Stating it as an equality is what stops a row being written
+    // served-only and quietly dropping the identity it could still have bound.
     for (const binding of RESULT_BINDINGS) {
       expect(
-        typeof binding.onUnavailableTarget,
-        `${binding.field} declares onUnavailableTarget`,
-      ).toBe("boolean");
-      if (binding.check === null || binding.appliesTo === "served") {
-        expect(
-          binding.onUnavailableTarget,
-          `${binding.field} reads a value and cannot bind a gap`,
-        ).toBe(false);
-      }
+        binding.onUnavailableTarget,
+        `${binding.field} binds an unavailable target unless it reads a payload`,
+      ).toBe(binding.check !== null && !binding.readsPayload);
     }
   });
 });

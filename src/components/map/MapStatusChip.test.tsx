@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MapStatusChip } from "./MapStatusChip";
+import { MapStatusChip, SatelliteTrackEvictionBadge } from "./MapStatusChip";
 import { useMapStore } from "@/stores/mapStore";
 
 vi.mock("@/components/ui/HealthStatusIndicator", () => ({
@@ -200,5 +200,26 @@ describe("MapStatusChip", () => {
     });
     expect(screen.queryByText(/Orbit limit/)).toBeNull();
     expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+  });
+
+  it("renders standalone from store state so PropSphere can mount it outside the normal-layout toolbar for pro/hamclock (#994 PR B round 3 Codex thread 4)", () => {
+    render(<SatelliteTrackEvictionBadge />);
+    expect(screen.queryByText(/Orbit limit/)).toBeNull();
+
+    act(() => {
+      for (const id of [1, 2, 3, 4, 5, 6]) {
+        useMapStore.getState().setSatelliteTrack(id, {});
+      }
+    });
+    expect(screen.getByText(/Orbit limit/)).toBeTruthy();
+
+    act(() => {
+      useMapStore.getState().dismissSatelliteTrackEviction();
+    });
+    expect(screen.queryByText(/Orbit limit/)).toBeNull();
+
+    act(() => {
+      useMapStore.getState().clearAllSatelliteTracks();
+    });
   });
 });

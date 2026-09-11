@@ -25,8 +25,14 @@ const SATELLITE_TRACK_EVICTION_AUTO_DISMISS_MS = 8000;
  * store-driven-badge pattern `ConflictBadge` / `ConnectivityBadge` use.
  * Auto-dismisses after `SATELLITE_TRACK_EVICTION_AUTO_DISMISS_MS`, or on
  * click. Renders nothing (and starts no timer) while there is no eviction.
+ *
+ * Exported (not just used inline below) so `PropSphere.tsx` can mount it a
+ * second time outside the normal-layout toolbar for the `pro`/`hamclock`
+ * fullscreen layouts, which never mount `<MapStatusChip>` itself -- see
+ * `PropSphere.tsx`'s standalone eviction-badge wrapper (#994 PR B round 3
+ * Codex thread 4).
  */
-function SatelliteTrackEvictionBadge() {
+export function SatelliteTrackEvictionBadge() {
   const eviction = useMapStore((s) => s.satelliteTrackEviction);
   const dismiss = useMapStore((s) => s.dismissSatelliteTrackEviction);
 

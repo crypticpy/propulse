@@ -30,6 +30,7 @@ import {
   LayerLegend,
   MapSizeSliders,
   MapStatusChip,
+  SatelliteTrackEvictionBadge,
   ActiveKitChip,
   RecommendationsPanel,
   OptimalBandsPanel,
@@ -1851,6 +1852,24 @@ export function PropSphere() {
             onLocationClick={handleLocationClick}
           />
         </Suspense>
+      )}
+
+      {/* The orbit-track eviction notice (#994 PR B) only mounts as part of
+          <MapStatusChip>'s normal-layout toolbar above, which the "pro" and
+          "hamclock" fullscreen layouts never render -- so an eviction there
+          was silent, and by the time the operator returned to the normal
+          layout the notice had already expired (#994 PR B round 3 Codex
+          thread 4). Mount the badge once here instead, positioned like
+          FullscreenPropSphere's own top-center "Watch status pill". The
+          wrapper is pointer-events-none so it never blocks map interaction
+          when empty; the inner pointer-events-auto re-enables the badge's
+          own dismiss button. */}
+      {(layoutMode === "pro" || layoutMode === "hamclock") && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[215] pointer-events-none">
+          <div className="pointer-events-auto">
+            <SatelliteTrackEvictionBadge />
+          </div>
+        </div>
       )}
 
       <HelpModal

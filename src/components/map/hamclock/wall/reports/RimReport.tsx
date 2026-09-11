@@ -100,7 +100,7 @@ function polyline(
 
 function RimCompositeChart({ history }: { history: RimHistoryPoint[] }) {
   const id = useId();
-  const ref = useRef<HTMLElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const measured = useElementSize(ref);
   const width = measured.width || CHART_FALLBACK.width;
   const height = measured.height || CHART_FALLBACK.height;

@@ -53,8 +53,9 @@ describe("MapStatusChip", () => {
     });
 
     const badge = screen.getByText(/Orbit limit/);
-    // NORAD 1 isn't in POPULAR_SATS, so the name lookup falls back to
-    // "NORAD <id>" (#994 PR B round 2 item 4).
+    // These tracks were added with no `name` in the patch, so the eviction
+    // record has none either and the badge falls back to "NORAD <id>"
+    // (#994 PR B round 3 Codex thread 3).
     expect(badge.textContent).toMatch(/NORAD 1/);
     expect(badge.getAttribute("aria-label")).toMatch(/Orbit track limit reached/);
 
@@ -65,6 +66,31 @@ describe("MapStatusChip", () => {
     expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
 
     // Clean up the module-level store for later tests in this file.
+    act(() => {
+      useMapStore.getState().clearAllSatelliteTracks();
+    });
+  });
+
+  it("renders the evicted track's own recorded name instead of an ambiguous POPULAR_SATS lookup (#994 PR B round 3 Codex thread 3)", () => {
+    render(<MapStatusChip />);
+
+    act(() => {
+      // 57166 is deliberately ambiguous in POPULAR_SATS (maps to both
+      // "IO-117" and "METEOR-M2 3") -- the badge must show the name that
+      // was recorded when the track was added, not a name re-derived from
+      // the NORAD id at display time.
+      useMapStore.getState().setSatelliteTrack(57166, { name: "IO-117" });
+      useMapStore.getState().setSatelliteTrack(2, {});
+      useMapStore.getState().setSatelliteTrack(3, {});
+      useMapStore.getState().setSatelliteTrack(4, {});
+      useMapStore.getState().setSatelliteTrack(5, {});
+      useMapStore.getState().setSatelliteTrack(6, {});
+    });
+
+    const badge = screen.getByText(/Orbit limit/);
+    expect(badge.textContent).toMatch(/IO-117/);
+    expect(badge.textContent).not.toMatch(/METEOR-M2 3/);
+
     act(() => {
       useMapStore.getState().clearAllSatelliteTracks();
     });

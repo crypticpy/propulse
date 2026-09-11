@@ -377,7 +377,10 @@ function SatelliteInfoPopup({
           className="my-0.5"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         />
-        <OrbitTrackToggleButton noradId={satellite.noradId} />
+        <OrbitTrackToggleButton
+          noradId={satellite.noradId}
+          name={satellite.name}
+        />
 
         {/* Details affordance — a real button so keyboard users can open
             the modal; the surrounding popup is also clickable for pointers */}
@@ -419,8 +422,13 @@ function SatelliteInfoPopup({
  */
 export function OrbitTrackToggleButton({
   noradId,
+  name,
 }: {
   noradId: number;
+  // Carried into the track config so a later eviction can name the right
+  // bird instead of re-deriving a name from `POPULAR_SATS`, which isn't a
+  // 1:1 NORAD-id map (#994 PR B round 3 Codex thread 3).
+  name: string;
 }) {
   const id = String(noradId);
   const isTracked = useMapStore((s) => s.satelliteTracks[id] !== undefined);
@@ -433,10 +441,10 @@ export function OrbitTrackToggleButton({
       if (isTracked) {
         clearSatelliteTrack(noradId);
       } else {
-        setSatelliteTrack(noradId, {});
+        setSatelliteTrack(noradId, { name });
       }
     },
-    [isTracked, noradId, clearSatelliteTrack, setSatelliteTrack],
+    [isTracked, noradId, name, clearSatelliteTrack, setSatelliteTrack],
   );
 
   return (

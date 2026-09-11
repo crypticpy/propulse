@@ -549,11 +549,14 @@ describe("buildLayerLegends", () => {
       // Legible su-text-toned swatches at clearly distinct alphas -- not the
       // literal 0.18/0.45 rendered alphas, which at su-text's own brightness
       // would still read but which the spec deliberately keeps decoupled
-      // from the per-satellite category color the real tracks draw in.
+      // from the per-satellite category color the real tracks draw in. Uses
+      // the live `--su-text-rgb` token (not a baked-in dark-palette rgba
+      // literal) so the swatch stays legible in the light theme too (#994 PR
+      // B round 3 Codex thread 2).
       const past = spec.entries.find((e) => e.label === "Past")!;
       const future = spec.entries.find((e) => e.label === "Future")!;
-      expect(past.color).toBe("rgba(202,210,220,0.4)");
-      expect(future.color).toBe("rgba(202,210,220,0.9)");
+      expect(past.color).toBe("rgb(var(--su-text-rgb) / 0.4)");
+      expect(future.color).toBe("rgb(var(--su-text-rgb) / 0.9)");
     });
 
     it("omits the orbit track entry in azimuthal, where satellites never render", () => {

@@ -10,6 +10,10 @@ import {
 } from "./satelliteTrack2D";
 import { MAX_TRACK_DOTS, MAX_TRACK_LABELS } from "./satelliteGeometry";
 import { MAX_SATELLITE_TRACKS } from "@/stores/mapStore";
+import {
+  observeSatelliteTrackLabelColors,
+  resolveSatelliteTrackLabelColors,
+} from "./satelliteTrackDraw2D";
 
 // Same fixture as src/lib/api/satellites.test.ts's ISS_TLE.
 const ISS_TLE: TLEData = {
@@ -320,5 +324,65 @@ describe("orbit-track propagation cache bound and pruning", () => {
     // would still be cached under the identical key, so `second` would be
     // `=== first`.
     expect(second).not.toBe(first);
+  });
+});
+
+// `observeSatelliteTrackLabelColors`/`resolveSatelliteTrackLabelColors` live
+// in `./satelliteTrackDraw2D`, tested here rather than in a new file to stay
+// within this PR's file budget (#994 PR B round 3 Codex thread 1).
+describe("observeSatelliteTrackLabelColors (#994 PR B round 3 Codex thread 1)", () => {
+  afterEach(() => {
+    document.documentElement.style.removeProperty("--su-text");
+    document.documentElement.style.removeProperty("--su-panel");
+    document.documentElement.classList.remove("light", "dark");
+  });
+
+  it("fires when the root element's style attribute changes -- not just data-hamclock-theme", async () => {
+    document.documentElement.style.setProperty("--su-text", "#111111");
+    const before = resolveSatelliteTrackLabelColors();
+    expect(before.text).toBe("#111111");
+
+    const callback = vi.fn();
+    const dispose = observeSatelliteTrackLabelColors(callback);
+
+    // Simulates `applyThemeToDocument` re-theming the ordinary PropSphere
+    // page: it writes `--su-text` via `root.style.setProperty`, not via
+    // `data-hamclock-theme` (only set inside a HamClock wall tile).
+    // Reverting the attributeFilter back to `["data-hamclock-theme"]` alone
+    // makes this fail: the callback is never called.
+    document.documentElement.style.setProperty("--su-text", "#222222");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(callback).toHaveBeenCalled();
+    expect(resolveSatelliteTrackLabelColors().text).toBe("#222222");
+
+    dispose();
+  });
+
+  it("fires when the root element's class attribute changes (theme dark/light class toggle)", async () => {
+    const callback = vi.fn();
+    const dispose = observeSatelliteTrackLabelColors(callback);
+
+    document.documentElement.classList.add("light");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(callback).toHaveBeenCalled();
+    dispose();
+  });
+
+  it("still fires on data-hamclock-theme changes on a descendant div (unchanged behavior)", async () => {
+    const div = document.createElement("div");
+    div.setAttribute("data-hamclock-theme", "pulse");
+    document.body.appendChild(div);
+
+    const callback = vi.fn();
+    const dispose = observeSatelliteTrackLabelColors(callback);
+
+    div.setAttribute("data-hamclock-theme", "brass");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(callback).toHaveBeenCalled();
+    dispose();
+    document.body.removeChild(div);
   });
 });

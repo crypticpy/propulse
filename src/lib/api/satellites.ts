@@ -175,27 +175,6 @@ for (const entry of Object.values(POPULAR_SATS)) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Fast NORAD ID → display name lookup (built once from POPULAR_SATS)
-// Skips entries with noradId 0 (name-only matches)
-// ---------------------------------------------------------------------------
-const _noradNameMap = new Map<number, string>();
-for (const [name, entry] of Object.entries(POPULAR_SATS)) {
-  if (entry.noradId > 0 && !_noradNameMap.has(entry.noradId)) {
-    _noradNameMap.set(entry.noradId, name);
-  }
-}
-
-/**
- * Look up a `POPULAR_SATS` display name for a NORAD id (#994 PR B round 2) —
- * e.g. the orbit-track eviction badge, which only has the numeric id it
- * dropped. Returns `undefined` for a NORAD id not in `POPULAR_SATS` (a
- * TLE-catalog-only satellite); callers fall back to `NORAD <id>`.
- */
-export function getPopularSatelliteName(noradId: number): string | undefined {
-  return _noradNameMap.get(noradId);
-}
-
 /**
  * Resolve the category for a satellite from name or NORAD ID.
  * Falls back to "other" for unknown satellites.

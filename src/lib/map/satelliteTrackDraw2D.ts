@@ -59,11 +59,20 @@ export function resolveSatelliteTrackLabelColors(): SatelliteTrackLabelColors {
 }
 
 /**
- * Re-resolve the label colors whenever the active HamClock theme changes --
- * the same `MutationObserver` pattern `lightningGlyph.ts`'s
- * `observeLightningTone` uses, scoped to just `data-hamclock-theme` since
- * (unlike lightning's tone) satellite track colors don't have a
- * color-blind-mode variant.
+ * Re-resolve the label colors whenever the active theme changes. Unlike
+ * `lightningGlyph.ts`'s `observeLightningTone` (scoped to just
+ * `data-hamclock-theme`/`data-color-blind`, both set as plain attributes),
+ * `--su-panel`/`--su-text` also change on the ordinary PropSphere page:
+ * `applyThemeToDocument` writes them via `document.documentElement.style`
+ * (`style.setProperty`) and toggles the `dark`/`light` class, neither of
+ * which a `data-hamclock-theme`-only filter would ever see -- so a theme
+ * switch outside a HamClock wall left the label chips on the old colors
+ * until something else happened to re-resolve them (#994 PR B round 3
+ * Codex thread 1). `subtree: true` is still needed for `data-hamclock-theme`
+ * itself (`HamClockView.tsx` sets it on a div *inside* the view, not on
+ * `<html>`); the tradeoff is that `style`/`class` changes anywhere in the
+ * subtree also trigger a re-resolve, but `resolveSatelliteTrackLabelColors`
+ * is cheap (a couple of `getComputedStyle` reads), so that's fine here.
  */
 export function observeSatelliteTrackLabelColors(
   callback: () => void,
@@ -78,7 +87,7 @@ export function observeSatelliteTrackLabelColors(
   observer.observe(document.documentElement, {
     attributes: true,
     subtree: true,
-    attributeFilter: ["data-hamclock-theme"],
+    attributeFilter: ["style", "class", "data-hamclock-theme"],
   });
   return () => observer.disconnect();
 }

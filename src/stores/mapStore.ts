@@ -700,8 +700,16 @@ export interface MapState {
   // `MapStatusChip`'s eviction badge the same way `ConflictBadge` /
   // `ConnectivityBadge` read their own store slices. Not persisted — a
   // stale eviction message from a previous session has nothing to say on
-  // reload.
-  satelliteTrackEviction: { noradId: string; timestamp: number } | null;
+  // reload. `name` is carried from the evicted track's own config (set when
+  // the track was added) rather than re-derived from `POPULAR_SATS` at
+  // display time -- a NORAD id can map to more than one popular-satellite
+  // name, so re-deriving it could name the wrong bird (#994 PR B round 3
+  // Codex thread 3).
+  satelliteTrackEviction: {
+    noradId: string;
+    name?: string;
+    timestamp: number;
+  } | null;
   dismissSatelliteTrackEviction: () => void;
 
   // Beacon inactive opacity (0-1, persisted)
@@ -955,9 +963,18 @@ export interface SatelliteTrackConfig {
   orbitsAhead: 1 | 2 | 3;
   showPast: boolean;
   showFootprint: boolean;
+  // Display name captured from the caller at the point a track is added
+  // (currently `SatelliteOverlay.tsx`'s inline popup, where the satellite's
+  // name is on hand) so the eviction badge can name the right bird without
+  // re-deriving it from `POPULAR_SATS`, which is not a 1:1 NORAD-id map
+  // (#994 PR B round 3 Codex thread 3). Undefined for tracks added from a
+  // call site that doesn't pass one.
+  name?: string;
 }
 
 const SATELLITE_TRACKS_LS_KEY = "propulse-satellite-tracks";
+// `name` (above) is optional and additive, so version 1 payloads still load;
+// no bump needed (a mismatch would discard every persisted track).
 const SATELLITE_TRACKS_SCHEMA_VERSION = 1;
 // Exported so `satelliteTrack2D.ts`'s orbit-track propagation cache can size
 // itself to match the store's own cap (#994 PR B round 2 Codex thread 2).
@@ -971,7 +988,8 @@ function isValidSatelliteTrackConfig(
   return (
     (cfg.orbitsAhead === 1 || cfg.orbitsAhead === 2 || cfg.orbitsAhead === 3) &&
     typeof cfg.showPast === "boolean" &&
-    typeof cfg.showFootprint === "boolean"
+    typeof cfg.showFootprint === "boolean" &&
+    (cfg.name === undefined || typeof cfg.name === "string")
   );
 }
 
@@ -1596,7 +1614,9 @@ const initialState = {
   // Per-satellite orbit track state (persisted, see #994)
   satelliteTracks: persistedSatelliteTracks.tracks,
   satelliteTrackOrder: persistedSatelliteTracks.order,
-  satelliteTrackEviction: null as { noradId: string; timestamp: number } | null,
+  satelliteTrackEviction: null as
+    | { noradId: string; name?: string; timestamp: number }
+    | null,
 
   // Beacon inactive opacity (persisted)
   beaconInactiveOpacity: loadStoredNumber(
@@ -2534,6 +2554,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         orbitsAhead: existing?.orbitsAhead ?? 1,
         showPast: existing?.showPast ?? false,
         showFootprint: existing?.showFootprint ?? false,
+        name: existing?.name,
         ...patch,
       };
 
@@ -2560,9 +2581,14 @@ export const useMapStore = create<MapState>((set, get) => ({
       // if a desynced order ever needed to drop more than one to satisfy
       // the cap.
       let evictedId: string | undefined;
+      let evictedName: string | undefined;
       while (order.length > MAX_SATELLITE_TRACKS) {
         const droppedId = order.shift();
         if (droppedId !== undefined) {
+          // Read the name before deleting -- it's the evicted track's own
+          // recorded name, not a re-derived lookup (#994 PR B round 3 Codex
+          // thread 3).
+          evictedName = tracks[droppedId]?.name;
           delete tracks[droppedId];
           evictedId = droppedId;
         }
@@ -2573,7 +2599,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         satelliteTracks: tracks,
         satelliteTrackOrder: order,
         satelliteTrackEviction: evictedId
-          ? { noradId: evictedId, timestamp: Date.now() }
+          ? { noradId: evictedId, name: evictedName, timestamp: Date.now() }
           : state.satelliteTrackEviction,
       };
     }),

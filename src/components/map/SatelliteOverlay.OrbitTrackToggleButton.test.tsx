@@ -16,7 +16,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
   });
 
   it("shows 'Map orbit' when untracked and maps the track via setSatelliteTrack", () => {
-    render(<OrbitTrackToggleButton noradId={25544} />);
+    render(<OrbitTrackToggleButton noradId={25544} name="ISS (ZARYA)" />);
 
     const button = screen.getByRole("button", { name: "Map orbit" });
     expect(button.getAttribute("aria-pressed")).toBe("false");
@@ -28,6 +28,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
       orbitsAhead: 1,
       showPast: false,
       showFootprint: false,
+      name: "ISS (ZARYA)",
     });
   });
 
@@ -36,7 +37,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
       useMapStore.getState().setSatelliteTrack(25544, {});
     });
 
-    render(<OrbitTrackToggleButton noradId={25544} />);
+    render(<OrbitTrackToggleButton noradId={25544} name="ISS (ZARYA)" />);
 
     const button = screen.getByRole("button", { name: "Clear orbit" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
@@ -47,7 +48,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
   });
 
   it("is a real, keyboard-reachable button (type=button, no href/role hack)", () => {
-    render(<OrbitTrackToggleButton noradId={43137} />);
+    render(<OrbitTrackToggleButton noradId={43137} name="NOAA 19" />);
     const button = screen.getByRole("button", { name: "Map orbit" });
     expect(button.tagName).toBe("BUTTON");
     expect(button.getAttribute("type")).toBe("button");
@@ -57,11 +58,19 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
     let parentClicked = false;
     render(
       <div onClick={() => { parentClicked = true; }}>
-        <OrbitTrackToggleButton noradId={7530} />
+        <OrbitTrackToggleButton noradId={7530} name="STARLINK-1007" />
       </div>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));
     expect(useMapStore.getState().satelliteTracks["7530"]).toBeDefined();
     expect(parentClicked).toBe(false);
+  });
+
+  it("passes its name through to setSatelliteTrack so an eviction can name the right bird (#994 PR B round 3 Codex thread 3)", () => {
+    render(<OrbitTrackToggleButton noradId={57166} name="IO-117" />);
+    fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));
+    expect(useMapStore.getState().satelliteTracks["57166"]?.name).toBe(
+      "IO-117",
+    );
   });
 });

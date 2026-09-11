@@ -14,7 +14,6 @@ import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
 import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
 import { useMapStore } from "@/stores/mapStore";
-import { getPopularSatelliteName } from "@/lib/api/satellites";
 
 /** How long the orbit-track eviction notice stays up before it self-clears. */
 const SATELLITE_TRACK_EVICTION_AUTO_DISMISS_MS = 8000;
@@ -51,9 +50,11 @@ function SatelliteTrackEvictionBadge() {
 
   if (!eviction) return null;
 
-  const evictedNoradId = Number(eviction.noradId);
-  const name =
-    getPopularSatelliteName(evictedNoradId) ?? `NORAD ${eviction.noradId}`;
+  // The evicted track's own recorded name (set when it was added), not a
+  // re-derived POPULAR_SATS lookup -- a NORAD id can map to more than one
+  // popular-satellite name, so re-deriving it here could name the wrong
+  // bird (#994 PR B round 3 Codex thread 3).
+  const name = eviction.name ?? `NORAD ${eviction.noradId}`;
   const fullSentence = `Orbit track limit reached — cleared ${name} to make room. Dismiss.`;
 
   return (

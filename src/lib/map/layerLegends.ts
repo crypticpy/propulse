@@ -246,7 +246,9 @@ function buildSatellitesSpec(): LayerLegendSpec {
  * color -- but a track's actual on-canvas color varies per satellite, and a
  * literal 18%-alpha white swatch is unreadable against the panel background.
  * These two entries represent that dim/bright relationship, not the
- * rendered alpha values themselves: both use the `--su-text` tone at alphas
+ * rendered alpha values themselves: both use the live `--su-text-rgb` token
+ * (not a baked-in dark-palette rgba literal, which composited over a light
+ * theme's panel goes pale -- #994 PR B round 3 Codex thread 2) at alphas
  * chosen to stay legible on `--su-panel` while still reading as clearly
  * distinct from each other.
  */
@@ -255,8 +257,8 @@ function buildOrbitTrackSpec(): LayerLegendSpec {
     key: "satelliteOrbitTrack",
     title: "Orbit track",
     entries: [
-      { color: "rgba(202,210,220,0.4)", label: "Past" },
-      { color: "rgba(202,210,220,0.9)", label: "Future" },
+      { color: "rgb(var(--su-text-rgb) / 0.4)", label: "Past" },
+      { color: "rgb(var(--su-text-rgb) / 0.9)", label: "Future" },
     ],
     note: "10-min marks",
   };

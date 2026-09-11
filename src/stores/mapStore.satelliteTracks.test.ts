@@ -178,6 +178,37 @@ describe("mapStore satellite orbit tracks (#994)", () => {
       expect(typeof eviction?.timestamp).toBe("number");
     });
 
+    it("records the evicted track's own name on the eviction notice, not a re-derived lookup (#994 PR B round 3 Codex thread 3)", async () => {
+      const useMapStore = await loadFreshStore();
+
+      // 57166 is deliberately ambiguous in POPULAR_SATS (maps to both
+      // "IO-117" and "METEOR-M2 3") -- the whole point of this fix is that
+      // the eviction notice uses the name recorded when the track was
+      // added, never a re-derived POPULAR_SATS lookup by NORAD id.
+      useMapStore.getState().setSatelliteTrack(57166, { name: "IO-117" });
+      for (const id of [2, 3, 4, 5]) {
+        useMapStore.getState().setSatelliteTrack(id, {});
+      }
+      expect(useMapStore.getState().satelliteTrackEviction).toBeNull();
+
+      useMapStore.getState().setSatelliteTrack(6, {});
+
+      const eviction = useMapStore.getState().satelliteTrackEviction;
+      expect(eviction?.noradId).toBe("57166");
+      expect(eviction?.name).toBe("IO-117");
+    });
+
+    it("preserves a track's recorded name across a later patch that doesn't set one", async () => {
+      const useMapStore = await loadFreshStore();
+
+      useMapStore.getState().setSatelliteTrack(25544, { name: "ISS (ZARYA)" });
+      useMapStore.getState().setSatelliteTrack(25544, { showPast: true });
+
+      expect(useMapStore.getState().satelliteTracks["25544"]?.name).toBe(
+        "ISS (ZARYA)",
+      );
+    });
+
     it("dismissSatelliteTrackEviction clears the notice", async () => {
       const useMapStore = await loadFreshStore();
       for (const id of [1, 2, 3, 4, 5, 6]) {

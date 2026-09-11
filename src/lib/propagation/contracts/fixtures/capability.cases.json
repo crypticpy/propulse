@@ -1,0 +1,152 @@
+{
+  "hfPhysics": {
+    "schemaVersion": "propagation-capability-0.1.0",
+    "modelId": "propulse-physics-v1",
+    "modelVersion": "1.0.0",
+    "modelHash": "sha256:e6b6e3c8d57eb93ee4c2f36b73b4e2b2871ededb631026a8439a9bb611cd40ad",
+    "preprocessingHash": "sha256:58126e4deeb4562003e21aec60eb2e43d2908f70c67655a3dc964dd4926f8030",
+    "sourcePolicyVersion": "source-policy-0.1.0",
+    "heads": [
+      {
+        "quantity": "circuit_support",
+        "units": "boolean",
+        "domain": "characterized_fixed_path",
+        "state": "implemented_unvalidated",
+        "horizons": ["climatology"],
+        "mechanismFamilies": ["ground_sky_coherent"],
+        "geometryClasses": ["terrestrial_great_circle"],
+        "frequencyRangeHz": {
+          "minHz": 1800000,
+          "maxHz": 2000000
+        },
+        "intervalSecondsRange": null,
+        "bandKeys": ["160m"],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
+        "requiredInputs": [
+          "station_pair",
+          "smoothed_solar_index",
+          "mode_profile",
+          "terrain_profile"
+        ],
+        "optionalInputs": [],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "none",
+        "internalFallback": {
+          "kind": "none"
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
+      },
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "state": "implemented_unvalidated",
+        "horizons": ["climatology", "current", "forecast_1_24h"],
+        "mechanismFamilies": ["regular_ef"],
+        "geometryClasses": ["terrestrial_great_circle"],
+        "frequencyRangeHz": {
+          "minHz": 2000000.0,
+          "maxHz": 30000000.0
+        },
+        "intervalSecondsRange": null,
+        "bandKeys": ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
+        "requiredInputs": [
+          "station_pair",
+          "smoothed_solar_index",
+          "mode_profile",
+          "noise_assumption"
+        ],
+        "optionalInputs": ["eligible_foF2_observations"],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "native_reference_decile",
+        "internalFallback": {
+          "kind": "none"
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
+      },
+      {
+        "quantity": "conditional_decode",
+        "units": "probability",
+        "domain": "characterized_fixed_path",
+        "state": "planned",
+        "horizons": ["current", "forecast_1_24h"],
+        "mechanismFamilies": ["regular_ef"],
+        "geometryClasses": ["terrestrial_great_circle"],
+        "frequencyRangeHz": {
+          "minHz": 2000000.0,
+          "maxHz": 30000000.0
+        },
+        "intervalSecondsRange": null,
+        "bandKeys": [],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
+        "requiredInputs": ["snr2500", "decoder_response_calibration"],
+        "optionalInputs": [],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "model_spread",
+        "internalFallback": {
+          "kind": "model",
+          "modelId": "propulse-physics-v1-margin",
+          "modelVersion": "1.0.0"
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
+      }
+    ],
+    "corrections": [
+      {
+        "correctionId": "storm-prior-v1",
+        "stage": "approved_disturbance_prior",
+        "ownsQuantityId": "ionospheric_state_departure",
+        "mechanism": "geomagnetic_storm_prior",
+        "covarianceOwnership": "owns_total",
+        "assumptions": ["kp_driver_only"],
+        "active": true,
+        "inactiveReason": null
+      },
+      {
+        "correctionId": "xray-absorption-v1",
+        "stage": "excess_absorption",
+        "ownsQuantityId": "total_xray_absorption_db",
+        "mechanism": "d_region_absorption",
+        "covarianceOwnership": "owns_total",
+        "assumptions": ["goes_xrs_long_channel"],
+        "active": false,
+        "inactiveReason": "source_outside_age_limit"
+      }
+    ]
+  },
+  "noOp": {
+    "schemaVersion": "propagation-capability-0.1.0",
+    "modelId": "no-op-capability",
+    "modelVersion": "0.0.0",
+    "modelHash": null,
+    "preprocessingHash": null,
+    "sourcePolicyVersion": "source-policy-0.1.0",
+    "heads": [],
+    "corrections": []
+  }
+}

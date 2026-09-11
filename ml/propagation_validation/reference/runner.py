@@ -100,17 +100,26 @@ def git_env() -> dict[str, str]:
     return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
 
 
-# The upstream repository commits its own build outputs (object files, the
-# dependency stubs, the shared libraries and the ITURHFProp executable), so a
-# build on any host rewrites tracked files. Those are products of the pinned
-# sources, not provenance, and are ignored by the cleanliness check.
-BUILD_PRODUCT_SUFFIXES = (".o", ".d", ".so", ".a", ".dylib")
-BUILD_PRODUCT_DIRS = ("ITURHFProp/Linux/", "P533/Linux/", "P372/Linux/")
+# The upstream repository commits its own build outputs, so a build on any
+# host rewrites tracked files. Only the exact generated artifacts are exempt
+# from the cleanliness check: the object files and dependency stubs the
+# Makefiles emit next to the sources, and the three linked outputs. Makefiles
+# and anything else under the Linux/ build directories are provenance and
+# stay checked. The linked outputs' own provenance is their sha256 in the
+# manifest, recorded by build.py from the pinned sources.
+GENERATED_ARTIFACT_SUFFIXES = (".o", ".d")
+GENERATED_ARTIFACT_PATHS = frozenset(
+    {
+        "ITURHFProp/Linux/ITURHFProp",
+        "P533/Linux/libp533.so",
+        "P372/Linux/libp372.so",
+    }
+)
 
 
-def is_build_product(relative_path: str) -> bool:
-    return relative_path.endswith(BUILD_PRODUCT_SUFFIXES) or relative_path.startswith(
-        BUILD_PRODUCT_DIRS
+def is_generated_artifact(relative_path: str) -> bool:
+    return relative_path in GENERATED_ARTIFACT_PATHS or relative_path.endswith(
+        GENERATED_ARTIFACT_SUFFIXES
     )
 
 
@@ -119,8 +128,8 @@ def require_clean_checkout(source: Path) -> None:
 
     HEAD alone does not prove provenance: an edited source or coefficient
     file would be compiled and then recorded as if it came from COMMIT.
-    Untracked files and rebuilt tracked build products are allowed; any other
-    tracked modification is not.
+    Untracked files and the rebuilt generated artifacts are allowed; any other
+    tracked modification (a Makefile included) is not.
     """
     status = subprocess.check_output(
         ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
@@ -129,7 +138,7 @@ def require_clean_checkout(source: Path) -> None:
     )
     dirty = [
         line for line in status.splitlines()
-        if line.strip() and not is_build_product(line[3:].strip())
+        if line.strip() and not is_generated_artifact(line[3:].strip())
     ]
     if dirty:
         raise ReferenceError(

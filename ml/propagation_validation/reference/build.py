@@ -118,8 +118,10 @@ def build_native(source: Path) -> tuple[list[list[str]], float]:
     started = time.monotonic()
     for directory, include, darwin_link in BUILD_TARGETS:
         cwd = source / directory
+        # A failed clean would let `make all` treat the committed upstream
+        # artifacts as up to date and reproduce nothing (Codex round 4).
         clean = ["make", "clean"]
-        subprocess.run(clean, cwd=cwd, capture_output=True, text=True)
+        run(clean, cwd)
         commands.append(clean)
         if system == "Darwin":
             # The upstream Makefiles assume GNU ld (`-shared -z muldefs`);

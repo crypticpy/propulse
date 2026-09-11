@@ -327,6 +327,18 @@ class CleanCheckoutTests(unittest.TestCase):
                         "ITURHFProp/Linux/ITURHFProp"):
                 (repo / rel).write_bytes(b"\1")
             require_clean_checkout(repo)
+            # A Makefile under a build directory is provenance, not a product.
+            (repo / "P533/Linux/Makefile").write_text("all:\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "makefile"], check=True, env=env)
+            (repo / "P533/Linux/Makefile").write_text("all: ; touch x\n")
+            with self.assertRaisesRegex(RuntimeError, "P533/Linux/Makefile"):
+                require_clean_checkout(repo)
+            subprocess.run(["git", "-C", str(repo), "checkout", "--", "P533/Linux/Makefile"],
+                           check=True, env=env)
+            require_clean_checkout(repo)
             (repo / "COEFF.txt").write_text("1 2 4\n")
             with self.assertRaisesRegex(RuntimeError, "COEFF.txt"):
                 require_clean_checkout(repo)

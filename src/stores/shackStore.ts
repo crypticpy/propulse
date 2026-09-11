@@ -31,7 +31,10 @@ import type {
 import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
 import type { StationInventory } from "@/lib/station/stationChainEngine";
 import { computeInsertPosition } from "@/lib/chainOrdering";
-import { deleteImage } from "@/lib/db/imageStore";
+import {
+  collectEquipmentImageIds,
+  purgeUnreferencedImages,
+} from "@/lib/db/imageReferenceSnapshot";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -377,21 +380,7 @@ export const useShackStore = create<ShackStore>()(
           ? resolveEquipmentById(radio.equipmentId, get().customRadios)
           : undefined;
         const name = radio?.nickname ?? radioEquip?.displayName ?? "Unknown";
-
-        // Orphan cleanup: delete associated image blob
-        if (radio?.imageId) {
-          deleteImage(radio.imageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
-        // Orphan cleanup: delete gallery image blobs
-        if (radio?.galleryImageIds) {
-          for (const gid of radio.galleryImageIds) {
-            deleteImage(gid).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
-        }
+        const detachedImageIds = collectEquipmentImageIds(radio);
 
         set((state) => {
           const updatedRadios = state.radios.filter((r) => r.id !== radioId);
@@ -431,6 +420,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: radioId,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       setActiveRadio: (radioId) => set({ activeRadioId: radioId }),
@@ -545,19 +536,9 @@ export const useShackStore = create<ShackStore>()(
         const affectedRadios = get().radios.filter((r) =>
           affectedRadioIds.includes(r.id),
         );
-
-        for (const radio of affectedRadios) {
-          if (radio.imageId) {
-            deleteImage(radio.imageId).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
-          for (const galleryId of radio.galleryImageIds ?? []) {
-            deleteImage(galleryId).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
-        }
+        const detachedImageIds = affectedRadios.flatMap((radio) =>
+          collectEquipmentImageIds(radio),
+        );
 
         set((state) => {
           const nextCustom = (state.customRadios || []).filter(
@@ -608,6 +589,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: id,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       // === Antenna Actions ===
@@ -665,21 +648,7 @@ export const useShackStore = create<ShackStore>()(
       removeAntenna: (id) => {
         const antenna = get().antennas.find((a) => a.id === id);
         const name = antenna?.name ?? "Unknown";
-
-        // Orphan cleanup: delete associated image blob
-        if (antenna?.imageId) {
-          deleteImage(antenna.imageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
-        // Orphan cleanup: delete gallery image blobs
-        if (antenna?.galleryImageIds) {
-          for (const gid of antenna.galleryImageIds) {
-            deleteImage(gid).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
-        }
+        const detachedImageIds = collectEquipmentImageIds(antenna);
 
         set((state) => ({
           antennas: state.antennas.filter((a) => a.id !== id),
@@ -701,6 +670,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: id,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       duplicateAntenna: (id) => {
@@ -790,13 +761,7 @@ export const useShackStore = create<ShackStore>()(
       removeFeedline: (id) => {
         const feedline = get().feedlines.find((f) => f.id === id);
         const name = feedline?.name ?? "Unknown";
-
-        // Orphan cleanup: delete associated image blob
-        if (feedline?.imageId) {
-          deleteImage(feedline.imageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
+        const detachedImageIds = collectEquipmentImageIds(feedline);
 
         set((state) => {
           // Find FeedlineRun IDs that reference this feedline
@@ -834,6 +799,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: id,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       duplicateFeedline: (id) => {
@@ -928,13 +895,7 @@ export const useShackStore = create<ShackStore>()(
       removeInlineComponent: (id) => {
         const component = get().inlineComponents.find((c) => c.id === id);
         const name = component?.name ?? "Unknown";
-
-        // Orphan cleanup: delete associated image blob
-        if (component?.imageId) {
-          deleteImage(component.imageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
+        const detachedImageIds = collectEquipmentImageIds(component);
 
         set((state) => ({
           inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
@@ -961,6 +922,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: id,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       duplicateInlineComponent: (id) => {
@@ -1058,21 +1021,7 @@ export const useShackStore = create<ShackStore>()(
       removeAccessory: (id) => {
         const accessory = get().accessories.find((a) => a.id === id);
         const name = accessory?.name ?? "Unknown";
-
-        // Orphan cleanup: delete associated image blob
-        if (accessory?.imageId) {
-          deleteImage(accessory.imageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
-        // Orphan cleanup: delete gallery image blobs
-        if (accessory?.galleryImageIds) {
-          for (const gid of accessory.galleryImageIds) {
-            deleteImage(gid).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
-        }
+        const detachedImageIds = collectEquipmentImageIds(accessory);
 
         set((state) => ({
           accessories: state.accessories.filter((a) => a.id !== id),
@@ -1098,6 +1047,8 @@ export const useShackStore = create<ShackStore>()(
           equipmentId: id,
           equipmentName: name,
         });
+
+        purgeUnreferencedImages(detachedImageIds);
       },
 
       duplicateAccessory: (id) => {
@@ -1708,13 +1659,6 @@ export const useShackStore = create<ShackStore>()(
             break;
         }
 
-        // Delete the blob from IndexedDB
-        if (oldImageId) {
-          deleteImage(oldImageId).catch(() => {
-            /* best-effort cleanup */
-          });
-        }
-
         set((s) => {
           switch (type) {
             case "radio":
@@ -1753,6 +1697,10 @@ export const useShackStore = create<ShackStore>()(
               };
           }
         });
+
+        if (oldImageId) {
+          purgeUnreferencedImages([oldImageId]);
+        }
       },
 
       // === Gallery Management ===
@@ -1801,11 +1749,6 @@ export const useShackStore = create<ShackStore>()(
       },
 
       removeGalleryImage: (type, equipmentId, imageId) => {
-        // Delete the blob from IndexedDB
-        deleteImage(imageId).catch(() => {
-          /* best-effort cleanup */
-        });
-
         set((state) => {
           switch (type) {
             case "radio": {
@@ -1849,6 +1792,8 @@ export const useShackStore = create<ShackStore>()(
             }
           }
         });
+
+        purgeUnreferencedImages([imageId]);
       },
 
       // === History ===

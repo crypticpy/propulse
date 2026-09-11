@@ -11,8 +11,8 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { useShackStore } from "@/stores/shackStore";
-import { useProfileStore } from "@/stores/profileStore";
+import { collectReferencedImageIds } from "@/lib/db/imageReferences";
+import { getLiveImageReferenceSnapshot } from "@/lib/db/imageReferenceSnapshot";
 import {
   getImage,
   storeImageWithId,
@@ -32,52 +32,6 @@ const BUCKET = "equipment-images";
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const untypedFrom = (table: string) => getSupabase().from(table as any) as any;
-
-/**
- * Collect all imageIds referenced across shackStore and profileStore.
- * Returns a deduplicated set of non-empty image IDs.
- */
-function collectReferencedImageIds(): Set<string> {
-  const ids = new Set<string>();
-
-  // --- ShackStore ---
-  const shack = useShackStore.getState();
-
-  for (const radio of shack.radios) {
-    if (radio.imageId) ids.add(radio.imageId);
-    if (radio.galleryImageIds) {
-      for (const gid of radio.galleryImageIds) ids.add(gid);
-    }
-  }
-
-  for (const antenna of shack.antennas) {
-    if (antenna.imageId) ids.add(antenna.imageId);
-    if (antenna.galleryImageIds) {
-      for (const gid of antenna.galleryImageIds) ids.add(gid);
-    }
-  }
-
-  for (const feedline of shack.feedlines) {
-    if (feedline.imageId) ids.add(feedline.imageId);
-  }
-
-  for (const accessory of shack.accessories) {
-    if (accessory.imageId) ids.add(accessory.imageId);
-    if (accessory.galleryImageIds) {
-      for (const gid of accessory.galleryImageIds) ids.add(gid);
-    }
-  }
-
-  for (const inline of shack.inlineComponents) {
-    if (inline.imageId) ids.add(inline.imageId);
-  }
-
-  // --- ProfileStore ---
-  const profile = useProfileStore.getState();
-  if (profile.profileImageId) ids.add(profile.profileImageId);
-
-  return ids;
-}
 
 // ─── Row type for user_images metadata ──────────────────────────────────────
 
@@ -102,7 +56,9 @@ export const imageSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const referencedIds = collectReferencedImageIds();
+    const referencedIds = collectReferencedImageIds(
+      getLiveImageReferenceSnapshot(),
+    );
 
     if (referencedIds.size === 0) {
       console.log("[imageSync] No referenced images to push");

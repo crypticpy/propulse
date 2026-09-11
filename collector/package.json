@@ -2,6 +2,7 @@
   "name": "propulse-collector",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "Propulse 24/7 spot and solar data collector",
   "type": "module",
   "main": "dist/index.js",

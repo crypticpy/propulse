@@ -47,7 +47,6 @@ export interface PathPointCardProps {
   status: PathPointBuildStatus;
   unavailableReason: string | null;
   pathSummary?: string;
-  onClose: () => void;
   onOpenPathAnalysis?: () => void;
 }
 
@@ -56,7 +55,6 @@ export function PathPointCard({
   status,
   unavailableReason,
   pathSummary,
-  onClose,
   onOpenPathAnalysis,
 }: PathPointCardProps) {
   const modeledHeight =
@@ -72,25 +70,15 @@ export function PathPointCard({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-3 border-b border-su-line/40 px-3 py-2.5">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-su-text">
-            {point ? roleTitle(point.role) : "Path details"}
-          </h3>
-          <p className="mt-0.5 text-[10px] text-su-muted">
-            {point
-              ? `Hop ${point.hopIndex + 1} · modeled prediction`
-              : "Modeled path — not a measured bounce"}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close path point card"
-          className="rounded-md border border-su-line/40 px-2 py-1 text-[10px] text-su-muted hover:text-su-text"
-        >
-          Close
-        </button>
+      <div className="border-b border-su-line/40 px-3 py-2.5">
+        <h3 className="text-sm font-semibold text-su-text">
+          {point ? roleTitle(point.role) : "Path details"}
+        </h3>
+        <p className="mt-0.5 text-[10px] text-su-muted">
+          {point
+            ? `Hop ${point.hopIndex + 1} · modeled prediction`
+            : "Modeled path — not a measured bounce"}
+        </p>
       </div>
 
       {status === "model-stale" && unavailableReason && (
@@ -103,13 +91,13 @@ export function PathPointCard({
       )}
 
       {(status === "model-unavailable" || status === "no-hops") && (
-        <div role="status" className="px-3 py-3 text-[12px] text-su-muted">
+        <div role="status" className="px-3 py-3 text-xs text-su-muted">
           {unavailableReason ?? "Path point details are unavailable."}
         </div>
       )}
 
       {!point && status === "ready" && (
-        <p className="px-3 py-3 text-[12px] text-su-muted">
+        <p className="px-3 py-3 text-xs text-su-muted">
           {pathSummary
             ? pathSummary
             : "This line is a modeled path. A click on the trace is not a measured bounce. Choose a listed point for hop details."}

@@ -210,6 +210,27 @@ describe("PathPointInspector", () => {
     ).toBeTruthy();
   });
 
+  it("places a single window-level Close in the header, not in the card (#931)", () => {
+    const set = pointSet();
+    const apex = set.points.find((point) => point.role === "ray-apex")!;
+    render(
+      <PathPointInspector
+        pointSet={set}
+        selectedId={apex.id}
+        hoveredId={null}
+        open="card"
+        anchor={{ x: 200, y: 200 }}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: "Close path point details" }),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Close path point card" })).toBeNull();
+  });
+
   it("fires only the full-path-analysis callback", async () => {
     const user = userEvent.setup();
     const onOpenPathAnalysis = vi.fn();

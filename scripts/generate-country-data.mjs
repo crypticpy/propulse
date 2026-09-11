@@ -29,12 +29,10 @@ const OUTPUT_FILE = path.resolve(
 const topojsonClient = await import("topojson-client");
 const topology = require("world-atlas/countries-110m.json");
 const worldCountriesData = require("world-countries");
+const worldCountriesVersion = require("world-countries/package.json").version;
 
 // Convert TopoJSON to GeoJSON FeatureCollection
-const geojson = topojsonClient.feature(
-  topology,
-  topology.objects.countries,
-);
+const geojson = topojsonClient.feature(topology, topology.objects.countries);
 
 // Build lookup: ISO numeric code -> world-countries metadata
 const metadataByNumeric = new Map();
@@ -118,7 +116,8 @@ for (const feature of geojson.features) {
   const meta = metadataByNumeric.get(numericId);
 
   // Get name from metadata or fall back to TopoJSON properties
-  const name = meta?.name || feature.properties?.name || `Unknown (${numericId})`;
+  const name =
+    meta?.name || feature.properties?.name || `Unknown (${numericId})`;
   const iso = meta?.iso || numericId;
   const area = meta?.area || 0;
 
@@ -189,6 +188,8 @@ const output = `/**
  * World Countries Boundary Data (Generated)
  *
  * Source: Natural Earth 110m via world-atlas
+ * Metadata: world-countries v${worldCountriesVersion} (https://www.npmjs.com/package/world-countries)
+ * Metadata licence: ODbL-1.0 — https://opendatacommons.org/licenses/odbl/1-0/
  * Generated: ${timestamp}
  * Countries: ${countries.length}
  *
@@ -219,6 +220,10 @@ await fs.writeFile(OUTPUT_FILE, output, "utf-8");
 
 console.log(`Generated ${OUTPUT_FILE}`);
 console.log(`  Countries: ${countries.length}`);
-console.log(`  Total rings: ${countries.reduce((sum, c) => sum + c.borders.length, 0)}`);
-console.log(`  Total points: ${countries.reduce((sum, c) => sum + c.borders.reduce((s, r) => s + r.length, 0), 0)}`);
+console.log(
+  `  Total rings: ${countries.reduce((sum, c) => sum + c.borders.length, 0)}`,
+);
+console.log(
+  `  Total points: ${countries.reduce((sum, c) => sum + c.borders.reduce((s, r) => s + r.length, 0), 0)}`,
+);
 console.log(`  File size: ${(output.length / 1024).toFixed(1)} KB`);

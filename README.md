@@ -586,7 +586,8 @@ badly.
    utilities, `@/` import alias.
 4. Run `npm run verify` before pushing.
 5. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
-   (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
+   (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`), signed off
+   (`git commit -s`), see [DCO.txt](DCO.txt).
 6. Open a pull request with a summary and testing notes, a `Closes #N` (or `Refs #N` for a
    partial slice) line, and an `Agent:` line naming who or what wrote it; the `pr-contract`
    check fails without them. UI-touching changes also need an approved design review on
@@ -605,6 +606,8 @@ and modify it under the terms of the **GNU Affero General Public License, versio
 published by the Free Software Foundation. It is distributed WITHOUT ANY WARRANTY, without
 even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
 [LICENSE](LICENSE) for the full text.
+
+Contributions are accepted under the Developer Certificate of Origin, see [DCO.txt](DCO.txt).
 
 ### Trademarks
 

@@ -8,6 +8,8 @@
 
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
+import { BandPill } from "@/components/ui/BandPill";
 import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
@@ -262,8 +264,11 @@ export function OptimalBandsPanel({
   return (
     <div
       ref={panelRef}
-      className={`absolute z-10 ${className}`}
+      className={`absolute ${className}`}
       style={{
+        // Operable chrome (drag handle + expand/collapse): clears the map
+        // overlay portal (#930).
+        zIndex: MAP_PAGE_CHROME_Z.interactiveChrome,
         left: position.x,
         top: position.y,
         cursor: isDragging ? "grabbing" : undefined,
@@ -435,9 +440,7 @@ export function OptimalBandsPanel({
                         >
                           {index + 1}
                         </span>
-                        <span className="text-sm font-mono text-su-text">
-                          {band.band}
-                        </span>
+                        <BandPill band={band.band} size="md" />
                       </div>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${

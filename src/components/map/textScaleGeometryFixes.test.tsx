@@ -662,6 +662,25 @@ describe("TargetHoverTooltip (round-9 fix: ResizeObserver catches shape changes 
   });
 });
 
+describe("OperatorProfile (#926: licence row wraps at xl text scale)", () => {
+  it("wraps the grid + licence-status row so badges stay fully visible", () => {
+    const absPath = resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx");
+    const source = readFileSync(absPath, "utf8");
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("Grid + License row"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-2 mb-2"');
+  });
+});
+
 describe("OperatorProfile (round-9 fix: primary VFO row wraps instead of clipping in the overflow-hidden button)", () => {
   it("wraps the band/mode/source row so the source badge can drop to its own line", () => {
     const absPath = resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx");
@@ -1172,5 +1191,25 @@ describe("round-15 Codex site family: fixed-column tile grids in the narrow pane
         'className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3"',
       );
     }
+  });
+});
+
+describe("#925 round: LayersPopover submenu rows are height floors, not height locks", () => {
+  // #925 moved these rows' labels off a fixed pixel size and onto `text-xs`,
+  // so they now follow Settings -> Text Size and reach 16.5px at the xl
+  // scale. A two-word label ("Terminator Line", "Grid Activity") wraps at
+  // that size, and the rows were still pixel-locked to a single 30px line --
+  // the second line would paint over the row below, which is exactly how the
+  // Grid Detail row failed in #839. Both rows now carry a min-height instead.
+  const source = () =>
+    readFileSync(resolve(REPO_ROOT, "src/components/map/LayersPopover.tsx"), "utf8");
+
+  it("no submenu row is pinned to a fixed 30px height", () => {
+    expect(source()).not.toContain("flex items-center h-[30px]");
+  });
+
+  it("the toggle row and the arc-mode row both use a rem min-height", () => {
+    const matches = source().match(/flex items-center min-h-\[1\.875rem\] px-1/g) ?? [];
+    expect(matches).toHaveLength(2);
   });
 });

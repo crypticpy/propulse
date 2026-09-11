@@ -4,6 +4,10 @@
  * Provides a unified interface for managing QSL confirmations across
  * LoTW, Club Log, and eQSL services. Displays connection status,
  * sync controls, statistics, and recent activity.
+ *
+ * Not mounted. Owner decision on #798: keep as intended future work.
+ * Completing this surface is tracked by #979.
+ * `/log` currently uses `src/components/qso/QslSyncPanel` for live QSL sync.
  */
 
 import { useState, useMemo, useCallback } from "react";
@@ -600,7 +604,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
       try {
         switch (id) {
           case "lotw":
-            // LoTW upload uses ADIF export, handled via LogUploadModal
+            // LoTW upload uses ADIF export from the live logbook (#979).
             setSyncError(
               "Use the Upload button in your Logbook to export ADIF for LoTW.",
             );
@@ -611,7 +615,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
               setSyncError("eQSL credentials missing.");
               break;
             }
-            // eQSL upload handled via LogUploadModal's upload flow
+            // eQSL upload is part of the unfinished QSL surface (#979).
             break;
           }
           case "clublog":

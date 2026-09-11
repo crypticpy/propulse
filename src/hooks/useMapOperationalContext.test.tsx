@@ -84,11 +84,13 @@ describe("operational workspace synchronization cleanup", () => {
       await Promise.resolve();
     });
     const [channel] = TestChannel.instances;
+    // One batched message per publish (#884 round 14).
     expect(channel.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "snapshot",
-        domain: "operational",
-        state: expect.objectContaining({ manualScope: "log" }),
+        domains: expect.objectContaining({
+          operational: expect.objectContaining({ manualScope: "log" }),
+        }),
       }),
     );
     view.unmount();
@@ -114,11 +116,12 @@ describe("map target synchronization", () => {
     expect(channel.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "snapshot",
-        domain: "map",
-        state: {
-          target: expect.objectContaining({ name: "W3ABC" }),
-          targetSetAt: useMapStore.getState().targetSetAt,
-        },
+        domains: expect.objectContaining({
+          map: {
+            target: expect.objectContaining({ name: "W3ABC" }),
+            targetSetAt: useMapStore.getState().targetSetAt,
+          },
+        }),
       }),
     );
     view.unmount();
@@ -150,9 +153,11 @@ describe("map target synchronization", () => {
       channel.postMessage.mock.calls
         .map(
           ([message]) =>
-            message as { domain: string; state: { targetSetAt?: number } },
+            message as {
+              domains?: { map?: { targetSetAt?: number } };
+            },
         )
-        .filter((message) => message.domain === "map");
+        .filter((message) => message.domains?.map !== undefined);
     const before = mapPublishes().length;
     const firstSeq = useMapStore.getState().targetSeq;
 
@@ -169,7 +174,7 @@ describe("map target synchronization", () => {
 
     const mapMessages = mapPublishes();
     expect(mapMessages.length).toBe(before + 1);
-    expect(mapMessages[mapMessages.length - 1]?.state.targetSetAt).toBe(
+    expect(mapMessages[mapMessages.length - 1]?.domains?.map?.targetSetAt).toBe(
       useMapStore.getState().targetSetAt,
     );
     view.unmount();
@@ -199,11 +204,12 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "other-window",
-          domain: "map",
           revision: 1,
-          state: {
-            target: { lat: 40, lon: -80, name: "W3ABC" },
-            targetSetAt: 9_000,
+          domains: {
+            map: {
+              target: { lat: 40, lon: -80, name: "W3ABC" },
+              targetSetAt: 9_000,
+            },
           },
         },
       } as MessageEvent);
@@ -252,9 +258,10 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "other-window",
-          domain: "map",
           revision,
-          state: { target: { lat: 1, lon: 1, name }, targetSetAt: setAt },
+          domains: {
+            map: { target: { lat: 1, lon: 1, name }, targetSetAt: setAt },
+          },
         },
       }) as MessageEvent;
 
@@ -306,11 +313,12 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "suspended-popout",
-          domain: "map",
           revision: 1,
-          state: {
-            target: { lat: 1, lon: 1, name: "STALE" },
-            targetSetAt: 4_000,
+          domains: {
+            map: {
+              target: { lat: 1, lon: 1, name: "STALE" },
+              targetSetAt: 4_000,
+            },
           },
         },
       } as MessageEvent);
@@ -354,11 +362,12 @@ describe("map target synchronization", () => {
           data: {
             kind: "snapshot",
             sender: remote,
-            domain: "map",
             revision: 1,
-            state: {
-              target: { lat: 3, lon: 3, name: remote },
-              targetSetAt: 7_000,
+            domains: {
+              map: {
+                target: { lat: 3, lon: 3, name: remote },
+                targetSetAt: 7_000,
+              },
             },
           },
         } as MessageEvent);
@@ -404,11 +413,12 @@ describe("map target synchronization", () => {
             data: {
               kind: "snapshot",
               sender,
-              domain: "map",
               revision: index + 1,
-              state: {
-                target: { lat: index, lon: index, name: sender },
-                targetSetAt: 7_000,
+              domains: {
+                map: {
+                  target: { lat: index, lon: index, name: sender },
+                  targetSetAt: 7_000,
+                },
               },
             },
           } as MessageEvent);
@@ -443,7 +453,10 @@ describe("map target synchronization", () => {
       await Promise.resolve();
     });
     expect(channel.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ domain: "map", trigger: "update" }),
+      expect.objectContaining({
+        domains: expect.objectContaining({ map: expect.anything() }),
+        triggers: expect.objectContaining({ map: "update" }),
+      }),
     );
 
     channel.postMessage.mockClear();
@@ -456,7 +469,10 @@ describe("map target synchronization", () => {
       await Promise.resolve();
     });
     expect(channel.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ domain: "map", trigger: "handshake" }),
+      expect.objectContaining({
+        domains: expect.objectContaining({ map: expect.anything() }),
+        triggers: expect.objectContaining({ map: "handshake" }),
+      }),
     );
     view.unmount();
   });
@@ -488,10 +504,11 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "empty-window",
-          domain: "map",
           revision: 1,
-          trigger: "handshake",
-          state: { target: null, targetSetAt: 0 },
+          triggers: { map: "handshake" },
+          domains: {
+            map: { target: null, targetSetAt: 0 },
+          },
         },
       } as MessageEvent);
     });
@@ -526,9 +543,10 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "legacy-window",
-          domain: "map",
           revision: 1,
-          state: { target: { lat: 1, lon: 1, name: "OLD" }, targetSetAt: 0 },
+          domains: {
+            map: { target: { lat: 1, lon: 1, name: "OLD" }, targetSetAt: 0 },
+          },
         },
       } as MessageEvent);
     });
@@ -559,10 +577,11 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "other-window",
-          domain: "map",
           revision: 1,
-          trigger: "update",
-          state: { target: null, targetSetAt: 5_000 },
+          triggers: { map: "update" },
+          domains: {
+            map: { target: null, targetSetAt: 5_000 },
+          },
         },
       } as MessageEvent);
     });
@@ -598,9 +617,10 @@ describe("map target synchronization", () => {
         data: {
           kind: "snapshot",
           sender: "other-window",
-          domain: "map",
           revision: 1,
-          state: { target: { lat: 40, lon: -80, name: "W3ABC" } },
+          domains: {
+            map: { target: { lat: 40, lon: -80, name: "W3ABC" } },
+          },
         },
       } as MessageEvent);
     });

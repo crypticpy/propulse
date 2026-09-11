@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import {
   extractPrefixFromCallsign,
+  getLocationFromContinent,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
@@ -17,7 +18,11 @@ import {
 import type { ViewRuntime } from "@/lib/views/contracts";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
-export type MapSpotLocationSource = "coordinates" | "grid" | "callsign-prefix";
+export type MapSpotLocationSource =
+  | "coordinates"
+  | "grid"
+  | "callsign-prefix"
+  | "continent";
 
 export interface MapSpotSelection {
   /** The selected spot, normalized with the coordinates used by the map. */
@@ -62,13 +67,44 @@ function isValidCoordinatePair(lat: unknown, lon: unknown): boolean {
   );
 }
 
+function locateFromCallsign(spot: DXSpot): {
+  lat: number;
+  lon: number;
+  locationSource: Extract<MapSpotLocationSource, "callsign-prefix" | "continent">;
+} | null {
+  const prefix = extractPrefixFromCallsign(spot.dx);
+  const prefixLocation = getLocationFromPrefix(prefix);
+  if (prefixLocation && isValidCoordinatePair(prefixLocation.lat, prefixLocation.lon)) {
+    return {
+      lat: prefixLocation.lat,
+      lon: prefixLocation.lon,
+      locationSource: "callsign-prefix",
+    };
+  }
+  const continent = spot.continent?.trim();
+  if (!continent) return null;
+  const continentLocation = getLocationFromContinent(continent);
+  if (
+    !continentLocation ||
+    !isValidCoordinatePair(continentLocation.lat, continentLocation.lon)
+  ) {
+    return null;
+  }
+  return {
+    lat: continentLocation.lat,
+    lon: continentLocation.lon,
+    locationSource: "continent",
+  };
+}
+
 /**
  * Resolve a live/DX spot to the endpoint the user intends to target.
  *
  * Feed coordinates have highest authority, followed by the DX Maidenhead grid
- * center and finally the existing callsign-prefix centroid. The returned spot
- * carries the resolved coordinates so every selected-spot renderer uses the
- * same endpoint as the target beacon.
+ * center, the callsign-prefix centroid, and finally the feed continent centroid.
+ * Approximate locations are flagged on the target so the chip and DX target
+ * report can say so (#861). The returned spot carries the resolved coordinates
+ * so every selected-spot renderer uses the same endpoint as the target beacon.
  */
 export function resolveMapSpotSelection(
   spot: DXSpot,
@@ -94,35 +130,30 @@ export function resolveMapSpotSelection(
       lon = location.lon;
       locationSource = "grid";
     } catch {
-      const prefix = extractPrefixFromCallsign(spot.dx);
-      const location = getLocationFromPrefix(prefix);
-      if (!location || !isValidCoordinatePair(location.lat, location.lon)) {
-        return null;
-      }
-      lat = location.lat;
-      lon = location.lon;
-      locationSource = "callsign-prefix";
+      const fallback = locateFromCallsign(spot);
+      if (!fallback) return null;
+      lat = fallback.lat;
+      lon = fallback.lon;
+      locationSource = fallback.locationSource;
     }
   } else {
-    const prefix = extractPrefixFromCallsign(spot.dx);
-    const location = getLocationFromPrefix(prefix);
-    if (!location || !isValidCoordinatePair(location.lat, location.lon)) {
-      return null;
-    }
-    lat = location.lat;
-    lon = location.lon;
-    locationSource = "callsign-prefix";
+    const fallback = locateFromCallsign(spot);
+    if (!fallback) return null;
+    lat = fallback.lat;
+    lon = fallback.lon;
+    locationSource = fallback.locationSource;
   }
 
   const grid = dxGrid && isValidGrid(dxGrid) ? dxGrid : undefined;
+  const approximate =
+    locationSource === "callsign-prefix" ||
+    locationSource === "continent" ||
+    (locationSource === "coordinates" && spot.dxLocApprox === true);
   const normalizedSpot: DXSpot = {
     ...spot,
     dxLat: lat,
     dxLon: lon,
-    dxLocApprox:
-      locationSource === "coordinates"
-        ? spot.dxLocApprox === true
-        : locationSource === "callsign-prefix",
+    dxLocApprox: approximate,
   };
 
   return {
@@ -132,6 +163,7 @@ export function resolveMapSpotSelection(
       lon,
       grid,
       name: formatSpotPresentationLabel(spot.dx, spot.comment),
+      approximate,
     },
     locationSource,
   };

@@ -42,6 +42,8 @@ export default tseslint.config(
             "useVirtualList",
             "useVariableHeightVirtualList",
             "useHamClockDialogEscapeGuard",
+            "anyDialogOpen",
+            "subscribeToDialogStack",
             "getSpotAgeInfo",
             "formatSpotAge",
             "getShortAgeLabel",

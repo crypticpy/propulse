@@ -45,6 +45,7 @@ from reference_features import (
 from operational_weather import (
     DERIVED_WEATHER_FEATURES,
     RAW_WEATHER_FEATURES,
+    SOURCE_NAMES,
     OperationalWeatherProvider,
     VerifiedOperationalWeather,
     operational_weather_provider_from_environment,
@@ -716,6 +717,19 @@ def verified_path_history(
     return snapshots
 
 
+#: Census of every `data_freshness` key the service writes itself: the
+#: path-history age, the space-weather aggregate, and one age per weather
+#: source. A request cannot pre-empt one — each is stripped from the client's
+#: `data_freshness_seconds` before the server's own value is merged in — so
+#: these are the only keys that can grow a response beyond the request's key
+#: count. There is no shared source of truth with TypeScript, so the edge
+#: proxy mirrors this list by hand as `SERVER_OWNED_FRESHNESS_KEYS` in
+#: `api/_lib/propagationProxy.ts`, where it sizes the response contract.
+#: test_app.ServiceTests asserts the census against a real served response;
+#: keep the two lists in step (#321).
+SERVER_OWNED_FRESHNESS_KEYS = ("path_history", "space_weather", *SOURCE_NAMES)
+
+
 def apply_verified_path_history(
     provider: PathHistoryProvider,
     *,
@@ -819,16 +833,20 @@ def apply_verified_operational_weather(
     client_freshness: dict[str, int],
 ) -> tuple[list[PathFeatures], dict[str, int]]:
     snapshot = verified_operational_weather(provider, issue_time=issue_time)
+    # Every space-weather age is server-authoritative: the aggregate and the
+    # per-source ages the client renders (#321) are stripped from the request
+    # before the snapshot's own are merged in.
     freshness = {
         key: value
         for key, value in client_freshness.items()
-        if key != "space_weather"
+        if key != "space_weather" and key not in SOURCE_NAMES
     }
     if snapshot is not None:
         freshness["space_weather"] = max(
             0,
             math.ceil((issue_time - snapshot.source_watermark).total_seconds()),
         )
+        freshness.update(snapshot.source_ages_seconds)
     verified_cells = []
     for cell in cells:
         values = dict(cell.values)

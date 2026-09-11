@@ -219,6 +219,22 @@ describe("commitLogIntent", () => {
       lon: 2.3,
     });
   });
+
+  it("pulses the globe when the map target label includes an activation reference", async () => {
+    useMapStore.getState().setTarget({
+      lat: 30.5,
+      lon: -97,
+      name: "K1ABC · POTA US-1234",
+    });
+    useOpsPostureStore.getState().enterContact({ callsign: "K1ABC", band: "20m" });
+    const result = await commitLogIntent();
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().justLogged).toMatchObject({
+      callsign: "K1ABC",
+      lat: 30.5,
+      lon: -97,
+    });
+  });
 });
 
 describe("commitWsjtxLogged", () => {

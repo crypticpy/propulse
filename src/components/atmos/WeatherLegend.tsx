@@ -77,7 +77,7 @@ export function WeatherLegend() {
   if (!anyActive) return null;
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 max-w-[200px] bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg p-2 space-y-2">
+    <div className="max-w-[200px] bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg p-2 space-y-2">
       {layerVisibility.radar && (
         <div className="space-y-0.5">
           <div

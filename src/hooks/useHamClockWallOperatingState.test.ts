@@ -118,10 +118,11 @@ function livePick(sender: string, at: number) {
     data: {
       kind: "snapshot",
       sender,
-      domain: "map",
       revision: 1,
-      trigger: "update",
-      state: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: at },
+      triggers: { map: "update" },
+      domains: {
+        map: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: at },
+      },
     },
   } as MessageEvent;
 }
@@ -532,8 +533,11 @@ describe("useHamClockWallOperatingState", () => {
       await Promise.resolve();
     });
     const mapSnapshots = channel.postMessage.mock.calls
-      .map(([message]) => message as { domain: string; sender: string })
-      .filter((message) => message.domain === "map");
+      .map(
+        ([message]) =>
+          message as { domains?: Record<string, unknown>; sender: string },
+      )
+      .filter((message) => message.domains?.map !== undefined);
     const published = mapSnapshots[mapSnapshots.length - 1];
     expect(published).toBeDefined();
 
@@ -585,9 +589,10 @@ describe("useHamClockWallOperatingState", () => {
         data: {
           kind: "snapshot",
           sender: "legacy-window",
-          domain: "map",
           revision: 1,
-          state: { target: { lat: 1, lon: 1, name: "OLD" } },
+          domains: {
+            map: { target: { lat: 1, lon: 1, name: "OLD" } },
+          },
         },
       } as MessageEvent);
     });
@@ -658,9 +663,10 @@ describe("useHamClockWallOperatingState", () => {
         data: {
           kind: "snapshot",
           sender: "legacy-window",
-          domain: "map",
           revision: 1,
-          state: { target: { lat: 1, lon: 1, name: "OLD" } },
+          domains: {
+            map: { target: { lat: 1, lon: 1, name: "OLD" } },
+          },
         },
       } as MessageEvent);
     });
@@ -742,15 +748,16 @@ describe("useHamClockWallOperatingState", () => {
         data: {
           kind: "snapshot",
           sender: "pop-out",
-          domain: "map",
           revision: 1,
-          state: {
-            target: { lat: -20, lon: -45, name: "PY5DX" },
-            // A millisecond after the pick above, which is what makes it a
-            // new selection rather than a stale window answering with what
-            // it has always had (round 12). The clock is frozen, so this is
-            // written out rather than advanced.
-            targetSetAt: (useMapStore.getState().targetSetAt as number) + 1,
+          domains: {
+            map: {
+              target: { lat: -20, lon: -45, name: "PY5DX" },
+              // A millisecond after the pick above, which is what makes it a
+              // new selection rather than a stale window answering with what
+              // it has always had (round 12). The clock is frozen, so this is
+              // written out rather than advanced.
+              targetSetAt: (useMapStore.getState().targetSetAt as number) + 1,
+            },
           },
         },
       } as MessageEvent);
@@ -780,9 +787,10 @@ describe("useHamClockWallOperatingState", () => {
         data: {
           kind: "snapshot",
           sender: "legacy-window",
-          domain: "map",
           revision: 2,
-          state: { target: { lat: 1, lon: 1, name: "OLD" } },
+          domains: {
+            map: { target: { lat: 1, lon: 1, name: "OLD" } },
+          },
         },
       } as MessageEvent);
     });
@@ -832,9 +840,10 @@ describe("useHamClockWallOperatingState", () => {
         data: {
           kind: "snapshot",
           sender: "pop-out",
-          domain: "map",
           revision,
-          state: { target: { lat: -20, lon: -45, name }, targetSetAt: setAt },
+          domains: {
+            map: { target: { lat: -20, lon: -45, name }, targetSetAt: setAt },
+          },
         },
       }) as MessageEvent;
     act(() => {
@@ -982,8 +991,9 @@ describe("useHamClockWallOperatingState", () => {
 
     const aTarget = {
       kind: "snapshot",
-      domain: "map",
-      state: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: t0 },
+      domains: {
+        map: { target: { lat: -20, lon: -45, name: "PY5DX" }, targetSetAt: t0 },
+      },
     };
 
     // Window A picks a target; it syncs in here and is numbered here.

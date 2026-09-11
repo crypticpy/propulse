@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { BandPill } from "@/components/ui/BandPill";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
@@ -397,19 +398,31 @@ export function PropagationForecastModal({
           </div>
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
-            <div
-              className={`text-2xl font-mono font-bold`}
-              style={{
-                color: currentBestBand
-                  ? getForecastStatusColor(currentBestBand.status)
-                  : "#666",
-              }}
-            >
-              {currentBestBand?.band || "---"}
-            </div>
+            {currentBestBand ? (
+              <div className="flex items-center justify-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: getForecastStatusColor(
+                      currentBestBand.status,
+                    ),
+                  }}
+                />
+                <BandPill
+                  band={currentBestBand.band}
+                  size="inherit"
+                  className="text-2xl font-bold"
+                />
+              </div>
+            ) : (
+              <div className="text-2xl font-mono font-bold text-su-muted">
+                ---
+              </div>
+            )}
             <div className="text-xs text-su-muted mt-1">
               {currentBestBand
-                ? `${currentBestBand.snrEstimate} dB`
+                ? `${getStatusLabel(currentBestBand.status)} · ${currentBestBand.snrEstimate} dB`
                 : "No opening"}
             </div>
           </div>

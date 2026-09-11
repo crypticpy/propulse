@@ -238,6 +238,65 @@ describe("propagation proxy", () => {
     expect(malformedResponse.status).toBe(502);
   });
 
+  it("passes a response whose server-added weather ages exceed the request cap", async () => {
+    // Worst case: a request carrying the full 32 freshness entries, none of
+    // them owned by the service, plus every key the service writes itself —
+    // the path-history age, the space-weather aggregate and all eight
+    // per-source weather ages (#321). Mirrors the service-side census in
+    // ml/service/app.py, which test_app asserts against a served response.
+    const clientFreshness = Object.fromEntries(
+      Array.from({ length: 32 }, (_, index) => [`client_input_${index}`, 60]),
+    );
+    const serviceFreshness = {
+      ...clientFreshness,
+      path_history: 900,
+      space_weather: 3480,
+      kp: 300,
+      magnetic_field: 420,
+      solar_wind: 240,
+      proton_flux_10mev: 360,
+      dst: 3480,
+      hp60: 4200,
+      f107: 25200,
+      sunspot_number: 18000,
+    };
+    expect(Object.keys(serviceFreshness)).toHaveLength(42);
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(
+      pathResponse({ data_freshness: serviceFreshness }),
+    ), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const response = await handlePropagationProxy(
+      request("path", {
+        body: JSON.stringify({
+          ...pathRequest(),
+          data_freshness_seconds: clientFreshness,
+        }),
+      }),
+      "path",
+      dependencies(fetcher),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data_freshness.solar_wind).toBe(240);
+  });
+
+  it("still rejects a response with more freshness entries than the service can add", async () => {
+    const oversized = Object.fromEntries(
+      Array.from({ length: 43 }, (_, index) => [`input_${index}`, 60]),
+    );
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(
+      pathResponse({ data_freshness: oversized }),
+    ), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const response = await handlePropagationProxy(
+      request("path"),
+      "path",
+      dependencies(fetcher),
+    );
+
+    expect(response.status).toBe(502);
+  });
+
   it("maps timeouts and sanitizes upstream authentication failures", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const timeout = vi.fn(async () => {

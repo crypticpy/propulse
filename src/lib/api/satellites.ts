@@ -406,17 +406,15 @@ export function getTLEAge(tle: TLEData): TLEAge {
 // ---------------------------------------------------------------------------
 
 /**
- * Calculate satellite position from TLE at a given date using SGP4.
- *
- * Uses the satellite.js SGP4 propagator for high-accuracy orbital prediction.
- * Returns null if propagation fails (e.g. decayed orbit, bad TLE).
+ * Propagate an already-parsed satrec to a given date using SGP4.
+ * Shared by `calculatePosition` (one-off callers) and `buildOrbitTrack`
+ * (many points against the same satrec — avoids re-parsing the TLE per point).
  */
-export function calculatePosition(
-  tle: TLEData,
+function positionFromSatrec(
+  satrec: SatRec,
   date: Date,
 ): SatellitePosition | null {
   try {
-    const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
     const positionAndVelocity = satelliteLib.propagate(satrec, date);
 
     // propagate returns null on failure, or satrec.error indicates SGP4 error
@@ -442,6 +440,20 @@ export function calculatePosition(
 }
 
 /**
+ * Calculate satellite position from TLE at a given date using SGP4.
+ *
+ * Uses the satellite.js SGP4 propagator for high-accuracy orbital prediction.
+ * Returns null if propagation fails (e.g. decayed orbit, bad TLE).
+ */
+export function calculatePosition(
+  tle: TLEData,
+  date: Date,
+): SatellitePosition | null {
+  const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
+  return positionFromSatrec(satrec, date);
+}
+
+/**
  * Calculate ground track (sub-satellite points) over a time window.
  * Useful for rendering orbital path on the globe.
  *
@@ -464,6 +476,89 @@ export function calculateGroundTrack(
     const pos = calculatePosition(tle, date);
     if (pos) {
       points.push({ lat: pos.lat, lon: pos.lon });
+    }
+  }
+
+  return points;
+}
+
+/**
+ * Orbital period, in minutes, derived from the TLE's mean motion
+ * (`satrec.no`, radians/minute — set by `sgp4init` inside `twoline2satrec`,
+ * so it is available immediately with no propagation step required).
+ * Falls back to a typical LEO period for a degenerate TLE (`no` missing or
+ * non-positive) rather than dividing by zero.
+ *
+ * Accepts an already-parsed `satrec` so callers that build one anyway (e.g.
+ * `buildOrbitTrack`) don't re-parse the TLE just for the period.
+ */
+export function getOrbitalPeriodMinutes(tle: TLEData, satrec?: SatRec): number {
+  const rec = satrec ?? satelliteLib.twoline2satrec(tle.line1, tle.line2);
+  if (!rec.no || rec.no <= 0) return 90;
+  return (2 * Math.PI) / rec.no;
+}
+
+export interface OrbitTrackOptions {
+  /** Minutes of trailing (past) track to include, e.g. 45. */
+  pastMin: number;
+  /** Forward window expressed in real orbits (period comes from the TLE). */
+  orbitsAhead: number;
+  /** Time step between points, in minutes (default 1). */
+  stepMin?: number;
+}
+
+export interface OrbitTrackPoint {
+  lat: number;
+  lon: number;
+  alt: number;
+  minutesFromNow: number;
+}
+
+/**
+ * Build a ground-track timeline centred on `now`: `pastMin` minutes behind
+ * through `orbitsAhead` real orbital periods ahead. Generalises the
+ * ISS-only orbit track (`useISSTracker`) and the always-forward,
+ * fixed-90-minute `calculateGroundTrack` above into one builder shared by
+ * every tracked satellite, so "orbits ahead" follows the satellite's own
+ * period instead of an LEO-typical guess baked into the caller.
+ *
+ * A small epsilon on the loop bound absorbs float error from
+ * `orbitsAhead * periodMin` (e.g. a caller reconstructing a fixed number of
+ * forward minutes as a fraction of the period) so it never drops the final
+ * point.
+ *
+ * The walk is anchored on `t = 0` ("now") and steps outward in both
+ * directions, so "now" is always a point in the returned track regardless of
+ * whether `pastMin` happens to be a multiple of `stepMin`. Callers should
+ * still choose a `stepMin` that evenly divides `pastMin` — otherwise the
+ * past leg's minute values shift by up to `stepMin - 1` relative to a naive
+ * `-pastMin` start (harmless, but worth knowing).
+ *
+ * Builds the `satrec` once and propagates every point against it, rather
+ * than re-parsing the TLE per point (SGP4 init dominates the per-point cost
+ * at the point counts this produces).
+ */
+export function buildOrbitTrack(
+  tle: TLEData,
+  now: Date,
+  { pastMin, orbitsAhead, stepMin = 1 }: OrbitTrackOptions,
+): OrbitTrackPoint[] {
+  const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
+  const periodMin = getOrbitalPeriodMinutes(tle, satrec);
+  const forwardMin = orbitsAhead * periodMin;
+  const EPSILON_MIN = 1e-6;
+
+  const pastSteps = Math.floor((pastMin + EPSILON_MIN) / stepMin);
+  const forwardSteps = Math.floor((forwardMin + EPSILON_MIN) / stepMin);
+
+  const points: OrbitTrackPoint[] = [];
+  for (let i = -pastSteps; i <= forwardSteps; i++) {
+    const rawT = i * stepMin;
+    const t = Object.is(rawT, -0) ? 0 : rawT;
+    const date = new Date(now.getTime() + t * 60000);
+    const pos = positionFromSatrec(satrec, date);
+    if (pos) {
+      points.push({ lat: pos.lat, lon: pos.lon, alt: pos.alt, minutesFromNow: t });
     }
   }
 

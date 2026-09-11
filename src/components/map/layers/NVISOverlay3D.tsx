@@ -261,7 +261,7 @@ function BandInfoPopup({
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <span
-          className="text-[13px] font-bold tracking-wider"
+          className="text-sm font-bold tracking-wider"
           style={{ color: qualityColor }}
         >
           {band} NVIS

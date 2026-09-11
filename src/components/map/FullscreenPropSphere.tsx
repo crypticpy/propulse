@@ -31,6 +31,7 @@ import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { useFullscreenEscape } from "@/components/map/useFullscreenEscape";
+import { revealFullscreenPathAnalysis } from "@/components/map/openPathAnalysis";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 import { safeDockGroupY } from "@/lib/map/proDockLayout";
@@ -345,18 +346,31 @@ export function FullscreenPropSphere({
     setFullscreen(false);
   }, [setFullscreen]);
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    revealFullscreenPathAnalysis({
+      pathPanelCollapsed: proPanelLayout["path-analysis"]?.collapsed ?? false,
+      setAmbientMode,
+      toggleProPanelCollapse,
+      bringToFront,
+    });
+  }, [bringToFront, proPanelLayout, toggleProPanelCollapse]);
+
   return (
     <div
       style={ambientMode && !showCursor ? { cursor: "none" } : undefined}
       className={`fixed inset-0 z-[200] bg-black transition-opacity duration-300
         ${isAnimating ? "opacity-0" : "opacity-100"}`}
     >
-      {/* Full-size map view (background) */}
-      <div className="absolute inset-0">
+      {/* Full-size map view (background). `isolate` bounds the map's overlay
+          portal (11000) to this wrapper so it can never outrank the ribbon
+          (z-[210]), the floating panels (z-[205]), the status pills (z-[215])
+          or a dialog opened inside this fullscreen root (#930). */}
+      <div data-map-stack-root className="absolute inset-0 isolate">
         {viewMode === "globe" && (
           <GlobeView
             displayTime={displayTime}
             onLocationClick={onLocationClick}
+            onOpenPathAnalysis={handleOpenPathAnalysis}
           />
         )}
         {viewMode === "flat" && (

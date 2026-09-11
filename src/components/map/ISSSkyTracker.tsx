@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import { useUserStore } from "@/stores/userStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import type { ISSSkyPoint } from "@/hooks/useISSTracker";
 
 // ---------------------------------------------------------------------------
@@ -556,9 +557,14 @@ export function ISSSkyTracker() {
     : null;
 
   // Position style for the panel
-  const posStyle = position
-    ? { left: position.x, top: position.y }
-    : { right: 12, bottom: 12 };
+  // Draggable and clickable, so it sits on the interactive tier: a map
+  // overlay popup must never paint over it and swallow the drag (#930).
+  const posStyle = {
+    ...(position
+      ? { left: position.x, top: position.y }
+      : { right: 12, bottom: 12 }),
+    zIndex: MAP_PAGE_CHROME_Z.interactiveChrome,
+  };
 
   // --- Collapsed state: labeled ISS chip, stays where the panel was and
   // can be dragged like the panel itself ---
@@ -566,7 +572,7 @@ export function ISSSkyTracker() {
     return (
       <div
         ref={panelRef}
-        className="absolute z-20 pointer-events-auto"
+        className="absolute pointer-events-auto"
         style={{
           ...posStyle,
           userSelect: isDragging ? "none" : undefined,
@@ -632,7 +638,7 @@ export function ISSSkyTracker() {
     return (
       <div
         ref={panelRef}
-        className="absolute z-20 pointer-events-auto"
+        className="absolute pointer-events-auto"
         style={posStyle}
       >
         <div className="relative rounded-lg overflow-hidden bg-su-panel/80 backdrop-blur-md border border-su-line/40 shadow-lg w-[220px]">
@@ -674,7 +680,7 @@ export function ISSSkyTracker() {
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 pointer-events-auto"
+      className="absolute pointer-events-auto"
       style={{
         ...posStyle,
         userSelect: isDragging ? "none" : undefined,

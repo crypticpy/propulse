@@ -43,6 +43,7 @@ jobs:
     # `same_repo` for defence in depth. A bot-authored trigger still never
     # causes any PR-head code to execute here — `count` and
     # `post-cap-resolver` only ever check out the trusted default branch.
+    # REVIEW_BOT_LOGINS: chatgpt-codex-connector[bot], sourcery-ai[bot]
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'pull_request_review' && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || contains(fromJSON('["chatgpt-codex-connector[bot]","sourcery-ai[bot]"]'), github.event.review.user.login))) ||
@@ -138,7 +139,12 @@ jobs:
   label:
     name: review-cap / label and post the stop checklist
     needs: count
-    if: needs.count.outputs.capped == 'true'
+    # `same_repo` gate, same as `architect` below: without it, a bot comment
+    # on a fork PR (which passes `count` but is barred from `architect`)
+    # would post a stop checklist promising an architecture review that can
+    # never run, deadlocking `pr-contract` forever (finding 6 of PR #1067's
+    # fourth review). `fork-notice` below covers that case instead.
+    if: needs.count.outputs.capped == 'true' && needs.count.outputs.same_repo == 'true'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -194,6 +200,56 @@ jobs:
             gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-comment.md >/dev/null \
               || echo "::error::could not post the review-cap stop checklist"
           fi
+
+  fork-notice:
+    name: review-cap / notify that fork PRs are not auto-reviewed
+    needs: count
+    # The counterpart to `label`'s same_repo gate above: a fork PR can still
+    # reach `count` and get capped, but `architect` can never run against it
+    # (same_repo gate, defence in depth around the secret-bearing model
+    # call), so without this job a capped fork PR would silently deadlock
+    # `pr-contract` forever with no comment explaining why (finding 6 of PR
+    # #1067's fourth review).
+    if: needs.count.outputs.capped == 'true' && needs.count.outputs.same_repo != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Post a one-time notice that this fork PR cannot be auto-reviewed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+        run: |
+          api() {
+            local n out
+            for n in 1 2 3; do
+              if out=$(gh api "$@"); then printf '%s' "$out"; return 0; fi
+              echo "::warning::gh api $* failed (attempt ${n}/3)" >&2
+              sleep $((n * 5))
+            done
+            return 1
+          }
+          EXISTING=$(api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '.[].body') \
+            || { echo "::error::could not list PR comments; the fork notice may be posted again next run"; exit 1; }
+          if printf '%s' "$EXISTING" | grep -q '<!-- review-cap-fork -->'; then
+            echo "Fork notice already posted."
+            exit 0
+          fi
+          printf '%s\n' \
+            '<!-- review-cap-fork -->' \
+            'This PR has reached five bot review rounds, but it is opened from a fork.' \
+            'The automated **architecture review** in `.github/workflows/review-cap.yml`' \
+            'cannot run against fork-authored content (the `architect` job requires' \
+            '`same_repo` as defence in depth around its secret-bearing model call —' \
+            'see `docs/AGENT-CONSTITUTION.md`, "Review cap"). `pr-contract` will keep' \
+            'blocking this PR: a maintainer must either retarget it from a same-repo' \
+            'branch, or use the break-glass path (`docs/AGENT-CONSTITUTION.md`, "Review' \
+            'cap") to post the `**architecture review**` comment by hand.' \
+            > /tmp/review-cap-fork-notice.md
+          gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-fork-notice.md >/dev/null \
+            || echo "::error::could not post the fork notice"
 
   architect:
     name: review-cap / architecture review
@@ -268,12 +324,15 @@ jobs:
           path: base
       - name: Pre-compute review context
         # Everything Claude needs that must be trustworthy (which threads are
-        # still open, which issue to reuse, the exact head to name) is
-        # computed here in plain shell/scripts/review-cap.mjs, not derived by
-        # the model, and handed to it as read-only files. Claude never holds
-        # a tool capable of mutating the repo (finding 5 of PR #1067's
-        # review) — only a scoped `Write` to a single output file, validated
-        # below before any side effect is taken from it.
+        # still open, the exact head to name) is computed here in plain
+        # shell/scripts/review-cap.mjs, not derived by the model, and handed
+        # to it as read-only files. Claude never holds a tool capable of
+        # mutating the repo (finding 5 of PR #1067's review) — only a scoped
+        # `Write` to a single output file, validated below before any side
+        # effect is taken from it. The prior-issue lookup is NOT done here:
+        # it depends on the verdict Claude has not decided yet, so it runs
+        # after "Validate the architecture review output" below (finding 3 of
+        # PR #1067's fourth review).
         id: precompute
         if: steps.key.outputs.present == 'true'
         env:
@@ -286,33 +345,22 @@ jobs:
           echo "head7=$HEAD7" >> "$GITHUB_OUTPUT"
           mkdir -p review-cap-input
           # `threads` (base/scripts/review-cap.mjs) paginates reviewThreads
-          # itself (finding 8 of PR #1067's third review: `first:100` with no
-          # `pageInfo` handling silently dropped anything past the first 100)
-          # and applies the exact-`"Bot"` filter (finding 2: a `!= "User"`
-          # filter wrongly admitted a deleted account, a Mannequin, or an
-          # Organization). `.all` carries every thread, resolved or not, with
-          # every comment, so the architecture review can judge the finding
-          # family across all rounds, not just what remains open (finding 9).
+          # and every thread's comments (finding 8 of PR #1067's third
+          # review, finding 5 of PR #1067's fourth review: `first:100`/
+          # `first:50` with no `pageInfo` handling silently dropped anything
+          # past the first page) and applies the exact-`"Bot"` filter
+          # (finding 2: a `!= "User"` filter wrongly admitted a deleted
+          # account, a Mannequin, or an Organization). `.all` carries every
+          # thread, resolved or not, with every comment, so the architecture
+          # review can judge the finding family across all rounds, not just
+          # what remains open (finding 9). Written compact (`jq -c`), not
+          # pretty-printed: `all-threads.json` can be large on a long PR and
+          # a compact file is cheaper for the model to page through with
+          # Read's offset/limit (finding 5 of PR #1067's fourth review).
           THREADS_RESULT=$(node base/scripts/review-cap.mjs threads "$REPO" "$PR") \
             || { echo "::error::could not list review threads"; exit 1; }
-          printf '%s' "$THREADS_RESULT" | jq '.unresolvedBot' > review-cap-input/unresolved-threads.json
-          printf '%s' "$THREADS_RESULT" | jq '.all' > review-cap-input/all-threads.json
-          # Reuse the follow-up issue from the most recent prior
-          # architecture-review comment on this PR (any head) instead of
-          # filing a new one on every push (finding 6 of PR #1067's review).
-          # `prior-issue` runs every candidate comment through the SAME
-          # trusted parser (parseArchitectureReview) and author allow-list
-          # (ALLOWED_REVIEWERS) the merge gate itself uses, rather than a
-          # jq/grep substring match a forged "**architecture review**...
-          # Verdict: ship (#N)" comment could satisfy without being a real
-          # one (finding 5 of PR #1067's second review; finding 6 of PR
-          # #1067's third review tightened the lookup to reuse that exact
-          # parser instead of a look-alike-vulnerable grep).
-          PRIOR_RESULT=$(node base/scripts/review-cap.mjs prior-issue "$REPO" "$PR") \
-            || { echo "::error::could not resolve the prior architecture-review issue"; exit 1; }
-          PRIOR_ISSUE=$(printf '%s' "$PRIOR_RESULT" | jq -r '.issue // empty')
-          printf '%s' "${PRIOR_ISSUE:-}" > review-cap-input/prior-issue.txt
-          echo "prior_issue=${PRIOR_ISSUE:-}" >> "$GITHUB_OUTPUT"
+          printf '%s' "$THREADS_RESULT" | jq -c '.unresolvedBot' > review-cap-input/unresolved-threads.json
+          printf '%s' "$THREADS_RESULT" | jq -c '.all' > review-cap-input/all-threads.json
       - name: Run the architecture review
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@0a8d3c9443bbff909ab973b6a17a340b913f229f # v1
@@ -359,10 +407,13 @@ jobs:
             lists every thread from every round, resolved or not, with every comment in it
             (author login and body) — read this, not just the unresolved list, to judge the
             finding family across all rounds; it is your only way to see resolved threads,
-            since your allowed tools cannot query review threads themselves. Also read the
-            full `gh pr view --json title,body,files` and `gh pr diff` output, and the
-            flagged files under `pr-head/` as needed to judge the design, not just the diff
-            hunks.
+            since your allowed tools cannot query review threads themselves. This file is
+            written compact (one JSON value per line, no pretty-printing) and is complete,
+            but can be large on a long-running PR and may exceed a single `Read` call — page
+            through it with `Read`'s `offset`/`limit` until you reach the end rather than
+            assuming one call captured everything. Also read the full `gh pr view --json
+            title,body,files` and `gh pr diff` output, and the flagged files under
+            `pr-head/` as needed to judge the design, not just the diff hunks.
 
             ## 1. Name the finding family
 
@@ -449,13 +500,53 @@ jobs:
             echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
           jq -r '.body' review-cap-output.json > /tmp/review-cap-issue-body.md
+      - name: Resolve the prior follow-up issue for this verdict
+        # Reuse the follow-up issue from the most recent prior
+        # architecture-review comment on this PR (any head) instead of
+        # filing a new one on every push (finding 6 of PR #1067's review),
+        # but only once the verdict is known: this step runs after
+        # "Validate", not in "Pre-compute review context", because reuse must
+        # be scoped to a prior comment whose OWN recorded verdict matches
+        # this run's verdict — a `redesign` issue must never be reused for a
+        # later `ship` (or vice versa) just because it was the most recent
+        # architecture-review comment (finding 3 of PR #1067's fourth
+        # review). `prior-issue` runs every candidate comment through the
+        # SAME trusted parser (parseArchitectureReview) and author allow-list
+        # (ALLOWED_REVIEWERS) the merge gate itself uses, rather than a
+        # jq/grep substring match a forged "**architecture review**...
+        # Verdict: ship (#N)" comment could satisfy without being a real one
+        # (finding 5 of PR #1067's second review; finding 6 of PR #1067's
+        # third review tightened the lookup to reuse that exact parser
+        # instead of a look-alike-vulnerable grep). A closed issue (manually
+        # closed, or resolved outside this automation) is never reused either
+        # — this script has no network access of its own, so the state check
+        # runs here against the live API.
+        id: prior
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+          VERDICT: ${{ steps.validate.outputs.verdict }}
+        run: |
+          PRIOR_RESULT=$(node base/scripts/review-cap.mjs prior-issue "$REPO" "$PR" "$VERDICT") \
+            || { echo "::error::could not resolve the prior architecture-review issue"; exit 1; }
+          PRIOR_ISSUE=$(printf '%s' "$PRIOR_RESULT" | jq -r '.issue // empty')
+          if [ -n "$PRIOR_ISSUE" ]; then
+            STATE=$(gh api "repos/${REPO}/issues/${PRIOR_ISSUE}" --jq '.state' 2>/dev/null) || STATE=""
+            if [ "$STATE" != "open" ]; then
+              echo "::notice::prior issue #${PRIOR_ISSUE} is not open (state=${STATE:-unknown}); filing a new issue instead"
+              PRIOR_ISSUE=""
+            fi
+          fi
+          echo "prior_issue=${PRIOR_ISSUE:-}" >> "$GITHUB_OUTPUT"
       - name: Reuse or create the follow-up issue
         id: issue
         if: steps.key.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          PRIOR_ISSUE: ${{ steps.precompute.outputs.prior_issue }}
+          PRIOR_ISSUE: ${{ steps.prior.outputs.prior_issue }}
           TITLE: ${{ steps.validate.outputs.title }}
           HEAD7: ${{ steps.precompute.outputs.head7 }}
         run: |
@@ -480,6 +571,7 @@ jobs:
             echo "issue=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           fi
       - name: Post the architecture review comment
+        id: post-verdict
         if: steps.key.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -497,6 +589,63 @@ jobs:
             > /tmp/review-cap-verdict.md
           gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-verdict.md >/dev/null \
             || { echo "::error::could not post the architecture review comment"; exit 1; }
+      - name: Apply the verdict
+        # Runs whenever the verdict comment above actually posted
+        # (`steps.post-verdict.outcome == 'success'`), independent of whether
+        # any step below it (including the pr-contract re-run that used to
+        # run BEFORE this one) succeeds or fails: previously, the re-run step
+        # ran first and hard-errored after 5 attempts, so a failed re-run
+        # skipped this step entirely — no `needs-redesign` label on a
+        # redesign verdict, no thread resolution on a ship verdict — and
+        # since the verdict comment was already posted, `reviewed` was true,
+        # so `architect`'s own `if:` (needs.count.outputs.reviewed != 'true')
+        # never let it run again to retry those side effects (finding 1 of PR
+        # #1067's fourth review). `always()` plus the explicit outcome check
+        # means this step still runs even if an unrelated later step in a
+        # future edit fails, as long as the comment above it is confirmed
+        # posted.
+        if: always() && steps.key.outputs.present == 'true' && steps.post-verdict.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+          VERDICT: ${{ steps.validate.outputs.verdict }}
+          ISSUE: ${{ steps.issue.outputs.issue }}
+          ROUNDS: ${{ needs.count.outputs.rounds }}
+        run: |
+          if [ "$VERDICT" = "redesign" ]; then
+            # Auto-creates the label if it does not exist yet, same as the
+            # `label` job does for review-capped (finding 8 of PR #1067's
+            # review: `gh pr edit --add-label` does not auto-create).
+            gh api -X POST "repos/${REPO}/issues/${PR}/labels" -f "labels[]=needs-redesign" >/dev/null \
+              || echo "::error::could not add the needs-redesign label"
+            exit 0
+          fi
+          # A later `ship` verdict on a PR that was previously labelled
+          # `needs-redesign` must clear that label, or a shipped PR would
+          # keep showing as blocked on redesign (finding 3 of PR #1067's
+          # fourth review). 404 (label never applied) is expected and silent.
+          gh api -X DELETE "repos/${REPO}/issues/${PR}/labels/needs-redesign" >/dev/null 2>&1 || true
+          OWNER="${REPO%%/*}"
+          NAME="${REPO##*/}"
+          MESSAGE="Review cap reached at round ${ROUNDS} (#1054); tracked in #${ISSUE}."
+          THREADS=$(jq -r '.[].id' review-cap-input/unresolved-threads.json)
+          [ -n "$THREADS" ] || { echo "No unresolved bot-started threads."; exit 0; }
+          while IFS= read -r THREAD_ID; do
+            [ -n "$THREAD_ID" ] || continue
+            gh api graphql -f query='
+                mutation($id:ID!, $body:String!) {
+                  addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) {
+                    comment { id }
+                  }
+                }' -F id="$THREAD_ID" -F body="$MESSAGE" >/dev/null \
+              || { echo "::error::could not reply to thread ${THREAD_ID}"; continue; }
+            gh api graphql -f query='
+                mutation($id:ID!) {
+                  resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } }
+                }' -F id="$THREAD_ID" >/dev/null \
+              || echo "::error::could not resolve thread ${THREAD_ID}"
+          done <<< "$THREADS"
       - name: Re-run pr-contract now that the verdict is posted
         # This comment is posted with github.token, and a GITHUB_TOKEN-raised
         # event never starts a workflow run, so pr-contract's required check
@@ -511,7 +660,14 @@ jobs:
         # 403, which this used to swallow as a warning, leaving the required
         # check red after a ship verdict (finding 1 of PR #1067's third
         # review). A final failure here is now a hard error, not a warning.
-        if: steps.key.outputs.present == 'true'
+        # Runs AFTER "Apply the verdict" (finding 1 of PR #1067's fourth
+        # review: it used to run before, and its own hard error skipped
+        # applying the verdict on failure) and with `always()` so it still
+        # attempts the re-run even if "Apply the verdict" itself failed —
+        # the verdict comment is already posted at that point, so unsticking
+        # pr-contract must not depend on the label/thread side effects also
+        # succeeding.
+        if: always() && steps.key.outputs.present == 'true' && steps.post-verdict.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -546,44 +702,6 @@ jobs:
           api "pr-contract rerun" -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
             || { echo "::error::could not re-run pr-contract run ${RUN_ID} for ${HEAD_SHA} after 5 attempts"; exit 1; }
           echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"
-      - name: Apply the verdict
-        if: steps.key.outputs.present == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR: ${{ needs.count.outputs.pr }}
-          VERDICT: ${{ steps.validate.outputs.verdict }}
-          ISSUE: ${{ steps.issue.outputs.issue }}
-          ROUNDS: ${{ needs.count.outputs.rounds }}
-        run: |
-          if [ "$VERDICT" = "redesign" ]; then
-            # Auto-creates the label if it does not exist yet, same as the
-            # `label` job does for review-capped (finding 8 of PR #1067's
-            # review: `gh pr edit --add-label` does not auto-create).
-            gh api -X POST "repos/${REPO}/issues/${PR}/labels" -f "labels[]=needs-redesign" >/dev/null \
-              || echo "::error::could not add the needs-redesign label"
-            exit 0
-          fi
-          OWNER="${REPO%%/*}"
-          NAME="${REPO##*/}"
-          MESSAGE="Review cap reached at round ${ROUNDS} (#1054); tracked in #${ISSUE}."
-          THREADS=$(jq -r '.[].id' review-cap-input/unresolved-threads.json)
-          [ -n "$THREADS" ] || { echo "No unresolved bot-started threads."; exit 0; }
-          while IFS= read -r THREAD_ID; do
-            [ -n "$THREAD_ID" ] || continue
-            gh api graphql -f query='
-                mutation($id:ID!, $body:String!) {
-                  addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) {
-                    comment { id }
-                  }
-                }' -F id="$THREAD_ID" -F body="$MESSAGE" >/dev/null \
-              || { echo "::error::could not reply to thread ${THREAD_ID}"; continue; }
-            gh api graphql -f query='
-                mutation($id:ID!) {
-                  resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } }
-                }' -F id="$THREAD_ID" >/dev/null \
-              || echo "::error::could not resolve thread ${THREAD_ID}"
-          done <<< "$THREADS"
 
   post-cap-resolver:
     name: review-cap / resolve post-cap threads

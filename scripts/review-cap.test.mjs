@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   ALLOWED_REVIEWERS,
   AUTOMATION_AGENT,
@@ -426,12 +429,19 @@ test("postCapFollowup is active only after a ship verdict for the head", () => {
 
 // --- findPriorIssue -----------------------------------------------------------
 
-test("findPriorIssue returns the issue from the latest valid architecture review comment", () => {
+test("findPriorIssue reuses the latest comment whose verdict matches the requested verdict", () => {
   const issueComments = [
     architectureReview({ verdict: "ship", issue: 12 }),
     architectureReview({ verdict: "redesign", issue: 55 }),
   ];
-  assert.equal(findPriorIssue(issueComments), 55);
+  assert.equal(findPriorIssue(issueComments, "ship"), 12);
+  assert.equal(findPriorIssue(issueComments, "redesign"), 55);
+});
+
+test("findPriorIssue does not reuse a prior issue whose recorded verdict does not match the current verdict (finding 3 of PR #1067's fourth review)", () => {
+  const issueComments = [architectureReview({ verdict: "redesign", issue: 55 })];
+  assert.equal(findPriorIssue(issueComments, "ship"), null);
+  assert.equal(findPriorIssue(issueComments, "redesign"), 55);
 });
 
 test("findPriorIssue ignores a look-alike comment that is not a valid architecture review (finding 6 of PR #1067's third review)", () => {
@@ -441,16 +451,16 @@ test("findPriorIssue ignores a look-alike comment that is not a valid architectu
       body: "**architecture review**\nVerdict: ship (#999) but not really a valid review",
     },
   ];
-  assert.equal(findPriorIssue(issueComments), null);
+  assert.equal(findPriorIssue(issueComments, "ship"), null);
 });
 
 test("findPriorIssue ignores a valid-shaped comment from a non-allowed login", () => {
   const issueComments = [architectureReview({ login: "random-fixer" })];
-  assert.equal(findPriorIssue(issueComments), null);
+  assert.equal(findPriorIssue(issueComments, "ship"), null);
 });
 
 test("findPriorIssue returns null when there is no prior architecture review", () => {
-  assert.equal(findPriorIssue([]), null);
+  assert.equal(findPriorIssue([], "ship"), null);
 });
 
 // --- unresolvedBotThreads and formatThreadsForReview ---------------------------
@@ -548,4 +558,50 @@ test("evaluateReviewCap output is JSON-serialisable with the documented keys", (
     "rounds",
     "verdict",
   ]);
+});
+
+// --- review-cap.yml's mirrored bot login allow-list --------------------------
+// review-cap.yml cannot `import` REVIEW_BOT_LOGINS (a workflow `if:` has no
+// module system), so it carries its own copy in the `count` job's trigger
+// gate. This test reads that YAML back and asserts it has not drifted from
+// the source of truth here (finding 4 of PR #1067's fourth review).
+
+const WORKFLOW_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  ".github",
+  "workflows",
+  "review-cap.yml",
+);
+
+test("review-cap.yml's REVIEW_BOT_LOGINS anchor and count job if: expression match REVIEW_BOT_LOGINS", () => {
+  const yaml = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+  const anchorMatch = yaml.match(/#\s*REVIEW_BOT_LOGINS:\s*(.+)/);
+  assert.ok(
+    anchorMatch,
+    "expected a `# REVIEW_BOT_LOGINS:` anchor comment in review-cap.yml",
+  );
+  const listed = anchorMatch[1]
+    .split(",")
+    .map((login) => login.trim())
+    .filter(Boolean);
+  assert.deepEqual(new Set(listed), new Set(REVIEW_BOT_LOGINS));
+
+  const countJobStart = yaml.indexOf("\n  count:\n");
+  assert.ok(countJobStart !== -1, "expected a `count:` job in review-cap.yml");
+  const nextJobStart = yaml.indexOf("\n  label:\n", countJobStart);
+  const countJobSection = yaml.slice(
+    countJobStart,
+    nextJobStart === -1 ? undefined : nextJobStart,
+  );
+  const ifMatch = countJobSection.match(/if:\s*>-\n([\s\S]*?)\n\s*runs-on:/);
+  assert.ok(ifMatch, "expected to find the count job's `if:` expression");
+  const ifExpression = ifMatch[1];
+  for (const login of REVIEW_BOT_LOGINS) {
+    assert.ok(
+      ifExpression.includes(login),
+      `expected the count job's if: expression to include ${login}`,
+    );
+  }
 });

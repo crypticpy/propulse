@@ -219,16 +219,21 @@ export function postCapFollowup(evaluation) {
 /**
  * The issue number from the latest comment accepted by the SAME trusted
  * parser (`parseArchitectureReview`) and author allow-list the merge gate
- * uses, ignoring the head check. Used to decide whether the architecture
- * review reuses a prior follow-up issue instead of filing a new one on every
- * push. A comment with the right heading and an issue-number-shaped
+ * uses, ignoring the head check, AND whose recorded verdict matches the
+ * `verdict` this run is about to post. Used to decide whether the
+ * architecture review reuses a prior follow-up issue instead of filing a new
+ * one on every push. A comment with the right heading and an issue-number-shaped
  * substring but not a real architecture review (wrong agent line, missing
  * `Reviewed:` line, non-allowed author) is rejected exactly as
  * `evaluateReviewCap` would reject it as evidence for `ok` — a look-alike
  * comment can no longer hijack which issue is reused (finding 6 of PR
- * #1067's third review).
+ * #1067's third review). The verdict match prevents a `redesign` issue from
+ * being reused for a later `ship` verdict (or vice versa) just because it was
+ * the most recent architecture-review comment (finding 3 of PR #1067's
+ * fourth review); the caller additionally checks the issue is still open
+ * before trusting the reuse, since this function has no network access.
  */
-export function findPriorIssue(issueComments, allowedReviewers = ALLOWED_REVIEWERS) {
+export function findPriorIssue(issueComments, verdict, allowedReviewers = ALLOWED_REVIEWERS) {
   const allowSet = new Set(allowedReviewers.map((login) => login.toLowerCase()));
   let issue = null;
   for (const comment of issueComments) {
@@ -236,6 +241,7 @@ export function findPriorIssue(issueComments, allowedReviewers = ALLOWED_REVIEWE
     if (!allowSet.has(login)) continue;
     const parsed = parseArchitectureReview(comment.body);
     if (!parsed) continue;
+    if (parsed.verdict !== verdict) continue;
     issue = parsed.issue;
     // No `break`: same last-match-wins resolution as evaluateReviewCap.
   }
@@ -342,9 +348,26 @@ const REVIEW_THREADS_QUERY = `
             path
             line
             comments(first: 50) {
+              pageInfo { hasNextPage endCursor }
               nodes { author { login __typename } body }
             }
           }
+        }
+      }
+    }
+  }`;
+
+// Fetches comments past the first page of a single thread, keyed by the
+// thread's own node id (finding 5 of PR #1067's fourth review:
+// `comments(first: 50)` inline in REVIEW_THREADS_QUERY had no pagination, so
+// a long-running thread silently dropped anything past its 50th comment).
+const THREAD_COMMENTS_QUERY = `
+  query($id: ID!, $cursor: String) {
+    node(id: $id) {
+      ... on PullRequestReviewThread {
+        comments(first: 50, after: $cursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { author { login __typename } body }
         }
       }
     }
@@ -375,10 +398,44 @@ function fetchReviewThreadsPage(repo, pr, cursor) {
   return JSON.parse(result.stdout).data.repository.pullRequest.reviewThreads;
 }
 
+function fetchThreadCommentsPage(threadId, cursor) {
+  const args = [
+    "api",
+    "graphql",
+    "-f",
+    `query=${THREAD_COMMENTS_QUERY}`,
+    "-F",
+    `id=${threadId}`,
+  ];
+  if (cursor) {
+    args.push("-F", `cursor=${cursor}`);
+  }
+  const result = spawnSync("gh", args, { encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);
+  }
+  return JSON.parse(result.stdout).data.node.comments;
+}
+
+/** Every comment on a single thread, following `comments.pageInfo` past the first page. */
+function fetchAllThreadComments(thread) {
+  const nodes = [...thread.comments.nodes];
+  let pageInfo = thread.comments.pageInfo;
+  while (pageInfo?.hasNextPage) {
+    const page = fetchThreadCommentsPage(thread.id, pageInfo.endCursor);
+    nodes.push(...page.nodes);
+    pageInfo = page.pageInfo;
+  }
+  return nodes;
+}
+
 /**
  * Every review thread on the PR, paginated (finding 8 of PR #1067's third
  * review: `reviewThreads(first:100)` with no `pageInfo` handling silently
- * dropped anything past the first 100 threads).
+ * dropped anything past the first 100 threads), with every thread's comments
+ * also paginated past their first page (finding 5 of PR #1067's fourth
+ * review).
  */
 function fetchAllReviewThreads(repo, pr) {
   const threads = [];
@@ -389,7 +446,10 @@ function fetchAllReviewThreads(repo, pr) {
     if (!page.pageInfo.hasNextPage) break;
     cursor = page.pageInfo.endCursor;
   }
-  return threads;
+  return threads.map((thread) => ({
+    ...thread,
+    comments: { nodes: fetchAllThreadComments(thread) },
+  }));
 }
 
 async function main() {
@@ -415,13 +475,17 @@ async function main() {
   }
 
   if (subcommand === "prior-issue") {
-    const [repo, pr] = args;
-    if (!repo || !pr) {
-      console.error("Usage: node scripts/review-cap.mjs prior-issue <owner/repo> <pr>");
+    const [repo, pr, verdict] = args;
+    if (!repo || !pr || !verdict) {
+      console.error(
+        "Usage: node scripts/review-cap.mjs prior-issue <owner/repo> <pr> <ship|redesign>",
+      );
       process.exitCode = 1;
       return;
     }
-    console.log(JSON.stringify({ issue: findPriorIssue(fetchIssueComments(repo, pr)) }));
+    console.log(
+      JSON.stringify({ issue: findPriorIssue(fetchIssueComments(repo, pr), verdict) }),
+    );
     return;
   }
 

@@ -14,6 +14,7 @@ import {
   ANTENNA_CLASSES,
   CALIBRATION_REQUIRED_QUANTITIES,
   isProtocolCoverage,
+  protocolCoverageRows,
   RECEIVER_PARTICIPATION,
   type AntennaClass,
   CAPABILITY_SCHEMA_VERSION,
@@ -89,7 +90,8 @@ const capabilityHead = z
      * never that the station is inside the trained or validated population.
      */
     antennaClasses: z.array(z.enum(ANTENNA_CLASSES)).min(1),
-    receiverClasses: z.array(z.enum(RECEIVER_CLASSES)).min(1),
+    /** Empty exactly when the quantity involves no receive chain (A01). */
+    receiverClasses: z.array(z.enum(RECEIVER_CLASSES)),
     frequencyRangeHz: frequencyRange,
     /** Derived labels for display; the frequency range is authoritative. */
     bandKeys: z.array(identifier),
@@ -266,6 +268,26 @@ export const modelCapabilitySchema = z
       );
     }
     value.heads.forEach((head, index) => {
+      // A01 receiver class is a coverage dimension only where a receive chain
+      // takes part. Where none does (pass_geometry, A21) the declaration says
+      // so by naming no receiver population at all: an empty list is required
+      // there and refused everywhere else, so the field never carries a
+      // population the quantity could not use.
+      const participation = RECEIVER_PARTICIPATION[head.quantity];
+      if (participation === "none" && head.receiverClasses.length > 0) {
+        reject(
+          ctx,
+          ["heads", index, "receiverClasses"],
+          `A ${head.quantity} head involves no receive chain and names no receiver class (A01, A21)`,
+        );
+      }
+      if (participation !== "none" && head.receiverClasses.length === 0) {
+        reject(
+          ctx,
+          ["heads", index, "receiverClasses"],
+          `A ${head.quantity} head is received and must declare its receiver classes (A01)`,
+        );
+      }
       if (!ROUTABLE_CAPABILITY_STATES.includes(head.state)) return;
       // M19: a head that names a feature schema is served by a feature
       // pipeline, and that artefact is pinned like the model itself. A head
@@ -292,16 +314,13 @@ export const modelCapabilitySchema = z
       }
       for (const horizon of head.horizons) {
         for (const mechanism of head.mechanismFamilies) {
-          if (
-            isProtocolCoverage({
-              event: head.quantity,
-              domain: head.domain,
-              horizon,
-              mechanism,
-            })
-          ) {
-            continue;
-          }
+          const claim = {
+            event: head.quantity,
+            domain: head.domain,
+            horizon,
+            mechanism,
+          };
+          if (isProtocolCoverage(claim, head.frequencyRangeHz)) continue;
           // The frozen protocol defines which claims exist at all: each row
           // carries its own metric, comparator and gates. A routable head
           // outside those rows would be answering a question the validation
@@ -310,7 +329,13 @@ export const modelCapabilitySchema = z
           reject(
             ctx,
             ["heads", index, "mechanismFamilies"],
-            `The protocol defines no ${head.quantity} on ${head.domain} at ${horizon} via ${mechanism}`,
+            isProtocolCoverage(claim)
+              ? `The protocol froze ${head.quantity} on ${head.domain} at ${horizon} via ${mechanism} only for ${protocolCoverageRows(
+                  claim,
+                )
+                  .map((row) => row.band)
+                  .join(", ")}, not for this frequency range`
+              : `The protocol defines no ${head.quantity} on ${head.domain} at ${horizon} via ${mechanism}`,
           );
         }
       }

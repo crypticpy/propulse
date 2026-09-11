@@ -4,7 +4,9 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   PREDICTION_QUANTITIES,
   isProtocolCoverage,
+  PROTOCOL_BAND_EDGES,
   PROTOCOL_COVERAGE_TUPLES,
+  RECEIVER_PARTICIPATION,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
 import {
@@ -66,8 +68,8 @@ const SECOND_SNR_HEAD = {
   geometryClasses: ["terrestrial_great_circle"],
   antennaClasses: ["modeled_pattern", "unspecified_scenario_range"],
   receiverClasses: ["modeled_noise_figure_chain", "unspecified_scenario_range"],
-  frequencyRangeHz: { minHz: 50000000, maxHz: 148000000 },
-  bandKeys: ["6m", "2m"],
+  frequencyRangeHz: { minHz: 1800000, maxHz: 2000000 },
+  bandKeys: ["160m"],
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
   requiredInputs: ["station_pair", "mode_profile"],
   optionalInputs: [],
@@ -82,7 +84,7 @@ const SECOND_SNR_HEAD = {
 
 const secondQuery = {
   ...baseQuery,
-  frequencyHz: 144140000,
+  frequencyHz: 1840000,
   mechanismFamily: "ground_sky_coherent",
   modeProfileId: "msk144-wsjtx-2.7.0-15s",
 } as const;
@@ -104,6 +106,10 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   head.domain = tuple.domain;
   head.horizons = [tuple.horizon];
   head.mechanismFamilies = [tuple.mechanism];
+  // The row's own band, so the head is inside the coverage the protocol froze.
+  head.frequencyRangeHz = { ...PROTOCOL_BAND_EDGES[tuple.band] };
+  // A01: only a quantity with a receive chain names receiver classes.
+  if (RECEIVER_PARTICIPATION[quantity] === "none") head.receiverClasses = [];
   return { head, tuple };
 }
 
@@ -203,7 +209,7 @@ describe("parseCapability fixtures", () => {
       }),
     ).toBe(false);
     expect(
-      capabilityCovers(capability, { ...baseQuery, frequencyHz: 144140000 }),
+      capabilityCovers(capability, { ...baseQuery, frequencyHz: 1840000 }),
     ).toBe(false);
   });
 
@@ -524,6 +530,29 @@ describe("parseCapability fails closed", () => {
     );
   });
 
+  it("rejects a routable head whose band is not the row's band (M11)", () => {
+    const bad = candidate("hfPhysics");
+    // circuit_support via ground_sky_coherent is frozen on 160 m only, so a
+    // head declaring 50-148 MHz borrows a row from an unrelated band.
+    (bad.heads as Mutable[])[0].frequencyRangeHz = {
+      minHz: 50000000,
+      maxHz: 148000000,
+    };
+    expect(reasonsAt(bad, "heads[0].mechanismFamilies").join()).toMatch(
+      /only for 160m, not for this frequency range/,
+    );
+  });
+
+  it("accepts a routable head inside the row's own band (M11)", () => {
+    const good = candidate("hfPhysics");
+    (good.heads as Mutable[])[0].frequencyRangeHz = {
+      minHz: 1810000,
+      maxHz: 1900000,
+    };
+    const outcome = parseCapability(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("accepts every routable head in the capability fixtures", () => {
     for (const name of Object.keys(cases)) {
       const outcome = parseCapability(candidate(name));
@@ -606,13 +635,42 @@ describe("parseCapability fails closed", () => {
     }
   });
 
+  it("accepts a pass_geometry head that names no receiver class (A01)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead("pass_geometry");
+    head.uncertaintyKind = "none";
+    expect(head.receiverClasses).toEqual([]);
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a received head that names no receiver class (A01)", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].receiverClasses = [];
+    expect(reasonsAt(bad, "heads[1].receiverClasses").join()).toMatch(
+      /must declare its receiver classes/,
+    );
+  });
+
+  it("rejects a pass_geometry head that names a receiver class (A01)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead("pass_geometry");
+    head.uncertaintyKind = "none";
+    head.receiverClasses = ["external_noise_dominated"];
+    (draft.heads as Mutable[]).push(head);
+    expect(reasonsAt(draft, "heads[3].receiverClasses").join()).toMatch(
+      /involves no receive chain/,
+    );
+  });
+
   it("ignores both receive chains for pass_geometry (A21)", () => {
     // A pass is mutual visibility of the relay, received by nobody, so a
     // declaration that names neither station's receiver class still covers it.
     const draft = structuredClone(cases.hfPhysics) as Mutable;
     const { head, tuple } = protocolHead("pass_geometry");
     head.geometryClasses = ["earth_space"];
-    head.receiverClasses = ["external_noise_dominated"];
+    head.receiverClasses = [];
     head.uncertaintyKind = "none";
     (draft.heads as Mutable[]).push(head);
     const outcome = parseCapability(draft);
@@ -649,8 +707,9 @@ describe("parseCapability fails closed", () => {
     const reciprocal = {
       ...baseQuery,
       quantity: "circuit_support",
-      // The fixture's circuit_support head sits on the tuple the protocol
-      // actually defines for it.
+      // The fixture's circuit_support head sits on the tuple and the band the
+      // protocol actually defines for it.
+      frequencyHz: 1840000,
       horizon: "climatology",
       mechanismFamily: "ground_sky_coherent",
     } as const;

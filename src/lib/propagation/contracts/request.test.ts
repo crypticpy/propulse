@@ -444,6 +444,22 @@ describe("parseRequest fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
+  it("accepts the two geographic poles as exact antipodes (M06)", () => {
+    // Both poles canonicalise to longitude 0, so only the unit vectors show
+    // the half-turn: the pair is antipodal, takes a null leg and an azimuth.
+    const poles = candidate("hfShortPath");
+    const tx = (poles.tx as Mutable).coordinates as Mutable;
+    const rx = (poles.rx as Mutable).coordinates as Mutable;
+    tx.latitudeDeg = 90;
+    tx.longitudeDeg = 12;
+    rx.latitudeDeg = -90;
+    rx.longitudeDeg = -37;
+    (poles.route as Mutable).leg = null;
+    (poles.route as Mutable).azimuthDeg = 180;
+    const outcome = parseRequest(poles);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects endpoints antipodal only within their declared uncertainty (M06)", () => {
     const bad = nearAntipodalCase(0.5, 100000);
     expect(reasonsAt(bad, "rx.coordinates").join()).toMatch(

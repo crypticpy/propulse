@@ -26,6 +26,7 @@ const PROTOCOL_PATH = resolve(
 );
 
 interface CoverageRow {
+  band: string;
   mechanism: string;
   event: string;
   units: string;
@@ -92,10 +93,10 @@ describe("contracts agree with the frozen validation protocol", () => {
 });
 
 describe("the embedded coverage tuples match the frozen protocol", () => {
-  it("carries exactly the protocol's (event, domain, horizon, mechanism) rows", () => {
+  it("carries exactly the protocol's (band, event, domain, horizon, mechanism) rows", () => {
     const fromProtocol = sorted(
       protocol.coverage_rows.map((row) =>
-        [row.event, row.domain, row.horizon, row.mechanism].join("|"),
+        [row.band, row.event, row.domain, row.horizon, row.mechanism].join("|"),
       ),
     );
     expect(sorted(PROTOCOL_COVERAGE_TUPLES.map(protocolCoverageKey))).toEqual(
@@ -115,6 +116,7 @@ describe("the embedded coverage tuples match the frozen protocol", () => {
         domain: string;
         horizons: string[];
         mechanismFamilies: string[];
+        frequencyRangeHz: { minHz: number; maxHz: number };
       }[]) {
         if (
           !(ROUTABLE_CAPABILITY_STATES as readonly string[]).includes(
@@ -130,12 +132,15 @@ describe("the embedded coverage tuples match the frozen protocol", () => {
               domain: head.domain,
               horizon,
               mechanism,
-              known: isProtocolCoverage({
-                event: head.quantity,
-                domain: head.domain,
-                horizon,
-                mechanism,
-              } as never),
+              known: isProtocolCoverage(
+                {
+                  event: head.quantity,
+                  domain: head.domain,
+                  horizon,
+                  mechanism,
+                } as never,
+                head.frequencyRangeHz,
+              ),
             }).toMatchObject({ known: true });
           }
         }

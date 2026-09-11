@@ -16,10 +16,10 @@
         "mechanismFamilies": ["ground_sky_coherent"],
         "geometryClasses": ["terrestrial_great_circle"],
         "frequencyRangeHz": {
-          "minHz": 2000000.0,
-          "maxHz": 30000000.0
+          "minHz": 1800000,
+          "maxHz": 2000000
         },
-        "bandKeys": [],
+        "bandKeys": ["160m"],
         "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
           "station_pair",

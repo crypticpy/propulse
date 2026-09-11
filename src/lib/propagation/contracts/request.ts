@@ -67,8 +67,23 @@ const EARTH_RADIUS_M = 6371000;
  * any position uncertainty. 1e-9 rad is about 6 mm on the surface.
  */
 const NUMERIC_GUARD_RAD = 1e-9;
-/** The same floating-point guard, in the degrees the wire declares. */
-const NUMERIC_GUARD_DEG = 1e-9;
+/** The same floating-point guard, applied to a dimensionless dot product. */
+const NUMERIC_GUARD = 1e-9;
+
+/** Unit vector for a coordinate on the sphere. */
+function unitVector(point: { latitudeDeg: number; longitudeDeg: number }): {
+  x: number;
+  y: number;
+  z: number;
+} {
+  const lat = (point.latitudeDeg * Math.PI) / 180;
+  const lon = (point.longitudeDeg * Math.PI) / 180;
+  return {
+    x: Math.cos(lat) * Math.cos(lon),
+    y: Math.cos(lat) * Math.sin(lon),
+    z: Math.sin(lat),
+  };
+}
 
 /** M06: theta = atan2(|u x v|, u . v), stable at both 0 and pi. */
 function angularSeparationRad(
@@ -189,23 +204,23 @@ function degeneracyToleranceRad(
 
 /**
  * Exactly opposite points, decided on the declared coordinates rather than on
- * a distance: the canonical latitudes are negatives and the canonical
- * longitudes differ by half a turn. Only here is the short/long distinction
- * meaningless, so only here may a request omit its leg.
+ * a distance. Only here is the short/long distinction meaningless, so only
+ * here may a request omit its leg.
  *
- * The floating-point guard covers the arithmetic of folding the longitudes,
- * nothing else; declared position uncertainty deliberately plays no part.
+ * The floating-point guard covers the trigonometry of the comparison, nothing
+ * else; declared position uncertainty deliberately plays no part.
  */
 function isExactlyAntipodal(
   a: { latitudeDeg: number; longitudeDeg: number },
   b: { latitudeDeg: number; longitudeDeg: number },
 ): boolean {
-  const left = canonicalCoordinates(a);
-  const right = canonicalCoordinates(b);
-  if (left.latitudeDeg !== -right.latitudeDeg) return false;
-  const separation = Math.abs(left.longitudeDeg - right.longitudeDeg);
-  const halfTurn = Math.min(separation, 360 - separation);
-  return Math.abs(halfTurn - 180) <= NUMERIC_GUARD_DEG;
+  // The dot product of the two canonical unit vectors is -1 exactly for
+  // opposite points. Comparing vectors rather than longitudes also catches the
+  // two geographic poles, whose canonical longitude is 0 at both ends.
+  const left = unitVector(canonicalCoordinates(a));
+  const right = unitVector(canonicalCoordinates(b));
+  const dot = left.x * right.x + left.y * right.y + left.z * right.z;
+  return Math.abs(dot + 1) <= NUMERIC_GUARD;
 }
 
 /**

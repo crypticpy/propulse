@@ -257,205 +257,327 @@ export const RECEIVER_PARTICIPATION: Record<
 };
 
 /**
- * The (event, domain, horizon, mechanism) tuples the frozen validation
- * protocol actually defines, de-duplicated from its `coverage_rows` (the band
- * column is not part of the tuple: a capability declares a frequency range).
+ * Request frequency bounds in Hz. The lower bound is the P.368 ground-wave
+ * floor (10 kHz) quoted by A04; the upper bound is the 300 GHz ceiling of the
+ * A01 inventory. The primary consequence is a unit guard: an HF frequency
+ * expressed in MHz (for example 14.074) falls below the floor and is rejected
+ * instead of being silently treated as 14 Hz.
+ */
+export const MIN_REQUEST_FREQUENCY_HZ = 1e4;
+export const MAX_REQUEST_FREQUENCY_HZ = 3e11;
+
+/**
+ * Frequency edges for the band labels the protocol's coverage rows use, in Hz.
  *
- * A routable capability head must name a tuple that exists here, or it is
- * promising a claim the protocol has no row, metric or gate for. The list is
+ * Sources: the amateur allocations this repository already uses for the named
+ * amateur bands (`src/lib/data/bandRanges.ts` gives 160 m as 1.800-2.000 MHz),
+ * the ITU allocations for the bands that file does not carry (2200 m
+ * 135.7-137.8 kHz, 630 m 472-479 kHz, and the VHF/UHF/microwave groups spanned
+ * by their outermost allocations), and the protocol's own labels where they
+ * state the range directly (`2_30MHz`, `50_300GHz`, `13cm_to_47GHz`, and
+ * `hf_vhf` as the ITU HF and VHF ranges, 3-300 MHz).
+ *
+ * `declared_model_bands` and `qualified_family_bands` are the protocol's way
+ * of deferring the band to the declaration itself, so they span the whole
+ * legal request range and constrain nothing here.
+ */
+export const PROTOCOL_BAND_EDGES: Record<
+  string,
+  { minHz: number; maxHz: number }
+> = {
+  "2200m": { minHz: 135700, maxHz: 137800 },
+  "630m": { minHz: 472000, maxHz: 479000 },
+  "160m": { minHz: 1800000, maxHz: 2000000 },
+  "2_30MHz": { minHz: 2e6, maxHz: 30e6 },
+  hf_vhf: { minHz: 3e6, maxHz: 300e6 },
+  "8m_6m_4m_2m": { minHz: 40660000, maxHz: 148e6 },
+  "1p25m_70cm_33cm_23cm": { minHz: 222e6, maxHz: 1.3e9 },
+  "13cm_to_47GHz": { minHz: 2.3e9, maxHz: 47.2e9 },
+  "50_300GHz": { minHz: 50e9, maxHz: 300e9 },
+  declared_model_bands: {
+    minHz: MIN_REQUEST_FREQUENCY_HZ,
+    maxHz: MAX_REQUEST_FREQUENCY_HZ,
+  },
+  qualified_family_bands: {
+    minHz: MIN_REQUEST_FREQUENCY_HZ,
+    maxHz: MAX_REQUEST_FREQUENCY_HZ,
+  },
+};
+
+/**
+ * The (band, event, domain, horizon, mechanism) rows the frozen validation
+ * protocol defines, de-duplicated from its `coverage_rows`.
+ *
+ * A routable capability head must name a claim that exists here, band
+ * included: each row carries its own metric, comparator and gates, and a row
+ * frozen for 160 m says nothing about the same mechanism at 2 m. The list is
  * embedded rather than read from disk so the schema can enforce it in the
  * browser with no fetch; `protocolAlignment.test.ts` fails if it ever drifts
  * from ml/propagation_validation/protocol-v0.1.json.
  */
-export interface ProtocolCoverageTuple {
+export interface ProtocolCoverageRow {
+  band: string;
   event: PredictionQuantity;
   domain: PredictionDomain;
   horizon: PredictionHorizon;
   mechanism: MechanismFamily;
 }
 
-export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageTuple[] = [
+export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
   {
-    event: "circuit_support",
-    domain: "characterized_fixed_path",
-    horizon: "climatology",
-    mechanism: "ground_sky_coherent",
-  },
-  {
-    event: "completed_qso",
-    domain: "versioned_event_population",
-    horizon: "current",
-    mechanism: "event_head",
-  },
-  {
-    event: "conditional_decode",
-    domain: "configured_two_leg_path",
-    horizon: "current",
-    mechanism: "relay",
-  },
-  {
-    event: "conditional_decode",
-    domain: "configured_two_leg_path",
-    horizon: "current",
-    mechanism: "satellite",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "climatology",
-    mechanism: "aurora",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "climatology",
-    mechanism: "es",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "climatology",
-    mechanism: "f2_daytime",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "climatology",
-    mechanism: "tep_evening",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "current",
-    mechanism: "aurora",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "current",
-    mechanism: "es",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "current",
-    mechanism: "f2_daytime",
-  },
-  {
-    event: "conditional_decode",
-    domain: "mechanism_labeled_exposure",
-    horizon: "current",
-    mechanism: "tep_evening",
-  },
-  {
-    event: "doppler",
-    domain: "qualified_lunar_station",
-    horizon: "forecast_seconds",
-    mechanism: "eme",
-  },
-  {
-    event: "field_strength",
-    domain: "characterized_fixed_path",
-    horizon: "climatology",
-    mechanism: "groundwave",
-  },
-  {
-    event: "field_strength",
-    domain: "characterized_fixed_path",
-    horizon: "climatology",
-    mechanism: "waveguide",
-  },
-  {
+    band: "13cm_to_47GHz",
     event: "field_strength",
     domain: "qualified_terrain_climate",
     horizon: "climatology",
     mechanism: "terrain_troposphere",
   },
   {
-    event: "network_detection",
-    domain: "versioned_event_population",
-    horizon: "current",
-    mechanism: "event_head",
-  },
-  {
-    event: "observed_activity",
-    domain: "versioned_event_population",
-    horizon: "current",
-    mechanism: "event_head",
-  },
-  {
-    event: "pass_geometry",
-    domain: "qualified_ephemeris_horizon",
-    horizon: "forecast_seconds",
-    mechanism: "satellite",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "climatology",
-    mechanism: "ground_sky_coherent",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "climatology",
-    mechanism: "regular_ef",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "current",
-    mechanism: "ground_sky_coherent",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "current",
-    mechanism: "regular_ef",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "forecast_1_24h",
-    mechanism: "ground_sky_coherent",
-  },
-  {
-    event: "snr2500",
-    domain: "characterized_fixed_path",
-    horizon: "forecast_1_24h",
-    mechanism: "regular_ef",
-  },
-  {
-    event: "snr2500",
-    domain: "qualified_los_atmosphere",
-    horizon: "climatology",
-    mechanism: "atmospheric_los",
-  },
-  {
-    event: "snr2500",
-    domain: "qualified_lunar_station",
-    horizon: "forecast_seconds",
-    mechanism: "eme",
-  },
-  {
+    band: "13cm_to_47GHz",
     event: "snr2500",
     domain: "qualified_terrain_profile",
     horizon: "forecast_1_24h",
     mechanism: "refractivity_pe",
   },
   {
+    band: "160m",
+    event: "circuit_support",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    band: "160m",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    band: "160m",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "current",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    band: "160m",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "forecast_1_24h",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    band: "1p25m_70cm_33cm_23cm",
+    event: "field_strength",
+    domain: "qualified_terrain_climate",
+    horizon: "climatology",
+    mechanism: "terrain_troposphere",
+  },
+  {
+    band: "1p25m_70cm_33cm_23cm",
+    event: "snr2500",
+    domain: "qualified_terrain_profile",
+    horizon: "forecast_1_24h",
+    mechanism: "refractivity_pe",
+  },
+  {
+    band: "2200m",
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "groundwave",
+  },
+  {
+    band: "2200m",
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "waveguide",
+  },
+  {
+    band: "2_30MHz",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "regular_ef",
+  },
+  {
+    band: "2_30MHz",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "current",
+    mechanism: "regular_ef",
+  },
+  {
+    band: "2_30MHz",
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "forecast_1_24h",
+    mechanism: "regular_ef",
+  },
+  {
+    band: "50_300GHz",
+    event: "snr2500",
+    domain: "qualified_los_atmosphere",
+    horizon: "climatology",
+    mechanism: "atmospheric_los",
+  },
+  {
+    band: "630m",
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "groundwave",
+  },
+  {
+    band: "630m",
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "waveguide",
+  },
+  {
+    band: "8m_6m_4m_2m",
+    event: "field_strength",
+    domain: "qualified_terrain_climate",
+    horizon: "climatology",
+    mechanism: "terrain_troposphere",
+  },
+  {
+    band: "8m_6m_4m_2m",
+    event: "snr2500",
+    domain: "qualified_terrain_profile",
+    horizon: "forecast_1_24h",
+    mechanism: "refractivity_pe",
+  },
+  {
+    band: "declared_model_bands",
+    event: "completed_qso",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    band: "declared_model_bands",
+    event: "network_detection",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    band: "declared_model_bands",
+    event: "observed_activity",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "aurora",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "es",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "f2_daytime",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "tep_evening",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "aurora",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "es",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "f2_daytime",
+  },
+  {
+    band: "hf_vhf",
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "tep_evening",
+  },
+  {
+    band: "qualified_family_bands",
+    event: "conditional_decode",
+    domain: "configured_two_leg_path",
+    horizon: "current",
+    mechanism: "relay",
+  },
+  {
+    band: "qualified_family_bands",
+    event: "conditional_decode",
+    domain: "configured_two_leg_path",
+    horizon: "current",
+    mechanism: "satellite",
+  },
+  {
+    band: "qualified_family_bands",
+    event: "doppler",
+    domain: "qualified_lunar_station",
+    horizon: "forecast_seconds",
+    mechanism: "eme",
+  },
+  {
+    band: "qualified_family_bands",
+    event: "pass_geometry",
+    domain: "qualified_ephemeris_horizon",
+    horizon: "forecast_seconds",
+    mechanism: "satellite",
+  },
+  {
+    band: "qualified_family_bands",
+    event: "snr2500",
+    domain: "qualified_lunar_station",
+    horizon: "forecast_seconds",
+    mechanism: "eme",
+  },
+  {
+    band: "qualified_family_bands",
     event: "usable_burst",
     domain: "known_exposure_interval",
     horizon: "current",
     mechanism: "aircraft_scatter",
   },
   {
+    band: "qualified_family_bands",
     event: "usable_burst",
     domain: "known_exposure_interval",
     horizon: "current",
     mechanism: "meteor",
   },
   {
+    band: "qualified_family_bands",
     event: "usable_burst",
     domain: "known_exposure_interval",
     horizon: "current",
@@ -463,18 +585,54 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageTuple[] = [
   },
 ];
 
-const PROTOCOL_COVERAGE_KEYS = new Set(
-  PROTOCOL_COVERAGE_TUPLES.map((tuple) => protocolCoverageKey(tuple)),
-);
-
-/** Stable text for one protocol coverage tuple; "|" occurs in no member. */
-export function protocolCoverageKey(tuple: ProtocolCoverageTuple): string {
-  return [tuple.event, tuple.domain, tuple.horizon, tuple.mechanism].join("|");
+/** Stable text for one protocol coverage row; "|" occurs in no member. */
+export function protocolCoverageKey(row: ProtocolCoverageRow): string {
+  return [row.band, row.event, row.domain, row.horizon, row.mechanism].join(
+    "|",
+  );
 }
 
-/** Whether the protocol defines this claim at all. */
-export function isProtocolCoverage(tuple: ProtocolCoverageTuple): boolean {
-  return PROTOCOL_COVERAGE_KEYS.has(protocolCoverageKey(tuple));
+/** The rows that define this claim, one per band the protocol froze it for. */
+export function protocolCoverageRows(claim: {
+  event: PredictionQuantity;
+  domain: PredictionDomain;
+  horizon: PredictionHorizon;
+  mechanism: MechanismFamily;
+}): readonly ProtocolCoverageRow[] {
+  return PROTOCOL_COVERAGE_TUPLES.filter(
+    (row) =>
+      row.event === claim.event &&
+      row.domain === claim.domain &&
+      row.horizon === claim.horizon &&
+      row.mechanism === claim.mechanism,
+  );
+}
+
+/**
+ * Whether the protocol defines this claim for a frequency range that contains
+ * the declared one. The head's whole range must fit inside one row's band; two
+ * rows cannot be glued together to cover a range neither of them froze.
+ */
+export function isProtocolCoverage(
+  claim: {
+    event: PredictionQuantity;
+    domain: PredictionDomain;
+    horizon: PredictionHorizon;
+    mechanism: MechanismFamily;
+  },
+  range?: { minHz: number; maxHz: number },
+): boolean {
+  const rows = protocolCoverageRows(claim);
+  if (rows.length === 0) return false;
+  if (range === undefined) return true;
+  return rows.some((row) => {
+    const edges = PROTOCOL_BAND_EDGES[row.band];
+    return (
+      edges !== undefined &&
+      range.minHz >= edges.minHz &&
+      range.maxHz <= edges.maxHz
+    );
+  });
 }
 
 /** M01 availability enum. "Missing is never zero" (M11). */
@@ -674,16 +832,6 @@ export const COVARIANCE_OWNERSHIP = [
   "not_applicable",
 ] as const;
 export type CovarianceOwnership = (typeof COVARIANCE_OWNERSHIP)[number];
-
-/**
- * Request frequency bounds in Hz. The lower bound is the P.368 ground-wave
- * floor (10 kHz) quoted by A04; the upper bound is the 300 GHz ceiling of the
- * A01 inventory. The primary consequence is a unit guard: an HF frequency
- * expressed in MHz (for example 14.074) falls below the floor and is rejected
- * instead of being silently treated as 14 Hz.
- */
-export const MIN_REQUEST_FREQUENCY_HZ = 1e4;
-export const MAX_REQUEST_FREQUENCY_HZ = 3e11;
 
 /** M10 reference bandwidth for SNR2500 and any reported noise floor. */
 export const REFERENCE_BANDWIDTH_HZ = 2500;

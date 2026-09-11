@@ -136,12 +136,12 @@
     "viewScopeId": "view-satellite-panel",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T18:12:30Z",
-    "targetEvent": "doppler",
+    "targetEvent": "pass_geometry",
     "scope": {
       "domain": "qualified_ephemeris_horizon",
       "horizon": "forecast_seconds",
-      "aggregation": "instantaneous",
-      "intervalSeconds": null
+      "aggregation": "interval",
+      "intervalSeconds": 750.0
     },
     "frequencyHz": 145950000,
     "bandKey": "2m",
@@ -270,7 +270,7 @@
     "viewScopeId": "view-repeater-panel",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T19:00:00Z",
-    "targetEvent": "circuit_support",
+    "targetEvent": "conditional_decode",
     "scope": {
       "domain": "configured_two_leg_path",
       "horizon": "current",

@@ -17,6 +17,7 @@ import {
 } from "@/lib/propagation/contracts/result";
 import {
   capabilityCovers,
+  capabilityDigest,
   parseCapability,
 } from "@/lib/propagation/contracts/capability";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
@@ -51,6 +52,7 @@ const baseQuery = {
   txReceiverClass: "modeled_noise_figure_chain",
   rxReceiverClass: "modeled_noise_figure_chain",
   policyVersion: "source-policy-0.1.0",
+  sourceMode: "cached_live",
   availableInputs: [
     "station_pair",
     "smoothed_solar_index",
@@ -71,6 +73,7 @@ const SECOND_SNR_HEAD = {
   antennaClasses: ["modeled_pattern", "unspecified_scenario_range"],
   receiverClasses: ["modeled_noise_figure_chain", "unspecified_scenario_range"],
   frequencyRangeHz: { minHz: 1800000, maxHz: 2000000 },
+  sourceModes: ["offline", "cached_live", "live"],
   bandKeys: ["160m"],
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
   requiredInputs: ["station_pair", "mode_profile"],
@@ -117,6 +120,9 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[tuple.mechanism]];
   // A01: only a quantity with a receive chain names receiver classes.
   if (RECEIVER_PARTICIPATION[quantity] === "none") head.receiverClasses = [];
+  // A02: no display labels, so a test may narrow the range without a label
+  // contradicting it.
+  head.bandKeys = [];
   return { head, tuple };
 }
 
@@ -446,14 +452,76 @@ describe("parseCapability fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
-  it("accepts a head with no feature pipeline at all", () => {
+  it("rejects a routable head that pins no feature artefact at all (M19, M24)", () => {
+    // The result contract refuses every value-bearing head whose featureHash
+    // is null (M24), so a routable head with neither a schema nor a hash could
+    // only produce results the parser rejects.
     const physics = candidate("hfPhysics");
     for (const head of physics.heads as Mutable[]) {
       head.featureSchemaId = null;
       head.featureHash = null;
     }
-    const outcome = parseCapability(physics);
-    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    expect(reasonsAt(physics, "heads[0].featureHash").join()).toMatch(
+      /pins no feature artefact/,
+    );
+    // A planned head has nothing to pin yet and is left alone.
+    expect(
+      issues(physics).some((issue) => issue.path === "heads[2].featureHash"),
+    ).toBe(false);
+  });
+
+  it("rejects a head claiming validation on a row the protocol has blocked (A01)", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].state = "validated_current";
+    expect(reasonsAt(bad, "heads[1].state").join()).toMatch(
+      /validated no coverage row/,
+    );
+  });
+
+  it("rejects a head declaring the evidence of a row of the other status (A01)", () => {
+    // 2-30 MHz regular_ef SNR is frozen data_limited; the 160 m
+    // ground_sky_coherent rows are experimental. Neither may borrow the
+    // other's evidence label.
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].state = "experimental";
+    expect(reasonsAt(bad, "heads[1].state").join()).toMatch(
+      /as data_limited, not as experimental/,
+    );
+  });
+
+  it("rejects a band label outside the head's frequency range (A02)", () => {
+    const bad = candidate("hfPhysics");
+    // 160 m ends exactly where the 2-30 MHz head begins, so the label names no
+    // frequency this head serves.
+    (bad.heads as Mutable[])[1].bandKeys = ["160m", "20m"];
+    expect(reasonsAt(bad, "heads[1].bandKeys[0]").join()).toMatch(
+      /lies outside this head's frequency range/,
+    );
+  });
+
+  it("does not route a live-only head to an offline request (M11)", () => {
+    const draft = candidate("hfPhysics");
+    (draft.heads as Mutable[])[1].sourceModes = ["live"];
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) throw new Error("mutated fixture must parse");
+    expect(
+      capabilityCovers(outcome.value, { ...baseQuery, sourceMode: "live" }),
+    ).toBe(true);
+    expect(
+      capabilityCovers(outcome.value, { ...baseQuery, sourceMode: "offline" }),
+    ).toBe(false);
+  });
+
+  it("rejects an event_head head advertising a relayed geometry (A21)", () => {
+    // A24: event_head is an aggregate over a declared population on the
+    // terrestrial frame; it is not carried by a relay body.
+    const draft = candidate("hfPhysics");
+    const { head } = protocolHead("network_detection");
+    head.geometryClasses = ["two_leg_relay"];
+    (draft.heads as Mutable[]).push(head);
+    expect(reasonsAt(draft, "heads[3].geometryClasses").join()).toMatch(
+      /event_head is not answered on geometry class two_leg_relay/,
+    );
   });
 
   it("rejects a feature hash that pins no schema", () => {
@@ -884,10 +952,29 @@ describe("parseCapability fails closed", () => {
     expect(reasonsAt(draft, "heads[3].quantity").join()).toMatch(/Duplicate/);
   });
 
-  it("rejects a head that repeats a complete coverage tuple", () => {
+  it("allows only one head per coverage tuple, whatever its state", () => {
     const bad = candidate("hfPhysics");
     const heads = bad.heads as Mutable[];
     heads.push(structuredClone(heads[1]));
     expect(reasonsAt(bad, "heads[3].quantity").join()).toMatch(/Duplicate/);
+  });
+});
+
+describe("capabilityDigest (M24)", () => {
+  it("digests two independently parsed copies of one capability to the same value (M24)", async () => {
+    const first = await capabilityDigest(parsed("hfPhysics"));
+    const second = await capabilityDigest(parsed("hfPhysics"));
+    expect(first).toBe(second);
+    expect(first).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("gives two declarations that differ only by a head's state different digests", async () => {
+    const draft = candidate("hfPhysics");
+    (draft.heads as Mutable[])[2].state = "unsupported";
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) throw new Error("mutated fixture must parse");
+    expect(await capabilityDigest(outcome.value)).not.toBe(
+      await capabilityDigest(parsed("hfPhysics")),
+    );
   });
 });

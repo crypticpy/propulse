@@ -39,7 +39,8 @@
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
         ],
-        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
       },
       {
         "quantity": "snr2500",
@@ -53,7 +54,7 @@
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
-        "bandKeys": ["160m", "80m", "40m", "20m", "15m", "10m", "6m"],
+        "bandKeys": ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
         "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
           "station_pair",
@@ -74,7 +75,8 @@
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
         ],
-        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
       },
       {
         "quantity": "conditional_decode",
@@ -106,7 +108,8 @@
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
         ],
-        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0",
+        "sourceModes": ["offline", "cached_live", "live"]
       }
     ],
     "corrections": [

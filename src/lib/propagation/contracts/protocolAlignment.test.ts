@@ -10,6 +10,9 @@ import {
   PROTOCOL_COVERAGE_TUPLES,
   protocolCoverageKey,
   ROUTABLE_CAPABILITY_STATES,
+  PROTOCOL_BAND_GAPS,
+  PROTOCOL_BAND_NAME_SPANS,
+  PROTOCOL_BAND_RANGES,
   MECHANISM_FAMILIES,
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
@@ -34,6 +37,8 @@ interface CoverageRow {
   units: string;
   domain: string;
   horizon: string;
+  status: string;
+  preregistration: { status: string };
 }
 
 interface Protocol {
@@ -96,15 +101,90 @@ describe("contracts agree with the frozen validation protocol", () => {
 });
 
 describe("the embedded coverage tuples match the frozen protocol", () => {
-  it("carries exactly the protocol's (band, event, domain, horizon, mechanism) rows", () => {
+  it("carries exactly the protocol's (band, event, domain, horizon, mechanism, status) rows", () => {
     const fromProtocol = sorted(
       protocol.coverage_rows.map((row) =>
-        [row.band, row.event, row.domain, row.horizon, row.mechanism].join("|"),
+        [
+          row.band,
+          row.event,
+          row.domain,
+          row.horizon,
+          row.mechanism,
+          row.status,
+        ].join("|"),
       ),
     );
     expect(sorted(PROTOCOL_COVERAGE_TUPLES.map(protocolCoverageKey))).toEqual(
       fromProtocol,
     );
+  });
+
+  it("carries the protocol's status on every coverage row", () => {
+    // The protocol froze 19 data-limited and 18 experimental rows and
+    // preregistered none of them, so no row is validated. A contract that lost
+    // the status would let a head claim a validation the protocol blocks.
+    const counts = PROTOCOL_COVERAGE_TUPLES.reduce<Record<string, number>>(
+      (tally, row) => ({
+        ...tally,
+        [row.status]: (tally[row.status] ?? 0) + 1,
+      }),
+      {},
+    );
+    expect(counts).toEqual({ data_limited: 19, experimental: 18 });
+    expect(PROTOCOL_COVERAGE_TUPLES).toHaveLength(37);
+    for (const row of protocol.coverage_rows) {
+      expect(row.preregistration.status).toBe("BLOCKED");
+    }
+  });
+
+  it("documents every gap between a band label's name and its constituents", () => {
+    // A label like "13cm_to_47GHz" names a span far wider than the allocations
+    // it carries. The gaps are deliberate, so they are written down and
+    // recomputed here rather than left for a reader to discover.
+    for (const [band, span] of Object.entries(PROTOCOL_BAND_NAME_SPANS)) {
+      const parts = [...(PROTOCOL_BAND_RANGES[band] ?? [])].sort(
+        (a, b) => a.minHz - b.minHz,
+      );
+      const gaps: { minHz: number; maxHz: number }[] = [];
+      let cursor = span.minHz;
+      for (const part of parts) {
+        if (part.minHz > cursor)
+          gaps.push({ minHz: cursor, maxHz: part.minHz });
+        cursor = Math.max(cursor, part.maxHz);
+      }
+      if (cursor < span.maxHz) gaps.push({ minHz: cursor, maxHz: span.maxHz });
+      expect({ band, gaps }).toEqual({
+        band,
+        gaps: PROTOCOL_BAND_GAPS[band].map((gap) => ({ ...gap })),
+      });
+    }
+  });
+
+  it("puts every value-bearing result-fixture head on a protocol row", () => {
+    for (const [name, fixture] of Object.entries(
+      resultCases as unknown as Record<string, unknown>,
+    )) {
+      const outcome = parseResult(structuredClone(fixture));
+      if (!outcome.ok) throw new Error(`${name} must parse`);
+      for (const head of outcome.value.heads) {
+        if (
+          head.state.availability !== "available" &&
+          head.state.availability !== "experimental"
+        ) {
+          continue;
+        }
+        expect({
+          name,
+          quantity: head.quantity,
+          known: isProtocolCoverage({
+            event: head.quantity,
+            domain: head.domain,
+            horizon: head.horizon,
+            mechanism: head.mechanismFamily,
+          }),
+        }).toMatchObject({ known: true });
+      }
+    }
   });
 
   it("puts every routable fixture head on a protocol row", () => {
@@ -169,6 +249,12 @@ describe("the result contract carries what replay needs", () => {
         );
       }
       expect(outcome.value.provenance.capabilityDigest).toMatch(SHA256);
+      for (const source of outcome.value.evidence.sources) {
+        // An eligible source was used to produce this result, so replay needs
+        // the immutable revision it was read at, not a product label.
+        if (!source.eligible) continue;
+        expect(source.sourceVersion).toMatch(SHA256);
+      }
       for (const head of outcome.value.heads) {
         if (
           head.state.availability !== "available" &&

@@ -7,9 +7,13 @@ import {
   type PredictionRequest,
 } from "@/lib/propagation/contracts/request";
 import {
+  KEY_EXCLUDED,
   requestKey,
   requestKeyDigest,
+  requestKeyProjection,
 } from "@/lib/propagation/contracts/requestKey";
+import { stationIdentitySchema } from "@/lib/propagation/contracts/request";
+import { predictionRequestSchema } from "@/lib/propagation/contracts/request";
 
 type Mutable = Record<string, unknown>;
 
@@ -188,7 +192,6 @@ describe("requestKey identity", () => {
     ["modeProfileId", (draft) => (draft.modeProfileId = "cw-500hz-v1")],
     ["validAt", (draft) => (draft.validAt = "2026-09-11T20:00:00Z")],
     ["issuedAt", (draft) => (draft.issuedAt = "2026-09-11T17:00:00Z")],
-    ["targetEvent", (draft) => (draft.targetEvent = "circuit_support")],
     ["route.leg", (draft) => ((draft.route as Mutable).leg = "long")],
     [
       "requestedModel.policy",
@@ -338,5 +341,143 @@ describe("contracts directory holds no mutable module state", () => {
       });
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("changes the key when only the target event changes (M01)", () => {
+    // Two events the protocol froze on one row (lunar station, seconds ahead,
+    // eme), so the pair differs in the target event and nothing else.
+    const lunar = (event: string) =>
+      buildCase("satellitePass", (draft) => {
+        draft.targetEvent = event;
+        (draft.scope as Mutable).domain = "qualified_lunar_station";
+        (draft.scope as Mutable).aggregation = "instantaneous";
+        (draft.scope as Mutable).intervalSeconds = null;
+        (draft.mechanismPolicy as Mutable).family = "eme";
+        (draft.mechanismPolicy as Mutable).geometryClass = "earth_moon_earth";
+      });
+    expect(requestKey(lunar("doppler"))).not.toBe(requestKey(lunar("snr2500")));
+  });
+
+  it("keeps the key stable when only the operator callsign differs (M01)", () => {
+    // `stationId` is the fingerprint of the configuration the physics depends
+    // on; the callsign labels who is operating it (M01).
+    const withCallsign = (callsign: string) =>
+      build((draft) => {
+        (draft.tx as Mutable).callsign = callsign;
+      });
+    expect(requestKey(withCallsign("K5ABC"))).toBe(
+      requestKey(withCallsign("W5XYZ")),
+    );
+  });
+
+  it("projects every scientific field the request schema declares (M01)", () => {
+    // The projection is an allowlist, so it needs a guard binding it to the
+    // schema: a new request field must be projected or listed as excluded, and
+    // a projected key must trace back to a field that exists.
+    const REQUEST_FIELD_KEYS: Record<string, string[]> = {
+      schemaVersion: ["schemaVersion"],
+      contextId: ["contextId"],
+      issuedAt: ["issuedAtMs"],
+      validAt: ["validAtMs"],
+      targetEvent: ["targetEvent"],
+      scope: [
+        "scopeDomain",
+        "scopeHorizon",
+        "scopeAggregation",
+        "scopeIntervalSeconds",
+      ],
+      frequencyHz: ["frequencyHz"],
+      modeProfileId: ["modeProfileId"],
+      route: ["route"],
+      mechanismPolicy: ["mechanismFamily", "geometryClass"],
+      terrainProfileId: ["terrainProfileId"],
+      environmentPackId: ["environmentPackId"],
+      stationScenarioId: ["stationScenarioId"],
+      tx: ["tx"],
+      rx: ["rx"],
+      relay: ["relay"],
+      requestedModel: [
+        "modelPolicy",
+        "modelId",
+        "modelVersion",
+        "policyVersion",
+      ],
+      sourceMode: ["sourceMode"],
+    };
+    const STATION_FIELD_KEYS: Record<string, string[]> = {
+      stationId: ["stationId"],
+      coordinates: [
+        "latitudeDeg",
+        "longitudeDeg",
+        "datum",
+        "precisionKind",
+        "precisionHorizontalMeters",
+        "precisionCellSizeDeg",
+      ],
+      antenna: [
+        "antennaPatternId",
+        "antennaGainDbi",
+        "antennaHeightMeters",
+        "antennaHeightDatum",
+        "polarization",
+        "antennaClass",
+      ],
+      deliveredPowerWatts: ["deliveredPowerWatts"],
+      feedLossDb: ["feedLossDb"],
+      noiseAssumptionId: ["noiseAssumptionId"],
+      receiverClass: ["receiverClass"],
+    };
+    const sorted = (values: string[]) => [...values].sort();
+
+    const schemaFields = Object.keys(predictionRequestSchema.innerType().shape);
+    expect(sorted(schemaFields)).toEqual(
+      sorted([
+        ...Object.keys(REQUEST_FIELD_KEYS),
+        // `callsign` is a station field, excluded one level down.
+        ...KEY_EXCLUDED.filter((field) => field !== "callsign"),
+      ]),
+    );
+    const projection = requestKeyProjection(build());
+    expect(sorted(Object.keys(projection))).toEqual(
+      sorted(Object.values(REQUEST_FIELD_KEYS).flat()),
+    );
+
+    const stationFields = Object.keys(stationIdentitySchema.shape);
+    expect(sorted(stationFields)).toEqual(
+      sorted([
+        ...Object.keys(STATION_FIELD_KEYS),
+        ...KEY_EXCLUDED.filter((field) => field === "callsign"),
+      ]),
+    );
+    expect(
+      sorted(Object.keys(projection.tx as Record<string, unknown>)),
+    ).toEqual(sorted(Object.values(STATION_FIELD_KEYS).flat()));
+
+    // A21: the fixed relay variant carries its own fields, including the
+    // known/unknown height, which enters the key structurally like every other
+    // known/unknown field.
+    const relayed = requestKeyProjection(buildCase("fixedRelay"));
+    const relay = relayed.relay as Record<string, unknown>;
+    expect(sorted(Object.keys(relay))).toEqual(
+      sorted([
+        "kind",
+        "relayId",
+        "latitudeDeg",
+        "longitudeDeg",
+        "datum",
+        "precisionKind",
+        "precisionHorizontalMeters",
+        "precisionCellSizeDeg",
+        "heightMeters",
+        "heightDatum",
+        "configurationId",
+      ]),
+    );
+    expect(relay.heightMeters).toEqual({ state: "known", value: 183 });
+    const orbital = requestKeyProjection(buildCase("satellitePass"))
+      .relay as Record<string, unknown>;
+    expect(sorted(Object.keys(orbital))).toEqual(
+      sorted(["kind", "relayId", "ephemerisId", "ephemerisEpochMs"]),
+    );
   });
 });

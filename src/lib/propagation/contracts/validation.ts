@@ -51,6 +51,21 @@ export const artifactHash = trimmed(
     ),
 );
 
+/**
+ * The wire form of an M01 request key: the bare SHA-256 of the canonical
+ * serialization `requestKeyDigest` produces, 64 lowercase hexadecimal digits
+ * and no prefix. A result names the request it answers by that digest, so a
+ * free-text label could never be compared against a recomputed key.
+ */
+export const requestKeyDigestText = trimmed(
+  z
+    .string()
+    .regex(
+      /^[0-9a-f]{64}$/,
+      "A request key is the 64 lowercase hex digits of its SHA-256 digest (M01)",
+    ),
+);
+
 /** More than three fractional-second digits. */
 const SUB_MILLISECOND = /\.\d{4,}/;
 

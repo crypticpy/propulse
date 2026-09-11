@@ -13,9 +13,13 @@
  * reciprocal request has its own key), relay/ephemeris identity, requested
  * model policy/id/version and policy version, and source mode.
  *
- * Out of the key: `viewScopeId` (UI preference and cancellation only) and
- * `bandKey` (a derived label). Two independent views therefore share one
- * calculation only when every scientific input including `contextId` matches.
+ * Out of the key: `viewScopeId` (UI preference and cancellation only),
+ * `bandKey` (a derived label) and `callsign` (a display label for an operator;
+ * `stationId` is the fingerprint of the configuration the physics depends on,
+ * and two operators at one configured station compute one answer). Two
+ * independent views therefore share one calculation only when every scientific
+ * input including `contextId` matches. `KEY_EXCLUDED` names those three, and
+ * `requestKey.test.ts` walks the schema to prove nothing else is missing.
  *
  * There is no module-level mutable state here: no current target, no selected
  * model, nothing that one view could change under another.
@@ -27,7 +31,19 @@ import {
   type Known,
 } from "@/lib/propagation/contracts/validation";
 
-type Canonical =
+/**
+ * The request fields deliberately outside the scientific identity. Every other
+ * field the schema declares is projected below; the structural test in
+ * `requestKey.test.ts` fails when a new field is neither projected nor listed
+ * here, so a display-only addition can never split the cache by accident.
+ */
+export const KEY_EXCLUDED: readonly string[] = [
+  "viewScopeId",
+  "bandKey",
+  "callsign",
+];
+
+export type Canonical =
   string | number | boolean | null | Canonical[] | { [key: string]: Canonical };
 
 /** Deterministic number text; -0 and 0 are the same scientific input. */
@@ -38,7 +54,12 @@ function canonicalNumber(value: number): string {
   return String(value === 0 ? 0 : value);
 }
 
-function canonicalize(value: Canonical): string {
+/**
+ * One deterministic text for a JSON-shaped value: objects are written with
+ * their keys sorted, so two equal projections always produce one string. It is
+ * exported because the capability digest (M24) is built the same way.
+ */
+export function canonicalize(value: Canonical): string {
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
   if (typeof value === "number") return canonicalNumber(value);
@@ -74,8 +95,12 @@ function stationProjection(
   station: PredictionRequest["tx"],
 ): Record<string, Canonical> {
   return {
+    /**
+     * The configuration fingerprint, not the operator. `callsign` is excluded
+     * (see `KEY_EXCLUDED`): it labels who is at the station, and the physics
+     * depends on the station.
+     */
     stationId: station.stationId,
-    callsign: station.callsign,
     ...canonicalCoordinates(station.coordinates),
     datum: station.coordinates.datum,
     precisionKind: station.coordinates.precision.kind,
@@ -124,7 +149,7 @@ function relayProjection(
       relay.coordinates.precision.horizontalMeters,
     ),
     precisionCellSizeDeg: relay.coordinates.precision.cellSizeDeg,
-    heightMeters: relay.heightMeters,
+    heightMeters: knownProjection(relay.heightMeters),
     heightDatum: relay.heightDatum,
     configurationId: relay.configurationId,
   };

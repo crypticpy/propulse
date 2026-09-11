@@ -147,9 +147,9 @@ export type RelayKind = "orbital" | "fixed";
  * which separates the satellite transponder from the "offline ground-repeater
  * /relay scenarios ... composing two qualified legs"). `eme` reflects off the
  * Moon, an orbiting body with an ephemeris (A22). `event_head` aggregates a
- * versioned event population rather than predicting a circuit, so it
- * constrains neither the geometry nor the relay body. Every other family is a
- * direct path and admits no relay at all.
+ * versioned event population over the declared great-circle frame and routes
+ * no relay leg of its own. Every other family is a direct path and admits no
+ * relay at all.
  */
 export const PERMITTED_RELAY_KINDS_BY_MECHANISM: Record<
   MechanismFamily,
@@ -160,7 +160,7 @@ export const PERMITTED_RELAY_KINDS_BY_MECHANISM: Record<
   aurora: [],
   eme: ["orbital"],
   es: [],
-  event_head: ["orbital", "fixed"],
+  event_head: [],
   f2_daytime: [],
   ground_sky_coherent: [],
   groundwave: [],
@@ -220,7 +220,11 @@ export function permittedRelayKinds(
  *   class for them, so those families keep the single-circuit class until it
  *   does.
  * - `event_head` is an aggregate over a versioned event population rather than
- *   a path, so it constrains no geometry.
+ *   a path. It still has to declare the frame it aggregates in, and the
+ *   protocol freezes its rows on `declared_model_bands` terrestrial circuits,
+ *   so it takes `terrestrial_great_circle` and no relayed class: a population
+ *   of satellite or moonbounce events is a different declaration, not this one
+ *   silently widened.
  */
 export const PERMITTED_GEOMETRY_CLASSES: Record<
   MechanismFamily,
@@ -231,7 +235,7 @@ export const PERMITTED_GEOMETRY_CLASSES: Record<
   aurora: ["bistatic_scatter"],
   eme: ["earth_moon_earth"],
   es: ["terrestrial_great_circle"],
-  event_head: GEOMETRY_CLASSES,
+  event_head: ["terrestrial_great_circle"],
   f2_daytime: ["terrestrial_great_circle"],
   ground_sky_coherent: ["terrestrial_great_circle"],
   groundwave: ["ground_wave"],
@@ -452,6 +456,45 @@ export const PROTOCOL_BAND_RANGES: Record<string, readonly FrequencyRange[]> = {
   ],
 };
 
+/**
+ * The span a band label's own name claims, for the labels whose name states a
+ * range. A grouped label is not continuous inside that span, and the gaps are
+ * deliberate rather than forgotten: `50_300GHz` carries the four millimetre
+ * families the plan of record names (76, 122, 134 and 241 GHz,
+ * docs/designs/propagation/all-band-contract-v0.1.md:83), so 47.2-76 GHz,
+ * 81-122.25 GHz, 123-134 GHz, 141-241 GHz and 250-300 GHz are explicit future
+ * extensions and no allocation is invented to fill them. The same holds
+ * between the microwave families of `13cm_to_47GHz`.
+ */
+export const PROTOCOL_BAND_NAME_SPANS: Record<string, FrequencyRange> = {
+  "2_30MHz": { minHz: 2e6, maxHz: 30e6 },
+  "13cm_to_47GHz": { minHz: 2300e6, maxHz: 47200e6 },
+  "50_300GHz": { minHz: 50e9, maxHz: 300e9 },
+};
+
+/**
+ * The ranges inside a label's named span that its constituents deliberately do
+ * not carry. `protocolAlignment.test.ts` recomputes these from
+ * `PROTOCOL_BAND_RANGES` and fails if the documentation and the table drift.
+ */
+export const PROTOCOL_BAND_GAPS: Record<string, readonly FrequencyRange[]> = {
+  "2_30MHz": [],
+  "13cm_to_47GHz": [
+    { minHz: 2450e6, maxHz: 3300e6 },
+    { minHz: 3500e6, maxHz: 5650e6 },
+    { minHz: 5925e6, maxHz: 10000e6 },
+    { minHz: 10500e6, maxHz: 24000e6 },
+    { minHz: 24250e6, maxHz: 47000e6 },
+  ],
+  "50_300GHz": [
+    { minHz: 50e9, maxHz: 76e9 },
+    { minHz: 81e9, maxHz: 122.25e9 },
+    { minHz: 123e9, maxHz: 134e9 },
+    { minHz: 141e9, maxHz: 241e9 },
+    { minHz: 250e9, maxHz: 300e9 },
+  ],
+};
+
 /** The envelope of a label's constituents; only for building declarations. */
 export function protocolBandEnvelope(band: string): FrequencyRange | undefined {
   const ranges = PROTOCOL_BAND_RANGES[band];
@@ -471,6 +514,30 @@ export function rangeCoversBand(range: FrequencyRange, band: string): boolean {
   );
 }
 
+/**
+ * Whether a band label carries any frequency the declared range also carries.
+ *
+ * The overlap is strict: two ranges that merely touch at an endpoint (160 m
+ * ends at 2.000 MHz, the HF row starts at 2.000 MHz) share a single frequency
+ * of zero width, which is not a band a head serves. A label that does not
+ * overlap the range it is listed against is a mislabelled display key (A02).
+ */
+export function bandIntersectsRange(
+  band: string,
+  range: FrequencyRange,
+): boolean {
+  const ranges = PROTOCOL_BAND_RANGES[band];
+  if (ranges === undefined) return false;
+  return ranges.some(
+    (part) => part.minHz < range.maxHz && part.maxHz > range.minHz,
+  );
+}
+
+/** Whether this label is one the frozen protocol names at all. */
+export function isKnownBandLabel(band: string): boolean {
+  return PROTOCOL_BAND_RANGES[band] !== undefined;
+}
+
 /** Whether a frequency falls inside one of a band label's constituents. */
 export function bandContainsHz(band: string, frequencyHz: number): boolean {
   const ranges = PROTOCOL_BAND_RANGES[band];
@@ -481,8 +548,8 @@ export function bandContainsHz(band: string, frequencyHz: number): boolean {
 }
 
 /**
- * The (band, event, domain, horizon, mechanism) rows the frozen validation
- * protocol defines, de-duplicated from its `coverage_rows`.
+ * The (band, event, domain, horizon, mechanism, status) rows the frozen
+ * validation protocol defines, de-duplicated from its `coverage_rows`.
  *
  * A routable capability head must name a claim that exists here, band
  * included: each row carries its own metric, comparator and gates, and a row
@@ -491,12 +558,21 @@ export function bandContainsHz(band: string, frequencyHz: number): boolean {
  * browser with no fetch; `protocolAlignment.test.ts` fails if it ever drifts
  * from ml/propagation_validation/protocol-v0.1.json.
  */
+export type ProtocolRowStatus = "data_limited" | "experimental";
+
 export interface ProtocolCoverageRow {
   band: string;
   event: PredictionQuantity;
   domain: PredictionDomain;
   horizon: PredictionHorizon;
   mechanism: MechanismFamily;
+  /**
+   * The protocol's own status for the row. Every row's preregistration is
+   * BLOCKED and none is validated, so a capability head may claim at most the
+   * evidence the row carries: `data_limited` or `experimental`, never a
+   * `validated_*` state.
+   */
+  status: ProtocolRowStatus;
 }
 
 export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
@@ -506,6 +582,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_climate",
     horizon: "climatology",
     mechanism: "terrain_troposphere",
+    status: "data_limited",
   },
   {
     band: "13cm_to_47GHz",
@@ -513,6 +590,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_profile",
     horizon: "forecast_1_24h",
     mechanism: "refractivity_pe",
+    status: "experimental",
   },
   {
     band: "160m",
@@ -520,6 +598,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "ground_sky_coherent",
+    status: "experimental",
   },
   {
     band: "160m",
@@ -527,6 +606,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "ground_sky_coherent",
+    status: "experimental",
   },
   {
     band: "160m",
@@ -534,6 +614,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "current",
     mechanism: "ground_sky_coherent",
+    status: "experimental",
   },
   {
     band: "160m",
@@ -541,6 +622,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "forecast_1_24h",
     mechanism: "ground_sky_coherent",
+    status: "experimental",
   },
   {
     band: "1p25m_70cm_33cm_23cm",
@@ -548,6 +630,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_climate",
     horizon: "climatology",
     mechanism: "terrain_troposphere",
+    status: "data_limited",
   },
   {
     band: "1p25m_70cm_33cm_23cm",
@@ -555,6 +638,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_profile",
     horizon: "forecast_1_24h",
     mechanism: "refractivity_pe",
+    status: "experimental",
   },
   {
     band: "2200m",
@@ -562,6 +646,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "groundwave",
+    status: "data_limited",
   },
   {
     band: "2200m",
@@ -569,6 +654,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "waveguide",
+    status: "data_limited",
   },
   {
     band: "2_30MHz",
@@ -576,6 +662,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "regular_ef",
+    status: "data_limited",
   },
   {
     band: "2_30MHz",
@@ -583,6 +670,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "current",
     mechanism: "regular_ef",
+    status: "data_limited",
   },
   {
     band: "2_30MHz",
@@ -590,6 +678,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "forecast_1_24h",
     mechanism: "regular_ef",
+    status: "data_limited",
   },
   {
     band: "50_300GHz",
@@ -597,6 +686,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_los_atmosphere",
     horizon: "climatology",
     mechanism: "atmospheric_los",
+    status: "data_limited",
   },
   {
     band: "630m",
@@ -604,6 +694,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "groundwave",
+    status: "data_limited",
   },
   {
     band: "630m",
@@ -611,6 +702,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "characterized_fixed_path",
     horizon: "climatology",
     mechanism: "waveguide",
+    status: "data_limited",
   },
   {
     band: "8m_6m_4m_2m",
@@ -618,6 +710,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_climate",
     horizon: "climatology",
     mechanism: "terrain_troposphere",
+    status: "data_limited",
   },
   {
     band: "8m_6m_4m_2m",
@@ -625,6 +718,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_terrain_profile",
     horizon: "forecast_1_24h",
     mechanism: "refractivity_pe",
+    status: "experimental",
   },
   {
     band: "declared_model_bands",
@@ -632,6 +726,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "versioned_event_population",
     horizon: "current",
     mechanism: "event_head",
+    status: "data_limited",
   },
   {
     band: "declared_model_bands",
@@ -639,6 +734,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "versioned_event_population",
     horizon: "current",
     mechanism: "event_head",
+    status: "data_limited",
   },
   {
     band: "declared_model_bands",
@@ -646,6 +742,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "versioned_event_population",
     horizon: "current",
     mechanism: "event_head",
+    status: "data_limited",
   },
   {
     band: "hf_vhf",
@@ -653,6 +750,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "climatology",
     mechanism: "aurora",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -660,6 +758,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "climatology",
     mechanism: "es",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -667,6 +766,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "climatology",
     mechanism: "f2_daytime",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -674,6 +774,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "climatology",
     mechanism: "tep_evening",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -681,6 +782,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "current",
     mechanism: "aurora",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -688,6 +790,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "current",
     mechanism: "es",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -695,6 +798,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "current",
     mechanism: "f2_daytime",
+    status: "experimental",
   },
   {
     band: "hf_vhf",
@@ -702,6 +806,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "mechanism_labeled_exposure",
     horizon: "current",
     mechanism: "tep_evening",
+    status: "experimental",
   },
   {
     band: "qualified_family_bands",
@@ -709,6 +814,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "configured_two_leg_path",
     horizon: "current",
     mechanism: "relay",
+    status: "data_limited",
   },
   {
     band: "qualified_family_bands",
@@ -716,6 +822,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "configured_two_leg_path",
     horizon: "current",
     mechanism: "satellite",
+    status: "data_limited",
   },
   {
     band: "qualified_family_bands",
@@ -723,6 +830,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_lunar_station",
     horizon: "forecast_seconds",
     mechanism: "eme",
+    status: "data_limited",
   },
   {
     band: "qualified_family_bands",
@@ -730,6 +838,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_ephemeris_horizon",
     horizon: "forecast_seconds",
     mechanism: "satellite",
+    status: "data_limited",
   },
   {
     band: "qualified_family_bands",
@@ -737,6 +846,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "qualified_lunar_station",
     horizon: "forecast_seconds",
     mechanism: "eme",
+    status: "data_limited",
   },
   {
     band: "qualified_family_bands",
@@ -744,6 +854,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "known_exposure_interval",
     horizon: "current",
     mechanism: "aircraft_scatter",
+    status: "experimental",
   },
   {
     band: "qualified_family_bands",
@@ -751,6 +862,7 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "known_exposure_interval",
     horizon: "current",
     mechanism: "meteor",
+    status: "experimental",
   },
   {
     band: "qualified_family_bands",
@@ -758,14 +870,20 @@ export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageRow[] = [
     domain: "known_exposure_interval",
     horizon: "current",
     mechanism: "rain_scatter",
+    status: "experimental",
   },
 ];
 
 /** Stable text for one protocol coverage row; "|" occurs in no member. */
 export function protocolCoverageKey(row: ProtocolCoverageRow): string {
-  return [row.band, row.event, row.domain, row.horizon, row.mechanism].join(
-    "|",
-  );
+  return [
+    row.band,
+    row.event,
+    row.domain,
+    row.horizon,
+    row.mechanism,
+    row.status,
+  ].join("|");
 }
 
 /** The rows that define this claim, one per band the protocol froze it for. */
@@ -842,6 +960,7 @@ export const CAPABILITY_STATES = [
   "validated_current",
   "validated_forecast",
   "data_limited",
+  "experimental",
   "unsupported",
 ] as const;
 export type CapabilityState = (typeof CAPABILITY_STATES)[number];
@@ -857,7 +976,33 @@ export const ROUTABLE_CAPABILITY_STATES: readonly CapabilityState[] = [
   "validated_current",
   "validated_forecast",
   "data_limited",
+  "experimental",
 ];
+
+/**
+ * The capability states that claim a completed validation. The frozen protocol
+ * validates nothing yet: every coverage row is `data_limited` or
+ * `experimental` and every preregistration is BLOCKED, so a routable head may
+ * not declare one of these until a row says otherwise.
+ */
+export const VALIDATED_CAPABILITY_STATES: readonly CapabilityState[] = [
+  "validated_climatology",
+  "validated_current",
+  "validated_forecast",
+];
+
+/**
+ * The capability state a head must declare on a row of each protocol status.
+ * `experimental` evidence cannot be presented as the qualified-but-thin
+ * `data_limited` evidence of another row, or the reverse.
+ */
+export const CAPABILITY_STATE_FOR_ROW_STATUS: Record<
+  ProtocolRowStatus,
+  CapabilityState
+> = {
+  data_limited: "data_limited",
+  experimental: "experimental",
+};
 
 /**
  * M07 mode semantics. `geometrically_unsupported` and `screened` contribute no
@@ -902,6 +1047,18 @@ export const FALLBACK_REASONS = [
   "auto_policy_selected_default",
 ] as const;
 export type FallbackReason = (typeof FALLBACK_REASONS)[number];
+
+/**
+ * The fallback reasons that presuppose a requested model. Each one explains
+ * why *the model the caller asked for* was not used, so a result that records
+ * no requested model cannot report one of them (M19).
+ */
+export const REQUESTED_MODEL_FALLBACK_REASONS: readonly FallbackReason[] = [
+  "requested_model_unavailable",
+  "requested_model_out_of_domain",
+  "requested_model_out_of_horizon",
+  "requested_model_disabled",
+];
 
 /** A02 polarization. "unknown" is explicit, never an assumed default. */
 export const POLARIZATIONS = [

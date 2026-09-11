@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
 import { findHead, parseResult } from "@/lib/propagation/contracts/result";
+import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
+import { parseCapability } from "@/lib/propagation/contracts/capability";
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
   QUANTITY_UNITS,
@@ -15,6 +17,23 @@ const cases = resultCases as unknown as Record<string, Mutable>;
 const MODEL_HASH = `sha256:${"a".repeat(64)}`;
 const PREPROCESSING_HASH = `sha256:${"b".repeat(64)}`;
 const FEATURE_HASH = `sha256:${"c".repeat(64)}`;
+
+/** Frozen protocol rows the substituted scalar heads sit on (M11). */
+const EVENT_ROW = {
+  domain: "versioned_event_population",
+  horizon: "current",
+  mechanismFamily: "event_head",
+};
+const GROUNDWAVE_ROW = {
+  domain: "characterized_fixed_path",
+  horizon: "climatology",
+  mechanismFamily: "groundwave",
+};
+const LUNAR_ROW = {
+  domain: "qualified_lunar_station",
+  horizon: "forecast_seconds",
+  mechanismFamily: "eme",
+};
 
 function candidate(name: string): Mutable {
   return structuredClone(cases[name]) as Mutable;
@@ -50,22 +69,28 @@ function scalarHeadCase(
   quantity: string,
   units: string,
   payload: Mutable,
+  row: { domain: string; horizon: string; mechanismFamily: string },
 ): { result: Mutable; head: Mutable } {
   const result = structuredClone(cases.fullHfCircuit) as Mutable;
   const head = (result.heads as Mutable[])[1];
   head.quantity = quantity;
   head.units = units;
+  // Every value-bearing head names a frozen protocol row, so the substituted
+  // quantity carries the row the protocol actually defines for it (M11).
+  head.domain = row.domain;
+  head.horizon = row.horizon;
+  head.mechanismFamily = row.mechanismFamily;
   head.calibrationId = null;
   (head.state as Mutable).value = payload;
   return { result, head };
 }
 
 /**
- * fullHfCircuit with a no-power SNR head and a decode head reporting the given
- * probability and no margin.
+ * The fullHfCircuit draft with no power reaching the receiver: the SNR head
+ * carries the sentinel and the circuit-support head publishes the matching
+ * state for the same mechanism, so the two heads agree (M07).
  */
-function noPowerDecodeCase(probability: number | null): Mutable {
-  const draft = candidate("fullHfCircuit");
+function noPower(draft: Mutable): Mutable {
   const snr = headFor(draft, "snr2500");
   (snr.state as Mutable).value = {
     ...((snr.state as Mutable).value as Mutable),
@@ -73,6 +98,23 @@ function noPowerDecodeCase(probability: number | null): Mutable {
     snr2500Db: "-Infinity",
   };
   snr.uncertainty = { kind: "none" };
+  const support = headFor(draft, "circuit_support");
+  ((support.state as Mutable).value as Mutable).modes = [
+    {
+      modeId: "2F2",
+      mechanism: "ground_sky_coherent",
+      support: "geometrically_unsupported",
+    },
+  ];
+  return draft;
+}
+
+/**
+ * fullHfCircuit with a no-power SNR head and a decode head reporting the given
+ * probability and no margin.
+ */
+function noPowerDecodeCase(probability: number | null): Mutable {
+  const draft = noPower(candidate("fullHfCircuit"));
   const decode = headFor(draft, "conditional_decode");
   if (probability === null) {
     // A value-bearing decode head must report a margin or a probability, and
@@ -604,6 +646,9 @@ describe("parseResult fails closed", () => {
 
     head.quantity = "pass_geometry";
     head.units = QUANTITY_UNITS.pass_geometry;
+    head.domain = "qualified_ephemeris_horizon";
+    head.horizon = "forecast_seconds";
+    head.mechanismFamily = "satellite";
     (head.state as Mutable).value = {
       aosAt: "2026-09-11T19:00:00Z",
       losAt: "2026-09-11T19:10:00Z",
@@ -634,26 +679,14 @@ describe("parseResult fails closed", () => {
   });
 
   it("rejects a finite decode margin against a no-power SNR (M07, M10)", () => {
-    const bad = candidate("fullHfCircuit");
-    (headFor(bad, "snr2500").state as Mutable).value = {
-      ...((headFor(bad, "snr2500").state as Mutable).value as Mutable),
-      support: "geometrically_unsupported",
-      snr2500Db: "-Infinity",
-    };
-    headFor(bad, "snr2500").uncertainty = { kind: "none" };
+    const bad = noPower(candidate("fullHfCircuit"));
     expect(reasonsAt(bad, "heads[2].state.value.marginDb").join()).toMatch(
       /no-power SNR2500 leaves the decode margin undefined/,
     );
   });
 
   it("accepts a null decode margin against a no-power SNR (M07, M10)", () => {
-    const good = candidate("fullHfCircuit");
-    (headFor(good, "snr2500").state as Mutable).value = {
-      ...((headFor(good, "snr2500").state as Mutable).value as Mutable),
-      support: "geometrically_unsupported",
-      snr2500Db: "-Infinity",
-    };
-    headFor(good, "snr2500").uncertainty = { kind: "none" };
+    const good = noPower(candidate("fullHfCircuit"));
     const decode = headFor(good, "conditional_decode");
     decode.calibrationId = "decode-cal-v1";
     (decode.state as Mutable).value = {
@@ -698,12 +731,17 @@ describe("parseResult fails closed", () => {
   });
 
   it("rejects a count interval that does not bracket the count (M17)", () => {
-    const bad = scalarHeadCase("observed_activity", "count", {
-      count: 4,
-      intervalStartAt: "2026-09-11T18:00:00Z",
-      intervalEndAt: "2026-09-11T19:00:00Z",
-      sourceCoverageIds: ["pskreporter-2026-09-11"],
-    });
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 4,
+        intervalStartAt: "2026-09-11T18:00:00Z",
+        intervalEndAt: "2026-09-11T19:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
     (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 10, high: 20 };
     expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
       /bracket the reported value/,
@@ -711,12 +749,18 @@ describe("parseResult fails closed", () => {
   });
 
   it("rejects a field-strength interval that does not bracket it (M17)", () => {
-    const bad = scalarHeadCase("field_strength", "dBuV_per_m", {
-      fieldStrengthDbuvPerM: 32.5,
-      polarization: "vertical",
-      heightMeters: 10,
-      measurementBandwidthHz: 2500,
-    });
+    const bad = scalarHeadCase(
+      "field_strength",
+      "dBuV_per_m",
+      {
+        fieldStrengthDbuvPerM: 32.5,
+        polarization: "vertical",
+        heightMeters: 10,
+        heightDatum: "above_ground_level",
+        measurementBandwidthHz: 2500,
+      },
+      GROUNDWAVE_ROW,
+    );
     (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 40, high: 50 };
     expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
       /bracket the reported value/,
@@ -724,11 +768,16 @@ describe("parseResult fails closed", () => {
   });
 
   it("rejects a Doppler interval that does not bracket it (M17)", () => {
-    const bad = scalarHeadCase("doppler", "Hz", {
-      dopplerHz: -1200,
-      transmittedFrequencyHz: 145950000,
-      signConvention: "positive_receding",
-    });
+    const bad = scalarHeadCase(
+      "doppler",
+      "Hz",
+      {
+        dopplerHz: -1200,
+        transmittedFrequencyHz: 145950000,
+        signConvention: "positive_receding",
+      },
+      LUNAR_ROW,
+    );
     (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 100, high: 200 };
     expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
       /bracket the reported value/,
@@ -736,11 +785,16 @@ describe("parseResult fails closed", () => {
   });
 
   it("accepts a Doppler interval that does bracket it (M17)", () => {
-    const good = scalarHeadCase("doppler", "Hz", {
-      dopplerHz: -1200,
-      transmittedFrequencyHz: 145950000,
-      signConvention: "positive_receding",
-    });
+    const good = scalarHeadCase(
+      "doppler",
+      "Hz",
+      {
+        dopplerHz: -1200,
+        transmittedFrequencyHz: 145950000,
+        signConvention: "positive_receding",
+      },
+      LUNAR_ROW,
+    );
     (good.head.uncertainty as Mutable) = {
       ...SPREAD,
       low: -1400,
@@ -803,7 +857,9 @@ describe("parseResult fails closed", () => {
     heads(bad).push({
       quantity: "observed_activity",
       units: "count",
-      domain: "known_exposure_interval",
+      domain: "versioned_event_population",
+      horizon: "current",
+      mechanismFamily: "event_head",
       contextId: bad.contextId,
       validAt: bad.validAt,
       effectiveModelId: "propulse-physics-v1",
@@ -953,5 +1009,202 @@ describe("parseResult fails closed", () => {
     expect(
       reasonsAt(sameArtefacts, "heads[2].state.value.marginDb").join(),
     ).toMatch(/SNR2500 minus the declared threshold/);
+  });
+  it("rejects a served head on a tuple the protocol never froze (M11)", () => {
+    const bad = candidate("fullHfCircuit");
+    // regular_ef is a frozen mechanism, but the protocol froze no
+    // circuit_support row for it on this domain and horizon.
+    headFor(bad, "circuit_support").mechanismFamily = "regular_ef";
+    expect(reasonsAt(bad, "heads[0].mechanismFamily").join()).toMatch(
+      /The protocol defines no circuit_support on characterized_fixed_path at climatology via regular_ef \(M11\)/,
+    );
+  });
+
+  it("a capability with no feature artefact could serve no accepted head (M24)", () => {
+    // The result contract rejects a served head with no feature digest, so a
+    // capability that pins none can never produce an acceptable result.
+    const served = candidate("fullHfCircuit");
+    headFor(served, "snr2500").featureHash = null;
+    expect(reasonsAt(served, "heads[1].featureHash").join()).toMatch(
+      /must pin its featureHash for replay \(M24\)/,
+    );
+
+    const declaration = structuredClone(
+      capabilityCases.hfPhysics,
+    ) as unknown as Mutable;
+    const head = (declaration.heads as Mutable[])[0];
+    head.featureSchemaId = null;
+    head.featureHash = null;
+    const outcome = parseCapability(declaration);
+    expect(outcome.ok).toBe(false);
+    expect(
+      outcome.ok ? [] : outcome.issues.map((issue) => issue.path),
+    ).toContain("heads[0].featureHash");
+  });
+
+  it("rejects a loss component itemised and already included (M08)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    payload.alreadyIncludedMechanisms = ["excess_absorption"];
+    expect(
+      reasonsAt(bad, "heads[1].state.value.losses[1].componentId").join(),
+    ).toMatch(/itemised and also declared already included/);
+  });
+
+  it("rejects two loss components at different reference planes (M09)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    (payload.losses as Mutable[])[1].referencePlane =
+      "transmitter_output_to_antenna_input";
+    expect(
+      reasonsAt(bad, "heads[1].state.value.losses[1].referencePlane").join(),
+    ).toMatch(/not at the head's plane/);
+  });
+
+  it("rejects a repeated loss component id (M08)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    (payload.losses as Mutable[])[1].componentId = "basic_transmission_loss";
+    expect(
+      reasonsAt(bad, "heads[1].state.value.losses[1].componentId").join(),
+    ).toMatch(/is itemised twice/);
+  });
+
+  it("rejects a repeated already-included mechanism (M08)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    payload.alreadyIncludedMechanisms = [
+      "itu_reference_cd172be_regular_modes",
+      "itu_reference_cd172be_regular_modes",
+    ];
+    expect(
+      reasonsAt(
+        bad,
+        "heads[1].state.value.alreadyIncludedMechanisms[1]",
+      ).join(),
+    ).toMatch(/declared already included twice/);
+  });
+
+  it("rejects a noise floor stated at another plane (M09)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    payload.noiseFloorReferencePlane = "transmitter_output_to_antenna_input";
+    expect(
+      reasonsAt(bad, "heads[1].state.value.noiseFloorReferencePlane").join(),
+    ).toMatch(/an SNR is a ratio at one plane/);
+  });
+
+  it("requires a decode margin when a same-model SNR head is present (M10)", () => {
+    const bad = candidate("fullHfCircuit");
+    const decode = headFor(bad, "conditional_decode");
+    decode.calibrationId = "ft8-decode-calibration-0.1.0";
+    (decode.state as Mutable).value = {
+      ...((decode.state as Mutable).value as Mutable),
+      marginDb: null,
+      probability: 0.42,
+    };
+    expect(reasonsAt(bad, "heads[2].state.value.marginDb").join()).toMatch(
+      /beside a finite same-model SNR2500 must report the margin \(M10\)/,
+    );
+  });
+
+  it("does not bind the M10 margin across different preprocessing artefacts (M24)", () => {
+    const drifted = candidate("fullHfCircuit");
+    const decode = headFor(drifted, "conditional_decode");
+    (decode.state as Mutable).value = {
+      ...((decode.state as Mutable).value as Mutable),
+      marginDb: 99,
+    };
+    decode.preprocessingHash = `sha256:${"f".repeat(64)}`;
+    const outcome = parseResult(drifted);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects an SNR support state the circuit-support head contradicts (M07)", () => {
+    const bad = candidate("fullHfCircuit");
+    const payload = (headFor(bad, "snr2500").state as Mutable).value as Mutable;
+    payload.support = "above_basic_muf_with_loss";
+    expect(reasonsAt(bad, "heads[1].state.value.support").join()).toMatch(
+      /circuit-support head reports supported, screened for mechanism ground_sky_coherent/,
+    );
+  });
+
+  it("rejects an eligible source whose version is not a pinned digest (M24)", () => {
+    const bad = candidate("fullHfCircuit");
+    const sources = (bad.evidence as Mutable).sources as Mutable[];
+    const eligible = sources.find((source) => source.eligible === true);
+    if (!eligible) throw new Error("fixture must carry an eligible source");
+    eligible.sourceVersion = "2026-09-11T17:30Z";
+    expect(
+      issues(bad)
+        .filter((issue) => issue.path.endsWith("sourceVersion"))
+        .map((issue) => issue.reason)
+        .join(),
+    ).toMatch(/pins its version as a sha256 digest \(M24\)/);
+  });
+
+  it("rejects a requested-model fallback reason when no model was requested (M19)", () => {
+    const bad = candidate("fullHfCircuit");
+    (bad.provenance as Mutable).requestedModelId = null;
+    (bad.provenance as Mutable).requestedModelVersion = null;
+    (bad.provenance as Mutable).fallbackReason = "requested_model_unavailable";
+    expect(reasonsAt(bad, "provenance.fallbackReason").join()).toMatch(
+      /reports on a requested model, but no model was requested \(M19\)/,
+    );
+  });
+
+  it("rejects two evidence entries for the same source (M11)", () => {
+    const bad = candidate("fullHfCircuit");
+    const sources = (bad.evidence as Mutable).sources as Mutable[];
+    sources.push(structuredClone(sources[0]));
+    expect(
+      reasonsAt(bad, `evidence.sources[${sources.length - 1}].sourceId`).join(),
+    ).toMatch(/Duplicate evidence entry for source/);
+  });
+
+  it("rejects a field-strength height with no datum (A02)", () => {
+    const bad = scalarHeadCase(
+      "field_strength",
+      "dBuV_per_m",
+      {
+        fieldStrengthDbuvPerM: 32.5,
+        polarization: "vertical",
+        heightMeters: 10,
+        heightDatum: "unknown",
+        measurementBandwidthHz: 2500,
+      },
+      GROUNDWAVE_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.heightDatum").join(),
+    ).toMatch(/must name the datum its height is measured against \(A02\)/);
+  });
+
+  it("rejects a request key that is not the M01 digest form (M01)", () => {
+    const bad = candidate("fullHfCircuit");
+    bad.requestKey = "ctx-hf-path-2026-09-11T18";
+    expect(reasonsAt(bad, "requestKey").join()).toMatch(
+      /64 lowercase hex digits of its SHA-256 digest \(M01\)/,
+    );
+  });
+
+  it("rejects a fallback reason on a head served by the result's effective model (M19)", () => {
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").fallbackReason = "requested_model_unavailable";
+    expect(reasonsAt(bad, "heads[1].fallbackReason").join()).toMatch(
+      /served by the result's effective model reports no fallback reason \(M19\)/,
+    );
+  });
+
+  it("rejects a repeated assumption on a head (M11)", () => {
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").assumptions = [
+      "quiet_geomagnetic_conditions",
+      "quiet_geomagnetic_conditions",
+    ];
+    expect(reasonsAt(bad, "heads[1].assumptions[1]").join()).toMatch(
+      /declared twice; an assumption holds or it does not \(M11\)/,
+    );
   });
 });

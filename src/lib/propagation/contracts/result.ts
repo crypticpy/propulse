@@ -13,17 +13,23 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   CIRCUIT_SUPPORT_STATES,
   FALLBACK_REASONS,
+  HEIGHT_DATUMS,
   INTERVAL_KINDS,
+  isProtocolCoverage,
   MECHANISM_FAMILIES,
   POLARIZATIONS,
   POWER_BEARING_SUPPORT_STATES,
   PREDICTION_DOMAINS,
+  PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
   REFERENCE_BANDWIDTH_HZ,
+  REQUESTED_MODEL_FALLBACK_REASONS,
   RESULT_SCHEMA_VERSION,
   type FallbackReason,
+  type MechanismFamily,
   type PredictionDomain,
+  type PredictionHorizon,
   type PredictionQuantity,
 } from "@/lib/propagation/contracts/enums";
 import {
@@ -37,6 +43,7 @@ import {
   parseWith,
   probability,
   reject,
+  requestKeyDigestText,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
@@ -93,11 +100,67 @@ const snr2500Payload = z
     snr2500Db: decibelsOrNoPower,
     referenceBandwidthHz: z.literal(REFERENCE_BANDWIDTH_HZ),
     noiseFloorDbm: finite,
+    /**
+     * M09: a noise floor is a level at a plane. Stated without one it cannot
+     * be subtracted from a signal level that was computed at another plane,
+     * and the difference would silently absorb the feed loss between them.
+     */
+    noiseFloorReferencePlane: identifier,
     losses: z.array(lossComponent),
     alreadyIncludedMechanisms: z.array(identifier),
   })
   .strict()
   .superRefine((value, ctx) => {
+    const alreadyIncluded = new Set(value.alreadyIncludedMechanisms);
+    const seenComponents = new Set<string>();
+    value.losses.forEach((loss, index) => {
+      // M08: one itemised component, one number. A repeated id leaves a
+      // consumer summing the budget twice or picking whichever it read last.
+      if (seenComponents.has(loss.componentId)) {
+        reject(
+          ctx,
+          ["losses", index, "componentId"],
+          `Loss component ${loss.componentId} is itemised twice (M08)`,
+        );
+      }
+      seenComponents.add(loss.componentId);
+      // M08: a mechanism is itemised or it is already inside the reference
+      // total. Declaring both double-counts it by exactly its own value.
+      if (alreadyIncluded.has(loss.componentId)) {
+        reject(
+          ctx,
+          ["losses", index, "componentId"],
+          `Loss component ${loss.componentId} is itemised and also declared already included in the reference total (M08)`,
+        );
+      }
+      // M09: every itemised loss in one budget is measured between the same
+      // two planes, or the sum is not a loss between any pair of planes.
+      if (loss.referencePlane !== value.losses[0].referencePlane) {
+        reject(
+          ctx,
+          ["losses", index, "referencePlane"],
+          `Loss component ${loss.componentId} is stated at reference plane ${loss.referencePlane}, not at the head's plane ${value.losses[0].referencePlane} (M09)`,
+        );
+      }
+    });
+    value.alreadyIncludedMechanisms.forEach((mechanism, index) => {
+      if (value.alreadyIncludedMechanisms.indexOf(mechanism) === index) return;
+      reject(
+        ctx,
+        ["alreadyIncludedMechanisms", index],
+        `Mechanism ${mechanism} is declared already included twice (M08)`,
+      );
+    });
+    if (
+      value.losses.length > 0 &&
+      value.losses[0].referencePlane !== value.noiseFloorReferencePlane
+    ) {
+      reject(
+        ctx,
+        ["noiseFloorReferencePlane"],
+        `The noise floor is stated at ${value.noiseFloorReferencePlane} and the losses at ${value.losses[0].referencePlane}; an SNR is a ratio at one plane (M09)`,
+      );
+    }
     const bearsPower = POWER_BEARING_SUPPORT_STATES.includes(value.support);
     const finiteSnr = Number.isFinite(value.snr2500Db);
     if (bearsPower && !finiteSnr) {
@@ -239,9 +302,26 @@ const fieldStrengthPayload = z
     fieldStrengthDbuvPerM: finite,
     polarization: z.enum(POLARIZATIONS),
     heightMeters: finite.nonnegative(),
+    /**
+     * A02: a field strength is quoted at a height, and a height is only a
+     * height against a named reference. Ground wave at 10 m above local
+     * terrain and 10 m above mean sea level are different measurements.
+     */
+    heightDatum: z.enum(HEIGHT_DATUMS),
     measurementBandwidthHz: finite.positive(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    // This payload exists only on a value-bearing head, so an unknown datum
+    // here is a reported number against no reference at all.
+    if (value.heightDatum === "unknown") {
+      reject(
+        ctx,
+        ["heightDatum"],
+        "A reported field strength must name the datum its height is measured against (A02)",
+      );
+    }
+  });
 
 const usableBurstPayload = z
   .object({
@@ -389,6 +469,8 @@ const headState = z.discriminatedUnion("availability", [
 export interface PredictionHeadBase {
   units: string;
   domain: PredictionDomain;
+  horizon: PredictionHorizon;
+  mechanismFamily: MechanismFamily;
   contextId: string;
   validAt: string;
   effectiveModelId: string;
@@ -426,6 +508,14 @@ const predictionHead = z
     quantity: z.enum(PREDICTION_QUANTITIES),
     units: identifier,
     domain: z.enum(PREDICTION_DOMAINS),
+    /**
+     * M11: the coverage row this head answers is (quantity, domain, horizon,
+     * mechanism family). A head that named only the first two would be
+     * unscoreable: the protocol froze different metrics, comparators and gates
+     * for the climatology row and the forecast row of one quantity.
+     */
+    horizon: z.enum(PREDICTION_HORIZONS),
+    mechanismFamily: z.enum(MECHANISM_FAMILIES),
     contextId: identifier,
     validAt: instant,
     effectiveModelId: identifier,
@@ -453,6 +543,14 @@ const predictionHead = z
    * sentinel) is normalized exactly once, here.
    */
   .transform((value, ctx): PredictionHead => {
+    value.assumptions.forEach((assumption, index) => {
+      if (value.assumptions.indexOf(assumption) === index) return;
+      reject(
+        ctx,
+        ["assumptions", index],
+        `Assumption ${assumption} is declared twice; an assumption holds or it does not (M11)`,
+      );
+    });
     if (value.units !== QUANTITY_UNITS[value.quantity]) {
       reject(
         ctx,
@@ -598,6 +696,24 @@ const evidenceSource = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    // M24 / protocol `replay.revisions`: "Immutable source versions with
+    // SHA-256; no later revised product replacing an earlier issued context."
+    // A timestamp or a product name is not immutable and cannot be replayed.
+    const pinned = /^sha256:[0-9a-f]{64}$/.test(value.sourceVersion);
+    if (value.eligible && !pinned) {
+      reject(
+        ctx,
+        ["sourceVersion"],
+        "An eligible source pins its version as a sha256 digest (M24)",
+      );
+    }
+    if (!value.eligible && !pinned && value.sourceVersion !== "unknown") {
+      reject(
+        ctx,
+        ["sourceVersion"],
+        'An excluded source names its pinned sha256 digest or "unknown" (M24)',
+      );
+    }
     if (value.eligible && value.exclusionReason !== null) {
       reject(
         ctx,
@@ -656,7 +772,22 @@ const provenance = z
       );
       return;
     }
-    if (value.requestedModelId === null) return;
+    if (value.requestedModelId === null) {
+      // M19: these reasons are all statements about a model the caller asked
+      // for. With no request there is nothing they could be reporting, and a
+      // consumer reading one would infer a preference that never existed.
+      if (
+        value.fallbackReason !== null &&
+        REQUESTED_MODEL_FALLBACK_REASONS.includes(value.fallbackReason)
+      ) {
+        reject(
+          ctx,
+          ["fallbackReason"],
+          `Fallback reason ${value.fallbackReason} reports on a requested model, but no model was requested (M19)`,
+        );
+      }
+      return;
+    }
     const same =
       value.requestedModelId === value.effectiveModelId &&
       value.requestedModelVersion === value.effectiveModelVersion;
@@ -725,6 +856,7 @@ function crossCheckDecodeMargin(
     // M24: two heads from one lineage but different artefacts are two
     // different models for replay, so the M10 identity does not bind them.
     snr.modelHash !== decode.modelHash ||
+    snr.preprocessingHash !== decode.preprocessingHash ||
     snr.featureHash !== decode.featureHash
   ) {
     return;
@@ -755,7 +887,18 @@ function crossCheckDecodeMargin(
     }
     return;
   }
-  if (margin === null || !Number.isFinite(snr2500Db)) return;
+  if (!Number.isFinite(snr2500Db)) return;
+  if (margin === null) {
+    // M10: the margin is a subtraction, and both of its terms are present in
+    // this very result from this very model. "Not reported" would be a claim
+    // that the arithmetic could not be done.
+    reject(
+      ctx,
+      ["heads", decodeIndex, "state", "value", "marginDb"],
+      "A decode head beside a finite same-model SNR2500 must report the margin (M10)",
+    );
+    return;
+  }
   const expected = snr2500Db - decode.state.value.thresholdSnr2500Db;
   if (Math.abs(margin - expected) > DECODE_MARGIN_TOLERANCE_DB) {
     reject(
@@ -766,12 +909,58 @@ function crossCheckDecodeMargin(
   }
 }
 
+/**
+ * M07: when one result carries both a circuit-support head and an SNR head
+ * from the same model, the SNR head's support state is one of the verdicts the
+ * circuit-support head published for that mechanism. A pair that disagrees
+ * offers a consumer two answers to "does this circuit carry power" with
+ * nothing in the contract to choose between them.
+ *
+ * The no-power sentinel is already tied to the support state inside the SNR
+ * payload, so pinning the state here pins the sentinel with it.
+ */
+function crossCheckCircuitSupport(
+  heads: readonly PredictionHead[],
+  ctx: z.RefinementCtx,
+): void {
+  const snrIndex = heads.findIndex((head) => head.quantity === "snr2500");
+  if (snrIndex < 0) return;
+  const snr = heads[snrIndex] as Extract<
+    PredictionHead,
+    { quantity: "snr2500" }
+  >;
+  const support = heads.find((head) => head.quantity === "circuit_support") as
+    Extract<PredictionHead, { quantity: "circuit_support" }> | undefined;
+  if (support === undefined) return;
+  if (
+    !VALUE_BEARING_STATES.includes(snr.state.availability) ||
+    !VALUE_BEARING_STATES.includes(support.state.availability)
+  ) {
+    return;
+  }
+  if (!("value" in snr.state) || !("value" in support.state)) return;
+  const published = support.state.value.modes
+    .filter((mode) => mode.mechanism === snr.mechanismFamily)
+    .map((mode) => mode.support);
+  if (published.length === 0) return;
+  if (published.includes(snr.state.value.support)) return;
+  reject(
+    ctx,
+    ["heads", snrIndex, "state", "value", "support"],
+    `The circuit-support head reports ${published.join(", ")} for mechanism ${snr.mechanismFamily}, not ${snr.state.value.support} (M07)`,
+  );
+}
+
 export const predictionResultSchema = z
   .object({
     schemaVersion: z.literal(RESULT_SCHEMA_VERSION),
     contextId: identifier,
-    /** The exact `requestKey` this result answers. */
-    requestKey: identifier,
+    /**
+     * The exact request this result answers, named by the M01 digest
+     * `requestKeyDigest` produces. A free-text label could never be compared
+     * against a recomputed key, so the wire form is the digest itself.
+     */
+    requestKey: requestKeyDigestText,
     issuedAt: instant,
     validAt: instant,
     provenance,
@@ -784,7 +973,19 @@ export const predictionResultSchema = z
     if (instantMs(value.validAt) < issued) {
       reject(ctx, ["validAt"], "validAt must not precede issuedAt (M02)");
     }
+    const seenSources = new Set<string>();
     value.evidence.sources.forEach((source, index) => {
+      // M11: one source, one entry. Two entries for one id let a consumer read
+      // whichever it saw last, and an eligible duplicate beside an excluded
+      // one would make the census of what was used ambiguous.
+      if (seenSources.has(source.sourceId)) {
+        reject(
+          ctx,
+          ["evidence", "sources", index, "sourceId"],
+          `Duplicate evidence entry for source ${source.sourceId} (M11)`,
+        );
+      }
+      seenSources.add(source.sourceId);
       if (!source.eligible) return;
       const stamps: [string, string | null][] = [
         ["observedIntervalEndAt", source.observedIntervalEndAt],
@@ -869,6 +1070,26 @@ export const predictionResultSchema = z
           );
         }
       }
+      if (
+        availability !== undefined &&
+        VALUE_BEARING_STATES.includes(availability) &&
+        !isProtocolCoverage({
+          event: head.quantity,
+          domain: head.domain,
+          horizon: head.horizon,
+          mechanism: head.mechanismFamily,
+        })
+      ) {
+        // M11: the frozen protocol says which claims exist at all. A served
+        // head on a tuple it never froze is an answer to a question no metric,
+        // comparator or gate was written for. An unavailable head is a
+        // declared gap and may describe one.
+        reject(
+          ctx,
+          ["heads", index, "mechanismFamily"],
+          `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} (M11)`,
+        );
+      }
       const servedByAnotherModel =
         head.effectiveModelId !== value.provenance.effectiveModelId ||
         head.effectiveModelVersion !== value.provenance.effectiveModelVersion;
@@ -879,8 +1100,19 @@ export const predictionResultSchema = z
           "A head served by another model must name its own fallback reason (M19)",
         );
       }
+      if (!servedByAnotherModel && head.fallbackReason !== null) {
+        // M19: the head-level reason exists to explain a head the result's own
+        // effective model did not serve. On a head it did serve there is no
+        // fallback to report, and the reason would contradict the provenance.
+        reject(
+          ctx,
+          ["heads", index, "fallbackReason"],
+          "A head served by the result's effective model reports no fallback reason (M19)",
+        );
+      }
     });
     crossCheckDecodeMargin(value.heads, ctx);
+    crossCheckCircuitSupport(value.heads, ctx);
   });
 
 /** A validated, frozen prediction result. */

@@ -2,7 +2,7 @@
   "fullHfCircuit": {
     "schemaVersion": "propagation-result-0.1.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
-    "requestKey": "fixture-request-key-hf-short-path",
+    "requestKey": "b8252da2f662ba624fdb56db34bcc9c6d83477dccf13ed07794fbfddb075a9fa",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T19:00:00Z",
     "provenance": {
@@ -18,7 +18,7 @@
       "sources": [
         {
           "sourceId": "noaa-swpc-f107",
-          "sourceVersion": "2026-09-11T17:30Z",
+          "sourceVersion": "sha256:941a507f9ad59226ba931ce22a90ec03fc936f69d67be3b782871d92b0c1067d",
           "observedIntervalEndAt": "2026-09-11T17:00:00Z",
           "publishedAt": "2026-09-11T17:30:00Z",
           "capturedAt": "2026-09-11T17:34:00Z",
@@ -43,6 +43,8 @@
         "quantity": "circuit_support",
         "units": "boolean",
         "domain": "characterized_fixed_path",
+        "horizon": "climatology",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -62,12 +64,12 @@
             "modes": [
               {
                 "modeId": "2F2",
-                "mechanism": "regular_ef",
+                "mechanism": "ground_sky_coherent",
                 "support": "supported"
               },
               {
                 "modeId": "1E",
-                "mechanism": "regular_ef",
+                "mechanism": "ground_sky_coherent",
                 "support": "screened"
               }
             ]
@@ -78,6 +80,8 @@
         "quantity": "snr2500",
         "units": "dB",
         "domain": "characterized_fixed_path",
+        "horizon": "forecast_1_24h",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -102,6 +106,7 @@
             "snr2500Db": 10.3,
             "referenceBandwidthHz": 2500,
             "noiseFloorDbm": -128.6,
+            "noiseFloorReferencePlane": "antenna_input_to_available_receive_power",
             "losses": [
               {
                 "componentId": "basic_transmission_loss",
@@ -112,11 +117,6 @@
                 "componentId": "excess_absorption",
                 "valueDb": 3.1,
                 "referencePlane": "antenna_input_to_available_receive_power"
-              },
-              {
-                "componentId": "tx_feed_loss",
-                "valueDb": 1.2,
-                "referencePlane": "transmitter_output_to_antenna_input"
               }
             ],
             "alreadyIncludedMechanisms": ["itu_reference_cd172be_regular_modes"]
@@ -126,7 +126,9 @@
       {
         "quantity": "conditional_decode",
         "units": "probability",
-        "domain": "characterized_fixed_path",
+        "domain": "mechanism_labeled_exposure",
+        "horizon": "current",
+        "mechanismFamily": "f2_daytime",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -157,7 +159,9 @@
       {
         "quantity": "network_detection",
         "units": "probability",
-        "domain": "characterized_fixed_path",
+        "domain": "versioned_event_population",
+        "horizon": "current",
+        "mechanismFamily": "event_head",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -179,7 +183,9 @@
       {
         "quantity": "completed_qso",
         "units": "probability",
-        "domain": "characterized_fixed_path",
+        "domain": "versioned_event_population",
+        "horizon": "current",
+        "mechanismFamily": "event_head",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -203,7 +209,7 @@
   "partialFallback": {
     "schemaVersion": "propagation-result-0.1.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
-    "requestKey": "fixture-request-key-hf-short-path-partial",
+    "requestKey": "dfce54c7043999dfb3beacf2fa4513ad33c74ac5057ee4ff7bd3817d9cb0c909",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T19:00:00Z",
     "provenance": {
@@ -219,7 +225,7 @@
       "sources": [
         {
           "sourceId": "noaa-swpc-f107",
-          "sourceVersion": "2026-09-11T17:30Z",
+          "sourceVersion": "sha256:941a507f9ad59226ba931ce22a90ec03fc936f69d67be3b782871d92b0c1067d",
           "observedIntervalEndAt": "2026-09-11T17:00:00Z",
           "publishedAt": "2026-09-11T17:30:00Z",
           "capturedAt": "2026-09-11T17:34:00Z",
@@ -244,6 +250,8 @@
         "quantity": "circuit_support",
         "units": "boolean",
         "domain": "characterized_fixed_path",
+        "horizon": "climatology",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -263,12 +271,12 @@
             "modes": [
               {
                 "modeId": "2F2",
-                "mechanism": "regular_ef",
-                "support": "supported"
+                "mechanism": "ground_sky_coherent",
+                "support": "above_basic_muf_with_loss"
               },
               {
                 "modeId": "1E",
-                "mechanism": "regular_ef",
+                "mechanism": "ground_sky_coherent",
                 "support": "screened"
               }
             ]
@@ -279,6 +287,8 @@
         "quantity": "snr2500",
         "units": "dB",
         "domain": "characterized_fixed_path",
+        "horizon": "forecast_1_24h",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -299,6 +309,7 @@
             "snr2500Db": -4.8,
             "referenceBandwidthHz": 2500,
             "noiseFloorDbm": -128.6,
+            "noiseFloorReferencePlane": "antenna_input_to_available_receive_power",
             "losses": [
               {
                 "componentId": "basic_transmission_loss",
@@ -309,11 +320,6 @@
                 "componentId": "excess_absorption",
                 "valueDb": 3.1,
                 "referencePlane": "antenna_input_to_available_receive_power"
-              },
-              {
-                "componentId": "tx_feed_loss",
-                "valueDb": 1.2,
-                "referencePlane": "transmitter_output_to_antenna_input"
               }
             ],
             "alreadyIncludedMechanisms": ["itu_reference_cd172be_regular_modes"]
@@ -325,7 +331,7 @@
   "noPowerMode": {
     "schemaVersion": "propagation-result-0.1.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
-    "requestKey": "fixture-request-key-hf-no-power-mode",
+    "requestKey": "68cf59b184580ea29f8030a707385dda7c1983bf34c55abb5a4e672886a751ce",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T19:00:00Z",
     "provenance": {
@@ -341,7 +347,7 @@
       "sources": [
         {
           "sourceId": "noaa-swpc-f107",
-          "sourceVersion": "2026-09-11T17:30Z",
+          "sourceVersion": "sha256:941a507f9ad59226ba931ce22a90ec03fc936f69d67be3b782871d92b0c1067d",
           "observedIntervalEndAt": "2026-09-11T17:00:00Z",
           "publishedAt": "2026-09-11T17:30:00Z",
           "capturedAt": "2026-09-11T17:34:00Z",
@@ -366,6 +372,8 @@
         "quantity": "circuit_support",
         "units": "boolean",
         "domain": "characterized_fixed_path",
+        "horizon": "climatology",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -385,7 +393,7 @@
             "modes": [
               {
                 "modeId": "1F2",
-                "mechanism": "regular_ef",
+                "mechanism": "ground_sky_coherent",
                 "support": "geometrically_unsupported"
               }
             ]
@@ -396,6 +404,8 @@
         "quantity": "snr2500",
         "units": "dB",
         "domain": "characterized_fixed_path",
+        "horizon": "forecast_1_24h",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",
@@ -416,6 +426,7 @@
             "snr2500Db": "-Infinity",
             "referenceBandwidthHz": 2500,
             "noiseFloorDbm": -128.6,
+            "noiseFloorReferencePlane": "antenna_input_to_available_receive_power",
             "losses": [],
             "alreadyIncludedMechanisms": []
           }
@@ -426,7 +437,7 @@
   "missingInput": {
     "schemaVersion": "propagation-result-0.1.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
-    "requestKey": "fixture-request-key-hf-missing",
+    "requestKey": "5c6d4e06a5f9b306da688dec6fadb0ed706dedbc7ed060c308d283e16c6f2688",
     "issuedAt": "2026-09-11T18:00:00Z",
     "validAt": "2026-09-11T19:00:00Z",
     "provenance": {
@@ -446,6 +457,8 @@
         "quantity": "snr2500",
         "units": "dB",
         "domain": "characterized_fixed_path",
+        "horizon": "forecast_1_24h",
+        "mechanismFamily": "ground_sky_coherent",
         "contextId": "ctx-hf-path-2026-09-11T18",
         "validAt": "2026-09-11T19:00:00Z",
         "effectiveModelId": "propulse-physics-v1",

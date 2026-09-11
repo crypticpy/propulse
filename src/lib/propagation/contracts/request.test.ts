@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import requestCases from "@/lib/propagation/contracts/fixtures/request.cases.json";
-import { parseRequest } from "@/lib/propagation/contracts/request";
+import {
+  parseRequest,
+  predictionRequestSchema,
+} from "@/lib/propagation/contracts/request";
+import {
+  GEOMETRY_CLASSES,
+  MECHANISM_FAMILIES,
+  PERMITTED_GEOMETRY_CLASSES,
+  protocolCoverageContainsHz,
+} from "@/lib/propagation/contracts/enums";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
 
 type Mutable = Record<string, unknown>;
@@ -126,6 +135,10 @@ describe("parseRequest fails closed", () => {
     const good = candidate("hfShortPath");
     (good.mechanismPolicy as Mutable).family = "aurora";
     (good.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
+    // The protocol freezes aurora as a mechanism-labelled exposure row.
+    good.targetEvent = "conditional_decode";
+    (good.scope as Mutable).domain = "mechanism_labeled_exposure";
+    (good.scope as Mutable).horizon = "current";
     const outcome = parseRequest(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
@@ -160,7 +173,8 @@ describe("parseRequest fails closed", () => {
       const endpoint = (bad[end] as Mutable).coordinates as Mutable;
       const relay = (bad.relay as Mutable).coordinates as Mutable;
       relay.latitudeDeg = -(endpoint.latitudeDeg as number);
-      relay.longitudeDeg = (endpoint.longitudeDeg as number) + 180;
+      relay.longitudeDeg =
+        (((endpoint.longitudeDeg as number) + 360) % 360) - 180;
       expect(reasonsAt(bad, "relay.coordinates").join()).toMatch(
         new RegExp(`antipodal to the ${end} station`),
       );
@@ -190,6 +204,10 @@ describe("parseRequest fails closed", () => {
     const microwave = candidate("hfShortPath");
     microwave.frequencyHz = 10_368_000_000;
     microwave.bandKey = "3cm";
+    // 10 GHz is inside the protocol's 13cm_to_47GHz refractivity row.
+    (microwave.scope as Mutable).domain = "qualified_terrain_profile";
+    (microwave.mechanismPolicy as Mutable).family = "refractivity_pe";
+    microwave.terrainProfileId = "srtm-30m-path-profile-v2";
     expect(parseRequest(microwave).ok).toBe(true);
   });
 
@@ -351,6 +369,11 @@ describe("parseRequest fails closed", () => {
     good.targetEvent = "usable_burst";
     (good.scope as Mutable).aggregation = "interval";
     (good.scope as Mutable).intervalSeconds = 900;
+    // usable_burst is frozen as a known exposure interval on a scatter family.
+    (good.scope as Mutable).domain = "known_exposure_interval";
+    (good.scope as Mutable).horizon = "current";
+    (good.mechanismPolicy as Mutable).family = "meteor";
+    (good.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
     const outcome = parseRequest(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
@@ -655,5 +678,153 @@ describe("parseRequest fails closed", () => {
     const bad = candidate("hfShortPath");
     ((bad.tx as Mutable).coordinates as Mutable).latitudeDeg = 91;
     expect(reasonsAt(bad, "tx.coordinates.latitudeDeg")).toHaveLength(1);
+  });
+
+  it("rejects a band label that does not contain the request frequency (A02)", () => {
+    const bad = candidate("hfShortPath");
+    bad.bandKey = "160m";
+    expect(reasonsAt(bad, "bandKey").join()).toMatch(
+      /Band label 160m does not contain 14074000 Hz/,
+    );
+  });
+
+  it("rejects endpoints declared in different geodetic datums (M06)", () => {
+    const bad = candidate("hfShortPath");
+    const rx = (bad.rx as Mutable).coordinates as Mutable;
+    // A grid square may honestly leave the datum unnamed; differencing it
+    // against a WGS 84 endpoint is what the rule refuses.
+    rx.datum = "unknown";
+    (rx.precision as Mutable).kind = "maidenhead_grid";
+    expect(reasonsAt(bad, "rx.coordinates.datum").join()).toMatch(
+      /one circuit is one geodetic frame/,
+    );
+  });
+
+  it("rejects a surveyed coordinate with an unknown datum (M06)", () => {
+    const bad = candidate("fixedRelay");
+    const relay = (bad.relay as Mutable).coordinates as Mutable;
+    relay.datum = "unknown";
+    expect(reasonsAt(bad, "relay.coordinates.datum").join()).toMatch(
+      /surveyed coordinate must name the geodetic datum/,
+    );
+  });
+
+  it("treats two endpoints inside one quantized cell as coincident (M06, M01)", () => {
+    const draft = candidate("hfShortPath");
+    for (const end of ["tx", "rx"] as const) {
+      const point = (draft[end] as Mutable).coordinates as Mutable;
+      point.precision = {
+        kind: "quantized_cell",
+        horizontalMeters: { state: "unknown", reason: "grid_locator_only" },
+        cellSizeDeg: 1,
+      };
+    }
+    // About 5 km apart, far inside one one-degree cell at this latitude.
+    const rx = (draft.rx as Mutable).coordinates as Mutable;
+    rx.latitudeDeg = 30.3;
+    rx.longitudeDeg = -97.7;
+    expect(reasonsAt(draft, "rx.coordinates").join()).toMatch(
+      /zero-distance circuit/,
+    );
+    // The same two points at metre-level precision are an ordinary short path.
+    const precise = candidate("hfShortPath");
+    ((precise.rx as Mutable).coordinates as Mutable).latitudeDeg = 30.3;
+    ((precise.rx as Mutable).coordinates as Mutable).longitudeDeg = -97.7;
+    expect(parseRequest(precise).ok).toBe(true);
+  });
+
+  it("rejects an auto family served by a relay kind no candidate family admits (A21)", () => {
+    const bad = candidate("satellitePass");
+    (bad.mechanismPolicy as Mutable).family = "auto";
+    (bad.relay as Mutable) = {
+      kind: "fixed",
+      relayId: "repeater-w5xyz-145350",
+      coordinates: (candidate("fixedRelay").relay as Mutable)
+        .coordinates as Mutable,
+      heightMeters: { state: "known", value: 183 },
+      heightDatum: "above_ground_level",
+      configurationId: "repeater-config-2026-03",
+    };
+    expect(reasonsAt(bad, "relay.kind").join()).toMatch(
+      /No mechanism family on geometry class earth_space is served by a relay of kind fixed/,
+    );
+  });
+
+  it("leaves an auto family a candidate on every geometry class the contract defines (A21)", () => {
+    // The companion of the rule above: the geometry-only branch is a boundary,
+    // not a live case, because every geometry class is taken by some family.
+    for (const geometryClass of GEOMETRY_CLASSES) {
+      const takers = MECHANISM_FAMILIES.filter((family) =>
+        PERMITTED_GEOMETRY_CLASSES[family].includes(geometryClass),
+      );
+      expect(takers.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("requires a terrain profile when every candidate auto family is terrain-dependent (A02)", () => {
+    const bad = candidate("hfShortPath");
+    // Ground wave is served by `groundwave` alone, which is terrain-dependent,
+    // so "auto" cannot resolve to anything that would not need the profile.
+    (bad.mechanismPolicy as Mutable).family = "auto";
+    (bad.mechanismPolicy as Mutable).geometryClass = "ground_wave";
+    bad.targetEvent = "field_strength";
+    (bad.scope as Mutable).horizon = "climatology";
+    bad.frequencyHz = 137500;
+    bad.bandKey = "2200m";
+    bad.terrainProfileId = null;
+    expect(reasonsAt(bad, "terrainProfileId").join()).toMatch(
+      /Every mechanism family that could serve geometry class ground_wave is terrain-dependent/,
+    );
+    const good = structuredClone(bad);
+    good.terrainProfileId = "srtm-30m-path-profile-v2";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a request on a tuple the protocol never froze (M11)", () => {
+    const bad = candidate("hfShortPath");
+    // completed_qso is frozen only as a versioned event population.
+    bad.targetEvent = "completed_qso";
+    expect(reasonsAt(bad, "targetEvent").join()).toMatch(
+      /The protocol defines no completed_qso on characterized_fixed_path at forecast_1_24h via regular_ef/,
+    );
+  });
+
+  it("accepts every request fixture on a protocol row", () => {
+    for (const name of Object.keys(cases)) {
+      const fixture = cases[name];
+      const scope = fixture.scope as Mutable;
+      expect(
+        protocolCoverageContainsHz(
+          {
+            event: fixture.targetEvent as never,
+            domain: scope.domain as never,
+            horizon: scope.horizon as never,
+            mechanism: (fixture.mechanismPolicy as Mutable).family as never,
+          },
+          fixture.frequencyHz as number,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("states the frame the route azimuth is measured in (M06)", () => {
+    const route = predictionRequestSchema.innerType().shape.route;
+    const direct = route.options[0];
+    expect(direct.shape.azimuthDeg.description).toBe(
+      "true bearing in degrees measured clockwise from true north at the transmitting station",
+    );
+  });
+
+  it("returns the antimeridian in its canonical spelling (M06)", () => {
+    const draft = candidate("hfShortPath");
+    const rx = (draft.rx as Mutable).coordinates as Mutable;
+    rx.latitudeDeg = -33.8688;
+    rx.longitudeDeg = 180;
+    const outcome = parseRequest(draft);
+    if (!outcome.ok) {
+      throw new Error(`must parse: ${JSON.stringify(outcome.issues)}`);
+    }
+    expect(outcome.value.rx.coordinates.longitudeDeg).toBe(-180);
   });
 });

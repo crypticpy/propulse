@@ -12,8 +12,12 @@
 import { z } from "zod";
 import {
   ANTENNA_CLASSES,
+  bandIntersectsRange,
   CALIBRATION_REQUIRED_QUANTITIES,
+  CAPABILITY_STATE_FOR_ROW_STATUS,
+  isKnownBandLabel,
   isProtocolCoverage,
+  rangeCoversBand,
   PERMITTED_GEOMETRY_CLASSES,
   permittedRelayKinds,
   protocolCoverageContainsHz,
@@ -38,7 +42,10 @@ import {
   type ReceiverClass,
   QUANTITY_UNITS,
   ROUTABLE_CAPABILITY_STATES,
+  SOURCE_MODES,
+  type SourceMode,
   UNCERTAINTY_KINDS,
+  VALIDATED_CAPABILITY_STATES,
 } from "@/lib/propagation/contracts/enums";
 import {
   finite,
@@ -52,6 +59,10 @@ import {
   hasPointValue,
   RESULT_SCHEMA_VERSION,
 } from "@/lib/propagation/contracts/result";
+import {
+  canonicalize,
+  type Canonical,
+} from "@/lib/propagation/contracts/requestKey";
 
 const frequencyRange = z
   .object({
@@ -83,6 +94,14 @@ const capabilityHead = z
     /** Empty exactly when the quantity involves no receive chain (A01). */
     receiverClasses: z.array(z.enum(RECEIVER_CLASSES)),
     frequencyRangeHz: frequencyRange,
+    /**
+     * M11: which source postures this head can actually be served under. A
+     * head trained on live indices cannot answer an offline request, and an
+     * offline request that silently received a live answer would be reporting
+     * evidence it declared it did not want. An empty list is a gap, not a
+     * wildcard, so at least one posture is declared.
+     */
+    sourceModes: z.array(z.enum(SOURCE_MODES)).min(1),
     /** Derived labels for display; the frequency range is authoritative. */
     bandKeys: z.array(identifier),
     modeProfileIds: z.array(identifier),
@@ -128,6 +147,18 @@ const capabilityHead = z
         "A calibrated predictive interval requires a calibration identity (M17)",
       );
     }
+    value.bandKeys.forEach((band, index) => {
+      // A02: the range is authoritative and the labels are display, but a
+      // label for a band the head does not reach is a wrong label. Labels the
+      // protocol does not define carry no claim and are left alone.
+      if (!isKnownBandLabel(band)) return;
+      if (bandIntersectsRange(band, value.frequencyRangeHz)) return;
+      reject(
+        ctx,
+        ["bandKeys", index],
+        `Band label ${band} lies outside this head's frequency range (A02)`,
+      );
+    });
     const overlap = value.requiredInputs.filter((input) =>
       value.optionalInputs.includes(input),
     );
@@ -156,6 +187,16 @@ const correctionDescriptor = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    const repeated = value.assumptions.find(
+      (assumption, index) => value.assumptions.indexOf(assumption) !== index,
+    );
+    if (repeated !== undefined) {
+      reject(
+        ctx,
+        ["assumptions"],
+        `Assumption ${repeated} is declared twice; an assumption holds or it does not (M11)`,
+      );
+    }
     if (!value.active && value.inactiveReason === null) {
       reject(
         ctx,
@@ -178,6 +219,12 @@ const correctionDescriptor = z
  * for example); folding them into one head would advertise the Cartesian
  * product of their frequencies, mechanisms, geometries, horizons and modes.
  * Only an exact repeat of the whole tuple is a duplicate.
+ *
+ * The rule this enforces is deliberately unconditional: one head per coverage
+ * tuple, whatever state each head is in. A declaration that listed the same
+ * tuple twice - say `planned` beside `data_limited` - would leave the router
+ * choosing between two answers to one question with nothing in the contract to
+ * decide by, so the second declaration is refused rather than ranked (M11).
  */
 function coverageTupleKey(head: {
   quantity: string;
@@ -282,11 +329,27 @@ export const modelCapabilitySchema = z
       // M19: a head that names a feature schema is served by a feature
       // pipeline, and that artefact is pinned like the model itself. A head
       // with no feature pipeline leaves both null.
-      if (head.featureSchemaId !== null && head.featureHash === null) {
+      if (head.featureHash === null) {
+        // The result contract refuses every value-bearing head with a null
+        // featureHash (M24), so a routable head that pins no feature artefact
+        // at all could only ever produce results the parser rejects. A head
+        // with no feature pipeline still names the artefact its inputs were
+        // assembled by; "no features" is not the same claim as "not recorded".
         reject(
           ctx,
           ["heads", index, "featureHash"],
-          "A routable head with a feature schema must pin its feature hash (M19)",
+          head.featureSchemaId === null
+            ? "A routable head must pin its feature hash; a head that pins no feature artefact could serve no accepted result (M19, M24)"
+            : "A routable head with a feature schema must pin its feature hash (M19)",
+        );
+      }
+      if (VALIDATED_CAPABILITY_STATES.includes(head.state)) {
+        // A01: every frozen coverage row is data_limited or experimental and
+        // every preregistration is BLOCKED, so no row validates anything yet.
+        reject(
+          ctx,
+          ["heads", index, "state"],
+          `The protocol has validated no coverage row, so a head cannot declare state ${head.state} (A01)`,
         );
       }
       if (
@@ -338,7 +401,30 @@ export const modelCapabilitySchema = z
             horizon,
             mechanism,
           };
-          if (isProtocolCoverage(claim, head.frequencyRangeHz)) continue;
+          if (isProtocolCoverage(claim, head.frequencyRangeHz)) {
+            // A01: a row's status is the evidence the protocol froze for it.
+            // A head may report that evidence, never the other row's.
+            const expected = new Set(
+              protocolCoverageRows(claim)
+                .filter((row) =>
+                  rangeCoversBand(head.frequencyRangeHz, row.band),
+                )
+                .map((row) => CAPABILITY_STATE_FOR_ROW_STATUS[row.status]),
+            );
+            const claimsRowEvidence = (
+              Object.values(CAPABILITY_STATE_FOR_ROW_STATUS) as string[]
+            ).includes(head.state);
+            if (claimsRowEvidence && !expected.has(head.state)) {
+              reject(
+                ctx,
+                ["heads", index, "state"],
+                `The protocol froze ${head.quantity} on ${head.domain} at ${horizon} via ${mechanism} as ${[
+                  ...expected,
+                ].join(", ")}, not as ${head.state} (A01)`,
+              );
+            }
+            continue;
+          }
           // The frozen protocol defines which claims exist at all: each row
           // carries its own metric, comparator and gates. A routable head
           // outside those rows would be answering a question the validation
@@ -486,6 +572,8 @@ export function capabilityCovers(
     rxReceiverClass: ReceiverClass;
     /** M11/M19: the routing/source policy version the request was issued under. */
     policyVersion: string;
+    /** The source posture the request was issued under (M11). */
+    sourceMode: SourceMode;
     /** The input identifiers the request actually carries (M11/M19). */
     availableInputs: readonly CapabilityInputId[];
   },
@@ -503,6 +591,7 @@ export function capabilityCovers(
       head.geometryClasses.includes(query.geometryClass) &&
       head.mechanismFamilies.includes(query.mechanismFamily) &&
       head.modeProfileIds.includes(query.modeProfileId) &&
+      head.sourceModes.includes(query.sourceMode) &&
       head.antennaClasses.includes(query.txAntennaClass) &&
       head.antennaClasses.includes(query.rxAntennaClass) &&
       receiverChainsCovered(head, query) &&
@@ -522,4 +611,96 @@ export function capabilityCovers(
       ) &&
       head.requiredInputs.every((input) => available.has(input)),
   );
+}
+
+/**
+ * The exact projection a capability digest is computed from (M24).
+ *
+ * Like `requestKeyProjection`, this is an explicit allowlist rather than a
+ * serialization of whatever the object happens to carry: the digest is the
+ * routing table as it stood when a result was served, so every field that
+ * could change a routing decision is listed here by hand and a new field has
+ * to be added deliberately.
+ */
+export function capabilityKeyProjection(
+  capability: ModelCapability,
+): Record<string, Canonical> {
+  return {
+    schemaVersion: capability.schemaVersion,
+    modelId: capability.modelId,
+    modelVersion: capability.modelVersion,
+    modelHash: capability.modelHash,
+    preprocessingHash: capability.preprocessingHash,
+    sourcePolicyVersion: capability.sourcePolicyVersion,
+    heads: capability.heads.map((head): Record<string, Canonical> => ({
+      quantity: head.quantity,
+      units: head.units,
+      domain: head.domain,
+      state: head.state,
+      horizons: [...head.horizons],
+      mechanismFamilies: [...head.mechanismFamilies],
+      geometryClasses: [...head.geometryClasses],
+      antennaClasses: [...head.antennaClasses],
+      receiverClasses: [...head.receiverClasses],
+      sourceModes: [...head.sourceModes],
+      minHz: head.frequencyRangeHz.minHz,
+      maxHz: head.frequencyRangeHz.maxHz,
+      bandKeys: [...head.bandKeys],
+      modeProfileIds: [...head.modeProfileIds],
+      requiredInputs: [...head.requiredInputs],
+      optionalInputs: [...head.optionalInputs],
+      featureSchemaId: head.featureSchemaId,
+      featureHash: head.featureHash,
+      outputSchemaId: head.outputSchemaId,
+      calibrationId: head.calibrationId,
+      uncertaintyKind: head.uncertaintyKind,
+      internalFallbackKind: head.internalFallback.kind,
+      internalFallbackModelId:
+        head.internalFallback.kind === "model"
+          ? head.internalFallback.modelId
+          : null,
+      internalFallbackModelVersion:
+        head.internalFallback.kind === "model"
+          ? head.internalFallback.modelVersion
+          : null,
+    })),
+    corrections: capability.corrections.map(
+      (correction): Record<string, Canonical> => ({
+        correctionId: correction.correctionId,
+        stage: correction.stage,
+        ownsQuantityId: correction.ownsQuantityId,
+        mechanism: correction.mechanism,
+        covarianceOwnership: correction.covarianceOwnership,
+        assumptions: [...correction.assumptions],
+        active: correction.active,
+        inactiveReason: correction.inactiveReason,
+      }),
+    ),
+  };
+}
+
+/** The canonical serialization the capability digest is taken of (M24). */
+export function capabilityKey(capability: ModelCapability): string {
+  return canonicalize(capabilityKeyProjection(capability));
+}
+
+/**
+ * M24: the digest a result's `provenance.capabilityDigest` carries, so replay
+ * can reconstruct the routing table that produced the answer rather than only
+ * the model that was picked out of it. The prefix matches the artefact-hash
+ * shape the result contract validates.
+ */
+export async function capabilityDigest(
+  capability: ModelCapability,
+): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error("SubtleCrypto is unavailable; cannot digest a capability");
+  }
+  const bytes = new TextEncoder().encode(capabilityKey(capability));
+  const digest = await subtle.digest("SHA-256", bytes);
+  const hex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256:${hex}`;
 }

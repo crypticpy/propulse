@@ -13,13 +13,17 @@
  */
 import { z } from "zod";
 import {
+  bandContainsHz,
   COORDINATE_DATUMS,
   COORDINATE_PRECISION_KINDS,
   GEOMETRY_CLASSES,
+  type GeometryClass,
+  isKnownBandLabel,
   ANTENNA_CLASSES,
   HEIGHT_DATUMS,
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
+  type MechanismFamily,
   MIN_REQUEST_FREQUENCY_HZ,
   MODEL_POLICIES,
   POLARIZATIONS,
@@ -30,6 +34,8 @@ import {
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
+  protocolCoverageContainsHz,
+  type RelayKind,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
   RECEIVER_CLASSES,
@@ -56,6 +62,28 @@ export const TERRAIN_DEPENDENT_FAMILIES = [
   "groundwave",
   "ground_sky_coherent",
 ] as const;
+
+/**
+ * The concrete families an "auto" policy could still resolve to, given the
+ * geometry the caller fixed and the relay body it supplied.
+ *
+ * "auto" delegates the choice of family, never the geometry: the caller has
+ * already said the path is a two-leg relay or a great circle, and has already
+ * named the relay. A resolution therefore has to exist inside those two
+ * constraints, or the request is unanswerable however the router chooses
+ * (A21, A22).
+ */
+function candidateFamilies(
+  geometryClass: GeometryClass,
+  relayKind: RelayKind | null,
+): MechanismFamily[] {
+  return MECHANISM_FAMILIES.filter(
+    (candidate) =>
+      PERMITTED_GEOMETRY_CLASSES[candidate].includes(geometryClass) &&
+      (relayKind === null ||
+        PERMITTED_RELAY_KINDS_BY_MECHANISM[candidate].includes(relayKind)),
+  );
+}
 
 /**
  * Earth radius for the declared spherical adapter (M06).
@@ -139,7 +167,32 @@ const coordinates = z
     datum: z.enum(COORDINATE_DATUMS),
     precision: coordinatePrecision,
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    // M06: a surveyed or GNSS position is a metre-level claim, and a metre is
+    // only a metre against a named reference ellipsoid. Leaving the datum
+    // unknown there would let a decametre-scale frame offset masquerade as
+    // precision the coordinate does not have.
+    if (
+      value.datum === "unknown" &&
+      (value.precision.kind === "surveyed" || value.precision.kind === "gnss")
+    ) {
+      reject(
+        ctx,
+        ["datum"],
+        `A ${value.precision.kind} coordinate must name the geodetic datum it is expressed in (M06)`,
+      );
+    }
+  })
+  /**
+   * M06: the parsed coordinate is the canonical spelling, so every consumer -
+   * geometry here, the key projection in `requestKey.ts`, and anything
+   * downstream - reads the same numbers. The wire still accepts +180 and -0.
+   */
+  .transform((value) => ({
+    ...value,
+    ...canonicalCoordinates(value),
+  }));
 
 const antenna = z
   .object({
@@ -179,18 +232,47 @@ const antenna = z
  * antipodal branch. Separation comes from the stable `atan2` form, so nothing
  * divides by a near-zero chord.
  */
-function declaredUncertaintyMeters(point: {
-  precision: { horizontalMeters: Known<number> };
-}): number {
-  return point.precision.horizontalMeters.state === "known"
-    ? point.precision.horizontalMeters.value
-    : 0;
+type GeoPoint = {
+  latitudeDeg: number;
+  longitudeDeg: number;
+  precision: {
+    kind: string;
+    horizontalMeters: Known<number>;
+    cellSizeDeg: number | null;
+  };
+};
+
+/**
+ * The one-sigma horizontal radius a coordinate actually carries.
+ *
+ * A `quantized_cell` coordinate is not the point it prints: it names a cell,
+ * and every point inside that cell produced the same wire value. Its radius is
+ * therefore at least half the cell diagonal at the endpoint's latitude, where
+ * the along-parallel side shrinks by cos(lat):
+ * `(cellSizeDeg * pi/180 * R / 2) * sqrt(1 + cos^2(lat))`. A declared
+ * `horizontalMeters` larger than that still wins, since a producer may know
+ * its position is worse than the grid it was rounded onto.
+ */
+function declaredUncertaintyMeters(point: GeoPoint): number {
+  const declared =
+    point.precision.horizontalMeters.state === "known"
+      ? point.precision.horizontalMeters.value
+      : 0;
+  if (
+    point.precision.kind !== "quantized_cell" ||
+    point.precision.cellSizeDeg === null
+  ) {
+    return declared;
+  }
+  const latRad = (point.latitudeDeg * Math.PI) / 180;
+  const cellSideMeters =
+    ((point.precision.cellSizeDeg * Math.PI) / 180) * EARTH_RADIUS_M;
+  const halfDiagonalMeters =
+    (cellSideMeters / 2) * Math.sqrt(1 + Math.cos(latRad) * Math.cos(latRad));
+  return Math.max(declared, halfDiagonalMeters);
 }
 
-function degeneracyToleranceRad(
-  a: { precision: { horizontalMeters: Known<number> } },
-  b: { precision: { horizontalMeters: Known<number> } },
-): number {
+function degeneracyToleranceRad(a: GeoPoint, b: GeoPoint): number {
   return (
     (declaredUncertaintyMeters(a) + declaredUncertaintyMeters(b)) /
     EARTH_RADIUS_M
@@ -225,35 +307,13 @@ function isExactlyAntipodal(
  * resolve, so neither the short/long choice nor a derived tangent is decidable
  * and the request is refused rather than answered on a guess (M06).
  */
-function isAmbiguouslyAntipodal(
-  a: {
-    latitudeDeg: number;
-    longitudeDeg: number;
-    precision: { horizontalMeters: Known<number> };
-  },
-  b: {
-    latitudeDeg: number;
-    longitudeDeg: number;
-    precision: { horizontalMeters: Known<number> };
-  },
-): boolean {
+function isAmbiguouslyAntipodal(a: GeoPoint, b: GeoPoint): boolean {
   if (isExactlyAntipodal(a, b)) return false;
   const tolerance = Math.max(degeneracyToleranceRad(a, b), NUMERIC_GUARD_RAD);
   return angularSeparationRad(a, b) >= Math.PI - tolerance;
 }
 
-function isCoincident(
-  a: {
-    latitudeDeg: number;
-    longitudeDeg: number;
-    precision: { horizontalMeters: Known<number> };
-  },
-  b: {
-    latitudeDeg: number;
-    longitudeDeg: number;
-    precision: { horizontalMeters: Known<number> };
-  },
-): boolean {
+function isCoincident(a: GeoPoint, b: GeoPoint): boolean {
   const tolerance = degeneracyToleranceRad(a, b);
   if (sameCoordinates(a, b)) return true;
   return tolerance > 0 && angularSeparationRad(a, b) <= tolerance;
@@ -461,7 +521,19 @@ export const predictionRequestSchema = z
            * any ordinary path this field must be null; a caller-supplied value
            * would be a second, conflicting geometry.
            */
-          azimuthDeg: finite.min(0).lt(360).nullable(),
+          /**
+           * The frame is stated rather than assumed, exactly as
+           * `dopplerPayload.signConvention` states its sign: a bearing is
+           * meaningless without one, and magnetic, grid and back bearings are
+           * all plausible readings of a bare number (M06).
+           */
+          azimuthDeg: finite
+            .min(0)
+            .lt(360)
+            .nullable()
+            .describe(
+              "true bearing in degrees measured clockwise from true north at the transmitting station",
+            ),
         })
         .strict(),
       z.object({ kind: z.literal("relayed") }).strict(),
@@ -561,6 +633,42 @@ export const predictionRequestSchema = z
         "An ephemeris epoch after issuedAt is not as-issued (M02)",
       );
     }
+    // M06: two positions can only be differenced inside one geodetic frame.
+    // A metre-level endpoint in an unnamed frame and one in WGS 84 differ by
+    // whatever the frames differ by, which no declared precision covers.
+    const referenceDatum = value.tx.coordinates.datum;
+    const framed: [string, string[], string][] = [
+      ["rx", ["rx", "coordinates", "datum"], value.rx.coordinates.datum],
+    ];
+    if (value.relay !== null && value.relay.kind === "fixed") {
+      framed.push([
+        "relay",
+        ["relay", "coordinates", "datum"],
+        value.relay.coordinates.datum,
+      ]);
+    }
+    for (const [end, path, datum] of framed) {
+      if (datum === referenceDatum) continue;
+      reject(
+        ctx,
+        path,
+        `The ${end} coordinate is declared in datum ${datum} and the tx coordinate in ${referenceDatum}; one circuit is one geodetic frame (M06)`,
+      );
+    }
+    // A02: the band key is a display label, but a label naming a band that
+    // does not contain the request frequency is a wrong label, not a free one.
+    // Labels the protocol does not define carry no claim and are left alone.
+    if (
+      value.bandKey !== null &&
+      isKnownBandLabel(value.bandKey) &&
+      !bandContainsHz(value.bandKey, value.frequencyHz)
+    ) {
+      reject(
+        ctx,
+        ["bandKey"],
+        `Band label ${value.bandKey} does not contain ${value.frequencyHz} Hz (A02)`,
+      );
+    }
     const coincident = isCoincident(value.tx.coordinates, value.rx.coordinates);
     const antipodal = isExactlyAntipodal(
       value.tx.coordinates,
@@ -599,14 +707,7 @@ export const predictionRequestSchema = z
         );
       }
       if (value.relay !== null && value.relay.kind === "fixed") {
-        const legs: [
-          string,
-          {
-            latitudeDeg: number;
-            longitudeDeg: number;
-            precision: { horizontalMeters: Known<number> };
-          },
-        ][] = [
+        const legs: [string, GeoPoint][] = [
           ["tx", value.tx.coordinates],
           ["rx", value.rx.coordinates],
         ];
@@ -703,26 +804,73 @@ export const predictionRequestSchema = z
       );
     }
     const family = value.mechanismPolicy.family;
+    const geometryClass = value.mechanismPolicy.geometryClass;
+    const relayKind = value.relay === null ? null : value.relay.kind;
     if (
       family !== "auto" &&
-      !PERMITTED_GEOMETRY_CLASSES[family].includes(
-        value.mechanismPolicy.geometryClass,
-      )
+      !PERMITTED_GEOMETRY_CLASSES[family].includes(geometryClass)
     ) {
       reject(
         ctx,
         ["mechanismPolicy", "geometryClass"],
-        `Mechanism family ${family} is not requested on geometry class ${value.mechanismPolicy.geometryClass} (A21, A22)`,
+        `Mechanism family ${family} is not requested on geometry class ${geometryClass} (A21, A22)`,
       );
     }
-    const terrainDependent = (
-      TERRAIN_DEPENDENT_FAMILIES as readonly string[]
-    ).includes(family);
+    // "auto" is a request for the router to choose, not a request to skip the
+    // physics: a policy no family could satisfy is refused here rather than
+    // failing at routing time with no contract to point at (A21).
+    const candidates = candidateFamilies(geometryClass, relayKind);
+    if (family === "auto" && candidates.length === 0) {
+      reject(
+        ctx,
+        relayKind === null
+          ? ["mechanismPolicy", "geometryClass"]
+          : ["relay", "kind"],
+        relayKind === null
+          ? `No mechanism family is requested on geometry class ${geometryClass}, so an auto policy cannot resolve (A21, A22)`
+          : `No mechanism family on geometry class ${geometryClass} is served by a relay of kind ${relayKind}, so an auto policy cannot resolve (A21)`,
+      );
+    }
+    /**
+     * The families this request could still be answered by: exactly one when
+     * the caller named it, every surviving candidate when it said "auto".
+     */
+    const resolvable: MechanismFamily[] =
+      family === "auto" ? candidates : [family];
+    const terrainDependent =
+      resolvable.length > 0 &&
+      resolvable.every((candidate) =>
+        (TERRAIN_DEPENDENT_FAMILIES as readonly string[]).includes(candidate),
+      );
     if (terrainDependent && value.terrainProfileId === null) {
       reject(
         ctx,
         ["terrainProfileId"],
-        `Mechanism family ${family} requires a terrain profile identity`,
+        family === "auto"
+          ? `Every mechanism family that could serve geometry class ${geometryClass} is terrain-dependent, so a terrain profile identity is required (A02)`
+          : `Mechanism family ${family} requires a terrain profile identity`,
+      );
+    }
+    // M11: the frozen protocol says which claims exist. A request for a
+    // (event, domain, horizon, family) the protocol never froze, or one at a
+    // frequency inside a gap between a grouped band's constituents, has no row
+    // to be scored against and no capability head that could legally serve it.
+    const onARow = resolvable.some((candidate) =>
+      protocolCoverageContainsHz(
+        {
+          event: value.targetEvent,
+          domain: value.scope.domain,
+          horizon: value.scope.horizon,
+          mechanism: candidate,
+        },
+        value.frequencyHz,
+      ),
+    );
+    if (resolvable.length > 0 && !onARow) {
+      reject(
+        ctx,
+        ["targetEvent"],
+        `The protocol defines no ${value.targetEvent} on ${value.scope.domain} at ${value.scope.horizon} via ${family} at ${value.frequencyHz} Hz (M11)`,
       );
     }
   });

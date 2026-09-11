@@ -15,10 +15,8 @@ import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
+import { useVisibleRows } from "../useVisibleRows";
 import { ClusterReport } from "../reports/ClusterReport";
-
-/** The rail cannot scroll, so render a generous slice and let CSS clip it. */
-const MAX_ROWS = 22;
 
 /** `spot.time` is typed as Date but arrives as a string over JSON. */
 function spotMillis(time: DXSpot["time"]): number {
@@ -81,7 +79,8 @@ export function ClusterTile() {
       modeMatchesSelection(normalizeMode(spot.mode), modeSelection),
     );
   }, [allSpots, viewSpots.filters.bands, modeSelection, maxAge, now, source]);
-  const rows = spots.slice(0, MAX_ROWS);
+  const [rowsRef, visible] = useVisibleRows<HTMLDivElement>(spots.length, 0);
+  const rows = spots.slice(0, visible);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";
 
   // No station/home set (wall spec §7, HW-53): a neutral state. The DX store
@@ -104,7 +103,7 @@ export function ClusterTile() {
         onOpen={() => setReportOpen(true)}
         openLabel={`DX cluster: ${spots.length} spots. Open the full spot report`}
       >
-        <div className="hc-rows">
+        <div className="hc-rows" ref={rowsRef}>
           {rows.map((spot) => {
             const ageSeconds = (now.getTime() - spotMillis(spot.time)) / 1000;
             const band = spot.band ?? "";
@@ -135,6 +134,11 @@ export function ClusterTile() {
             <p className="hc-placeholder">{["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state) ? feedState.state : "No spots match the active filters"}</p>
           )}
         </div>
+        {spots.length > 0 && (
+          <p className="hca-caption">
+            TOP {rows.length} OF {spots.length} · {feed}
+          </p>
+        )}
       </HamClockTile>
 
       {reportOpen && (

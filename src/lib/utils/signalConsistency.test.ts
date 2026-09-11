@@ -52,37 +52,29 @@ const KT0_DBM_PER_HZ = 10 * Math.log10((BOLTZMANN_J_PER_K * T0_KELVIN) / 1e-3);
 const KT0B_DBM = KT0_DBM_PER_HZ + 10 * Math.log10(REFERENCE_BANDWIDTH_HZ);
 
 /**
- * ITU-R P.372-16 external noise factor, recomputed from the documented
- * formulas and table coefficients rather than by calling the code under test:
- *   man-made  Fam = c - d*log10(f)      (Table 1 category coefficients)
- *   galactic  Fag = 52 - 23*log10(f)
- *   atmos.    Faa = 100 - 33*log10(f), -10 dB daytime, -5 dB winter,
- *                                      -5 dB above 55 deg latitude
- *   total     Fa  = 10*log10(sum 10^(Fi/10))
+ * The ITU-R P.372 noise factor is not reproducible from a one-line formula:
+ * the atmospheric term is the CCIR Report 322 numerical world map. These
+ * values come from the ITU-R Study Group 3 reference implementation, run
+ * natively over its own coefficient files -- the same provenance as the
+ * fixtures in `src/lib/propagation/noise/p372Noise.test.ts`, which is where
+ * the port is pinned case by case. Here they exist so a change to signal.ts
+ * cannot silently redefine the floor the rest of this file reasons about.
+ *
+ * Receiver: Austin (30.27 N, 97.74 W), March, residential.
  */
-function expectedFaDb(
-  frequencyMHz: number,
-  manMade: { c: number; d: number },
-  opts: { isDaytime?: boolean; winter?: boolean; highLatitude?: boolean } = {},
-): number {
-  const lg = Math.log10(frequencyMHz);
-  const fam = Math.max(0, manMade.c - manMade.d * lg);
-  const fag = Math.max(0, 52 - 23 * lg);
-  const faa = Math.max(
-    0,
-    100 -
-      33 * lg +
-      (opts.isDaytime ? -10 : 0) +
-      (opts.winter ? -5 : 0) +
-      (opts.highLatitude ? -5 : 0),
-  );
-  return (
-    10 * Math.log10(10 ** (fam / 10) + 10 ** (fag / 10) + 10 ** (faa / 10))
-  );
-}
+const AUSTIN = { latitude: 30.27, longitude: -97.74, month: 3 };
+/** 18 UTC = 12 h receiver local mean time. */
+const AUSTIN_NOON = { ...AUSTIN, utcHour: 18 };
+/** 06 UTC = 00 h receiver local mean time. */
+const AUSTIN_MIDNIGHT = { ...AUSTIN, utcHour: 6 };
 
-/** P.372-16 Table 1 residential coefficients (Fam at 1 MHz and slope). */
-const RESIDENTIAL_COEFFS = { c: 72.5, d: 27.7 };
+/** Reference Fa (dB above kT0b) for the cases used below. */
+const REFERENCE_FA = {
+  noon14MHz: 42.376513,
+  midnight14MHz: 41.315448,
+  noon7MHz: 49.214435,
+  midnight7MHz: 55.158271,
+} as const;
 
 describe("PROP-02 noise plane is kT0B + Fa (M09/M10)", () => {
   it("pins kT0 and kT0B in the 2500 Hz reference bandwidth", () => {
@@ -92,73 +84,80 @@ describe("PROP-02 noise plane is kT0B + Fa (M09/M10)", () => {
 
     // The engine's floor must be exactly that thermal term plus Fa, with no
     // extra fudge: noiseFloorDbm - fa_dB is the bandwidth-referenced kT0B.
-    const noise = calculateReferenceNoise(14, "residential", {
-      isDaytime: true,
-      month: 3,
-      latitude: 30,
-    });
+    const noise = calculateReferenceNoise(14, "residential", AUSTIN_NOON);
     expect(noise.referenceBandwidthHz).toBe(REFERENCE_BANDWIDTH_HZ);
     expect(noise.noiseFloorDbm - noise.fa_dB).toBeCloseTo(KT0B_DBM, 6);
     expect(noise.noiseFloorDbm).toBeCloseTo(KT0B_DBM + noise.fa_dB, 12);
   });
 
-  it("reproduces Fa at 14 MHz, residential, daytime from the P.372 formulas", () => {
-    const noise = calculateReferenceNoise(14, "residential", {
-      isDaytime: true,
-      month: 3, // March, northern mid-latitude: not the winter case
-      latitude: 30, // below the 55 deg high-latitude threshold
-    });
-    // Fam 40.752, Fag 25.639, Faa 62.178 - 10 = 52.178 -> Fa 52.4888 dB.
-    const expected = expectedFaDb(14, RESIDENTIAL_COEFFS, { isDaytime: true });
-    expect(expected).toBeCloseTo(52.4888, 4);
-    expect(noise.fa_dB).toBeCloseTo(expected, 6);
-    expect(noise.noiseFloorDbm).toBeCloseTo(KT0B_DBM + expected, 6);
+  it("reproduces the reference P.372 Fa at 14 MHz, residential, local noon", () => {
+    const noise = calculateReferenceNoise(14, "residential", AUSTIN_NOON);
+    expect(noise.fa_dB).toBeCloseTo(REFERENCE_FA.noon14MHz, 1);
+    expect(noise.noiseFloorDbm).toBeCloseTo(
+      KT0B_DBM + REFERENCE_FA.noon14MHz,
+      1,
+    );
+    // -97.6 dBm in 2500 Hz: a residential 20 m daytime floor, not the -77.9
+    // the uncited `Faa = 100 - 33 log10 f` curve produced (#948, #955).
+    expect(noise.noiseFloorDbm).toBeLessThan(-95);
+    expect(noise.noiseFloorDbm).toBeGreaterThan(-100);
   });
 
-  it("applies the daytime, winter and high-latitude atmospheric corrections", () => {
-    // Regression for the PROP-02 blocker: the options existed in noiseModel.ts
-    // but calculateReferenceNoise never forwarded them, so every prediction
-    // used the worst-case night/summer/low-latitude Faa. Each correction must
-    // move the floor, and each must match the independently computed value.
-    const night = calculateReferenceNoise(14, "residential");
-    const day = calculateReferenceNoise(14, "residential", {
-      isDaytime: true,
-      month: 3,
-      latitude: 30,
-    });
-    const winterDayPolar = calculateReferenceNoise(14, "residential", {
-      isDaytime: true,
-      month: 1, // January, northern winter
-      latitude: 65, // above the 55 deg threshold
-    });
-
-    expect(night.fa_dB).toBeCloseTo(expectedFaDb(14, RESIDENTIAL_COEFFS), 6);
-    expect(winterDayPolar.fa_dB).toBeCloseTo(
-      expectedFaDb(14, RESIDENTIAL_COEFFS, {
-        isDaytime: true,
-        winter: true,
-        highLatitude: true,
-      }),
-      6,
+  it("carries the P.372 receiver context into the floor and the SNR", () => {
+    // Regression for the PROP-02 blocker: the atmospheric options existed but
+    // calculateReferenceNoise never forwarded them. The diurnal swing is a
+    // property of the map, not of a flat correction, so it differs by band:
+    // at 14 MHz man-made noise dominates and the night/day gap is ~1 dB, at
+    // 7 MHz atmospheric noise dominates at night and the gap is ~6 dB.
+    const noon14 = calculateReferenceNoise(14, "residential", AUSTIN_NOON);
+    const midnight14 = calculateReferenceNoise(
+      14,
+      "residential",
+      AUSTIN_MIDNIGHT,
     );
-    expect(day.fa_dB).toBeLessThan(night.fa_dB - 5);
-    expect(winterDayPolar.fa_dB).toBeLessThan(day.fa_dB - 5);
+    const noon7 = calculateReferenceNoise(7.1, "residential", AUSTIN_NOON);
+    const midnight7 = calculateReferenceNoise(
+      7.1,
+      "residential",
+      AUSTIN_MIDNIGHT,
+    );
 
-    // And the options must reach the SNR, not just the noise object.
-    const snrNight = calculateExpectedSNR(
+    expect(noon14.fa_dB).toBeCloseTo(REFERENCE_FA.noon14MHz, 1);
+    expect(midnight14.fa_dB).toBeCloseTo(REFERENCE_FA.midnight14MHz, 1);
+    expect(noon7.fa_dB).toBeCloseTo(REFERENCE_FA.noon7MHz, 1);
+    expect(midnight7.fa_dB).toBeCloseTo(REFERENCE_FA.midnight7MHz, 1);
+    expect(midnight7.fa_dB - noon7.fa_dB).toBeGreaterThan(5);
+
+    // Omitting the context is not neutral either: with no receiver position
+    // and no time there is no atmospheric term at all, so the floor drops to
+    // the man-made/galactic pair. It must not silently equal a stated context.
+    const noContext = calculateReferenceNoise(7.1, "residential");
+    expect(noContext.fa_dB).toBeLessThan(midnight7.fa_dB - 5);
+
+    // And the context must reach the SNR, not just the noise object.
+    const snrNoon = calculateExpectedSNR(
       100,
       140,
       "FT8",
       0,
-      14,
+      7.1,
       "residential",
+      AUSTIN_NOON,
     );
-    const snrDay = calculateExpectedSNR(100, 140, "FT8", 0, 14, "residential", {
-      isDaytime: true,
-      month: 3,
-      latitude: 30,
-    });
-    expect(snrDay - snrNight).toBeCloseTo(night.fa_dB - day.fa_dB, 1);
+    const snrMidnight = calculateExpectedSNR(
+      100,
+      140,
+      "FT8",
+      0,
+      7.1,
+      "residential",
+      AUSTIN_MIDNIGHT,
+    );
+    // calculateExpectedSNR reports to 0.1 dB, so a difference of two of its
+    // returns carries up to 0.1 dB of rounding.
+    expect(
+      Math.abs(snrNoon - snrMidnight - (midnight7.fa_dB - noon7.fa_dB)),
+    ).toBeLessThanOrEqual(0.1);
   });
 
   it("rejects a non-finite frequency instead of returning a fabricated SNR", () => {
@@ -192,11 +191,29 @@ describe("PROP-02 noise-environment policy (M09/M10)", () => {
       14,
       DEFAULT_NOISE_ENVIRONMENT,
     );
-    const txPowerDbm = 30 + 10 * Math.log10(100);
-    const expectedSNR =
-      txPowerDbm - 140 - (KT0B_DBM + expectedFaDb(14, RESIDENTIAL_COEFFS));
-    expect(omitted).toBeCloseTo(expectedSNR, 1);
     expect(omitted).toBe(explicitDefault);
+
+    // Anchor the level on the two components that need no receiver context,
+    // computed here from the published formulas rather than from the code
+    // under test: man-made Fam = 72.5 - 27.7*log10(f) (P.372-16 Table 1,
+    // residential) and galactic Fag = 52 - 23*log10(f). With no receiver
+    // context there is no atmospheric term, so Fa must sit between the larger
+    // of the two and their power sum -- P.372 section 8 combines log-normals,
+    // so the median of the sum is below the sum of the medians.
+    const lg = Math.log10(14);
+    const fam = 72.5 - 27.7 * lg;
+    const fag = 52 - 23 * lg;
+    const powerSum = 10 * Math.log10(10 ** (fam / 10) + 10 ** (fag / 10));
+    const noise = calculateReferenceNoise(14);
+    expect(noise.environment).toBe(DEFAULT_NOISE_ENVIRONMENT);
+    expect(noise.fa_dB).toBeGreaterThan(Math.max(fam, fag));
+    expect(noise.fa_dB).toBeLessThan(powerSum);
+
+    const txPowerDbm = 30 + 10 * Math.log10(100);
+    // calculateExpectedSNR reports to 0.1 dB.
+    expect(
+      Math.abs(omitted - (txPowerDbm - 140 - (KT0B_DBM + noise.fa_dB))),
+    ).toBeLessThanOrEqual(0.05);
   });
 
   it("an assumed environment stays distinguishable from a specified one", () => {

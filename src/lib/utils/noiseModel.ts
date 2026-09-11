@@ -1,21 +1,27 @@
 /**
- * ITU-R P.372-16 External Noise Model for HF Frequencies
+ * ITU-R P.372 external noise model for HF frequencies.
  *
- * Implements the three primary components of external noise at HF:
- * 1. Man-made noise -- dominant in urban environments, decreases with frequency
- * 2. Galactic noise -- cosmic background, dominant above ~20 MHz in quiet locations
- * 3. Atmospheric noise -- from thunderstorms, dominant at lower HF frequencies
+ * Three components, all expressed as Fa, dB above kT0b at T0 = 290 K:
+ * 1. Man-made noise   Fam = c - d*log10(f_MHz), P.372-16 Table 1 categories
+ * 2. Galactic noise   Fag = 52 - 23*log10(f_MHz)
+ * 3. Atmospheric noise from lightning, the CCIR Report 322 numerical world
+ *    maps by month, four-hour local-time block and frequency. Implemented in
+ *    `@/lib/propagation/noise/p372Noise` as a port of the ITU-R Study Group 3
+ *    reference code, over the vendored coefficient asset.
  *
- * All noise figures are expressed as Fa (dB above kTB at 290K).
+ * The three are combined by P.372 section 8 ("the combination of noises from
+ * several sources"), not by a power sum of the medians: see
+ * `combineNoiseP372`.
  *
- * Reference: ITU-R P.372-16 "Radio noise"
- *
- * Key formulas (from ITU-R P.372 Section 6):
- * - Man-made: Fam = c - d * log10(f_MHz) per Table 1
- * - Galactic: Fag = 52 - 23 * log10(f_MHz)
- * - Atmospheric: Faa = base - corrections for time, season, latitude
- * - Total: power sum Fa = 10 * log10(sum of 10^(Fi/10))
+ * Reference: ITU-R P.372-16 "Radio noise".
  */
+
+import {
+  atmosphericNoiseP372,
+  combineNoiseP372,
+  type NoiseComponent,
+  type P372ReceiverContext,
+} from "@/lib/propagation/noise/p372Noise";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,11 +50,21 @@ export interface NoiseAssessment {
   description: string;
 }
 
-export interface AtmosphericNoiseOptions {
-  isDaytime?: boolean;
-  month?: number;
-  latitude?: number;
-}
+/**
+ * Receiver context for the ITU-R P.372 atmospheric noise term.
+ *
+ * Every field is needed: the CCIR 322 map is indexed by month, by the
+ * four-hour block of *receiver local mean time* (derived from `utcHour` and
+ * `longitude`) and by position. The fields stay optional because the type is
+ * threaded through several signatures, but an incomplete context yields no
+ * atmospheric term at all rather than a fabricated one -- see
+ * `getAtmosphericNoise`.
+ *
+ * `isDaytime` is gone: the local-time block supersedes it, and the flat
+ * -10 dB daytime / -5 dB winter / -5 dB high-latitude corrections it drove
+ * were part of the uncited curve this module no longer uses (#948, #955).
+ */
+export type AtmosphericNoiseOptions = Partial<P372ReceiverContext>;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -62,13 +78,19 @@ const T0_KELVIN = 290;
 // categories mapped onto this module's environment keys.
 const MAN_MADE_COEFFICIENTS: Record<
   NoiseEnvironment,
-  { c: number; d: number }
+  { c: number; d: number; du: number; dl: number }
 > = {
-  city: { c: 76.8, d: 27.7 }, // business / city
-  residential: { c: 72.5, d: 27.7 },
-  rural: { c: 67.2, d: 27.7 },
-  quiet_rural: { c: 53.6, d: 28.6 },
+  city: { c: 76.8, d: 27.7, du: 11.0, dl: 6.7 }, // business / city
+  residential: { c: 72.5, d: 27.7, du: 10.6, dl: 5.3 },
+  rural: { c: 67.2, d: 27.7, du: 9.2, dl: 4.6 },
+  quiet_rural: { c: 53.6, d: 28.6, du: 9.2, dl: 4.6 },
 };
+
+/**
+ * P.372 gives the galactic component a 2 dB decile deviation either side
+ * (the reference implementation's sigma of 1.56 dB).
+ */
+const GALACTIC_DECILE_DB = 2.0;
 
 /**
  * Declared default receiver-noise policy (PROP-02, #948).
@@ -98,11 +120,6 @@ export function resolveNoiseEnvironment(
 const MIN_FREQUENCY_MHZ = 1.0;
 const MAX_FREQUENCY_MHZ = 55.0;
 
-const ATMOSPHERIC_DAYTIME_CORRECTION = -10;
-const ATMOSPHERIC_WINTER_CORRECTION = -5;
-const ATMOSPHERIC_HIGH_LATITUDE_CORRECTION = -5;
-const HIGH_LATITUDE_THRESHOLD = 55;
-
 export const HF_BAND_FREQUENCIES: Record<string, number> = {
   "160m": 1.9,
   "80m": 3.6,
@@ -127,11 +144,6 @@ function clamp(value: number, min: number, max: number): number {
 
 function clampFrequency(frequencyMHz: number): number {
   return clamp(frequencyMHz, MIN_FREQUENCY_MHZ, MAX_FREQUENCY_MHZ);
-}
-
-function powerSumDb(...figures: number[]): number {
-  const linearSum = figures.reduce((sum, fa) => sum + Math.pow(10, fa / 10), 0);
-  return 10 * Math.log10(linearSum);
 }
 
 // ---------------------------------------------------------------------------
@@ -161,43 +173,24 @@ export function getGalacticNoise(frequencyMHz: number): number {
 }
 
 /**
- * Calculate atmospheric noise figure per ITU-R P.372-16.
- * Base formula: Faa = 100 - 33 * log10(f_MHz) with corrections for
- * daytime (-10 dB), winter (-5 dB), and high latitude (-5 dB).
+ * ITU-R P.372 atmospheric noise at the receiver, or `null` when the receiver
+ * context is incomplete.
+ *
+ * `null` is not zero. It means "this model has no value here": the atmospheric
+ * term is a function of receiver position, month and local time, and P.372
+ * offers no position-free value. `getExternalNoiseFigure` then combines only
+ * the man-made and galactic terms and says so in its documentation, rather
+ * than substituting a second, uncited curve. For the application's declared
+ * default (residential) the omission is worth less than 0.1 dB across the HF
+ * bands, because man-made noise is 15-25 dB above the atmospheric term there;
+ * in `quiet_rural` at 1.8-7 MHz it matters, which is why every production
+ * caller passes a complete context.
  */
 export function getAtmosphericNoise(
   frequencyMHz: number,
   options: AtmosphericNoiseOptions = {},
-): number {
-  const freq = clampFrequency(frequencyMHz);
-  let faa = 100 - 33 * Math.log10(freq);
-
-  if (options.isDaytime) {
-    faa += ATMOSPHERIC_DAYTIME_CORRECTION;
-  }
-
-  if (options.month !== undefined) {
-    if (isWinterMonth(options.month, options.latitude)) {
-      faa += ATMOSPHERIC_WINTER_CORRECTION;
-    }
-  }
-
-  if (
-    options.latitude !== undefined &&
-    Math.abs(options.latitude) > HIGH_LATITUDE_THRESHOLD
-  ) {
-    faa += ATMOSPHERIC_HIGH_LATITUDE_CORRECTION;
-  }
-
-  return Math.max(0, faa);
-}
-
-function isWinterMonth(month: number, latitude?: number): boolean {
-  const isNorthern = latitude === undefined || latitude >= 0;
-  if (isNorthern) {
-    return month <= 2 || month >= 11;
-  }
-  return month >= 5 && month <= 8;
+): NoiseComponent | null {
+  return atmosphericNoiseP372(options, frequencyMHz);
 }
 
 // ---------------------------------------------------------------------------
@@ -205,18 +198,60 @@ function isWinterMonth(month: number, latitude?: number): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Calculate the total external noise figure at a given frequency and environment.
- * Combines all three noise components using power summation.
+ * Total external noise factor Fa at a frequency, for a receiver environment and
+ * context, combined per ITU-R P.372 section 8.
+ *
+ * The combination is log-normal, not a power sum of medians: the returned value
+ * is the worse case of the upper- and lower-decile medians, as in the reference
+ * implementation. Where the components are comparable this sits 1-2 dB below
+ * the arithmetic power sum.
+ *
+ * When `options` is incomplete the atmospheric term is absent (see
+ * `getAtmosphericNoise`) and the result is the man-made/galactic combination.
  */
 export function getExternalNoiseFigure(
   frequencyMHz: number,
   environment: NoiseEnvironment,
   options?: AtmosphericNoiseOptions,
 ): number {
-  const fam = getManMadeNoise(frequencyMHz, environment);
-  const fag = getGalacticNoise(frequencyMHz);
-  const faa = getAtmosphericNoise(frequencyMHz, options);
-  return powerSumDb(fam, fag, faa);
+  return getExternalNoise(frequencyMHz, environment, options).total.fa;
+}
+
+export interface ExternalNoise {
+  total: NoiseComponent;
+  manMade: NoiseComponent;
+  galactic: NoiseComponent;
+  /** `null` when the receiver context was incomplete. */
+  atmospheric: NoiseComponent | null;
+}
+
+/** The full P.372 breakdown behind `getExternalNoiseFigure`. */
+export function getExternalNoise(
+  frequencyMHz: number,
+  environment: NoiseEnvironment,
+  options?: AtmosphericNoiseOptions,
+): ExternalNoise {
+  const { du, dl } = MAN_MADE_COEFFICIENTS[environment];
+  const manMade: NoiseComponent = {
+    fa: getManMadeNoise(frequencyMHz, environment),
+    du,
+    dl,
+  };
+  const galactic: NoiseComponent = {
+    fa: getGalacticNoise(frequencyMHz),
+    du: GALACTIC_DECILE_DB,
+    dl: GALACTIC_DECILE_DB,
+  };
+  const atmospheric = getAtmosphericNoise(frequencyMHz, options);
+  const components = atmospheric
+    ? [atmospheric, galactic, manMade]
+    : [galactic, manMade];
+  return {
+    total: combineNoiseP372(components),
+    manMade,
+    galactic,
+    atmospheric,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +357,8 @@ export interface BandNoiseEntry {
   level: NoiseLevel;
   manMade_dB: number;
   galactic_dB: number;
-  atmospheric_dB: number;
+  /** `null` when the receiver context was incomplete. */
+  atmospheric_dB: number | null;
 }
 
 /**
@@ -333,19 +369,19 @@ export function getAllBandNoise(
   options?: AtmosphericNoiseOptions,
 ): BandNoiseEntry[] {
   return Object.entries(HF_BAND_FREQUENCIES).map(([band, freq]) => {
-    const manMade_dB = getManMadeNoise(freq, environment);
-    const galactic_dB = getGalacticNoise(freq);
-    const atmospheric_dB = getAtmosphericNoise(freq, options);
-    const fa_dB = powerSumDb(manMade_dB, galactic_dB, atmospheric_dB);
-    const level = classifyNoiseLevel(fa_dB);
+    const noise = getExternalNoise(freq, environment, options);
+    const fa_dB = noise.total.fa;
     return {
       band,
       frequencyMHz: freq,
       fa_dB: Math.round(fa_dB * 10) / 10,
-      level,
-      manMade_dB: Math.round(manMade_dB * 10) / 10,
-      galactic_dB: Math.round(galactic_dB * 10) / 10,
-      atmospheric_dB: Math.round(atmospheric_dB * 10) / 10,
+      level: classifyNoiseLevel(fa_dB),
+      manMade_dB: Math.round(noise.manMade.fa * 10) / 10,
+      galactic_dB: Math.round(noise.galactic.fa * 10) / 10,
+      atmospheric_dB:
+        noise.atmospheric === null
+          ? null
+          : Math.round(noise.atmospheric.fa * 10) / 10,
     };
   });
 }

@@ -9,9 +9,10 @@ import type {
   OverallCondition,
   VHFCondition,
 } from "../../types/solar";
-import { calculateZenithAngle, getIonosphericParameters } from "./ionosphere";
+import { getIonosphericParameters } from "./ionosphere";
 import { getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
+import type { AtmosphericNoiseOptions } from "./noiseModel";
 import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
@@ -877,17 +878,17 @@ export function getEnhancedBandConditions(
   // Get ionospheric parameters at path midpoint
   const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
 
-  // Receiver context for the ITU-R P.372 atmospheric noise term Faa. Faa is a
-  // property of the *receiving* station, not of the path midpoint, so the
-  // daytime test uses the home station's own solar zenith angle. Omitting
-  // these corrections leaves Faa at its worst case (night, summer, low
-  // latitude), which dominates the power sum and floods every band with
-  // 10-20 dB of noise that is not there (PROP-02 #948).
-  // `month` is 1-based: noiseModel's winter test is Nov-Feb / May-Aug.
-  const receiverNoiseContext = {
-    isDaytime: calculateZenithAngle(homeLat, homeLon, date) < 90,
-    month: date.getUTCMonth() + 1,
+  // Receiver context for the ITU-R P.372 atmospheric noise term. That term is a
+  // property of the *receiving* station, not of the path midpoint: the CCIR 322
+  // world map is read at the home station's own position, in the four-hour
+  // block of its local mean time (derived from the UTC hour and its longitude)
+  // and for the calendar month. Omitting any of it leaves the engine with no
+  // atmospheric term at all (PROP-02 #948, #955).
+  const receiverNoiseContext: AtmosphericNoiseOptions = {
     latitude: homeLat,
+    longitude: homeLon,
+    month: date.getUTCMonth() + 1,
+    utcHour: date.getUTCHours(),
   };
 
   // Compute geomagnetic-based polar path assessment

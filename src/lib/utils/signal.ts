@@ -329,12 +329,12 @@ export function sUnitsTodBm(sUnits: number): number {
  * @param frequencyMHz - Operating frequency in MHz (Fa is frequency dependent)
  * @param noiseEnvironment - Optional caller environment; omitted resolves to
  *   the declared default with `source: "assumed"`
- * @param atmosphericOptions - Receiver time/season/latitude context for the
- *   P.372 atmospheric term Faa. Omitting it is not neutral: the daytime
- *   (-10 dB), winter (-5 dB) and high-latitude (-5 dB) corrections then never
- *   apply and Faa is reported at its worst case, which dominates the power sum
- *   across the whole HF range. Callers that know the receiver's local time,
- *   month and latitude must pass them (PROP-02 #948).
+ * @param atmosphericOptions - Receiver position, month and UTC hour for the
+ *   ITU-R P.372 atmospheric term (CCIR Report 322 world maps). Omitting it is
+ *   not neutral: P.372 has no position-free atmospheric value, so the term is
+ *   left out of the combination entirely and the floor is the man-made and
+ *   galactic pair. Callers that know where and when the receiver is must pass
+ *   all four fields (PROP-02 #948, #955).
  */
 export function calculateReferenceNoise(
   frequencyMHz: number,

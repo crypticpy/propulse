@@ -252,6 +252,9 @@ interface GlobeViewProps {
   /** Forwarded to `ClusterDetailPopover`/`SpotCollectionPopover` — true only
    * when `HamClockView` is the host (#846/#871 round 3). */
   isWallCanvas?: boolean;
+  /** Host callback to reveal the Path Analysis surface (PropSphere /
+   * FullscreenPropSphere only — #931). Forwarded to `RayPathArc`. */
+  onOpenPathAnalysis?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -1124,6 +1127,7 @@ interface GlobeSceneProps {
    * back to `document.body` and clamping to the viewport.
    */
   mapOverlayPortal?: HTMLDivElement | null;
+  onOpenPathAnalysis?: () => void;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
@@ -1147,6 +1151,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onTileFallbackChange,
   onCloudImageryStatusChange,
   mapOverlayPortal,
+  onOpenPathAnalysis,
 }: GlobeSceneProps) {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
@@ -1999,6 +2004,7 @@ const GlobeScene = React.memo(function GlobeScene({
                       }
                       displayTime={displayTime}
                       portalTarget={mapOverlayPortal}
+                      onOpenPathAnalysis={onOpenPathAnalysis}
                     />
                   );
                 }
@@ -2069,6 +2075,7 @@ export function GlobeView({
   cornerSlot,
   onUseFlatMap,
   isWallCanvas,
+  onOpenPathAnalysis,
 }: GlobeViewProps) {
   const scopedLayers = useScopedMapLayers();
   const { policy: operationalPolicy } = useMapOperationalContext();
@@ -2768,6 +2775,7 @@ export function GlobeView({
                 onTileFallbackChange={setTileFallbackActive}
                 onCloudImageryStatusChange={setCloudImageryStatus}
                 mapOverlayPortal={mapOverlayPortal}
+                onOpenPathAnalysis={onOpenPathAnalysis}
               />
             </Suspense>
           </Canvas>

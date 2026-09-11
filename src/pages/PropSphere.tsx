@@ -49,6 +49,7 @@ import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
+import { revealPropSpherePathAnalysis } from "@/components/map/openPathAnalysis";
 import { MapToolbarShell } from "@/components/map/MapToolbarShell";
 import { MapToolbarSecondaryControls } from "@/components/map/MapToolbarSecondaryControls";
 import { getMapToolbarLayout } from "@/components/map/mapToolbarLayout";
@@ -792,6 +793,18 @@ export function PropSphere() {
     ],
   );
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    revealPropSpherePathAnalysis({
+      isLiteMode,
+      rightPanelMode,
+      rightPanelLastWidth,
+      setActiveTab,
+      setRightPanelExpanded,
+      setRightPanelWidth,
+      setRightPanelMode,
+    });
+  }, [isLiteMode, rightPanelLastWidth, rightPanelMode]);
+
   // Rows PropSphere wants in the map's bottom-left corner. The map view owns
   // that corner and renders the one column there, stacking these above its
   // own row and the shared size control, so nothing in the corner can cover
@@ -1246,6 +1259,7 @@ export function PropSphere() {
                     <GlobeView
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
+                      onOpenPathAnalysis={handleOpenPathAnalysis}
                       cornerSlot={mapCornerSlot}
                     />
                   )}

@@ -81,6 +81,41 @@ describe("BandTopDx", () => {
     expect(useDXStore.getState().selectedSpot?.id).toBe("wall-spot-1");
     // ...and the runtime-bound reader must follow it, not the stale preset.
     expect(screen.getByTestId("bound-id").textContent).toBe("wall-spot-1");
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "JA1XYZ",
+      grid: "GG87",
+      approximate: false,
+    });
+  });
+
+  it("writes the presentation label and a validated grid, matching the DX list (#861)", async () => {
+    const spot: DXSpot = {
+      id: "wall-spot-pota",
+      spotter: "K1ABC",
+      dx: "K5ABC",
+      frequency: 14074,
+      band: "20m",
+      mode: "FT8",
+      comment: "POTA US-1234 · Test Park",
+      time: new Date(Date.now() - 60_000),
+      dxGrid: "EM10",
+    };
+    useDXStore.setState({ spots: [spot], spotSource: "rest" });
+
+    const user = userEvent.setup();
+    render(
+      <ViewProvider ownerId="owner-parity" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <BandTopDx />
+      </ViewProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /K5ABC/ }));
+
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "K5ABC · POTA US-1234",
+      grid: "EM10",
+      approximate: false,
+    });
   });
 
   it("narrows to the bound view runtime's band filter, not mapStore.spotFilters (SP-09 round 3 B1)", () => {

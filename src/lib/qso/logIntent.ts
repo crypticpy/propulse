@@ -140,6 +140,16 @@ export function applyLogIntent(
   return { status: "ok" };
 }
 
+function targetNameMatchesCallsign(
+  name: string | undefined,
+  callsign: string,
+): boolean {
+  const label = (name ?? "").trim().toUpperCase();
+  const cs = callsign.trim().toUpperCase();
+  if (!cs) return false;
+  return label === cs || label.startsWith(`${cs} · `);
+}
+
 export async function commitLogIntent(): Promise<LogIntentResult> {
   if (useKioskStore.getState().active) {
     return { status: "ignored", reason: "kiosk" };
@@ -156,12 +166,11 @@ export async function commitLogIntent(): Promise<LogIntentResult> {
   // the map (e.g. from an earlier Work/inspect) AND that target actually
   // belongs to the callsign just logged. Otherwise Work K1ABC → Inspect
   // F4ABC → Enter would pulse "Logged K1ABC" at F4ABC's coordinates. This
-  // never triggers a new lookup or touches the draft.
+  // never triggers a new lookup or touches the draft. Presentation labels
+  // may append an activation reference (`CALL · POTA US-1234`); match
+  // the callsign prefix of that label too (#861).
   const target = useMapStore.getState().target;
-  if (
-    target &&
-    (target.name ?? "").trim().toUpperCase() === callsign.toUpperCase()
-  ) {
+  if (target && targetNameMatchesCallsign(target.name, callsign)) {
     useMapStore.getState().setJustLogged({
       callsign,
       lat: target.lat,

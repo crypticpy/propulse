@@ -25,6 +25,7 @@ import {
   useBandPresets,
 } from "@/stores/userStore";
 import { getAllAlertRules } from "@/lib/db/alertStore";
+import { announceToScreenReader } from "@/lib/utils/a11y";
 import { matchesRule } from "@/lib/utils/alertMatcher";
 import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
@@ -530,13 +531,18 @@ export function useDXSpotListState(
       switch (action) {
         case "setTarget": {
           // Set the spot's location as the map target. Reuses the canonical
-          // coordinates -> valid-grid -> callsign-prefix fallback chain so a
-          // malformed dxGrid (e.g. a truncated/junk locator from the feed)
-          // can't throw out of gridToLatLon and silently no-op the button
-          // (#845).
+          // coordinates -> valid-grid -> callsign-prefix -> continent chain
+          // so a malformed dxGrid can't throw out of gridToLatLon and
+          // silently no-op the button (#845). Unknown-prefix spots with no
+          // continent announce instead of writing nothing (#861).
           const resolved = resolveMapSpotSelection(spot);
           if (resolved) {
             setTarget(resolved.target);
+          } else {
+            announceToScreenReader(
+              `Cannot locate ${spot.dx} on the map`,
+              "assertive",
+            );
           }
           break;
         }

@@ -9,8 +9,14 @@ import {
   type WorkingSlotStorage,
 } from "@/lib/views/runtime";
 import { useDXStore } from "@/stores/dxStore";
+import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
+import { announceToScreenReader } from "@/lib/utils/a11y";
 import { useDXSpotListState } from "./useDXSpotListState";
+
+vi.mock("@/lib/utils/a11y", () => ({
+  announceToScreenReader: vi.fn(),
+}));
 
 vi.mock("@/hooks/useDXCluster", () => ({
   useDXCluster: () => ({
@@ -103,5 +109,51 @@ describe("useDXSpotListState deselect contract (PR #603 round 5)", () => {
     ).toBeNull();
     // Legacy store write still happens alongside the runtime write.
     expect(useDXStore.getState().selectedSpot).toBeNull();
+  });
+});
+
+describe("useDXSpotListState setTarget (#861)", () => {
+  const originalTarget = useMapStore.getState().target;
+
+  afterEach(() => {
+    useMapStore.setState({ target: originalTarget });
+    vi.mocked(announceToScreenReader).mockClear();
+  });
+
+  it("announces when the spot cannot be located", () => {
+    const storage = createMemoryWorkingStorage();
+    const { result } = renderHook(() => useDXSpotListState(), {
+      wrapper: makeWrapper(storage),
+    });
+
+    act(() => {
+      result.current.handleContextAction(
+        "setTarget",
+        dxSpot({ dx: "QQ1ABC", dxGrid: undefined }),
+      );
+    });
+
+    expect(useMapStore.getState().target).toBe(originalTarget);
+    expect(announceToScreenReader).toHaveBeenCalledWith(
+      "Cannot locate QQ1ABC on the map",
+      "assertive",
+    );
+  });
+
+  it("does not announce when the spot resolves", () => {
+    const storage = createMemoryWorkingStorage();
+    const { result } = renderHook(() => useDXSpotListState(), {
+      wrapper: makeWrapper(storage),
+    });
+
+    act(() => {
+      result.current.handleContextAction("setTarget", dxSpot());
+    });
+
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "JA1XYZ",
+      grid: "GG87",
+    });
+    expect(announceToScreenReader).not.toHaveBeenCalled();
   });
 });

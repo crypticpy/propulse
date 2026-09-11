@@ -9,10 +9,10 @@ regression measurements, not an isolated machine performance benchmark.
 
 ## Same-fixture comparison
 
-| Scene | R3F subscribers before | After | Draw calls before / after | Triangles before / after |
-| --- | ---: | ---: | ---: | ---: |
-| All paths | 104 | 38 | 160 / 160 | 109,424 / 109,424 |
-| Isolated target | 88 | 22 | 145 / 145 | 102,720 / 102,720 |
+| Scene           | R3F subscribers before | After | Draw calls before / after | Triangles before / after |
+| --------------- | ---------------------: | ----: | ------------------------: | -----------------------: |
+| All paths       |                    104 |    38 |                 160 / 160 |        109,424 / 109,424 |
+| Isolated target |                     88 |    22 |                 145 / 145 |        102,720 / 102,720 |
 
 Median requestAnimationFrame interval stayed approximately 16.7 ms in each
 120-frame sample. P95 ranged from 17.2 to 17.6 ms. This demonstrates reduced
@@ -38,7 +38,8 @@ and spot-layer policy tests cover path geometry and isolation policy.
 
 To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md`, check
 `npm run dev:session -- status` and use the shared server if it is running
-(agents never start one), then run from the same checkout:
+(agents never start one), then run from the same checkout, passing the exact
+URL that status reports (5173 unless `DEV_SERVER_ALLOW_EXTRA=1` moved it):
 
 ```sh
 node scripts/profile-map-animation.mjs http://127.0.0.1:5173

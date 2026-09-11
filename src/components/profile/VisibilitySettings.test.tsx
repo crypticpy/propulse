@@ -1,7 +1,15 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_VISIBILITY } from "@/types/social";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useProfileStore } from "@/stores/profileStore";
 import { VisibilitySettings } from "./VisibilitySettings";
 
@@ -32,8 +40,16 @@ function sectionRow(section: string): HTMLElement {
   return row as HTMLElement;
 }
 
-function statsRadio(level: string) {
-  return screen.getByRole("radio", { name: `Stats: ${level}` });
+/** Native radios are named by their own label, not by the section. */
+function statsRadio(level: string): HTMLInputElement {
+  return within(sectionRow("Stats")).getByRole("radio", {
+    name: level,
+  }) as HTMLInputElement;
+}
+
+function mobileStatsRadio(level: string): HTMLInputElement {
+  const group = screen.getByRole("radiogroup", { name: "Stats visibility" });
+  return within(group).getByRole("radio", { name: level }) as HTMLInputElement;
 }
 
 describe("VisibilitySettings accessibility (#356)", () => {
@@ -54,7 +70,7 @@ describe("VisibilitySettings accessibility (#356)", () => {
     requireAuthMock.mockReset();
   });
 
-  it("exposes every desktop choice as a labelled radio with one checked per section", () => {
+  it("exposes every desktop choice as a native radio with one checked per section", () => {
     renderVisibilitySettings();
 
     for (const section of [
@@ -64,24 +80,54 @@ describe("VisibilitySettings accessibility (#356)", () => {
       "Activity",
       "Location",
     ]) {
-      const radios = within(sectionRow(section)).getAllByRole("radio");
+      const radios = within(sectionRow(section)).getAllByRole(
+        "radio",
+      ) as HTMLInputElement[];
       expect(radios).toHaveLength(3);
-      expect(
-        radios.filter((radio) => radio.getAttribute("aria-checked") === "true"),
-      ).toHaveLength(1);
+      for (const radio of radios) {
+        expect(radio.tagName).toBe("INPUT");
+        expect(radio.type).toBe("radio");
+        // The native checked state is the one assistive tech reads; a
+        // hand-written aria-checked on a native radio can only contradict it.
+        expect(radio.getAttribute("aria-checked")).toBeNull();
+      }
+      expect(radios.filter((radio) => radio.checked)).toHaveLength(1);
       for (const level of ["Public", "Friends Only", "Private"]) {
         expect(
-          within(sectionRow(section)).getByRole("radio", {
-            name: `${section}: ${level}`,
-          }),
+          within(sectionRow(section)).getByRole("radio", { name: level }),
         ).toBeTruthy();
       }
     }
 
-    expect(statsRadio("Public").getAttribute("aria-checked")).toBe("true");
-    expect(statsRadio("Friends Only").getAttribute("aria-checked")).toBe(
-      "false",
-    );
+    expect(statsRadio("Public").checked).toBe(true);
+    expect(statsRadio("Friends Only").checked).toBe(false);
+  });
+
+  it("groups each desktop row by a shared radio name, unique per section", () => {
+    renderVisibilitySettings();
+
+    const names = new Set<string>();
+    for (const section of [
+      "Stats",
+      "Awards",
+      "Equipment",
+      "Activity",
+      "Location",
+    ]) {
+      const radios = within(sectionRow(section)).getAllByRole(
+        "radio",
+      ) as HTMLInputElement[];
+      const rowNames = new Set(radios.map((radio) => radio.name));
+      // One name across the three cells is what makes them a group without an
+      // element containing them.
+      expect(rowNames.size).toBe(1);
+      const [name] = [...rowNames];
+      expect(name).toBeTruthy();
+      names.add(name);
+    }
+    // Five rows, five groups: a shared name across rows would make the whole
+    // matrix one radio group and allow only one checked choice in total.
+    expect(names.size).toBe(5);
   });
 
   it("leaves each desktop radio in the cell under its own column header", () => {
@@ -137,15 +183,24 @@ describe("VisibilitySettings accessibility (#356)", () => {
     expect(statsRadio("Public").closest("td")).toBeTruthy();
   });
 
+  it("keeps the label as the hit target so the control is not a bare native dot", () => {
+    renderVisibilitySettings();
+
+    const label = statsRadio("Public").closest("label");
+    expect(label).toBeTruthy();
+    expect(label?.className).toContain("w-6");
+    expect(label?.className).toContain("h-6");
+    // The input itself is visually replaced by the drawn dot.
+    expect(statsRadio("Public").className).toContain("sr-only");
+  });
+
   it("updates the checked radio after selection and rerender", async () => {
     const user = userEvent.setup();
     renderVisibilitySettings();
 
     await user.click(statsRadio("Friends Only"));
 
-    expect(statsRadio("Friends Only").getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    expect(statsRadio("Friends Only").checked).toBe(true);
     expect(useProfileStore.getState().visibilitySettings.stats).toBe("friends");
   });
 
@@ -157,26 +212,23 @@ describe("VisibilitySettings accessibility (#356)", () => {
     await user.keyboard("{ArrowRight}");
 
     const friends = statsRadio("Friends Only");
-    expect(friends.getAttribute("aria-checked")).toBe("true");
+    expect(friends.checked).toBe(true);
     expect(useProfileStore.getState().visibilitySettings.stats).toBe("friends");
-    // Focus has to ride along, otherwise it is stranded on the now
-    // tabIndex={-1} previous option and the next Tab escapes unpredictably.
     expect(document.activeElement).toBe(friends);
-    expect(friends.getAttribute("tabindex")).toBe("0");
-    expect(statsRadio("Public").getAttribute("tabindex")).toBe("-1");
   });
 
-  it("leaves focus alone when an arrow key press is gated behind auth", async () => {
+  it("keeps the gated choice unchecked when an arrow key press is blocked by auth", async () => {
     requireAuthMock.mockImplementation(() => undefined);
     const user = userEvent.setup();
     renderVisibilitySettings();
 
-    const publicRadio = statsRadio("Public");
-    publicRadio.focus();
+    statsRadio("Public").focus();
     await user.keyboard("{ArrowRight}");
 
     expect(useProfileStore.getState().visibilitySettings.stats).toBe("public");
-    expect(document.activeElement).toBe(publicRadio);
+    // The controlled value wins: nothing is committed, so Public stays checked.
+    expect(statsRadio("Public").checked).toBe(true);
+    expect(statsRadio("Friends Only").checked).toBe(false);
   });
 
   it("moves selection and focus with arrow keys on mobile", async () => {
@@ -184,11 +236,11 @@ describe("VisibilitySettings accessibility (#356)", () => {
     const user = userEvent.setup();
     renderVisibilitySettings();
 
-    statsRadio("Public").focus();
+    mobileStatsRadio("Public").focus();
     await user.keyboard("{ArrowLeft}");
 
-    const priv = statsRadio("Private");
-    expect(priv.getAttribute("aria-checked")).toBe("true");
+    const priv = mobileStatsRadio("Private");
+    expect(priv.checked).toBe(true);
     expect(document.activeElement).toBe(priv);
   });
 
@@ -198,10 +250,7 @@ describe("VisibilitySettings accessibility (#356)", () => {
 
     const group = screen.getByRole("radiogroup", { name: "Stats visibility" });
     expect(
-      within(group).getByRole("radio", {
-        name: "Stats: Public",
-        checked: true,
-      }),
+      within(group).getByRole("radio", { name: "Public", checked: true }),
     ).toBeTruthy();
   });
 
@@ -214,6 +263,55 @@ describe("VisibilitySettings accessibility (#356)", () => {
 
     expect(requireAuthMock).toHaveBeenCalled();
     expect(useProfileStore.getState().visibilitySettings.stats).toBe("public");
-    expect(statsRadio("Public").getAttribute("aria-checked")).toBe("true");
+    expect(statsRadio("Public").checked).toBe(true);
+  });
+
+  it("defers focus until the sign-in dialog has torn down", async () => {
+    let deferred: (() => void) | null = null;
+    requireAuthMock.mockImplementation((callback: () => void) => {
+      deferred = callback;
+    });
+
+    function Harness({ open }: { open: boolean }) {
+      return (
+        <>
+          <VisibilitySettings />
+          <AccessibleDialog open={open} onClose={() => {}} title="Sign in">
+            <button type="button">Continue</button>
+          </AccessibleDialog>
+        </>
+      );
+    }
+
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness open={false} />);
+
+    // Held across the open dialog: the background goes inert while a modal is
+    // up, so it is unqueryable from `screen` until the dialog tears down.
+    const privateRadio = statsRadio("Private");
+    await user.click(privateRadio);
+    expect(useProfileStore.getState().visibilitySettings.stats).toBe("public");
+
+    // The sign-in modal is what requireAuth put up; it owns focus now.
+    rerender(<Harness open />);
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(dialog.contains(document.activeElement)).toBe(true),
+    );
+
+    await act(async () => {
+      deferred?.();
+    });
+
+    expect(useProfileStore.getState().visibilitySettings.stats).toBe("private");
+    // Focusing the radio here would yank focus out of the open modal, and the
+    // modal's own restore would then undo it on close.
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(privateRadio);
+
+    rerender(<Harness open={false} />);
+
+    expect(document.activeElement).toBe(privateRadio);
+    expect(privateRadio.checked).toBe(true);
   });
 });

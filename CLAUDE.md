@@ -70,19 +70,24 @@ Routes defined in `src/App.tsx` using React Router v7. All pages lazy-loaded via
 
 ```ts
 export const useMyStore = create<MyStore>()(
-  persist((set) => ({/* state + actions */}), {
-    name: "propulse-my-store", // localStorage key
-    version: N, // bump on schema changes
-    storage: createJSONStorage(() => localStorage),
-    migrate: (persisted: unknown, version: number) => {
-      const state = persisted as Record<string, unknown>;
-      if (version < 2) {
-        /* add fields with defaults */
-      }
-      // ...incremental per-version
-      return state as unknown as MyStoreType;
+  persist(
+    (set) => ({
+      /* state + actions */
+    }),
+    {
+      name: "propulse-my-store", // localStorage key
+      version: N, // bump on schema changes
+      storage: createJSONStorage(() => localStorage),
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          /* add fields with defaults */
+        }
+        // ...incremental per-version
+        return state as unknown as MyStoreType;
+      },
     },
-  }),
+  ),
 );
 ```
 

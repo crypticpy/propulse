@@ -24,7 +24,8 @@
         "requiredInputs": [
           "station_pair",
           "smoothed_solar_index",
-          "mode_profile"
+          "mode_profile",
+          "terrain_profile"
         ],
         "optionalInputs": [],
         "featureSchemaId": "physics-feature-schema-0.1.0",

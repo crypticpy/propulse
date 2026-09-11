@@ -14,6 +14,9 @@
 import { z } from "zod";
 import {
   bandContainsHz,
+  MANDATORY_INPUTS_BY_FAMILY,
+  sharedMandatoryInputs,
+  type CapabilityInputId,
   COORDINATE_DATUMS,
   COORDINATE_PRECISION_KINDS,
   GEOMETRY_CLASSES,
@@ -55,13 +58,72 @@ import {
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
-/** Mechanism families whose result is meaningless without a terrain profile. */
-export const TERRAIN_DEPENDENT_FAMILIES = [
-  "terrain_troposphere",
-  "refractivity_pe",
-  "groundwave",
-  "ground_sky_coherent",
-] as const;
+/**
+ * Mechanism families whose result is meaningless without a terrain profile.
+ * This is the terrain slice of `MANDATORY_INPUTS_BY_FAMILY`, kept as a named
+ * export because it reads as physics; the rules are driven from the table.
+ */
+export const TERRAIN_DEPENDENT_FAMILIES = MECHANISM_FAMILIES.filter((family) =>
+  MANDATORY_INPUTS_BY_FAMILY[family].includes("terrain_profile"),
+);
+
+/** How each mandatory input is named to a caller who did not supply it. */
+const MANDATORY_INPUT_LABELS: Record<CapabilityInputId, string> = {
+  station_pair: "a station pair",
+  mode_profile: "a mode profile",
+  noise_assumption: "a noise assumption",
+  environment_pack: "an environment pack identity",
+  terrain_profile: "a terrain profile identity",
+  ephemeris: "an orbital relay identity",
+  smoothed_solar_index: "a smoothed solar index",
+  observed_solar_index: "an observed solar index",
+  eligible_foF2_observations: "eligible foF2 observations",
+  eligible_absorption_observations: "eligible absorption observations",
+  eligible_radio_observations: "eligible radio observations",
+  network_exposure_context: "a network exposure context",
+  snr2500: "an SNR2500",
+  decoder_response_calibration: "a decoder response calibration",
+};
+
+/** Where a missing mandatory input is reported on the request. */
+const REQUEST_INPUT_PATHS: Record<CapabilityInputId, (string | number)[]> = {
+  station_pair: ["tx"],
+  mode_profile: ["modeProfileId"],
+  noise_assumption: ["noiseAssumptionId"],
+  environment_pack: ["environmentPackId"],
+  terrain_profile: ["terrainProfileId"],
+  ephemeris: ["relay"],
+  smoothed_solar_index: ["scope"],
+  observed_solar_index: ["scope"],
+  eligible_foF2_observations: ["scope"],
+  eligible_absorption_observations: ["scope"],
+  eligible_radio_observations: ["scope"],
+  network_exposure_context: ["scope"],
+  snr2500: ["targetEvent"],
+  decoder_response_calibration: ["targetEvent"],
+};
+
+/**
+ * Whether the request itself carries an input a family cannot run without.
+ *
+ * Only the inputs a request can express are answerable here: the terrain
+ * profile it names and the orbital relay identity it supplies. Everything else
+ * is either a field every request carries or a service-side artefact, and is
+ * checked against the capability declaration instead (M11/M19).
+ */
+function requestCarriesInput(
+  value: {
+    terrainProfileId: string | null;
+    relay: { kind: RelayKind } | null;
+  },
+  input: CapabilityInputId,
+): boolean {
+  if (input === "terrain_profile") return value.terrainProfileId !== null;
+  if (input === "ephemeris") {
+    return value.relay !== null && value.relay.kind === "orbital";
+  }
+  return true;
+}
 
 /**
  * The concrete families an "auto" policy could still resolve to, given the
@@ -837,25 +899,11 @@ export const predictionRequestSchema = z
      */
     const resolvable: MechanismFamily[] =
       family === "auto" ? candidates : [family];
-    const terrainDependent =
-      resolvable.length > 0 &&
-      resolvable.every((candidate) =>
-        (TERRAIN_DEPENDENT_FAMILIES as readonly string[]).includes(candidate),
-      );
-    if (terrainDependent && value.terrainProfileId === null) {
-      reject(
-        ctx,
-        ["terrainProfileId"],
-        family === "auto"
-          ? `Every mechanism family that could serve geometry class ${geometryClass} is terrain-dependent, so a terrain profile identity is required (A02)`
-          : `Mechanism family ${family} requires a terrain profile identity`,
-      );
-    }
     // M11: the frozen protocol says which claims exist. A request for a
     // (event, domain, horizon, family) the protocol never froze, or one at a
     // frequency inside a gap between a grouped band's constituents, has no row
     // to be scored against and no capability head that could legally serve it.
-    const onARow = resolvable.some((candidate) =>
+    const servable = resolvable.filter((candidate) =>
       protocolCoverageContainsHz(
         {
           event: value.targetEvent,
@@ -866,11 +914,33 @@ export const predictionRequestSchema = z
         value.frequencyHz,
       ),
     );
-    if (resolvable.length > 0 && !onARow) {
+    if (resolvable.length > 0 && servable.length === 0) {
       reject(
         ctx,
         ["targetEvent"],
         `The protocol defines no ${value.targetEvent} on ${value.scope.domain} at ${value.scope.horizon} via ${family} at ${value.frequencyHz} Hz (M11)`,
+      );
+      return;
+    }
+    /**
+     * The inputs the families that could actually answer this request cannot
+     * run without (`MANDATORY_INPUTS_BY_FAMILY`).
+     *
+     * For "auto" the set is narrowed twice before it is read: to the families
+     * the geometry and relay admit, and then to the families the protocol
+     * actually froze for this event, domain, horizon and frequency. Reading it
+     * off the geometry alone would let an unrelated family that the protocol
+     * never froze here excuse the caller from an input the only family that
+     * could serve the request cannot run without.
+     */
+    for (const input of sharedMandatoryInputs(servable)) {
+      if (requestCarriesInput(value, input)) continue;
+      reject(
+        ctx,
+        REQUEST_INPUT_PATHS[input],
+        family === "auto"
+          ? `Every mechanism family that could serve geometry class ${geometryClass} at ${value.frequencyHz} Hz requires ${MANDATORY_INPUT_LABELS[input]} (A02)`
+          : `Mechanism family ${family} requires ${MANDATORY_INPUT_LABELS[input]}`,
       );
     }
   });

@@ -1209,6 +1209,87 @@ export const CAPABILITY_INPUT_IDS = [
 export type CapabilityInputId = (typeof CAPABILITY_INPUT_IDS)[number];
 
 /**
+ * The inputs a mechanism family cannot run without, whatever else it is given.
+ *
+ * Membership is narrow on purpose: an input is listed only when no other
+ * declared input could stand in for it. The ionospheric families are therefore
+ * absent even though they need a state, because a head may take that state
+ * from `smoothed_solar_index`, `observed_solar_index` or eligible foF2
+ * observations and the contract does not choose between them. The entries are
+ * read off the plan of record, docs/designs/propagation/all-band-contract-v0.1.md:
+ *
+ * - `satellite` needs an ephemeris: A21 (line 183) makes frame, time and
+ *   ephemeris age explicit, and a pass is where the spacecraft is.
+ * - `eme` needs an ephemeris: A22 (line 189) requires a bundled, range-limited
+ *   lunar ephemeris with validated interpolation.
+ * - `terrain_troposphere`, `refractivity_pe`, `groundwave` and
+ *   `ground_sky_coherent` need a terrain profile: A11 (lines 141-143) makes the
+ *   profile, its resolution and its vertical datum the geometry itself, and
+ *   missing terrain is `data_limited`, never an assumed unobstructed path.
+ * - `terrain_troposphere` and `refractivity_pe` also need an environment pack:
+ *   the band table (line 92) pairs "reference atmosphere and terrain packs",
+ *   and A13/A14 (lines 149, 153) compute refractivity from the meteorological
+ *   profile that pack carries.
+ * - `atmospheric_los` needs an environment pack for the same reason: its whole
+ *   content is gaseous attenuation and emission against a reference atmosphere
+ *   (line 92).
+ *
+ * This one table drives both the request rule (the request must carry the
+ * input of the family that will answer it) and the capability rule (a routable
+ * head must require every mandatory input of every family it advertises).
+ */
+export const MANDATORY_INPUTS_BY_FAMILY: Record<
+  MechanismFamily,
+  readonly CapabilityInputId[]
+> = {
+  aircraft_scatter: [],
+  atmospheric_los: ["environment_pack"],
+  aurora: [],
+  eme: ["ephemeris"],
+  es: [],
+  event_head: [],
+  f2_daytime: [],
+  ground_sky_coherent: ["terrain_profile"],
+  groundwave: ["terrain_profile"],
+  meteor: [],
+  rain_scatter: [],
+  refractivity_pe: ["terrain_profile", "environment_pack"],
+  regular_ef: [],
+  relay: [],
+  satellite: ["ephemeris"],
+  tep_evening: [],
+  terrain_troposphere: ["terrain_profile", "environment_pack"],
+  waveguide: [],
+};
+
+/** The inputs every one of these families cannot run without. */
+export function mandatoryInputsForFamilies(
+  families: readonly MechanismFamily[],
+): CapabilityInputId[] {
+  const seen = new Set<CapabilityInputId>();
+  for (const family of families) {
+    for (const input of MANDATORY_INPUTS_BY_FAMILY[family]) seen.add(input);
+  }
+  return [...seen];
+}
+
+/**
+ * The inputs *every* one of these families needs. Used where the family is not
+ * yet fixed ("auto"): an input only the chosen family might need is not one
+ * the caller can be required to supply in advance.
+ */
+export function sharedMandatoryInputs(
+  families: readonly MechanismFamily[],
+): CapabilityInputId[] {
+  if (families.length === 0) return [];
+  return mandatoryInputsForFamilies(families).filter((input) =>
+    families.every((family) =>
+      MANDATORY_INPUTS_BY_FAMILY[family].includes(input),
+    ),
+  );
+}
+
+/**
  * M11 immutable correction order. A capability declares which stage each of
  * its corrections owns; two corrections may not own the same total quantity.
  */

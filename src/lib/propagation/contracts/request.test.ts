@@ -66,6 +66,23 @@ function nearAntipodalCase(
   return draft;
 }
 
+/**
+ * A 2 m field-strength request on the qualified terrain climate row, with no
+ * terrain profile: the row the protocol froze for terrain_troposphere alone.
+ */
+function terrainClimateRequest(family: string): Mutable {
+  const draft = candidate("hfShortPath");
+  draft.targetEvent = "field_strength";
+  (draft.scope as Mutable).domain = "qualified_terrain_climate";
+  (draft.scope as Mutable).horizon = "climatology";
+  (draft.mechanismPolicy as Mutable).family = family;
+  (draft.mechanismPolicy as Mutable).geometryClass = "terrestrial_great_circle";
+  draft.frequencyHz = 144100000;
+  draft.bandKey = "8m_6m_4m_2m";
+  draft.terrainProfileId = null;
+  return draft;
+}
+
 describe("parseRequest fixtures", () => {
   it.each(Object.keys(cases))("round-trips the %s fixture", (name) => {
     const outcome = parseRequest(candidate(name));
@@ -288,11 +305,29 @@ describe("parseRequest fails closed", () => {
   });
 
   it("requires a terrain profile for a terrain-dependent mechanism (A02)", () => {
-    const bad = candidate("hfShortPath");
-    (bad.mechanismPolicy as Mutable).family = "terrain_troposphere";
+    const bad = terrainClimateRequest("terrain_troposphere");
     expect(reasonsAt(bad, "terrainProfileId").join()).toMatch(
-      /requires a terrain profile/,
+      /Mechanism family terrain_troposphere requires a terrain profile identity/,
     );
+    const good = structuredClone(bad);
+    good.terrainProfileId = "srtm-30m-path-profile-v2";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("requires a terrain profile from the families that could serve the row (A02)", () => {
+    // The protocol froze 2 m field strength on a qualified terrain climate for
+    // terrain_troposphere alone. Reading the candidates off the geometry would
+    // find great-circle families that need no profile and excuse the caller
+    // from the one input the only family that could answer needs.
+    const bad = terrainClimateRequest("auto");
+    expect(reasonsAt(bad, "terrainProfileId").join()).toMatch(
+      /Every mechanism family that could serve geometry class terrestrial_great_circle at 144100000 Hz requires a terrain profile identity \(A02\)/,
+    );
+    const good = structuredClone(bad);
+    good.terrainProfileId = "srtm-30m-path-profile-v2";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("requires an explicit cell size for a quantized coordinate (M01)", () => {
@@ -773,7 +808,7 @@ describe("parseRequest fails closed", () => {
     bad.bandKey = "2200m";
     bad.terrainProfileId = null;
     expect(reasonsAt(bad, "terrainProfileId").join()).toMatch(
-      /Every mechanism family that could serve geometry class ground_wave is terrain-dependent/,
+      /Every mechanism family that could serve geometry class ground_wave at 137500 Hz requires a terrain profile identity/,
     );
     const good = structuredClone(bad);
     good.terrainProfileId = "srtm-30m-path-profile-v2";

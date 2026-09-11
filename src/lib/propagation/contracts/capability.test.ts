@@ -4,6 +4,8 @@ import {
   CALIBRATION_REQUIRED_QUANTITIES,
   PREDICTION_QUANTITIES,
   isProtocolCoverage,
+  mandatoryInputsForFamilies,
+  MANDATORY_INPUTS_BY_FAMILY,
   PERMITTED_GEOMETRY_CLASSES,
   permittedRelayKinds,
   protocolBandEnvelope,
@@ -76,7 +78,7 @@ const SECOND_SNR_HEAD = {
   sourceModes: ["offline", "cached_live", "live"],
   bandKeys: ["160m"],
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
-  requiredInputs: ["station_pair", "mode_profile"],
+  requiredInputs: ["station_pair", "mode_profile", "terrain_profile"],
   optionalInputs: [],
   featureSchemaId: "vhf-feature-schema-0.1.0",
   featureHash:
@@ -92,15 +94,29 @@ const secondQuery = {
   frequencyHz: 1840000,
   mechanismFamily: "ground_sky_coherent",
   modeProfileId: "msk144-wsjtx-2.7.0-15s",
+  // A02: ground_sky_coherent cannot run without a terrain profile, so a head
+  // serving it requires one and a request routing to it carries one. The
+  // environment pack is carried for the terrain/atmosphere families.
+  availableInputs: [
+    ...baseQuery.availableInputs,
+    "terrain_profile",
+    "environment_pack",
+    "ephemeris",
+  ],
 } as const;
 
 /**
  * A routable head for `quantity` on a tuple the frozen protocol actually
  * defines, so a test about some other rule is not failed by the coverage gate.
  */
-function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
+function protocolHead(
+  quantity: (typeof PREDICTION_QUANTITIES)[number],
+  pick: (tuple: (typeof PROTOCOL_COVERAGE_TUPLES)[number]) => boolean = () =>
+    true,
+) {
   const tuple = PROTOCOL_COVERAGE_TUPLES.find(
-    (candidateTuple) => candidateTuple.event === quantity,
+    (candidateTuple) =>
+      candidateTuple.event === quantity && pick(candidateTuple),
   );
   if (tuple === undefined) {
     throw new Error(`the protocol defines no ${quantity} row`);
@@ -123,16 +139,21 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   // A02: no display labels, so a test may narrow the range without a label
   // contradicting it.
   head.bandKeys = [];
-  // A21: an orbital geometry is answered from an orbital state, so such a head
-  // must require the ephemeris.
+  // A02/A21: the inputs the row's family cannot run without, plus an ephemeris
+  // for a direct orbital geometry.
+  const mandatory = new Set<string>([
+    ...(head.requiredInputs as string[]),
+    ...mandatoryInputsForFamilies([tuple.mechanism]),
+  ]);
   if (
     (head.geometryClasses as string[]).some(
       (geometryClass) =>
         geometryClass === "earth_space" || geometryClass === "earth_moon_earth",
     )
   ) {
-    head.requiredInputs = [...(head.requiredInputs as string[]), "ephemeris"];
+    mandatory.add("ephemeris");
   }
+  head.requiredInputs = [...mandatory];
   return { head, tuple };
 }
 
@@ -809,6 +830,58 @@ describe("parseCapability fails closed", () => {
     );
   });
 
+  it("rejects a terrain-dependent head that does not require a terrain profile (A02, M11)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    // The fixture's own circuit_support head is ground_sky_coherent, which the
+    // request contract calls meaningless without a profile.
+    const head = (draft.heads as Mutable[])[0];
+    expect(head.mechanismFamilies).toEqual(["ground_sky_coherent"]);
+    head.requiredInputs = [
+      "station_pair",
+      "smoothed_solar_index",
+      "mode_profile",
+    ];
+    expect(reasonsAt(draft, "heads[0].requiredInputs").join()).toMatch(
+      /must require terrain_profile \(A02, M11\)/,
+    );
+  });
+
+  it("requires every mandatory input of every family a routable head advertises (A02, A21, M11)", () => {
+    for (const [family, inputs] of Object.entries(MANDATORY_INPUTS_BY_FAMILY)) {
+      if (inputs.length === 0) continue;
+      const tuple = PROTOCOL_COVERAGE_TUPLES.find(
+        (row) => row.mechanism === family,
+      );
+      if (tuple === undefined) throw new Error(`no row for ${family}`);
+      for (const input of inputs) {
+        const draft = structuredClone(cases.hfPhysics) as Mutable;
+        const { head } = protocolHead(
+          tuple.event,
+          (row) => row.mechanism === family,
+        );
+        head.uncertaintyKind = "none";
+        head.calibrationId = CALIBRATION_REQUIRED_QUANTITIES.includes(
+          tuple.event,
+        )
+          ? "calibration-0.1.0"
+          : null;
+        head.requiredInputs = (head.requiredInputs as string[]).filter(
+          (declared) => declared !== input,
+        );
+        (draft.heads as Mutable[]).push(head);
+        expect({
+          family,
+          input,
+          reasons: reasonsAt(draft, "heads[3].requiredInputs"),
+        }).toMatchObject({
+          family,
+          input,
+          reasons: expect.arrayContaining([expect.stringContaining(input)]),
+        });
+      }
+    }
+  });
+
   it("accepts every routable head in the capability fixtures", () => {
     for (const name of Object.keys(cases)) {
       const outcome = parseCapability(candidate(name));
@@ -970,6 +1043,9 @@ describe("parseCapability fails closed", () => {
       frequencyHz: 1840000,
       horizon: "climatology",
       mechanismFamily: "ground_sky_coherent",
+      // A02: the head's family needs a terrain profile, so the request carries
+      // one; this test is about the receive chains, not the inputs.
+      availableInputs: [...baseQuery.availableInputs, "terrain_profile"],
     } as const;
     expect(capabilityCovers(parsed("hfPhysics"), reciprocal)).toBe(true);
     expect(

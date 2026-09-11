@@ -21,6 +21,7 @@ import {
   permittedRelayKinds,
   protocolCoverageContainsHz,
   protocolRowServedByRange,
+  mandatoryInputsForFamilies,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   protocolCoverageRows,
   RECEIVER_PARTICIPATION,
@@ -229,28 +230,27 @@ const correctionDescriptor = z
  * decide by, so the second declaration is refused rather than ranked (M11).
  */
 /**
- * Whether a head's declared geometry needs an orbital state to be answered at
- * all: a direct earth-space or earth-moon-earth path, or a two-leg relay whose
- * relay body is a spacecraft or the Moon. `PERMITTED_RELAY_KINDS_BY_MECHANISM`
- * makes those the orbital families, and the request contract already requires
- * an orbital relay identity there (A21).
+ * The inputs a routable head cannot be routed without: everything the families
+ * it advertises need (`MANDATORY_INPUTS_BY_FAMILY`), plus an ephemeris for a
+ * direct earth-space or earth-moon-earth geometry, whose third body has to be
+ * located whatever family is named (A21).
  */
-function requiresEphemeris(
-  geometryClasses: readonly GeometryClass[],
-  mechanismFamilies: readonly MechanismFamily[],
-): boolean {
+function mandatoryHeadInputs(head: {
+  geometryClasses: readonly GeometryClass[];
+  mechanismFamilies: readonly MechanismFamily[];
+}): CapabilityInputId[] {
+  const required = new Set<CapabilityInputId>(
+    mandatoryInputsForFamilies(head.mechanismFamilies),
+  );
   if (
-    geometryClasses.some(
+    head.geometryClasses.some(
       (geometryClass) =>
         geometryClass === "earth_space" || geometryClass === "earth_moon_earth",
     )
   ) {
-    return true;
+    required.add("ephemeris");
   }
-  if (!geometryClasses.includes("two_leg_relay")) return false;
-  return mechanismFamilies.some(
-    (mechanism) => mechanism === "satellite" || mechanism === "eme",
-  );
+  return [...required];
 }
 
 function coverageTupleKey(head: {
@@ -392,18 +392,19 @@ export const modelCapabilitySchema = z
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
         );
       }
-      if (
-        requiresEphemeris(head.geometryClasses, head.mechanismFamilies) &&
-        !head.requiredInputs.includes("ephemeris")
-      ) {
-        // A21: an orbital path is where the third body is, and where it is at
-        // the valid time comes from an ephemeris. A head that does not require
-        // one could be routed with no orbital state at all, and would answer
-        // the geometry from nothing (A21, M11).
+      for (const input of mandatoryHeadInputs(head)) {
+        if (head.requiredInputs.includes(input)) continue;
+        // A02/A21/M11: a family that cannot run without an input is not made
+        // runnable by a declaration that forgets to ask for it. Routing reads
+        // `requiredInputs` against the inputs a request actually carries, so a
+        // head that omits one can be dispatched with the input absent and
+        // would answer the physics from nothing.
         reject(
           ctx,
           ["heads", index, "requiredInputs"],
-          "A head on an orbital geometry must require an ephemeris (A21, M11)",
+          input === "ephemeris"
+            ? "A head on an orbital geometry must require an ephemeris (A21, M11)"
+            : `A head advertising ${head.mechanismFamilies.join(", ")} must require ${input} (A02, M11)`,
         );
       }
       for (const mechanism of head.mechanismFamilies) {

@@ -33,6 +33,7 @@ import type {
   ObservedActivityIdentity,
   ObservedActivityProjection,
   PathActivityRecord,
+  UnknownReason,
 } from "@/lib/propagation/radioEvidence/types";
 
 /**
@@ -72,6 +73,22 @@ const ASSUMPTIONS = [
   "network_attribution_is_not_stored_at_path_grain",
 ] as const;
 
+/**
+ * Why a source was not used, per unknown reason.
+ *
+ * A `Record` rather than a chain of guesses: the exclusion reason used to be
+ * inferred from a null aggregation lag, which called every lag-less record an
+ * unreadable hour and so contradicted the head's own reason whenever the read
+ * had simply failed. A new `UnknownReason` now fails to compile until it says
+ * what its provenance entry means.
+ */
+const EXCLUSION_REASONS: Record<UnknownReason, string> = {
+  window_not_aggregated: "window_holds_no_complete_aggregation_hour",
+  aggregate_hour_not_readable: "no_readable_aggregate_hour_in_window",
+  no_receiver_coverage: "no_listening_receiver_in_window",
+  aggregate_read_failed: "aggregate_read_failed",
+};
+
 function evidenceSourceFor(
   activity: PathActivityRecord,
   identity: ObservedActivityIdentity,
@@ -80,7 +97,8 @@ function evidenceSourceFor(
   if (observedIntervalEndAt === null) {
     // No readable hour means no as-issued availability history, which is
     // ineligible by M02. The entry stays in the census, naming why: a source
-    // that was considered and not used is itself provenance.
+    // that was considered and not used is itself provenance, and it says what
+    // the record says rather than what the missing lag hints at.
     return {
       sourceId: OBSERVED_ACTIVITY_COVERAGE_ID,
       sourceVersion: identity.sourceVersion,
@@ -89,7 +107,10 @@ function evidenceSourceFor(
       capturedAt: null,
       ageSeconds: null,
       eligible: false,
-      exclusionReason: "no_readable_aggregate_hour_in_window",
+      exclusionReason:
+        activity.state === "unknown"
+          ? EXCLUSION_REASONS[activity.reason]
+          : EXCLUSION_REASONS.aggregate_hour_not_readable,
     };
   }
   return {
@@ -122,6 +143,13 @@ function latestReadableEnd(activity: PathActivityRecord): string | null {
 /**
  * Project a record onto the contract's `observed_activity` head plus the
  * evidence entry its coverage claim must resolve to.
+ *
+ * A value-bearing head needs two things the UI does not: an hour-aligned
+ * `issuedAt`, so the contract's interval is the span the record answered, and
+ * a wholly readable window, so the count is a total rather than a floor. The
+ * app issues on a five-minute bucket and will usually get `missing_input`
+ * here, which is correct; a future assembler that wants the number chooses an
+ * hour-aligned issuance and gets it.
  */
 export function projectObservedActivityHead(
   activity: PathActivityRecord,
@@ -159,6 +187,26 @@ export function projectObservedActivityHead(
       head: {
         ...base,
         state: { availability: "missing_input", reason: activity.reason },
+      },
+      evidenceSource: evidenceSourceFor(activity, identity),
+    };
+  }
+
+  if (activity.windowEndAt !== issuedAt) {
+    // The contract anchors the value interval on issuance: intervalEndAt is
+    // issuedAt and intervalStartAt is issuedAt minus intervalSeconds. The
+    // record answers over whole aggregation hours, so those two spans agree
+    // only when issuance falls on an hour boundary. An assembler that wants a
+    // value-bearing head chooses an hour-aligned issuedAt; anything else gets
+    // the record's numbers through the record, not through a head that would
+    // be labelling one span with another's bounds.
+    return {
+      head: {
+        ...base,
+        state: {
+          availability: "missing_input",
+          reason: "window_not_aggregated",
+        },
       },
       evidenceSource: evidenceSourceFor(activity, identity),
     };

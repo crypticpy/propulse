@@ -17,7 +17,10 @@ import {
   RESULT_SCHEMA_VERSION,
 } from "@/lib/propagation/contracts/result";
 import { QUANTITY_UNITS } from "@/lib/propagation/contracts/enums";
-import { derivePathActivity } from "@/lib/propagation/radioEvidence/activityRecord";
+import {
+  derivePathActivity,
+  unknownActivity,
+} from "@/lib/propagation/radioEvidence/activityRecord";
 import {
   OBSERVED_ACTIVITY_COVERAGE_ID,
   OBSERVED_ACTIVITY_READER_ID,
@@ -325,5 +328,83 @@ describe("a partial window cannot carry an exact count", () => {
     expect(
       head.state.availability === "available" && head.state.value.intervalEndAt,
     ).toBe("2026-09-11T18:00:00.000Z");
+  });
+});
+
+describe("an unaligned issuance cannot carry the contract interval", () => {
+  it("projects missing_input when issuance is mid-hour", () => {
+    // The record answers over 12:00 to 18:00; the contract's interval is
+    // issuedAt minus intervalSeconds, which here is 12:30 to 18:30. Those are
+    // different spans, and the head may not publish one as the other.
+    const midHour = record({ issuedAt: "2026-09-11T18:30:00Z" });
+    expect(midHour.state).toBe("verified_open");
+
+    const { head } = projectObservedActivityHead(midHour, {
+      ...IDENTITY,
+      readAt: "2026-09-11T18:30:00Z",
+    });
+
+    expect(head.state.availability).toBe("missing_input");
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("window_not_aggregated");
+  });
+
+  it("states the same count when issuance is on the hour", () => {
+    const { head } = projectObservedActivityHead(record(), IDENTITY);
+
+    expect(head.state.availability).toBe("available");
+    expect(
+      head.state.availability === "available" && head.state.value.count,
+    ).toBe(6);
+  });
+});
+
+describe("provenance names the record's own reason", () => {
+  it("does not call a failed read an unreadable hour", () => {
+    const failed = unknownActivity(
+      {
+        band: "20m",
+        txField: "FN",
+        rxField: "IO",
+        issuedAt: ISSUED_AT,
+      },
+      "aggregate_read_failed",
+    );
+
+    const { head, evidenceSource } = projectObservedActivityHead(
+      failed,
+      IDENTITY,
+    );
+
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("aggregate_read_failed");
+    expect(evidenceSource.eligible).toBe(false);
+    // The provenance entry and the head must not disagree about what went
+    // wrong: a request that never returned is not a gap in the ledger.
+    expect(evidenceSource.exclusionReason).toMatch(/read/);
+    expect(evidenceSource.exclusionReason).not.toBe(
+      "no_readable_aggregate_hour_in_window",
+    );
+    expect(parseResult(resultWith(head, [evidenceSource])).ok).toBe(true);
+  });
+
+  it("names a window with no complete hour as such", () => {
+    const tooShort = unknownActivity(
+      {
+        band: "20m",
+        txField: "FN",
+        rxField: "IO",
+        issuedAt: ISSUED_AT,
+      },
+      "window_not_aggregated",
+    );
+
+    const { evidenceSource } = projectObservedActivityHead(tooShort, IDENTITY);
+
+    expect(evidenceSource.exclusionReason).not.toBe(
+      "no_readable_aggregate_hour_in_window",
+    );
   });
 });

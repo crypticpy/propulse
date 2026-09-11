@@ -467,6 +467,36 @@ class CleanCheckoutTests(unittest.TestCase):
                                check=True, env=env)
                 require_clean_checkout(repo)
 
+    def test_clean_filter_cannot_mask_an_edit(self):
+        """A clean filter in .git/info/attributes maps the edited bytes back
+        onto the pinned blob for git status and for a filtered hash (Codex
+        round 14); the raw-bytes comparison must still reject the file."""
+        import subprocess
+        import tempfile
+        from reference.runner import git_env, require_clean_checkout
+
+        env = git_env()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
+            (repo / "source.c").write_text("SAFE\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "pin"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "config", "filter.mask.clean", "sed s/EVIL/SAFE/"],
+                check=True, env=env)
+            (repo / ".git/info/attributes").write_text("source.c filter=mask\n")
+            (repo / "source.c").write_text("EVIL\n")
+            status = subprocess.check_output(
+                ["git", "-C", str(repo), "status", "--porcelain"], text=True, env=env)
+            self.assertEqual(status, "", "the clean filter should hide the edit from status")
+            with self.assertRaisesRegex(RuntimeError, "source.c"):
+                require_clean_checkout(repo)
+            (repo / "source.c").write_text("SAFE\n")
+            require_clean_checkout(repo)
+
     def test_require_revalidates_head_and_cleanliness_when_artifacts_exist(self):
         import subprocess
         import tempfile

@@ -177,10 +177,11 @@ def require_clean_checkout(source: Path) -> None:
 def tracked_content_differences(source: Path) -> list[str]:
     """Tracked paths whose working-tree content differs from the HEAD tree.
 
-    Independent of the index: the HEAD tree comes from ``ls-tree`` and each
-    working file is re-hashed with ``hash-object``, so ``update-index
-    --assume-unchanged`` or ``--skip-worktree`` cannot suppress a difference.
-    A missing file counts as a difference.
+    Independent of the index and of attribute filters: the HEAD tree comes
+    from ``ls-tree`` and each working file's raw bytes are re-hashed with
+    ``hash-object --no-filters``, so ``update-index --assume-unchanged`` or
+    ``--skip-worktree`` cannot suppress a difference and a clean filter
+    cannot mask one. A missing file counts as a difference.
     """
     env = git_env()
     listing = subprocess.check_output(
@@ -218,7 +219,12 @@ def tracked_content_differences(source: Path) -> list[str]:
             differences.append(path)
     if regular:
         hashes = subprocess.check_output(
-            ["git", "-C", str(source), "hash-object", "--stdin-paths"],
+            # --no-filters: hash the bytes the compiler reads. A clean filter
+            # from .git/info/attributes or the global attributes would
+            # otherwise map an edited file back onto the pinned blob (Codex
+            # round 14).
+            ["git", "-C", str(source), "hash-object", "--no-filters",
+             "--stdin-paths"],
             input="\n".join(regular) + "\n",
             text=True,
             env=env,

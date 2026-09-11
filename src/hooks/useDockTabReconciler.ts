@@ -45,11 +45,26 @@
  *      - unstamped (`scope: null`) — the window that made the click: the first
  *        run stamps the scope it observes, which is the value that crosses to
  *        the other window, and the re-render that stamping causes clears it.
- *      - stamped — consumed by the first run whose scope equals the stamped
- *        one. Until then the reconciler holds and never writes.
- *      - expiry, so a click that changes nothing cannot leak: a stamped intent
- *        is held against at most one other scope, and any dock (session)
- *        change drops it. The next genuine scope change then reconciles.
+ *      - stamped — lives for exactly one run in the window that receives it
+ *        (#884 round 14). If that run is a transition onto the stamped scope,
+ *        the click explains the transition and the tab it chose stands;
+ *        anything else discards the intent unconsumed and reconciles normally.
+ *        Nothing is held across runs, so an intent that never had a paired
+ *        scope change cannot wait around and then excuse an unrelated
+ *        transition that happens to land on the same scope.
+ *      - the transport guarantees the pair arrives together: one publish is
+ *        one message carrying every domain it touched, so the receiver applies
+ *        the tab, the intent and the scope change in a single task and runs
+ *        this effect once at the end of it
+ *        (`useOperationalWorkspaceSync`, channel v5).
+ *      - as it stands, a *remote* tab click can never move the receiver's
+ *        scope at all: the click writes `dockTabIntent`, the dock tab,
+ *        `workspaceOpen` and the posture, and of those only the dock tab is
+ *        synced — `workspaceOpen` is per-window since round 12, and none of
+ *        `manualScope`, the contest session or the QSO draft is touched. The
+ *        stamped intent is kept because it costs one field and is the only
+ *        thing that would cover a future click that does move a synced input;
+ *        the paired-adoption path is covered by a test so that stays true.
  * 2. Otherwise it acts only when the resolved scope or the dock it writes to
  *    actually changed. Both are recorded on every run — including a run the
  *    posture gate rejects — so a later posture change cannot replay a stale
@@ -92,9 +107,6 @@ export function useDockTabReconciler(): void {
   const clearDockTabIntent = useContestUIEphemeralStore(
     (s) => s.clearDockTabIntent,
   );
-  // The one scope a stamped intent has already been held against, so it cannot
-  // outlive the change it belongs to.
-  const heldAgainst = useRef<MapDataScope | null>(null);
   const scopeReconcileRequestId = useContestUIEphemeralStore(
     (s) => s.scopeReconcileRequestId,
   );
@@ -108,37 +120,33 @@ export function useDockTabReconciler(): void {
   );
 
   useEffect(() => {
-    if (dockTabIntent !== null) {
-      const droppedByDock = reconciled.current?.dockKey !== dockKey;
-      if (dockTabIntent.scope === null) {
-        // This window made the click: stamp the scope the click produced. The
-        // set re-renders, and the next run sees a matching scope and clears.
-        stampDockTabIntent(scope);
-        reconciled.current = { scope, dockKey };
-        heldAgainst.current = null;
-        return;
-      }
-      if (dockTabIntent.scope === scope) {
-        clearDockTabIntent();
-        heldAgainst.current = null;
-        reconciled.current = { scope, dockKey };
-        return;
-      }
-      const alreadyHeld =
-        heldAgainst.current !== null && heldAgainst.current !== scope;
-      if (!droppedByDock && !alreadyHeld) {
-        // The paired scope change has not arrived yet (a secondary window gets
-        // the tab and the scope in two messages). Hold without writing.
-        heldAgainst.current = scope;
-        reconciled.current = { scope, dockKey };
-        return;
-      }
-      // Expired: the pair never came. Release and reconcile normally.
-      clearDockTabIntent();
-      heldAgainst.current = null;
-    }
     const previous = reconciled.current;
     reconciled.current = { scope, dockKey };
+    if (dockTabIntent !== null) {
+      if (dockTabIntent.scope === null) {
+        // This window made the click: stamp the scope the click produced (the
+        // click's own `setWorkspaceOpen` is already in this render), and stand
+        // down. The stamp is what crosses to the other window, and the
+        // re-render it causes gives this one its next run.
+        stampDockTabIntent(scope);
+        return;
+      }
+      // A stamped intent lives until this window's next run and no longer
+      // (#884 round 14). Holding it across runs made an intent that never had
+      // a paired scope change — a click in a popout whose Log scope comes from
+      // its own `workspaceOpen`, which is per-window and not on the wire —
+      // wait indefinitely, and then excuse the next genuine transition that
+      // happened to land on the same scope (a rig connecting).
+      clearDockTabIntent();
+      const movedToTheClickedScope =
+        previous !== null &&
+        (previous.scope !== scope || previous.dockKey !== dockKey) &&
+        dockTabIntent.scope === scope;
+      // The click explains this transition, so leave the tab it chose alone.
+      // Anything else falls through and reconciles normally: an intent is
+      // never evidence about a run it did not cause.
+      if (movedToTheClickedScope) return;
+    }
     if (previous === null) {
       // First run in this window: adopt the persisted tab as it stands and
       // write nothing (#884 round 13). A window's startup scope is its own —

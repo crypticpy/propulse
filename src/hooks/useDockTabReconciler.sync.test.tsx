@@ -30,7 +30,11 @@ vi.mock("@/components/ops/OpsConsole", () => ({
 vi.mock("@/hooks/useOperatingSync", () => ({ useOperatingSync: () => {} }));
 vi.mock("@/hooks/useRigBridgeSync", () => ({ useRigBridgeSync: () => {} }));
 
-type Message = { kind: string; domain?: string; state?: unknown };
+type Message = {
+  kind: string;
+  revision?: number;
+  domains?: Record<string, unknown>;
+};
 
 class TestChannel {
   static instances: TestChannel[] = [];
@@ -77,14 +81,16 @@ function dockTab(): string | undefined {
 
 let nextRevision = 100;
 
-/** A snapshot message as another window would put it on the channel. */
-function snapshotMessage(domain: string, state: unknown): Message {
+/**
+ * A snapshot message as another window would put it on the channel: one
+ * message per publish, carrying every domain that changed (#884 round 14).
+ */
+function snapshotMessage(domains: Record<string, unknown>): Message {
   return {
     kind: "snapshot",
     sender: "other-window",
-    domain,
     revision: nextRevision++,
-    state,
+    domains,
   } as Message & { sender: string; revision: number };
 }
 
@@ -155,27 +161,23 @@ describe("dock tab across the /map/ops popout", () => {
     });
     await flush();
 
-    // The window publishes an arrival snapshot on mount, so take the messages
-    // this click produced: the last of each domain that carries the payload.
-    const published = messagesOf(sender).filter((m) => m.kind === "snapshot");
-    const contestUi = published
+    // The window publishes an arrival snapshot on mount, so take the batch
+    // this click produced: the last one carrying the intent.
+    const batch = messagesOf(sender)
       .filter(
         (m) =>
-          m.domain === "contestUi" &&
-          (m.state as { dockTabIntent?: unknown } | undefined)?.dockTabIntent !=
-            null,
+          m.kind === "snapshot" &&
+          (m.domains?.contestUi as { dockTabIntent?: unknown } | undefined)
+            ?.dockTabIntent != null,
       )
       .at(-1);
-    const operational = published
-      .filter((m) => m.domain === "operational")
-      .at(-1);
-    expect(contestUi).toBeDefined();
-    expect(operational).toBeDefined();
-    // The clicking window stamps the scope its own click produced, and that is
-    // what crosses the channel with the tab.
-    expect(contestUi?.state).toMatchObject({
+    expect(batch).toBeDefined();
+    // One message, both domains: the tab, the intent stamped with the scope
+    // the click produced, and the scope change itself.
+    expect(batch?.domains?.contestUi).toMatchObject({
       dockTabIntent: { tab: "contest", scope: "log" },
     });
+    expect(batch?.domains?.operational).toMatchObject({ manualScope: "log" });
 
     // --- Receiving window. The stores are module-global in one test process,
     // so the sender is unmounted first: what crosses to the receiver is the
@@ -191,24 +193,15 @@ describe("dock tab across the /map/ops popout", () => {
     await flush();
     const receiver = TestChannel.instances.at(-1) as TestChannel;
 
-    // Event one: the tab plus the intent. The receiver's scope is still
-    // Observe, so the intent is held, not consumed, and nothing is written.
+    // One event, one reconciler run: the run sees the transition to Log and
+    // the intent that explains it together, so it adopts the clicked tab and
+    // the intent dies with the run (#884 round 14).
     await act(async () => {
-      deliver(receiver, contestUi);
+      deliver(receiver, batch);
       await Promise.resolve();
     });
-    expect(dockTab()).toBe("contest");
-    expect(useContestUIEphemeralStore.getState().dockTabIntent).toMatchObject({
-      tab: "contest",
-      scope: "log",
-    });
+    for (let turn = 0; turn < 3; turn += 1) await flush();
 
-    // Event two: the scope change that moves this window to Log. The intent
-    // matches the new scope, so it is consumed here and the tab survives.
-    await act(async () => {
-      deliver(receiver, operational);
-      await Promise.resolve();
-    });
     expect(useMapOperationalStore.getState().manualScope).toBe("log");
     expect(dockTab()).toBe("contest");
     expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
@@ -279,20 +272,13 @@ describe("dock tab across the /map/ops popout", () => {
     await act(async () => {
       deliver(
         receiver,
-        snapshotMessage("contestUi", {
-          dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-          ...CONTEST_UI_MAPS,
-          dockTabIntent: { tab: "contest", scope: "log" },
-        }),
-      );
-      await Promise.resolve();
-    });
-    await act(async () => {
-      deliver(
-        receiver,
-        snapshotMessage("operational", {
-          manualScope: "log",
-          selectedReport: null,
+        snapshotMessage({
+          contestUi: {
+            dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+            ...CONTEST_UI_MAPS,
+            dockTabIntent: { tab: "contest", scope: "log" },
+          },
+          operational: { manualScope: "log", selectedReport: null },
         }),
       );
       await Promise.resolve();
@@ -300,14 +286,14 @@ describe("dock tab across the /map/ops popout", () => {
     // Several microtask turns: a ping-pong would keep producing messages.
     for (let turn = 0; turn < 5; turn += 1) await flush();
 
-    // The only thing this window may publish is the explicit-scope marker it
-    // recorded when it consumed the intent (#884 round 10), and never the
-    // intent itself. Nothing else, and nothing that keeps going.
+    // Whatever this window publishes, it never publishes the intent back.
     const replies = snapshotsSince(receiver, before);
     expect(replies.length).toBeLessThanOrEqual(1);
     for (const reply of replies) {
-      expect(reply.domain).toBe("contestUi");
-      expect(reply.state).toMatchObject({ dockTabIntent: null });
+      const contestUi = (reply.domains?.contestUi ?? {
+        dockTabIntent: null,
+      }) as Record<string, unknown>;
+      expect(contestUi).toMatchObject({ dockTabIntent: null });
     }
     expect(dockTab()).toBe("contest");
     expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
@@ -323,10 +309,12 @@ describe("dock tab across the /map/ops popout", () => {
     });
     await flush();
     const echoed = snapshotsSince(receiver, beforeLocal).filter(
-      (m) => m.domain === "contestUi",
+      (m) => m.domains?.contestUi !== undefined,
     );
     expect(echoed).toHaveLength(1);
-    expect(echoed[0]?.state).toMatchObject({ dockTabIntent: null });
+    expect(echoed[0]?.domains?.contestUi).toMatchObject({
+      dockTabIntent: null,
+    });
   });
 
   // #884 round 8 (Codex P2, useMapOperationalContext.ts:392): a peer on the
@@ -346,9 +334,11 @@ describe("dock tab across the /map/ops popout", () => {
     await act(async () => {
       deliver(
         receiver,
-        snapshotMessage("contestUi", {
-          dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
-          ...CONTEST_UI_MAPS,
+        snapshotMessage({
+          contestUi: {
+            dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+            ...CONTEST_UI_MAPS,
+          },
         }),
       );
       await Promise.resolve();
@@ -372,7 +362,7 @@ describe("dock tab across the /map/ops popout", () => {
   // payload change that would mean something different to an existing receiver
   // has to bump it consciously.
   it("talks on the versioned workspace channel", async () => {
-    expect(WORKSPACE_CHANNEL).toBe("propulse-operating-workspace-v4");
+    expect(WORKSPACE_CHANNEL).toBe("propulse-operating-workspace-v5");
     render(<Window />);
     await flush();
     const channel = TestChannel.instances.at(-1) as TestChannel;
@@ -533,6 +523,88 @@ describe("dock tab across the /map/ops popout", () => {
     expect(snapshotsSince(reloaded, 0)).toEqual([]);
   });
 
+  // #884 round 14 (Codex, useDockTabReconciler.ts:125): the popout is at Log
+  // because of its own `workspaceOpen`, which is per-window and not on the wire
+  // (#884 round 12). A tab click there therefore sends an intent stamped `log`
+  // with no scope change at all for the collapsed main window at Observe. The
+  // old rule held that intent until some later run matched it, so when a rig
+  // connected months of clicks later the equality branch mistook the genuine
+  // Observe -> Log transition for the click's paired update and skipped
+  // reconciliation. An intent now lives exactly one run.
+  it("discards an intent that no scope change explains, and still reconciles later", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    render(<Window />);
+    await flush();
+    const main = TestChannel.instances.at(-1) as TestChannel;
+
+    // The popout's click: the tab and a Log-stamped intent, no operational
+    // payload, because nothing the click touched is synced.
+    await act(async () => {
+      deliver(
+        main,
+        snapshotMessage({
+          contestUi: {
+            dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+            ...CONTEST_UI_MAPS,
+            dockTabIntent: { tab: "contest", scope: "log" },
+          },
+        }),
+      );
+      await Promise.resolve();
+    });
+    for (let turn = 0; turn < 3; turn += 1) await flush();
+
+    // This window did not transition, so it wrote nothing — and the intent is
+    // gone rather than waiting for a match it will never legitimately get.
+    expect(dockTab()).toBe("contest");
+    expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
+
+    // Later, and for an unrelated reason, CAT connects and this window really
+    // does move to Log. With no stale intent to excuse it, the transition
+    // reconciles as any other would.
+    await act(async () => {
+      useRigStore.setState({ connected: true });
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(dockTab()).toBe("log");
+  });
+
+  // The other half of the one-run lifetime: an intent that arrives on a run
+  // which is not a transition at all is discarded just the same, and the run
+  // itself writes nothing because nothing moved.
+  it("discards an intent delivered on a run that is not a transition", async () => {
+    useRigStore.setState({ connected: true });
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    render(<Window />);
+    await flush();
+    const main = TestChannel.instances.at(-1) as TestChannel;
+
+    await act(async () => {
+      deliver(
+        main,
+        snapshotMessage({
+          contestUi: {
+            dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+            ...CONTEST_UI_MAPS,
+            // Stamped with the scope this window is already sitting at.
+            dockTabIntent: { tab: "contest", scope: "log" },
+          },
+        }),
+      );
+      await Promise.resolve();
+    });
+    for (let turn = 0; turn < 3; turn += 1) await flush();
+
+    expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
+    expect(dockTab()).toBe("contest");
+  });
+
   // #884 round 12 (Codex, PropSphereOpsWindow.tsx:31): the popout applies its
   // startup state before the sync subscription exists, so that write is never
   // published. It then sends the startup request and the main window — whose
@@ -555,10 +627,12 @@ describe("dock tab across the /map/ops popout", () => {
     await act(async () => {
       deliver(
         popout,
-        snapshotMessage("operational", {
-          manualScope: null,
-          workspaceOpen: false,
-          selectedReport: null,
+        snapshotMessage({
+          operational: {
+            manualScope: null,
+            workspaceOpen: false,
+            selectedReport: null,
+          },
         }),
       );
       await Promise.resolve();
@@ -584,10 +658,12 @@ describe("dock tab across the /map/ops popout", () => {
     await act(async () => {
       deliver(
         main,
-        snapshotMessage("operational", {
-          manualScope: "contest",
-          workspaceOpen: false,
-          selectedReport: null,
+        snapshotMessage({
+          operational: {
+            manualScope: "contest",
+            workspaceOpen: false,
+            selectedReport: null,
+          },
         }),
       );
       await Promise.resolve();

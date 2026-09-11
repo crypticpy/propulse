@@ -148,8 +148,10 @@ type WorkspaceSnapshot = {
      * (#884 round 6). Without it the receiving window sees only the tab plus
      * the scope change the click caused, has no intent, and reconciles the
      * shared tab straight back. It carries the scope it is paired with, so the
-     * receiver can hold it until the separate `operational` message lands
-     * (#884 round 7). Ephemeral in both windows, never persisted.
+     * receiver can tell the transition the click explains from any other one
+     * (#884 round 7). Since round 14 it rides in the same message as that
+     * scope change and lives only until the receiver's next reconciler run.
+     * Ephemeral in both windows, never persisted.
      */
     dockTabIntent: DockTabIntent | null;
   };
@@ -171,9 +173,15 @@ type WorkspaceMessage =
   | {
       kind: "snapshot";
       sender: string;
-      domain: WorkspaceDomain;
       revision: number;
-      state: WorkspaceSnapshot[WorkspaceDomain];
+      /**
+       * Every domain one publish produced, in one message (#884 round 14). The
+       * domains of a single change used to go out as separate messages, and a
+       * BroadcastChannel delivers each in its own task — so the receiver ran
+       * its effects between them and saw the dock tab before the scope change
+       * that explains it. One message is one task is one effect pass.
+       */
+      domains: Partial<WorkspaceSnapshot>;
     };
 
 /**
@@ -192,7 +200,9 @@ type WorkspaceMessage =
  * reload restores; that is cheaper than capability negotiation, and far cheaper
  * than a peer undoing the operator's choice. v4 dropped `workspaceOpen` (it is
  * per-window, #884 round 12) and, with it, any field a v3 receiver would act on
- * differently.
+ * differently. v5 replaced the per-domain message with one batched message per
+ * publish (#884 round 14): a v4 receiver would find neither `domain` nor
+ * `state` and silently drop every update.
  *
  * This is the only wire that carries `contestUi` or the dock-tab intent. The
  * other BroadcastChannels are separate protocols with their own versions:
@@ -201,7 +211,7 @@ type WorkspaceMessage =
  * `propulse-operating-monitor-v1` (`useOperatingMonitor`) and
  * `propulse-contest-events-v1` (`contestEventBus`). None of them changed here.
  */
-export const WORKSPACE_CHANNEL = "propulse-operating-workspace-v4";
+export const WORKSPACE_CHANNEL = "propulse-operating-workspace-v5";
 
 /**
  * Only a *stamped* intent means anything to another window: an unstamped one
@@ -266,10 +276,7 @@ export function useOperationalWorkspaceSync(): void {
     // intent so the outgoing message still carries it to the other window
     // (#884 rounds 6 and 7).
     let pendingDockTabIntent: DockTabIntent | null = null;
-    const receivedRevisions = new Map<
-      string,
-      Map<WorkspaceDomain, number>
-    >();
+    const receivedRevisions = new Map<string, number>();
 
     const publish = (...domains: WorkspaceDomain[]) => {
       if (disposed || applyingRemote) return;
@@ -291,22 +298,21 @@ export function useOperationalWorkspaceSync(): void {
           };
           pendingDockTabIntent = null;
         }
-        // `contestUi` carries the explicit dock-tab marker, so it has to be
-        // published before `operational` — the receiving window must have the
-        // marker before it sees the workspace change that moves its scope.
-        const domainsToPublish = [...pendingDomains].sort((a, b) =>
-          a === "contestUi" ? -1 : b === "contestUi" ? 1 : 0,
-        );
-        pendingDomains.clear();
-        for (const domain of domainsToPublish) {
-          channel.postMessage({
-            kind: "snapshot",
-            sender,
-            domain,
-            revision: ++nextRevision,
-            state: snapshot[domain],
-          } satisfies WorkspaceMessage);
+        // One message for the whole batch: the receiver must apply the dock
+        // tab, the intent that explains it and the scope change it is paired
+        // with in a single task, or its reconciler runs in between and judges
+        // the tab against a scope that has not moved yet (#884 round 14).
+        const domains: Partial<WorkspaceSnapshot> = {};
+        for (const domain of pendingDomains) {
+          domains[domain] = snapshot[domain] as never;
         }
+        pendingDomains.clear();
+        channel.postMessage({
+          kind: "snapshot",
+          sender,
+          revision: ++nextRevision,
+          domains,
+        } satisfies WorkspaceMessage);
       });
     };
 
@@ -395,68 +401,64 @@ export function useOperationalWorkspaceSync(): void {
       }
       if (
         message.kind !== "snapshot" ||
-        !WORKSPACE_DOMAINS.includes(message.domain) ||
         !Number.isFinite(message.revision) ||
-        !message.state
+        !message.domains
       ) {
         return;
       }
 
-      const senderRevisions =
-        receivedRevisions.get(message.sender) ??
-        new Map<WorkspaceDomain, number>();
-      const receivedRevision = senderRevisions.get(message.domain) ?? -1;
-      if (message.revision <= receivedRevision) return;
-      senderRevisions.set(message.domain, message.revision);
-      receivedRevisions.set(message.sender, senderRevisions);
+      // Revisions are monotonic per sender and a batch carries everything that
+      // sender had pending, so one counter per sender is enough.
+      const lastRevision = receivedRevisions.get(message.sender) ?? -1;
+      if (message.revision <= lastRevision) return;
+      receivedRevisions.set(message.sender, message.revision);
 
       applyingRemote = true;
       try {
-        // Apply one domain at a time so editing a QSO draft can never replay a
-        // stale contest session, target, or UI snapshot from another window.
-        switch (message.domain) {
-          case "operational":
-            // Mixed-version windows are the normal state during a deploy, so
-            // every field is validated before it is stored (#884 round 8).
-            useMapOperationalStore.setState(
-              normalizeOperationalState(message.state),
-            );
-            break;
-          case "qso":
-            useQSOStore.setState(message.state as WorkspaceSnapshot["qso"]);
-            break;
-          case "map":
-            useMapStore.setState(message.state as WorkspaceSnapshot["map"]);
-            break;
-          case "dx":
-            useDXStore.setState(message.state as WorkspaceSnapshot["dx"]);
-            break;
-          case "contest":
-            useContestStore.setState(
-              message.state as WorkspaceSnapshot["contest"],
-            );
-            break;
-          case "contestUi": {
-            // A window on a bundle that predates the intent sends a payload
-            // without the field at all: `normalizeDockTabIntent` turns that
-            // (and any other malformed marker) into null rather than storing
-            // an `undefined` the reconciler would dereference (#884 round 8).
-            const intent = normalizeDockTabIntent(
-              (message.state as Record<string, unknown>).dockTabIntent,
-            );
-            // Set the intent first: the reconciler in this window must see it
-            // on the same run that sees the tab it excuses, and it holds there
-            // until the paired `operational` message moves the scope. A null
-            // never clears a locally held intent — the sending window clears
-            // its own copy as soon as it consumes it, and that later message
-            // would otherwise strip the intent here before the paired
-            // `operational` message lands (#884 round 7). The local expiry
-            // rule in useDockTabReconciler is the only thing that releases it.
-            if (intent !== null) {
-              useContestUIEphemeralStore.setState({ dockTabIntent: intent });
+        // Apply in a fixed order inside the one task, so editing a QSO draft
+        // can never replay a stale contest session, target, or UI snapshot
+        // from another window, and so the dock tab and the intent that
+        // explains it land before the reconciler's single run at the end.
+        for (const domain of WORKSPACE_DOMAINS) {
+          const state = message.domains[domain];
+          if (state === undefined) continue;
+          switch (domain) {
+            case "operational":
+              // Mixed-version windows are the normal state during a deploy, so
+              // every field is validated before it is stored (#884 round 8).
+              useMapOperationalStore.setState(normalizeOperationalState(state));
+              break;
+            case "qso":
+              useQSOStore.setState(state as WorkspaceSnapshot["qso"]);
+              break;
+            case "map":
+              useMapStore.setState(state as WorkspaceSnapshot["map"]);
+              break;
+            case "dx":
+              useDXStore.setState(state as WorkspaceSnapshot["dx"]);
+              break;
+            case "contest":
+              useContestStore.setState(state as WorkspaceSnapshot["contest"]);
+              break;
+            case "contestUi": {
+              // A window on a bundle that predates the intent sends a payload
+              // without the field at all: `normalizeDockTabIntent` turns that
+              // (and any other malformed value) into null rather than storing
+              // an `undefined` the reconciler would dereference (#884 r8).
+              const intent = normalizeDockTabIntent(
+                (state as Record<string, unknown>).dockTabIntent,
+              );
+              // A null never clears a locally held intent: the sending window
+              // clears its own copy as soon as it consumes it, and that later
+              // message would otherwise strip an intent this window has not
+              // had a run to act on yet (#884 round 7). The reconciler's own
+              // one-run lifetime is the only thing that releases it.
+              if (intent !== null) {
+                useContestUIEphemeralStore.setState({ dockTabIntent: intent });
+              }
+              useContestUIStore.setState(normalizeContestUiState(state));
+              break;
             }
-            useContestUIStore.setState(normalizeContestUiState(message.state));
-            break;
           }
         }
       } finally {

@@ -54,9 +54,12 @@ describe("operational workspace synchronization cleanup", () => {
     const view = render(<Harness />);
     await act(async () => { await Promise.resolve(); });
     const [channel] = TestChannel.instances;
+    // One batched message per publish (#884 round 14).
     expect(channel.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-      kind: "snapshot", domain: "operational",
-      state: expect.objectContaining({ manualScope: "log" }),
+      kind: "snapshot",
+      domains: expect.objectContaining({
+        operational: expect.objectContaining({ manualScope: "log" }),
+      }),
     }));
     view.unmount();
   });

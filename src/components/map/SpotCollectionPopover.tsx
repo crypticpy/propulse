@@ -20,8 +20,10 @@ import {
   deriveWallVisibleSpotCount,
   readRootFontPx,
   resolveSpotCollectionPortalElement,
+  mergeMeasuredRowHeights,
   resolveWallRowHeights,
   ROOT_FONT_PX_DEFAULT,
+  spotRowKey,
 } from "./spotCollectionPopoverLayout";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
@@ -99,7 +101,11 @@ export function SpotCollectionPopover({
   // The rem budgets are only an estimate: the badge line is `flex-wrap`, so a
   // clamped width or a large text scale makes a row taller than any
   // single-line formula predicts (#879 review round 4).
-  const [measuredRowHeights, setMeasuredRowHeights] = useState<number[]>([]);
+  // Keyed by `spotRowKey`, never by render index, and retained for the whole
+  // popover session: see `resolveWallRowHeights` (#879 review round 5).
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<
+    Record<string, number>
+  >({});
   const [layoutEpoch, setLayoutEpoch] = useState(0);
   // The wall row budgets are rem, so the cap has to know the real root font
   // size: the text-scale control takes it from 14.4px to 22px, and a 16px
@@ -194,30 +200,53 @@ export function SpotCollectionPopover({
     : sortedSpots;
   const hiddenSpotCount = sortedSpots.length - visibleSpots.length;
 
+  // Every row's identity, in collection order. The same strings key the
+  // rendered rows, the measurement record and the height resolution, so a
+  // measurement can never be attributed to a different spot.
+  const wallRowKeys = useMemo(
+    () => sortedSpots.map((spot, index) => spotRowKey(spot, index)),
+    [sortedSpots],
+  );
+
   // Measured after paint, inside the same layout epoch that placed the
   // popover: `offsetHeight` of every rendered row. jsdom (and any pre-layout
   // pass) reports 0, which `resolveWallRowHeights` reads as "not measured".
+  // The pass MERGES into the retained record rather than replacing it:
+  // replacing it with only the rendered rows threw away the boundary row's
+  // height every time it was capped out, so it was re-estimated short, came
+  // back, measured tall, and the cap oscillated (#879 review round 5).
   useLayoutEffect(() => {
     if (!visible || !isWallCanvas) return;
     const rows = wallListRef.current?.querySelectorAll<HTMLElement>(
       "[data-spot-row]",
     );
     if (!rows) return;
-    const next = Array.from(rows, (row) => row.offsetHeight);
+    const measured: Record<string, number> = {};
+    for (const row of Array.from(rows)) {
+      const key = row.dataset.spotRow;
+      if (key) measured[key] = row.offsetHeight;
+    }
+    const liveKeys = new Set(wallRowKeys);
     setMeasuredRowHeights((previous) =>
-      previous.length === next.length &&
-      previous.every((height, index) => height === next[index])
-        ? previous
-        : next,
+      mergeMeasuredRowHeights(previous, measured, liveKeys),
     );
   }, [
     isWallCanvas,
     layoutEpoch,
     rootFontPx,
-    sortedSpots,
     visible,
     visibleSpots.length,
+    wallRowKeys,
   ]);
+
+  // The session owns the measurements: closing the popover drops them so the
+  // next open starts from the estimate again.
+  useEffect(() => {
+    if (visible) return;
+    setMeasuredRowHeights((previous) =>
+      Object.keys(previous).length === 0 ? previous : {},
+    );
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -367,9 +396,9 @@ export function SpotCollectionPopover({
             <button
               type="button"
               ref={index === 0 ? firstSpotRef : undefined}
-              key={spot.id || `${spot.dx}-${spot.frequency}-${index}`}
+              key={wallRowKeys[index]}
               onClick={() => onSpotSelect(spot)}
-              data-spot-row=""
+              data-spot-row={wallRowKeys[index]}
               className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"
               aria-label={`Select ${spot.dx} and view details`}
             >

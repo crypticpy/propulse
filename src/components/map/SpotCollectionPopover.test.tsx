@@ -23,6 +23,7 @@ import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import {
+  computeSpotCollectionPopoverLayout,
   ROOT_FONT_PX_DEFAULT,
   SPOT_COLLECTION_POPOVER_CHROME_REM,
   SPOT_COLLECTION_WALL_DETAIL_ROW_REM,
@@ -469,6 +470,70 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         expect(rows.length).toBeLessThan(4);
         expect(rows.length).toBeGreaterThan(0);
       } finally {
+        measured.mockRestore();
+        host.remove();
+      }
+    });
+
+    it("settles the cap in two passes when the boundary row wraps (#879 review round 5)", async () => {
+      // The reported loop: five short rows and a sixth whose badges wrap.
+      // Measuring only the rendered rows and REPLACING the measurement array
+      // threw the sixth row's height away the moment the cap dropped it, so
+      // it was re-estimated short, came back, measured tall, and the count
+      // flipped 6/5/6/5 until React's max update depth. Measurements are
+      // keyed by spot identity and retained, so the tall row stays known.
+      const host = makeHost(400, 600);
+      const { maxHeight } = computeSpotCollectionPopoverLayout(
+        { x: 100, y: 300 },
+        host,
+        host,
+      );
+      const listBudget = maxHeight - SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
+      // Six short rows fit; the sixth measured tall never does.
+      const SHORT = Math.floor((listBudget - 40) / 6);
+      const TALL = listBudget;
+      const measured = vi
+        .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          const key = this.dataset.spotRow;
+          if (!key) return 0;
+          return key === "spot-5" ? TALL : SHORT;
+        });
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        render(
+          <SpotCollectionPopover
+            visible
+            isWallCanvas
+            position={{ x: 100, y: 300 }}
+            title="Test collection"
+            spots={makeSpots(6)}
+            portalTarget={host}
+            onClose={() => {}}
+            onSpotSelect={() => {}}
+          />,
+        );
+
+        const rowCount = () =>
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length;
+        await vi.waitFor(() => expect(rowCount()).toBe(5));
+
+        // Settled: further effect flushes must not move it back up, which is
+        // what losing the tall row's measurement did.
+        const counts = [rowCount()];
+        for (let tick = 0; tick < 4; tick += 1) {
+          await Promise.resolve();
+          counts.push(rowCount());
+        }
+        expect(counts).toEqual([5, 5, 5, 5, 5]);
+        expect(
+          errors.mock.calls.some((call) =>
+            String(call[0]).includes("Maximum update depth"),
+          ),
+        ).toBe(false);
+      } finally {
+        errors.mockRestore();
         measured.mockRestore();
         host.remove();
       }

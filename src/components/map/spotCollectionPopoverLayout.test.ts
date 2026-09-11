@@ -3,10 +3,12 @@ import {
   computeSpotCollectionPopoverLayout,
   deriveWallVisibleSpotCount,
   EDGE_PADDING,
+  mergeMeasuredRowHeights,
   resolveSpotCollectionPortalElement,
   readRootFontPx,
   resolveWallRowHeights,
   ROOT_FONT_PX_DEFAULT,
+  spotRowKey,
   SPOT_COLLECTION_POPOVER_CHROME_REM,
   SPOT_COLLECTION_WALL_DETAIL_ROW_REM,
   SPOT_COLLECTION_WALL_MORE_ROW_REM,
@@ -236,19 +238,35 @@ describe("wall row budgets follow the root font size (#879 review round 3)", () 
 });
 
 describe("measured row heights beat the estimate (#879 review round 4)", () => {
-  const spots = Array.from({ length: 40 }, () => ({ dxGrid: "DM79" }));
+  const spots = Array.from({ length: 40 }, (_unused, index) => ({
+    id: `spot-${index}`,
+    dxGrid: "DM79",
+  }));
   const maxHeight = 520;
+
+  /* Measurements arrive keyed by spot identity; the helper spells the first
+   * `count` rows, which is what a render pass can measure. */
+  const measureRows = (
+    rows: readonly { id?: string | null }[],
+    count: number,
+    height: number,
+  ): Record<string, number> =>
+    Object.fromEntries(
+      rows
+        .slice(0, count)
+        .map((spot, index) => [spotRowKey(spot, index), height]),
+    );
 
   it("reduces the count when the rendered rows are taller than the estimate", () => {
     const estimated = deriveWallVisibleSpotCount(
       maxHeight,
-      resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT),
+      resolveWallRowHeights(spots, {}, ROOT_FONT_PX_DEFAULT),
       ROOT_FONT_PX_DEFAULT,
     );
     // The badge line wrapped: every rendered row measures taller than the
     // pre-paint estimate, so fewer rows fit.
     const taller = wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT) + 24;
-    const measured = Array.from({ length: estimated }, () => taller);
+    const measured = measureRows(spots, estimated, taller);
     const withMeasurements = deriveWallVisibleSpotCount(
       maxHeight,
       resolveWallRowHeights(spots, measured, ROOT_FONT_PX_DEFAULT),
@@ -260,7 +278,7 @@ describe("measured row heights beat the estimate (#879 review round 4)", () => {
 
   it("never accumulates past the budget with measured heights", () => {
     const taller = 96;
-    let heights = resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT);
+    let heights = resolveWallRowHeights(spots, {}, ROOT_FONT_PX_DEFAULT);
     let visible = deriveWallVisibleSpotCount(
       maxHeight,
       heights,
@@ -269,7 +287,7 @@ describe("measured row heights beat the estimate (#879 review round 4)", () => {
     // Two measure/derive passes, the way the layout effect re-runs when the
     // rendered row count changes.
     for (let pass = 0; pass < 2; pass += 1) {
-      const measured = Array.from({ length: visible }, () => taller);
+      const measured = measureRows(spots, visible, taller);
       heights = resolveWallRowHeights(spots, measured, ROOT_FONT_PX_DEFAULT);
       visible = deriveWallVisibleSpotCount(
         maxHeight,
@@ -286,10 +304,15 @@ describe("measured row heights beat the estimate (#879 review round 4)", () => {
   });
 
   it("gives an unmeasured row the tallest measured height of its own kind", () => {
-    const mixed = [{ dxGrid: "DM79" }, {}, { dxGrid: "DM79" }, {}];
+    const mixed = [
+      { id: "a", dxGrid: "DM79" },
+      { id: "b" },
+      { id: "c", dxGrid: "DM79" },
+      { id: "d" },
+    ];
     const heights = resolveWallRowHeights(
       mixed,
-      [90, 60],
+      { a: 90, b: 60 },
       ROOT_FONT_PX_DEFAULT,
     );
 
@@ -297,13 +320,125 @@ describe("measured row heights beat the estimate (#879 review round 4)", () => {
   });
 
   it("falls back to the estimate only while nothing is measured", () => {
-    expect(resolveWallRowHeights(spots, [], ROOT_FONT_PX_DEFAULT)[0]).toBe(
+    expect(resolveWallRowHeights(spots, {}, ROOT_FONT_PX_DEFAULT)[0]).toBe(
       wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT),
     );
     // jsdom and any pre-layout pass report 0; that is "not measured", not
     // "zero tall".
-    expect(resolveWallRowHeights(spots, [0, 0], ROOT_FONT_PX_DEFAULT)[0]).toBe(
+    expect(
+      resolveWallRowHeights(
+        spots,
+        { "spot-0": 0, "spot-1": 0 },
+        ROOT_FONT_PX_DEFAULT,
+      )[0],
+    ).toBe(
       wallRowHeight(spots[0], ROOT_FONT_PX_DEFAULT),
+    );
+  });
+});
+
+describe("retained measurements converge (#879 review round 5)", () => {
+  /* The reported scenario: five short rows and a sixth whose badges wrap, in a
+   * budget that fits six short rows but only five once the sixth is measured
+   * tall. Keyed by render index, the sixth row's measurement was discarded the
+   * moment the cap dropped it, so it was re-estimated short, came back, and
+   * the cap oscillated forever. */
+  const spots = Array.from({ length: 6 }, (_unused, index) => ({
+    id: `spot-${index}`,
+  }));
+  const SHORT = 60;
+  const TALL = 120;
+  const rowHeight = (index: number) => (index === 5 ? TALL : SHORT);
+  /* A list budget that fits all six rows at the short estimate but not once
+   * the sixth measures tall (and not with the "+N more" row either). */
+  const maxHeight = SPOT_COLLECTION_POPOVER_CHROME_HEIGHT + SHORT * 6 + 40;
+
+  /* One effect pass: measure exactly the rendered rows, merge into what is
+   * retained, then derive the next visible count. */
+  const pass = (
+    retained: Record<string, number>,
+    visible: number,
+  ): { retained: Record<string, number>; visible: number } => {
+    const measured: Record<string, number> = {};
+    for (let index = 0; index < visible; index += 1) {
+      measured[spotRowKey(spots[index], index)] = rowHeight(index);
+    }
+    const next = mergeMeasuredRowHeights(
+      retained,
+      measured,
+      new Set(spots.map((spot, index) => spotRowKey(spot, index))),
+    );
+    return {
+      retained: next,
+      visible: deriveWallVisibleSpotCount(
+        maxHeight,
+        resolveWallRowHeights(spots, next, ROOT_FONT_PX_DEFAULT),
+        ROOT_FONT_PX_DEFAULT,
+      ),
+    };
+  };
+
+  it("settles in at most two effect passes and never oscillates", () => {
+    let retained: Record<string, number> = {};
+    let visible = deriveWallVisibleSpotCount(
+      maxHeight,
+      resolveWallRowHeights(spots, retained, ROOT_FONT_PX_DEFAULT),
+      ROOT_FONT_PX_DEFAULT,
+    );
+
+    // Counts produced BY the measuring passes; the pre-paint estimate is a
+    // guess and is allowed to be wrong in either direction.
+    const counts: number[] = [];
+    let passes = 0;
+    let previousRetained = retained;
+    for (let index = 0; index < 8; index += 1) {
+      const result = pass(retained, visible);
+      if (result.retained === previousRetained && result.visible === visible) {
+        break;
+      }
+      passes += 1;
+      previousRetained = retained = result.retained;
+      visible = result.visible;
+      counts.push(visible);
+    }
+
+    expect(passes).toBeLessThanOrEqual(2);
+    // Monotonically non-increasing: a count that went back up would be the
+    // oscillation.
+    for (let index = 1; index < counts.length; index += 1) {
+      expect(counts[index]).toBeLessThanOrEqual(counts[index - 1]);
+    }
+    expect(visible).toBe(5);
+  });
+
+  it("keeps the tall row's height after the rendered count shrinks", () => {
+    const first = pass({}, 6);
+    expect(first.visible).toBeLessThan(6);
+
+    // The tall row is no longer rendered, so this pass cannot measure it. Its
+    // height has to survive anyway, or the cap expands again.
+    const second = pass(first.retained, first.visible);
+    expect(second.retained[spotRowKey(spots[5], 5)]).toBe(TALL);
+    expect(second.visible).toBe(first.visible);
+  });
+
+  it("drops only the measurements whose spot left the collection", () => {
+    const retained = { "spot-0": SHORT, "spot-5": TALL, stale: 999 };
+    const merged = mergeMeasuredRowHeights(
+      retained,
+      {},
+      new Set(spots.map((spot, index) => spotRowKey(spot, index))),
+    );
+
+    expect(merged).toEqual({ "spot-0": SHORT, "spot-5": TALL });
+  });
+
+  it("returns the same record when nothing moved, so setState is a no-op", () => {
+    const retained = { "spot-0": SHORT };
+    const liveKeys = new Set(spots.map((spot, index) => spotRowKey(spot, index)));
+
+    expect(mergeMeasuredRowHeights(retained, { "spot-0": SHORT }, liveKeys)).toBe(
+      retained,
     );
   });
 });

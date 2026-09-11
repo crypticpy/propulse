@@ -82,28 +82,51 @@ export function wallRowHeight(
 }
 
 /**
- * The heights to budget the whole collection with, given the heights actually
- * measured from the rows that are currently rendered (`measuredRowHeights`,
- * in render order; zero or missing entries mean "not measured").
+ * A row's identity, stable for the whole popover session: measurements are
+ * stored against this, never against a render index. Keying by index made the
+ * measurement array a snapshot of whatever happened to be rendered, so a tall
+ * boundary row that shrank the cap had its own measurement thrown away, was
+ * re-estimated as short, came back, and measured tall again -- a render loop
+ * that could reach React's max update depth (#879 review round 5). Ids are
+ * unique within a collection; the fallback is only for spots that arrive
+ * without one, and it uses the index into the sorted collection, which does
+ * not move when the cap changes.
+ */
+export function spotRowKey(
+  spot: { id?: string | null; dx?: string | null; frequency?: number | null },
+  index: number,
+): string {
+  return spot.id || `${spot.dx}-${spot.frequency}-${index}`;
+}
+
+/**
+ * The heights to budget the whole collection with, given every height
+ * measured so far this session (`measuredRowHeights`, keyed by
+ * `spotRowKey`). Retained across renders: a row that has been measured once
+ * stays known even while it is capped out of the list, which is what makes
+ * the cap converge.
  *
- * A row that is not rendered cannot be measured, so it inherits the tallest
- * measured height of its own kind -- the detail rows and the two-line rows
- * wrap differently, and the boundary row is always one of the two kinds
- * already on screen. Only a collection with no measured row at all falls back
- * to the rem estimate.
+ * A row that has never been rendered cannot have been measured, so it
+ * inherits the tallest measured height of its own kind -- the detail rows and
+ * the two-line rows wrap differently, and the boundary row is always one of
+ * the two kinds already on screen. Only a collection with no measured row at
+ * all falls back to the rem estimate.
  */
 export function resolveWallRowHeights(
   spots: readonly {
+    id?: string | null;
+    dx?: string | null;
+    frequency?: number | null;
     dxGrid?: string | null;
     comment?: string | null;
   }[],
-  measuredRowHeights: readonly number[],
+  measuredRowHeights: Readonly<Record<string, number>>,
   rootFontPx: number = ROOT_FONT_PX_DEFAULT,
 ): number[] {
   let detailMeasured = 0;
   let plainMeasured = 0;
   spots.forEach((spot, index) => {
-    const measured = measuredRowHeights[index] ?? 0;
+    const measured = measuredRowHeights[spotRowKey(spot, index)] ?? 0;
     if (measured <= 0) return;
     if (wallRowIsDetail(spot)) {
       detailMeasured = Math.max(detailMeasured, measured);
@@ -113,11 +136,36 @@ export function resolveWallRowHeights(
   });
 
   return spots.map((spot, index) => {
-    const measured = measuredRowHeights[index] ?? 0;
+    const measured = measuredRowHeights[spotRowKey(spot, index)] ?? 0;
     if (measured > 0) return measured;
     const kindMeasured = wallRowIsDetail(spot) ? detailMeasured : plainMeasured;
     return kindMeasured > 0 ? kindMeasured : wallRowHeight(spot, rootFontPx);
   });
+}
+
+/**
+ * The retained measurements after a measuring pass: every height measured in
+ * this pass, plus everything measured earlier that still belongs to a spot in
+ * the collection. Returns `previous` unchanged when nothing moved, so the
+ * caller's `setState` is a no-op and the effect cannot drive a render loop.
+ */
+export function mergeMeasuredRowHeights(
+  previous: Readonly<Record<string, number>>,
+  measured: Readonly<Record<string, number>>,
+  liveKeys: ReadonlySet<string>,
+): Record<string, number> {
+  const next: Record<string, number> = {};
+  for (const [key, height] of Object.entries(previous)) {
+    if (liveKeys.has(key) && height > 0) next[key] = height;
+  }
+  for (const [key, height] of Object.entries(measured)) {
+    if (liveKeys.has(key) && height > 0) next[key] = height;
+  }
+  const previousKeys = Object.keys(previous);
+  const unchanged =
+    previousKeys.length === Object.keys(next).length &&
+    previousKeys.every((key) => previous[key] === next[key]);
+  return unchanged ? (previous as Record<string, number>) : next;
 }
 
 export interface SpotCollectionPopoverLayout {
@@ -134,7 +182,7 @@ function isUsableHostRect(width: number, height: number): boolean {
   return width >= EDGE_PADDING * 2 && height >= EDGE_PADDING * 2;
 }
 
-/** How many of `rowHeights` (in render order) fit in `budget`. */
+/** How many of `rowHeights` (in collection order) fit in `budget`. */
 function countRowsThatFit(
   rowHeights: readonly number[],
   budget: number,

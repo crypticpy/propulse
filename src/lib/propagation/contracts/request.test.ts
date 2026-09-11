@@ -121,11 +121,29 @@ describe("parseRequest fails closed", () => {
   it("rejects a relay identity on a terrestrial geometry class", () => {
     const bad = candidate("hfShortPath");
     bad.relay = {
+      kind: "orbital",
       relayId: "so-50",
       ephemerisId: "celestrak-tle-2026-09-11",
       ephemerisEpoch: "2026-09-11T06:14:02Z",
     };
     expect(reasonsAt(bad, "relay").join()).toMatch(/no relay leg/);
+  });
+
+  it("accepts a fixed ground relay with no ephemeris (A21)", () => {
+    const outcome = parseRequest(candidate("fixedRelay"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("still requires both ephemeris fields on an orbital relay (A21)", () => {
+    const bad = candidate("satellitePass");
+    delete (bad.relay as Mutable).ephemerisEpoch;
+    expect(issues(bad).length).toBeGreaterThan(0);
+  });
+
+  it("rejects a fixed relay that smuggles in an ephemeris", () => {
+    const bad = candidate("fixedRelay");
+    (bad.relay as Mutable).ephemerisId = "celestrak-tle-2026-09-11";
+    expect(issues(bad).length).toBeGreaterThan(0);
   });
 
   it("rejects an ephemeris captured after the issue time (M02)", () => {
@@ -256,6 +274,36 @@ describe("parseRequest fails closed", () => {
     rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
     expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
       /explicit route azimuth is required/,
+    );
+  });
+
+  /** Move rx a given number of metres north of tx, with declared precision. */
+  function offsetCase(metres: number, sigmaMeters: number): Mutable {
+    const draft = candidate("hfShortPath");
+    const tx = (draft.tx as Mutable).coordinates as Mutable;
+    const rx = (draft.rx as Mutable).coordinates as Mutable;
+    rx.latitudeDeg =
+      (tx.latitudeDeg as number) + (metres / 6371000) * (180 / Math.PI);
+    rx.longitudeDeg = tx.longitudeDeg;
+    for (const coordinates of [tx, rx]) {
+      (coordinates.precision as Mutable).kind = "surveyed";
+      (coordinates.precision as Mutable).horizontalMeters = {
+        state: "known",
+        value: sigmaMeters,
+      };
+    }
+    return draft;
+  }
+
+  it("accepts a surveyed one-metre path with sub-metre uncertainty (M06)", () => {
+    const outcome = parseRequest(offsetCase(1, 0.3));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("treats endpoints inside their declared uncertainty as coincident (M06)", () => {
+    const inside = offsetCase(1, 5);
+    expect(reasonsAt(inside, "rx.coordinates").join()).toMatch(
+      /zero-distance circuit/,
     );
   });
 

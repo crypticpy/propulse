@@ -27,6 +27,21 @@ function build(mutate: (draft: Mutable) => void = () => {}): PredictionRequest {
   return outcome.value;
 }
 
+function buildCase(
+  name: string,
+  mutate: (draft: Mutable) => void = () => {},
+): PredictionRequest {
+  const draft = structuredClone(cases[name]) as Mutable;
+  mutate(draft);
+  const outcome = parseRequest(draft);
+  if (!outcome.ok) {
+    throw new Error(
+      `fixture mutation invalid: ${JSON.stringify(outcome.issues)}`,
+    );
+  }
+  return outcome.value;
+}
+
 describe("requestKey identity", () => {
   it("gives two independently parsed copies of one request the same key", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
@@ -43,6 +58,20 @@ describe("requestKey identity", () => {
       draft.validAt = spelling;
       expect(parseRequest(draft).ok).toBe(false);
     }
+  });
+
+  it("gives an orbital and a fixed relay different keys (A21)", () => {
+    const orbital = buildCase("satellitePass");
+    const fixed = buildCase("fixedRelay");
+    expect(requestKey(fixed)).not.toBe(requestKey(orbital));
+  });
+
+  it("gives two fixed relays at different positions different keys (A21)", () => {
+    const hilltop = buildCase("fixedRelay");
+    const valley = buildCase("fixedRelay", (draft) => {
+      ((draft.relay as Mutable).coordinates as Mutable).latitudeDeg = 30.4;
+    });
+    expect(requestKey(valley)).not.toBe(requestKey(hilltop));
   });
 
   it("gives the two spellings of the antimeridian one key", () => {

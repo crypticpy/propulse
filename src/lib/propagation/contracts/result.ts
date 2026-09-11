@@ -31,6 +31,7 @@ import {
   identifier,
   instant,
   instantMs,
+  NO_POWER_DB,
   parseWith,
   probability,
   reject,
@@ -297,6 +298,42 @@ export interface PayloadByQuantity {
   doppler: z.infer<typeof dopplerPayload>;
 }
 
+/**
+ * The scalar a head's uncertainty interval is about, per quantity, or null for
+ * a head whose payload is not one number (circuit support is a list of modes,
+ * pass geometry is a span). M17: an interval is stated in the head's own units
+ * and must bracket the value it accompanies.
+ */
+const POINT_VALUES: Record<
+  PredictionQuantity,
+  ((payload: never) => number | null) | null
+> = {
+  circuit_support: null,
+  pass_geometry: null,
+  snr2500: (payload: PayloadByQuantity["snr2500"]) => payload.snr2500Db,
+  network_detection: (payload: PayloadByQuantity["network_detection"]) =>
+    payload.probability,
+  observed_activity: (payload: PayloadByQuantity["observed_activity"]) =>
+    payload.count,
+  conditional_decode: (payload: PayloadByQuantity["conditional_decode"]) =>
+    payload.probability,
+  completed_qso: (payload: PayloadByQuantity["completed_qso"]) =>
+    payload.probability,
+  field_strength: (payload: PayloadByQuantity["field_strength"]) =>
+    payload.fieldStrengthDbuvPerM,
+  usable_burst: (payload: PayloadByQuantity["usable_burst"]) =>
+    payload.probability,
+  doppler: (payload: PayloadByQuantity["doppler"]) => payload.dopplerHz,
+} as Record<PredictionQuantity, ((payload: never) => number | null) | null>;
+
+function pointValue(
+  quantity: PredictionQuantity,
+  payload: unknown,
+): number | null {
+  const read = POINT_VALUES[quantity];
+  return read === null ? null : read(payload as never);
+}
+
 const PAYLOAD_SCHEMAS: Record<PredictionQuantity, z.ZodTypeAny> = {
   circuit_support: circuitSupportPayload,
   snr2500: snr2500Payload,
@@ -421,27 +458,35 @@ const predictionHead = z
       }
       return z.NEVER;
     }
-    if (
-      QUANTITY_UNITS[value.quantity] === "probability" &&
-      value.uncertainty.kind !== "none"
-    ) {
-      // A probability-valued head is bounded by construction, so its interval
-      // is bounded too, and the interval must bracket the reported point.
+    if (value.uncertainty.kind !== "none") {
       const { low, high } = value.uncertainty;
-      if (low < 0 || high > 1) {
+      // A probability-valued head is bounded by construction, so its interval
+      // is bounded too.
+      if (QUANTITY_UNITS[value.quantity] === "probability") {
+        if (low < 0 || high > 1) {
+          reject(
+            ctx,
+            ["uncertainty", low < 0 ? "low" : "high"],
+            "A probability interval lies inside [0, 1]",
+          );
+        }
+      }
+      const point = pointValue(value.quantity, payload.data);
+      if (point !== null && point === NO_POWER_DB) {
+        // M07: the no-power sentinel is not a number an interval can be drawn
+        // around. Such a head reports uncertainty kind "none".
         reject(
           ctx,
-          ["uncertainty", low < 0 ? "low" : "high"],
-          "A probability interval lies inside [0, 1]",
+          ["uncertainty", "kind"],
+          "A no-power head carries no uncertainty interval (M07)",
         );
-      }
-      const point = (payload.data as { probability: number | null })
-        .probability;
-      if (point !== null && (point < low || point > high)) {
+      } else if (point !== null && (point < low || point > high)) {
+        // M17: an interval that does not contain its own point value is not
+        // an interval for that value, whatever the quantity.
         reject(
           ctx,
           ["uncertainty", point < low ? "low" : "high"],
-          "A probability interval must bracket the reported probability",
+          "An uncertainty interval must bracket the reported value",
         );
       }
     }

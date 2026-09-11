@@ -61,6 +61,8 @@ const METEOR_SNR_HEAD = {
   requiredInputs: ["station_pair", "mode_profile"],
   optionalInputs: [],
   featureSchemaId: "meteor-feature-schema-0.1.0",
+  featureHash:
+    "sha256:0000000000000000000000000000000000000000000000000000000000000001",
   outputSchemaId: "propagation-result-0.1.0",
   calibrationId: null,
   uncertaintyKind: "model_spread",
@@ -335,6 +337,43 @@ describe("parseCapability fails closed", () => {
     expect(reasonsAt(bad, "heads[1].calibrationId").join()).toMatch(
       /calibration identity/,
     );
+  });
+
+  it("rejects a routable head that pins no feature hash (M19)", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].featureHash = null;
+    expect(reasonsAt(bad, "heads[1].featureHash").join()).toMatch(
+      /pin its feature hash/,
+    );
+  });
+
+  it("accepts a routable head that pins its feature hash (M19)", () => {
+    const outcome = parseCapability(candidate("hfPhysics"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a head with no feature pipeline at all", () => {
+    const physics = candidate("hfPhysics");
+    for (const head of physics.heads as Mutable[]) {
+      head.featureSchemaId = null;
+      head.featureHash = null;
+    }
+    const outcome = parseCapability(physics);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a feature hash that pins no schema", () => {
+    const bad = candidate("hfPhysics");
+    (bad.heads as Mutable[])[1].featureSchemaId = null;
+    expect(reasonsAt(bad, "heads[1].featureSchemaId").join()).toMatch(
+      /pins nothing/,
+    );
+  });
+
+  it("rejects a hash that is not a sha256 digest", () => {
+    const bad = candidate("hfPhysics");
+    bad.modelHash = "physics-v1-build-17";
+    expect(reasonsAt(bad, "modelHash").join()).toMatch(/64 lowercase hex/);
   });
 
   it("rejects a routable capability with no model hash (M11)", () => {

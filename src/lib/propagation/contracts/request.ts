@@ -41,6 +41,7 @@ import {
   knownOrUnknown,
   parseWith,
   reject,
+  type Known,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
@@ -53,15 +54,17 @@ export const TERRAIN_DEPENDENT_FAMILIES = [
 ] as const;
 
 /**
- * Angular tolerance for degenerate great-circle geometry, in radians.
- *
- * 1e-6 rad is about 6.4 m on the Earth's surface (6371 km * 1e-6), which is
- * below the finest coordinate precision this contract records (a GNSS fix,
- * metres). Endpoints closer than that, or that far from exactly antipodal, are
- * degenerate within their own coordinate noise, while any real path stays well
- * outside the tolerance.
+ * Earth radius for the declared spherical adapter (M06).
  */
-const DEGENERATE_GEOMETRY_TOLERANCE_RAD = 1e-6;
+const EARTH_RADIUS_M = 6371000;
+
+/**
+ * Floating-point guard, not a physical tolerance. `atan2(|u x v|, u . v)` on
+ * exactly antipodal unit vectors returns pi only up to rounding, so the
+ * antipodal test needs a few ulps of slack even when neither endpoint declares
+ * any position uncertainty. 1e-9 rad is about 6 mm on the surface.
+ */
+const NUMERIC_GUARD_RAD = 1e-9;
 
 /** M06: theta = atan2(|u x v|, u . v), stable at both 0 and pi. */
 function angularSeparationRad(
@@ -149,6 +152,50 @@ const antenna = z
     }
   });
 
+/**
+ * M06 degeneracy, decided against the declared coordinates rather than a fixed
+ * cutoff. A surveyed one-metre path is a real path and must not be discarded
+ * as degenerate, while two endpoints that sit inside their own declared
+ * position uncertainty cannot be told apart at all.
+ *
+ * The rule: when neither endpoint declares a horizontal uncertainty, only
+ * exactly identical effective coordinates are coincident. When either declares
+ * one, the tolerance is the combined one-sigma radius converted to radians,
+ * `(sigma_tx + sigma_rx) / R`. The same tolerance applies around pi for the
+ * antipodal branch. Separation comes from the stable `atan2` form, so nothing
+ * divides by a near-zero chord.
+ */
+function declaredUncertaintyMeters(point: {
+  precision: { horizontalMeters: Known<number> };
+}): number {
+  return point.precision.horizontalMeters.state === "known"
+    ? point.precision.horizontalMeters.value
+    : 0;
+}
+
+function degeneracyToleranceRad(
+  a: { precision: { horizontalMeters: Known<number> } },
+  b: { precision: { horizontalMeters: Known<number> } },
+): number {
+  return (
+    (declaredUncertaintyMeters(a) + declaredUncertaintyMeters(b)) /
+    EARTH_RADIUS_M
+  );
+}
+
+/** Same point on the sphere, with the antimeridian spelled either way. */
+function sameCoordinates(
+  a: { latitudeDeg: number; longitudeDeg: number },
+  b: { latitudeDeg: number; longitudeDeg: number },
+): boolean {
+  const foldLongitude = (value: number): number =>
+    value === 180 ? -180 : value === 0 ? 0 : value;
+  return (
+    a.latitudeDeg === b.latitudeDeg &&
+    foldLongitude(a.longitudeDeg) === foldLongitude(b.longitudeDeg)
+  );
+}
+
 /** A station as the science sees it: identity, geometry and its unknowns. */
 export const stationIdentitySchema = z
   .object({
@@ -200,14 +247,36 @@ const requestedModel = z
     }
   });
 
-const relayIdentity = z
-  .object({
-    relayId: identifier,
-    ephemerisId: identifier,
-    /** Epoch of the element set / ephemeris actually used (A21, A22). */
-    ephemerisEpoch: instant,
-  })
-  .strict();
+/**
+ * A21: a relay is either an orbiting body, whose geometry comes from a dated
+ * element set, or a fixed installation, whose geometry comes from a surveyed
+ * position. A ground repeater has no ephemeris and must never be made to
+ * invent one, so the two cases are separate variants rather than one shape
+ * with nullable fields.
+ */
+const relayIdentity = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("orbital"),
+      relayId: identifier,
+      ephemerisId: identifier,
+      /** Epoch of the element set / ephemeris actually used (A21, A22). */
+      ephemerisEpoch: instant,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("fixed"),
+      relayId: identifier,
+      /** Surveyed position of the installation, with its own precision. */
+      coordinates,
+      heightMeters: finite.nonnegative(),
+      heightDatum: z.enum(HEIGHT_DATUMS),
+      /** Configuration identity the geometry depends on (A21). */
+      configurationId: identifier,
+    })
+    .strict(),
+]);
 
 /**
  * Which events are sampled at an instant and which are defined over an
@@ -355,6 +424,7 @@ export const predictionRequestSchema = z
     }
     if (
       value.relay !== null &&
+      value.relay.kind === "orbital" &&
       instantMs(value.relay.ephemerisEpoch) > instantMs(value.issuedAt)
     ) {
       reject(
@@ -367,10 +437,16 @@ export const predictionRequestSchema = z
       value.tx.coordinates,
       value.rx.coordinates,
     );
-    const degenerate =
-      separation < DEGENERATE_GEOMETRY_TOLERANCE_RAD ||
-      separation > Math.PI - DEGENERATE_GEOMETRY_TOLERANCE_RAD;
-    const coincident = separation < DEGENERATE_GEOMETRY_TOLERANCE_RAD;
+    const tolerance = degeneracyToleranceRad(
+      value.tx.coordinates,
+      value.rx.coordinates,
+    );
+    const coincident =
+      sameCoordinates(value.tx.coordinates, value.rx.coordinates) ||
+      (tolerance > 0 && separation <= tolerance);
+    const antipodal =
+      separation >= Math.PI - Math.max(tolerance, NUMERIC_GUARD_RAD);
+    const degenerate = coincident || antipodal;
     const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
       value.mechanismPolicy.geometryClass,
     );

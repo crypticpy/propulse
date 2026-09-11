@@ -40,6 +40,19 @@ import {
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
 
+/**
+ * A pinned artefact digest. M19 traceability needs the artefact itself, not a
+ * human-readable label, so the shape is checked: `sha256:` and 64 lowercase
+ * hexadecimal digits.
+ */
+const artifactHash = z
+  .string()
+  .trim()
+  .regex(
+    /^sha256:[0-9a-f]{64}$/,
+    "An artefact hash is sha256: followed by 64 lowercase hex digits",
+  );
+
 const frequencyRange = z
   .object({
     minHz: finite.min(MIN_REQUEST_FREQUENCY_HZ).max(MAX_REQUEST_FREQUENCY_HZ),
@@ -74,7 +87,10 @@ const capabilityHead = z
     modeProfileIds: z.array(identifier),
     requiredInputs: z.array(z.enum(CAPABILITY_INPUT_IDS)),
     optionalInputs: z.array(z.enum(CAPABILITY_INPUT_IDS)),
-    featureSchemaId: identifier,
+    /** Null for a head with no feature pipeline (a physics head). */
+    featureSchemaId: identifier.nullable(),
+    /** The pinned feature artefact behind featureSchemaId (M19). */
+    featureHash: artifactHash.nullable(),
     outputSchemaId: identifier,
     calibrationId: identifier.nullable(),
     uncertaintyKind: z.enum(UNCERTAINTY_KINDS),
@@ -199,8 +215,8 @@ export const modelCapabilitySchema = z
     modelId: identifier,
     modelVersion: identifier,
     /** Hashes that pin the trained artefact and its preprocessing (M19). */
-    modelHash: identifier.nullable(),
-    preprocessingHash: identifier.nullable(),
+    modelHash: artifactHash.nullable(),
+    preprocessingHash: artifactHash.nullable(),
     sourcePolicyVersion: identifier,
     /** Empty is legal and meaningful: a no-op capability declares no heads. */
     heads: z.array(capabilityHead),
@@ -240,6 +256,26 @@ export const modelCapabilitySchema = z
         "A capability with a routable head must pin its preprocessing hash (M11)",
       );
     }
+    value.heads.forEach((head, index) => {
+      if (!ROUTABLE_CAPABILITY_STATES.includes(head.state)) return;
+      // M19: a head that names a feature schema is served by a feature
+      // pipeline, and that artefact is pinned like the model itself. A head
+      // with no feature pipeline leaves both null.
+      if (head.featureSchemaId !== null && head.featureHash === null) {
+        reject(
+          ctx,
+          ["heads", index, "featureHash"],
+          "A routable head with a feature schema must pin its feature hash (M19)",
+        );
+      }
+      if (head.featureSchemaId === null && head.featureHash !== null) {
+        reject(
+          ctx,
+          ["heads", index, "featureSchemaId"],
+          "A feature hash without a feature schema pins nothing (M19)",
+        );
+      }
+    });
     const owners = new Map<string, string>();
     value.corrections.forEach((correction, index) => {
       if (correction.covarianceOwnership !== "owns_total") return;

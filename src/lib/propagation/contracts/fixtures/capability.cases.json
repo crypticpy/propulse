@@ -38,7 +38,8 @@
         "receiverClasses": [
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
-        ]
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
       },
       {
         "quantity": "snr2500",
@@ -72,7 +73,8 @@
         "receiverClasses": [
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
-        ]
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
       },
       {
         "quantity": "conditional_decode",
@@ -103,7 +105,8 @@
         "receiverClasses": [
           "modeled_noise_figure_chain",
           "unspecified_scenario_range"
-        ]
+        ],
+        "featureHash": "sha256:404cf02ba5cb81ce118d54426cf5180535da2f0be9ee92dae75370f55ec949c0"
       }
     ],
     "corrections": [

@@ -101,6 +101,41 @@ function stationProjection(
   };
 }
 
+/**
+ * A21: both relay variants enter the key with their own fields. An orbital
+ * relay is identified by its element set and epoch, a fixed relay by its
+ * surveyed position, height and configuration, so two repeaters on different
+ * hilltops are two cache entries.
+ */
+function relayProjection(
+  relay: PredictionRequest["relay"],
+): Record<string, Canonical> | null {
+  if (relay === null) return null;
+  if (relay.kind === "orbital") {
+    return {
+      kind: relay.kind,
+      relayId: relay.relayId,
+      ephemerisId: relay.ephemerisId,
+      ephemerisEpochMs: instantMs(relay.ephemerisEpoch),
+    };
+  }
+  return {
+    kind: relay.kind,
+    relayId: relay.relayId,
+    latitudeDeg: canonicalLatitude(relay.coordinates.latitudeDeg),
+    longitudeDeg: canonicalLongitude(relay.coordinates.longitudeDeg),
+    datum: relay.coordinates.datum,
+    precisionKind: relay.coordinates.precision.kind,
+    precisionHorizontalMeters: knownProjection(
+      relay.coordinates.precision.horizontalMeters,
+    ),
+    precisionCellSizeDeg: relay.coordinates.precision.cellSizeDeg,
+    heightMeters: relay.heightMeters,
+    heightDatum: relay.heightDatum,
+    configurationId: relay.configurationId,
+  };
+}
+
 /** The exact scientific projection the key is computed from. */
 export function requestKeyProjection(
   request: PredictionRequest,
@@ -130,10 +165,7 @@ export function requestKeyProjection(
     stationScenarioId: request.stationScenarioId,
     tx: stationProjection(request.tx),
     rx: stationProjection(request.rx),
-    relayId: request.relay === null ? null : request.relay.relayId,
-    ephemerisId: request.relay === null ? null : request.relay.ephemerisId,
-    ephemerisEpochMs:
-      request.relay === null ? null : instantMs(request.relay.ephemerisEpoch),
+    relay: relayProjection(request.relay),
     modelPolicy: request.requestedModel.policy,
     modelId: request.requestedModel.modelId,
     modelVersion: request.requestedModel.modelVersion,

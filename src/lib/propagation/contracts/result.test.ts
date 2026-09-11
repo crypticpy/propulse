@@ -33,6 +33,24 @@ function reasonsAt(value: unknown, path: string): string[] {
     .map((issue) => issue.reason);
 }
 
+/**
+ * The fullHfCircuit result with its SNR head replaced by a head for another
+ * scalar quantity, so one interval rule can be exercised per payload type.
+ */
+function scalarHeadCase(
+  quantity: string,
+  units: string,
+  payload: Mutable,
+): { result: Mutable; head: Mutable } {
+  const result = structuredClone(cases.fullHfCircuit) as Mutable;
+  const head = (result.heads as Mutable[])[1];
+  head.quantity = quantity;
+  head.units = units;
+  head.calibrationId = null;
+  (head.state as Mutable).value = payload;
+  return { result, head };
+}
+
 describe("parseResult fixtures", () => {
   it.each(Object.keys(cases))("round-trips the %s fixture", (name) => {
     const outcome = parseResult(candidate(name));
@@ -446,8 +464,100 @@ describe("parseResult fails closed", () => {
       high: 0.7,
     };
     expect(reasonsAt(bad, "heads[2].uncertainty.high").join()).toMatch(
-      /bracket the reported probability/,
+      /bracket the reported value/,
     );
+  });
+
+  const SPREAD = {
+    kind: "model_spread",
+    intervalKind: "central",
+    coverageProbability: 0.8,
+  };
+
+  it("rejects an SNR interval that does not bracket the SNR (M17)", () => {
+    const bad = candidate("fullHfCircuit");
+    const head = headFor(bad, "snr2500");
+    ((head.state as Mutable).value as Mutable).snr2500Db = 10;
+    head.uncertainty = { ...SPREAD, low: 20, high: 30 };
+    expect(reasonsAt(bad, "heads[1].uncertainty.low").join()).toMatch(
+      /bracket the reported value/,
+    );
+  });
+
+  it("accepts an SNR interval around the SNR (M17)", () => {
+    const good = candidate("fullHfCircuit");
+    const head = headFor(good, "snr2500");
+    head.uncertainty = { ...SPREAD, low: 6, high: 14 };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("still accepts the no-power head, which carries no interval (M07)", () => {
+    const outcome = parseResult(candidate("noPowerMode"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects an interval drawn around the no-power sentinel (M07)", () => {
+    const bad = candidate("noPowerMode");
+    headFor(bad, "snr2500").uncertainty = { ...SPREAD, low: -200, high: -100 };
+    expect(
+      issues(bad)
+        .map((issue) => issue.reason)
+        .join(),
+    ).toMatch(/no-power head carries no uncertainty/);
+  });
+
+  it("rejects a count interval that does not bracket the count (M17)", () => {
+    const bad = scalarHeadCase("observed_activity", "count", {
+      count: 4,
+      intervalStartAt: "2026-09-11T18:00:00Z",
+      intervalEndAt: "2026-09-11T19:00:00Z",
+      sourceCoverageIds: ["pskreporter-2026-09-11"],
+    });
+    (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 10, high: 20 };
+    expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
+      /bracket the reported value/,
+    );
+  });
+
+  it("rejects a field-strength interval that does not bracket it (M17)", () => {
+    const bad = scalarHeadCase("field_strength", "dBuV_per_m", {
+      fieldStrengthDbuvPerM: 32.5,
+      polarization: "vertical",
+      heightMeters: 10,
+      measurementBandwidthHz: 2500,
+    });
+    (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 40, high: 50 };
+    expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
+      /bracket the reported value/,
+    );
+  });
+
+  it("rejects a Doppler interval that does not bracket it (M17)", () => {
+    const bad = scalarHeadCase("doppler", "Hz", {
+      dopplerHz: -1200,
+      transmittedFrequencyHz: 145950000,
+      signConvention: "positive_receding",
+    });
+    (bad.head.uncertainty as Mutable) = { ...SPREAD, low: 100, high: 200 };
+    expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
+      /bracket the reported value/,
+    );
+  });
+
+  it("accepts a Doppler interval that does bracket it (M17)", () => {
+    const good = scalarHeadCase("doppler", "Hz", {
+      dopplerHz: -1200,
+      transmittedFrequencyHz: 145950000,
+      signConvention: "positive_receding",
+    });
+    (good.head.uncertainty as Mutable) = {
+      ...SPREAD,
+      low: -1400,
+      high: -1000,
+    };
+    const outcome = parseResult(good.result);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("accepts a probability interval inside [0, 1] around the point", () => {

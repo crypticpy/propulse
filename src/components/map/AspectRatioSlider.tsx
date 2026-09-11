@@ -8,6 +8,7 @@
 import { useCallback } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 interface AspectRatioSliderProps {
   /** Override default positioning. When omitted, uses absolute bottom-3 right-3 z-30. */
@@ -28,9 +29,13 @@ export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
 
   return (
     <div
+      // Operable chrome in every mount (the flat map's own corner and
+      // PropSphere's Lite dock), so it takes the tier rather than a raw z-30
+      // that happens to match it today (#930).
+      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
       className={
         className ??
-        "absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg px-2 py-2"
+        "absolute bottom-3 right-3 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg px-2 py-2"
       }
     >
       {/* Ratio icon */}

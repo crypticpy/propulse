@@ -121,13 +121,6 @@ interface TintedSite {
   surfaces: SurfaceSpec[];
 }
 
-/**
- * The LoTW export button's fill and its hover fill are one class attribute, so
- * both rows below measure the same shipped snippet at their own alpha.
- */
-const LOTW_BUTTON_SNIPPET = `bg-aurora-purple/20 border border-aurora-purple/50 rounded-lg
-                       text-su-text hover:bg-aurora-purple/30`;
-
 const SITES: TintedSite[] = [
   {
     file: "src/components/dx/SpotBadge.tsx",
@@ -140,39 +133,6 @@ const SITES: TintedSite[] = [
     // but renders in SpotRow's zebra/hover striping (bg-su-line/10) the
     // moment a call site passes type="verified" -- measure the real stack.
     surfaces: LINE_GLASS_SURFACES,
-  },
-  {
-    file: "src/components/logbook/QSOTable.tsx",
-    what: "the band chip in the QSO table",
-    snippet: "bg-aurora-purple/10 text-aurora-purple rounded text-xs font-mono",
-    ink: "purple",
-    alpha: 0.1,
-    // Renders in the logbook modal body; bare panel/canvas is the real stack.
-    surfaces: BARE_SURFACES,
-  },
-  {
-    file: "src/components/logbook/LogUploadModal.tsx",
-    what: 'the "Export Only" service chip',
-    snippet: "bg-aurora-purple/10 text-aurora-purple rounded text-xs",
-    ink: "purple",
-    alpha: 0.1,
-    surfaces: BARE_SURFACES,
-  },
-  {
-    file: "src/components/logbook/LogUploadModal.tsx",
-    what: "the LoTW export button at rest",
-    snippet: LOTW_BUTTON_SNIPPET,
-    ink: "text",
-    alpha: 0.2,
-    surfaces: BARE_SURFACES,
-  },
-  {
-    file: "src/components/logbook/LogUploadModal.tsx",
-    what: "the LoTW export button on hover",
-    snippet: LOTW_BUTTON_SNIPPET,
-    ink: "text",
-    alpha: 0.3,
-    surfaces: BARE_SURFACES,
   },
   {
     file: "src/components/ui/Badge.tsx",
@@ -245,15 +205,15 @@ describe("aurora-purple ink on an aurora-purple tint (#791)", () => {
   );
 });
 
-describe("no eighth site: repo-wide guard for aurora-purple ink on an aurora-purple tint (#791)", () => {
+describe("repo-wide guard for aurora-purple ink on an aurora-purple tint (#791)", () => {
   /**
    * This is a per-line regex guard, not a className parser: it only sees a
    * `bg-aurora-purple/N` tint and `text-aurora-purple` ink when both sit on
-   * the SAME source line. A multi-line className -- like `LOTW_BUTTON_SNIPPET`
-   * above, which wraps its `text-su-text` onto a second line -- escapes this
-   * regex by construction. That's intentional: the measured table above is
-   * what covers sites that wrap; this guard exists to catch a fresh
-   * same-line site before it ships, not to replace the table.
+   * the SAME source line. A multi-line className that wraps its ink onto a
+   * second line escapes this regex by construction. That's intentional:
+   * the measured table above is what covers sites that wrap; this guard
+   * exists to catch a fresh same-line site before it ships, not to replace
+   * the table.
    *
    * Entries here must be file:line plus a comment saying why they're exempt
    * (e.g. the site is deliberately unreachable, or the tint alpha is 0/10

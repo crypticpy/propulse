@@ -5,6 +5,7 @@ import SunCalc from "suncalc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
 import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
 import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -115,6 +116,27 @@ function envelope<T>(data: T) {
 
 const EMPTY = { data: undefined, isError: false, isPending: true };
 const FAILED = { data: undefined, isError: true, isPending: false };
+
+/** A `BandLadderEntry` fixture, same shape as HamClockBestBandHero.test.tsx. */
+function bandVerdict(
+  band: string,
+  stable: BandLadderEntry["stable"],
+  obs20m: number,
+  reporters20m: number,
+  fading = false,
+): BandLadderEntry {
+  return {
+    band,
+    stable,
+    fading,
+    since: 1,
+    result: {
+      scopeId: "regional:NA",
+      band,
+      inputs: { obs20m, reporters20m },
+    },
+  } as BandLadderEntry;
+}
 
 function draw(node: ReactElement) {
   const client = new QueryClient({
@@ -238,6 +260,35 @@ describe("BestBandTile", () => {
     draw(<BestBandTile />);
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+  });
+
+  it("keeps the hero at the wall's large size now that the band renders as a BandPill (finding 1)", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [bandVerdict("20m", "hot", 5, 3)],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    const { container } = draw(<BestBandTile />);
+    const hero = container.querySelector(".hc-hero");
+    expect(hero?.classList.contains("hc-hero--lg")).toBe(true);
+    expect(hero?.querySelector("[data-band]")).toBeTruthy();
+  });
+
+  it("keeps the second band at the wall's sub-line size, not text-xs (finding 2)", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandVerdict("20m", "hot", 5, 3),
+        bandVerdict("40m", "verified", 4, 2),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    const { container } = draw(<BestBandTile />);
+    const subBand = container.querySelector(".hc-sub [data-band]");
+    expect(subBand).toBeTruthy();
+    expect(subBand?.className).not.toContain("text-xs");
   });
 });
 
@@ -432,6 +483,45 @@ describe("ClusterTile", () => {
 
     view.unmount();
     useDXStore.setState(original);
+  });
+
+  it("derives the rendered row count from the measured list slot (#886)", () => {
+    const original = useDXStore.getState();
+    const spots = Array.from({ length: 30 }, (_, index) => ({
+      id: `SPOT-${index}`,
+      dx: `CALL${index}`,
+      spotter: "N0TEST",
+      frequency: 14_074,
+      comment: "",
+      time: new Date("2026-09-05T13:10:00Z"),
+      band: "20m",
+    }));
+    useDXStore.setState({
+      spots,
+      spotSource: "rest",
+      filters: { maxAge: 30 },
+    });
+
+    const slot = { height: 100 };
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains("hc-rows") ? slot.height : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      height: 30,
+    } as DOMRect);
+
+    try {
+      draw(<ClusterTile />);
+      expect(screen.getByText("CALL0")).toBeTruthy();
+      expect(screen.getByText("CALL2")).toBeTruthy();
+      expect(screen.queryByText("CALL3")).toBeNull();
+      expect(screen.getByText("TOP 3 OF 30 · CLUSTER")).toBeTruthy();
+    } finally {
+      vi.restoreAllMocks();
+      useDXStore.setState(original);
+    }
   });
 
   it("renders without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", () => {

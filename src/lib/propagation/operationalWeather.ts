@@ -1,252 +1,128 @@
-import type { OperationalSpaceWeather } from "./coreFeatureBuilder";
+/**
+ * Age of the space-weather inputs behind a NowCast prediction.
+ *
+ * The model service returns `data_freshness`, a map of input name to age in
+ * seconds at issue time. Its `space_weather` entry is an aggregate: the
+ * service overwrites whatever the client sent with
+ * `issue_time − min(observed)` across its fast sources, and because hourly
+ * Dst sits in that set the aggregate reads 60–90 min old even when Kp, the
+ * IMF and the solar wind are minutes old (#321).
+ *
+ * This module is the single place that splits those ages into the fast group
+ * (Kp / IMF / solar wind / proton flux) and the slow group (Dst / Hp60 /
+ * F10.7 / sunspot number), so the wall can print the freshest fast source and
+ * the report modal can print one age per group.
+ *
+ * Per-source ages are read from `data_freshness` under the service's own
+ * source vocabulary (`SOURCE_NAMES` in `ml/service/operational_weather.py`):
+ * `kp`, `magnetic_field`, `solar_wind`, `proton_flux_10mev`, `dst`, `hp60`,
+ * `f107`, `sunspot_number`. The service emits an entry only for a source that
+ * supplied a value, and until the inference service is redeployed it emits
+ * none at all, so every caller must keep working from `aggregateSeconds`
+ * alone — and does.
+ */
 
-export interface OperationalSolarSnapshot {
-  captured_at: string;
-  kp_index?: number | null;
-  sfi?: number | null;
-  bx_gsm?: number | null;
-  by_gsm?: number | null;
-  bz_gsm?: number | null;
-  bt?: number | null;
-  solar_wind_speed?: number | null;
-  solar_wind_temperature?: number | null;
-  solar_wind_density?: number | null;
-  sunspot_number?: number | null;
-  proton_flux_10mev?: number | null;
-  dst_index?: number | null;
-  source_observed_at?: Record<string, string | null> | null;
-}
-
-export interface OperationalWeatherResult {
-  values: OperationalSpaceWeather;
-  sourceObservedAgesSeconds: Record<string, number>;
-  sourceReceiptAgesSeconds: Record<string, number>;
-  sourceAvailableAt: Record<string, number>;
-  watermarkAt?: number;
-}
-
-const SOURCE_MAX_AGE_SECONDS: Record<string, number> = {
-  kp: 15 * 60,
-  magnetic_field: 15 * 60,
-  solar_wind: 15 * 60,
-  proton_flux_10mev: 15 * 60,
-  dst: 2 * 60 * 60,
-  f107: 2 * 24 * 60 * 60,
-  sunspot_number: 45 * 24 * 60 * 60,
-};
-
-const FAST_SOURCES = new Set([
+/** Sources published every few minutes. */
+export const FAST_WEATHER_SOURCES = [
   "kp",
   "magnetic_field",
   "solar_wind",
   "proton_flux_10mev",
+] as const;
+
+/** Sources published hourly or slower. */
+export const SLOW_WEATHER_SOURCES = [
   "dst",
-]);
+  "hp60",
+  "f107",
+  "sunspot_number",
+] as const;
 
-type SnapshotField = keyof OperationalSolarSnapshot;
+const SOURCE_LABELS: Record<string, string> = {
+  kp: "Kp",
+  magnetic_field: "IMF",
+  solar_wind: "Solar wind",
+  proton_flux_10mev: "Proton flux",
+  dst: "Dst",
+  hp60: "Hp60",
+  f107: "F10.7",
+  sunspot_number: "Sunspots",
+};
 
-interface FieldDefinition {
-  output: keyof OperationalSpaceWeather;
-  input: SnapshotField;
+export interface WeatherSourceAge {
   source: string;
+  /** Operator-facing name, e.g. "Solar wind". */
+  label: string;
+  seconds: number;
 }
 
-const FIELDS: FieldDefinition[] = [
-  { output: "kp", input: "kp_index", source: "kp" },
-  { output: "f107", input: "sfi", source: "f107" },
-  { output: "bx_gsm", input: "bx_gsm", source: "magnetic_field" },
-  { output: "by_gsm", input: "by_gsm", source: "magnetic_field" },
-  { output: "bz_gsm", input: "bz_gsm", source: "magnetic_field" },
-  { output: "bt", input: "bt", source: "magnetic_field" },
-  { output: "wind_speed", input: "solar_wind_speed", source: "solar_wind" },
-  {
-    output: "temperature_k",
-    input: "solar_wind_temperature",
-    source: "solar_wind",
-  },
-  { output: "density_cm3", input: "solar_wind_density", source: "solar_wind" },
-  {
-    output: "sunspot_number",
-    input: "sunspot_number",
-    source: "sunspot_number",
-  },
-  {
-    output: "proton_flux_10mev",
-    input: "proton_flux_10mev",
-    source: "proton_flux_10mev",
-  },
-  { output: "dst", input: "dst_index", source: "dst" },
-];
-
-function finite(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
+export interface OperationalWeatherAges {
+  /** Newest fast source — what the wall names in its single footer line. */
+  freshestFast: WeatherSourceAge | null;
+  /** Oldest fast source — the fast half of the report modal's two ages. */
+  oldestFast: WeatherSourceAge | null;
+  /** Oldest slow source — the slow half of the report modal's two ages. */
+  oldestSlow: WeatherSourceAge | null;
+  /**
+   * The service's aggregate `space_weather` age: its oldest fast input. The
+   * honest fallback when no per-source ages are present.
+   */
+  aggregateSeconds: number | null;
 }
 
-function observedAt(snapshot: OperationalSolarSnapshot, source: string): number | null {
-  const value = snapshot.source_observed_at?.[source];
-  if (!value) return null;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : null;
+function usableAge(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function receivedAt(snapshot: OperationalSolarSnapshot): number | null {
-  const timestamp = Date.parse(snapshot.captured_at);
-  return Number.isFinite(timestamp) ? timestamp : null;
-}
-
-function latestField(
-  snapshots: OperationalSolarSnapshot[],
-  field: SnapshotField,
-  source: string,
-  issueAt: number,
-): { value: number; observedAt: number; receivedAt: number } | null {
-  const maximumAge = SOURCE_MAX_AGE_SECONDS[source] * 1000;
-  let selected: {
-    value: number;
-    observedAt: number;
-    receivedAt: number;
-  } | null = null;
-  for (const snapshot of snapshots) {
-    const observed = observedAt(snapshot, source);
-    const received = receivedAt(snapshot);
-    const value = snapshot[field];
-    if (
-      observed == null ||
-      received == null ||
-      observed > issueAt ||
-      received > issueAt ||
-      issueAt - observed > maximumAge ||
-      !finite(value)
-    ) {
-      continue;
-    }
-    if (
-      selected == null ||
-      observed > selected.observedAt ||
-      (observed === selected.observedAt && received > selected.receivedAt)
-    ) {
-      selected = { value, observedAt: observed, receivedAt: received };
-    }
+function collect(
+  freshness: Record<string, number>,
+  sources: readonly string[],
+): WeatherSourceAge[] {
+  const ages: WeatherSourceAge[] = [];
+  for (const source of sources) {
+    const seconds = freshness[source];
+    if (!usableAge(seconds)) continue;
+    ages.push({ source, label: SOURCE_LABELS[source] ?? source, seconds });
   }
-  return selected;
+  return ages;
 }
 
-function series(
-  snapshots: OperationalSolarSnapshot[],
-  field: SnapshotField,
-  source: string,
-  issueAt: number,
-  horizonMs: number,
-): Array<{ time: number; value: number }> {
-  const byTime = new Map<number, number>();
-  for (const snapshot of snapshots) {
-    const time = observedAt(snapshot, source);
-    const received = receivedAt(snapshot);
-    const value = snapshot[field];
-    if (
-      time != null &&
-      received != null &&
-      time <= issueAt &&
-      received <= issueAt &&
-      time >= issueAt - horizonMs &&
-      finite(value)
-    ) {
-      byTime.set(time, value);
-    }
-  }
-  return [...byTime].map(([time, value]) => ({ time, value })).sort(
-    (left, right) => left.time - right.time,
+/**
+ * Extremes of a group. The earliest declared source wins a tie in both, so a
+ * label never flickers between two equally aged sources.
+ */
+function freshest(ages: WeatherSourceAge[]): WeatherSourceAge | null {
+  return ages.reduce<WeatherSourceAge | null>(
+    (best, age) => (best === null || age.seconds < best.seconds ? age : best),
+    null,
   );
 }
 
-export function buildOperationalWeather(
-  snapshots: OperationalSolarSnapshot[],
-  issueTime: Date,
-): OperationalWeatherResult {
-  const issueAt = issueTime.getTime();
-  if (!Number.isFinite(issueAt)) throw new Error("Issue time must be valid");
-  const values: OperationalSpaceWeather = {};
-  const sourceObservedTimes = new Map<string, number>();
-  const sourceReceiptTimes = new Map<string, number>();
-  for (const definition of FIELDS) {
-    const selected = latestField(
-      snapshots,
-      definition.input,
-      definition.source,
-      issueAt,
-    );
-    if (!selected) continue;
-    values[definition.output] = selected.value;
-    sourceObservedTimes.set(
-      definition.source,
-      Math.min(
-        sourceObservedTimes.get(definition.source) ?? selected.observedAt,
-        selected.observedAt,
-      ),
-    );
-    sourceReceiptTimes.set(
-      definition.source,
-      Math.min(
-        sourceReceiptTimes.get(definition.source) ?? selected.receivedAt,
-        selected.receivedAt,
-      ),
-    );
-  }
+function oldest(ages: WeatherSourceAge[]): WeatherSourceAge | null {
+  return ages.reduce<WeatherSourceAge | null>(
+    (best, age) => (best === null || age.seconds > best.seconds ? age : best),
+    null,
+  );
+}
 
-  const kp = series(snapshots, "kp_index", "kp", issueAt, 24 * 60 * 60 * 1000);
-  if (values.kp != null && kp.length > 0) {
-    values.kp_max_24h = Math.max(...kp.map((item) => item.value));
-    const current = kp[kp.length - 1];
-    const cutoff = issueAt - 3 * 60 * 60 * 1000;
-    const prior = [...kp].reverse().find((item) => item.time <= cutoff);
-    if (prior && cutoff - prior.time <= 60 * 60 * 1000) {
-      values.kp_delta_3h = current.value - prior.value;
-    }
+export function deriveOperationalWeatherAges(
+  freshness: Record<string, number> | undefined,
+): OperationalWeatherAges {
+  if (!freshness) {
+    return {
+      freshestFast: null,
+      oldestFast: null,
+      oldestSlow: null,
+      aggregateSeconds: null,
+    };
   }
-  const bz = series(
-    snapshots,
-    "bz_gsm",
-    "magnetic_field",
-    issueAt,
-    3 * 60 * 60 * 1000,
-  );
-  if (values.bz_gsm != null && bz.length > 0) {
-    values.bz_min_3h = Math.min(...bz.map((item) => item.value));
-  }
-  const dst = series(
-    snapshots,
-    "dst_index",
-    "dst",
-    issueAt,
-    6 * 60 * 60 * 1000,
-  );
-  if (values.dst != null && dst.length > 0) {
-    values.dst_min_6h = Math.min(...dst.map((item) => item.value));
-  }
-
-  const sourceObservedAgesSeconds = Object.fromEntries(
-    [...sourceObservedTimes].map(([source, time]) => [
-      source,
-      Math.max(0, Math.floor((issueAt - time) / 1000)),
-    ]),
-  );
-  const sourceReceiptAgesSeconds = Object.fromEntries(
-    [...sourceReceiptTimes].map(([source, time]) => [
-      source,
-      Math.max(0, Math.floor((issueAt - time) / 1000)),
-    ]),
-  );
-  const sourceAvailableAt = Object.fromEntries(
-    [...sourceReceiptTimes].map(([source, time]) => [source, time]),
-  );
-  const fastTimes = [...sourceObservedTimes]
-    .filter(([source]) => FAST_SOURCES.has(source))
-    .map(([, time]) => time);
+  const fast = collect(freshness, FAST_WEATHER_SOURCES);
+  const slow = collect(freshness, SLOW_WEATHER_SOURCES);
+  const aggregate = freshness.space_weather;
   return {
-    values,
-    sourceObservedAgesSeconds,
-    sourceReceiptAgesSeconds,
-    sourceAvailableAt,
-    ...(fastTimes.length > 0 ? { watermarkAt: Math.min(...fastTimes) } : {}),
+    freshestFast: freshest(fast),
+    oldestFast: oldest(fast),
+    oldestSlow: oldest(slow),
+    aggregateSeconds: usableAge(aggregate) ? aggregate : null,
   };
 }

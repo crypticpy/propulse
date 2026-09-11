@@ -78,11 +78,17 @@ export function PropagationForecastReport({ open, onClose, initialBand = "20m", 
       { label: "MUF NOW / +6 H", value: `${muf(data.wall.hourIndex)} / ${muf(data.wall.hourIndex + 6)}` },
       { label: "Kp FORECAST · NOAA", value: kpPoint ? <span className={kpStale ? "hc-warn-text" : undefined}>{kpPoint.kp.toFixed(1)}{kpStale ? " · STALE" : ""}</span> : "NO FORECAST FOR HOUR" },
       { label: "PATH", value: data.sourceLabel },
-      { label: "PROFILE", value: prediction?.profile ?? "PHYSICS" },
-      { label: "MODEL VERSION", value: prediction?.model_version ?? "MODEL OFF" },
       { label: "ACTIVE HORIZONS", value: future.active.length ? `${future.active.map(value => `+${value}`).join(" / ")} H` : "NONE" },
     ]} {...reportFooter("PHYSICS · Kp/SFI OBSERVATIONS; MODEL TIMES IN STRIP", data.wall.updatedAt)} pinId="forecast" pinElement={<PropagationForecastReport open onClose={onClose} initialBand={band} initialHour={selected} initialTab={tab} />}>
     <EngineComparisonStrip subject={`${band.toUpperCase()} · ${data.sourceLabel}`} physics={physicsReading} nowcast={modelReading} observed={observedReading} classify={(value, unit) => unit === "spots" ? null : probabilityStepClassifier()(value, unit)} />
+    <div className="hcr-box hcr-forecast-model">
+      <dl className="hcr-kv">
+        <dt>PROFILE</dt>
+        <dd>{prediction?.profile ?? "PHYSICS"}</dd>
+        <dt>MODEL VERSION</dt>
+        <dd>{prediction?.model_version ?? "MODEL OFF"}</dd>
+      </dl>
+    </div>
     <div className="hcr-forecast-plot"><ForecastBandChart matrix={data.matrix} model={model} start={data.dayStart} selectedHour={hour} nowHour={Math.floor(Date.now() / FORECAST_HOUR_MS)} onSelect={setSelected} /></div>
     <HamClockTabs label="Forecast views" active={tab} onChange={setTab} tabs={[
       { id: "matrix", label: "MATRIX", content: <ForecastGrid matrix={data.matrix} start={data.dayStart} selectedBand={band} selectedHour={hour} onSelect={(value, at) => { setBand(value); setSelected(at); }} /> },

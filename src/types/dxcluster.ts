@@ -17,6 +17,8 @@ export interface DXSpot {
   dx: string;
   /** DX station's Maidenhead grid locator */
   dxGrid?: string;
+  /** ITU continent code from the feed when present (e.g. "EU", "NA") */
+  continent?: string;
   /** Frequency in kHz */
   frequency: number;
   /** Operating mode (CW, SSB, FT8, etc.) */

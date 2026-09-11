@@ -11,7 +11,7 @@ import {
 } from "@/lib/map/anchoredOverlay";
 import { PathPointCard } from "./PathPointCard";
 import { PathPointList } from "./PathPointList";
-import { useMapSurfaceFocus } from "./MapSurfaceContext";
+import { useFocusHome } from "./hooks/useFocusHome";
 
 const CARD_WIDTH = 340;
 const CARD_HEIGHT = 460;
@@ -61,18 +61,6 @@ export function PathPointInspector({
   onOpenList,
 }: PathPointInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  // Whether focus actually entered this panel while it was open (#824, Codex
-  // round 3). See `PinFlyout.tsx` for the full reasoning. This one has a real
-  // body-origin path where focus never enters: clicking the path trace
-  // itself (`RayPathArc`'s `onTraceClick`) opens the panel in "path" overview
-  // mode with no `selectedId`, so `PathPointList`'s own mount-time focus
-  // effect early-returns and nothing inside ever takes focus unless the user
-  // tabs in. Closing from there without ever having done so must not move
-  // focus to the map surface.
-  const heldFocusRef = useRef(false);
-  const focusMapSurface = useMapSurfaceFocus();
   const selected = pointSet.points.find((point) => point.id === selectedId) ?? null;
   const hovered = pointSet.points.find((point) => point.id === hoveredId) ?? null;
   const showPanel = open === "card" || open === "path";
@@ -124,87 +112,18 @@ export function PathPointInspector({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onClose, showPanel]);
 
-  // Focus home (#797/#824). The panel opens from a 3D hit-test (never a DOM
-  // focus change) and does not steal focus into itself, but `PathPointList`
-  // and `PathPointCard` render real tabbable content, so a keyboard user can
-  // Tab into the panel while it is open. If `open` then leaves "card"/"path"
-  // while that content holds focus, the panel unmounts and the browser drops
-  // focus to `<body>`.
-  useEffect(() => {
-    if (!showPanel) return;
-    if (fallbackTimerRef.current !== null) {
-      window.clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const root = panelRef.current;
-    const active = document.activeElement;
-    // React runs child effects before parent effects in the same commit
-    // (#824, Codex round 4): when this panel opens with a `selectedId`
-    // already set, `PathPointList`'s own mount effect synchronously focuses
-    // the selected option before this effect runs, so `active` here can
-    // already be inside `root`. That is not "where focus came from" — it is
-    // where a child just put it — so it must be excluded from both the
-    // restore capture and the initial held-focus state below.
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
-        ? active
-        : null;
-    heldFocusRef.current = root?.contains(active) ?? false;
-    const handleFocusIn = () => {
-      heldFocusRef.current = true;
-    };
-    root?.addEventListener("focusin", handleFocusIn);
-    return () => {
-      root?.removeEventListener("focusin", handleFocusIn);
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      // Gate the whole restore on focus having actually died with this
-      // panel, not just the deferred fallback below (#824). See
-      // `PinFlyout.tsx` for the full mutation-phase reasoning: by the time
-      // this cleanup runs, `activeElement === body` means focus died with
-      // the panel; anything else means a live element legitimately owns
-      // focus and must not be yanked back.
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      // You cannot restore what was never taken (#824 round 3; moved ahead
-      // of the restore branch in round 5, Codex on PR #842): the "path"
-      // overview mode opens with no `selectedId`, so nothing inside this
-      // panel takes focus unless the user tabs in, and a pointer-only
-      // interaction can blur a persistent control to `<body>` without focus
-      // ever entering this panel either way. `<body>` here otherwise reads
-      // the same as "this panel held focus and its removal dropped it", so
-      // both the restore below and the fallback beneath it must be gated on
-      // `heldFocusRef`: cleanup only ever gives back focus it actually held.
-      if (!heldFocusRef.current) return;
-      if (previousFocus?.isConnected) {
-        previousFocus.focus();
-        return;
-      }
-      // Deferred one tick for the same reason as `SpotCollectionPopover`
-      // (#824): nothing in this component's own close paths chains into
-      // another overlay's mount today, but calling this inline would make
-      // that true for the next caller who wires one up, silently, and the
-      // deferred form costs nothing when nothing else is watching.
-      // Cancelled if setup runs again (#824, found by Codex on PR #842).
-      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
-      // so the simulated cleanup schedules this timer while the overlay is
-      // in fact still open; without the cancel it fires and moves focus to
-      // the surface, and merely hovering changes keyboard focus in dev. Any
-      // re-run of setup means the overlay is open again, which makes a
-      // pending fallback stale by definition.
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (document.activeElement === document.body) focusMapSurface?.();
-      }, 0);
-    };
-  }, [focusMapSurface, showPanel]);
+  // Focus home (#797/#824/#848). The panel opens from a 3D hit-test and
+  // does not steal focus into itself, but `PathPointList` and `PathPointCard`
+  // render real tabbable content. Closing from path-overview mode without
+  // ever tabbing in must not move focus to the map surface.
+  useFocusHome(showPanel, panelRef);
 
   const overlay = (
     <>
       {!hideTrigger && (
         <button
           type="button"
-          className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-[12px] focus:text-su-text"
+          className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-xs focus:text-su-text"
           onClick={() => onOpenList?.()}
         >
           {triggerLabel}
@@ -238,6 +157,32 @@ export function PathPointInspector({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-su-line/40 px-3 py-2.5">
+            <div className="min-w-0">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-signal-green">
+                Path point details
+              </h2>
+              <p className="mt-0.5 text-xs text-su-muted">
+                Modeled bounce points along the active path
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
+              aria-label="Close path point details"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path
+                  d="M3 3l8 8M11 3l-8 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
           <PathPointList
             points={pointSet.points}
             selectedId={selectedId}
@@ -248,7 +193,6 @@ export function PathPointInspector({
             status={pointSet.status}
             unavailableReason={pointSet.unavailableReason}
             pathSummary={pathSummary}
-            onClose={onClose}
             onOpenPathAnalysis={onOpenPathAnalysis}
           />
         </section>

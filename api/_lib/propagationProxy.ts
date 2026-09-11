@@ -101,17 +101,49 @@ const researchSubjectBindingSchema = z.object({
   hmac_sha256: z.string().regex(SHA256_PATTERN),
 }).strict();
 
-const dataFreshnessSchema = z.record(
-  z.string().min(1).max(128),
-  z.number().int().nonnegative().max(366 * 24 * 60 * 60),
-).superRefine((value, context) => {
-  if (Object.keys(value).length > 32) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "too many freshness values",
-    });
-  }
-});
+const MAX_REQUEST_FRESHNESS_KEYS = 32;
+/**
+ * Census of every `data_freshness` key the service writes itself: the
+ * path-history age, the space-weather aggregate, and one age per weather
+ * source. Each is stripped from the client's `data_freshness_seconds` before
+ * the server's own value is merged in, so these are the only keys that can
+ * grow a response beyond the request's key count (#321).
+ *
+ * There is no shared source of truth across the language boundary: this
+ * mirrors `SERVER_OWNED_FRESHNESS_KEYS` in `ml/service/app.py`, which a
+ * service test asserts against a real served response. Keep the two in step.
+ */
+const SERVER_OWNED_FRESHNESS_KEYS = [
+  "path_history",
+  "space_weather",
+  "kp",
+  "f107",
+  "magnetic_field",
+  "solar_wind",
+  "sunspot_number",
+  "proton_flux_10mev",
+  "dst",
+  "hp60",
+] as const;
+
+function freshnessSchema(maximumKeys: number) {
+  return z.record(
+    z.string().min(1).max(128),
+    z.number().int().nonnegative().max(366 * 24 * 60 * 60),
+  ).superRefine((value, context) => {
+    if (Object.keys(value).length > maximumKeys) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "too many freshness values",
+      });
+    }
+  });
+}
+
+const dataFreshnessSchema = freshnessSchema(MAX_REQUEST_FRESHNESS_KEYS);
+const responseFreshnessSchema = freshnessSchema(
+  MAX_REQUEST_FRESHNESS_KEYS + SERVER_OWNED_FRESHNESS_KEYS.length,
+);
 
 const commonRequestFields = {
   origin_grid4: z.string().regex(GRID4_PATTERN),
@@ -165,7 +197,7 @@ const predictionSchema = z.object({
   personalized_probability: finiteNumber.min(0).max(1),
   confidence: finiteNumber.min(0).max(1),
   ood_flags: stringList,
-  data_freshness: dataFreshnessSchema,
+  data_freshness: responseFreshnessSchema,
   top_factors: stringList,
   assumptions: stringList,
   profile: z.string().min(1).max(64),

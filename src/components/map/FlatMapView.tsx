@@ -20,6 +20,7 @@ import {
   useCallback,
   useState,
   useMemo,
+  type ReactNode,
 } from "react";
 import {
   drawFlatTerminator as drawTerminator,
@@ -89,6 +90,7 @@ import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { MapSizeSliders } from "./MapSizeSliders";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { MapSurface } from "./MapSurface";
@@ -214,8 +216,10 @@ interface FlatMapViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** When true, canvas fills the entire container instead of maintaining 2:1 letterbox */
   fillContainer?: boolean;
-  /** Hide the local size panel when the host docks it with other controls */
-  hideSizeSliders?: boolean;
+  /** Rows the host wants in the map's bottom-left corner. The view owns that
+   * corner and renders the one column there, so a host contributes rows
+   * instead of anchoring a second stack of its own (#930). */
+  cornerSlot?: ReactNode;
   /** Forwarded to `SpotCollectionPopover` — true only when `HamClockView` is
    * the host (#846/#871 round 3). */
   isWallCanvas?: boolean;
@@ -3344,7 +3348,7 @@ export function FlatMapView({
   displayTime,
   onLocationClick,
   fillContainer = false,
-  hideSizeSliders = false,
+  cornerSlot,
   isWallCanvas,
 }: FlatMapViewProps) {
   const mufRasterRef = useRef<FlatMufRaster | null>(null);
@@ -6498,7 +6502,13 @@ export function FlatMapView({
            (docked to PathAnalysis panel in PropSphere HUD instead) */}
       {!fillContainer && !isLiteMode && <AspectRatioSlider />}
 
-      <div className="absolute bottom-1 right-1 z-20">
+      {/* Attribution carries the provider's required <a href> links, so it is
+          operable chrome: at the portal's own level a popup would paint over
+          it and swallow the click (#930). */}
+      <div
+        className="absolute bottom-1 right-1"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      >
         <ImageryAttribution
           baseSource={
             mapStyle === "standard"
@@ -6562,27 +6572,40 @@ export function FlatMapView({
         onWatchGrid={handleWatchGrid}
       />
 
-      {/* Spot & pin size sliders - bottom left corner */}
-      {!hideSizeSliders && <MapSizeSliders />}
-
-      {/* Bearing/Distance overlay - shown when hovering over the map */}
-      {hoverBearingDistance && (
-        <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-          <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-su-line/40 text-xs font-mono tabular-nums text-su-muted">
-            <span className="text-plasma-orange font-semibold">
-              {String(hoverBearingDistance.bearing).padStart(3, "0")}°
-            </span>
-            <span className="text-su-muted mx-1">
-              {hoverBearingDistance.compassDir}
-            </span>
-            <span className="text-su-muted mx-1">|</span>
-            <span className="text-cosmic-cyan font-semibold">
-              {hoverBearingDistance.distanceKm.toLocaleString()}
-            </span>
-            <span className="text-su-muted ml-0.5">km</span>
+      {/* Bottom-left corner column. This view owns the corner: host rows
+          arrive as `cornerSlot`, the bearing/distance readout reads under the
+          map's overlay portal, and the shared size control sits above it.
+          Stacking them is what keeps the elevated control from covering
+          either row (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-col items-start gap-1">
+        {cornerSlot}
+        {hoverBearingDistance && (
+          <div
+            className="relative"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+          >
+            <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-su-line/40 text-xs font-mono tabular-nums text-su-muted">
+              <span className="text-plasma-orange font-semibold">
+                {String(hoverBearingDistance.bearing).padStart(3, "0")}°
+              </span>
+              <span className="text-su-muted mx-1">
+                {hoverBearingDistance.compassDir}
+              </span>
+              <span className="text-su-muted mx-1">|</span>
+              <span className="text-cosmic-cyan font-semibold">
+                {hoverBearingDistance.distanceKm.toLocaleString()}
+              </span>
+              <span className="text-su-muted ml-0.5">km</span>
+            </div>
           </div>
+        )}
+        <div
+          className="relative"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <MapSizeSliders />
         </div>
-      )}
+      </div>
 
       {/* Pin flyout - shown when hovering over an existing pin */}
       {hoveredPinData && (

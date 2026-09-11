@@ -176,6 +176,52 @@ export const RECEIVER_CLASSES = [
 ] as const;
 export type ReceiverClass = (typeof RECEIVER_CLASSES)[number];
 
+/**
+ * Quantities whose value-bearing output is a calibrated number and therefore
+ * cannot exist without a calibration identity. M22 makes the completed-QSO
+ * chain a calibrated output head, so a model that cannot name a calibration
+ * cannot produce an acceptable completed-QSO result. This one table is read by
+ * the result head refinement and by the capability refinement, so the router
+ * can never select a model whose results the result contract would reject.
+ *
+ * `conditional_decode` is deliberately absent: M10 lets it report a dB margin
+ * with no probability and no calibration, so its requirement is conditional on
+ * the payload rather than on the quantity.
+ */
+export const CALIBRATION_REQUIRED_QUANTITIES: readonly PredictionQuantity[] = [
+  "completed_qso",
+];
+
+/**
+ * Directionality of each quantity, which decides whose receive chain takes
+ * part in a capability's coverage.
+ *
+ * Directed: the quantity is a property of one receiving station, so only the
+ * receiving chain participates. M08/M09 build the signal and noise budget at
+ * the receiver's connector, and M10 turns that into a margin or a decode
+ * probability; the network, activity and burst heads are likewise reports
+ * gathered at receivers.
+ *
+ * Reciprocal: `completed_qso` is reciprocal because M18/M22 require both
+ * directions to close before a contact completes. `circuit_support` is
+ * reciprocal because M07 mode support is a property of the path's geometry and
+ * ionisation rather than of either receive chain. `pass_geometry` is
+ * reciprocal because A21 timing is mutual visibility of the relay from both
+ * endpoints and involves no receive chain at all.
+ *
+ * The transmit antenna always radiates, so the antenna class is checked at
+ * both ends for every quantity; only the receive chain is directional.
+ */
+export const DIRECTED_QUANTITIES: readonly PredictionQuantity[] = [
+  "snr2500",
+  "field_strength",
+  "doppler",
+  "conditional_decode",
+  "network_detection",
+  "observed_activity",
+  "usable_burst",
+];
+
 /** M01 availability enum. "Missing is never zero" (M11). */
 export const AVAILABILITY_STATES = [
   "available",

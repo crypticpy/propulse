@@ -42,6 +42,14 @@ export const instant = z
   .refine((value) => !SUB_MILLISECOND.test(value), {
     message:
       "An instant carries at most millisecond precision (three fractional digits)",
+  })
+  /**
+   * ISO 8601 permits offsets such as +24:00 that `Date.parse` cannot
+   * represent. An unparseable instant would silently become NaN and defeat
+   * every ordering comparison, so it is rejected at the boundary instead.
+   */
+  .refine((value) => Number.isFinite(Date.parse(value)), {
+    message: "An instant must name a real offset that parses to an instant",
   });
 
 /** A finite number. NaN, Infinity and -Infinity are all rejected. */

@@ -329,14 +329,31 @@ describe("parseRequest fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
-  it("still accepts coincident endpoints on a relayed geometry (A21)", () => {
+  it("accepts coincident outer endpoints on a relayed geometry (A21)", () => {
     const relayed = candidate("satellitePass");
     (relayed.rx as Mutable).coordinates = structuredClone(
       (relayed.tx as Mutable).coordinates,
     );
-    (relayed.route as Mutable).azimuthDeg = 45;
     const outcome = parseRequest(relayed);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a route azimuth on a relayed geometry (A21)", () => {
+    const bad = candidate("satellitePass");
+    (bad.route as Mutable).azimuthDeg = 45;
+    expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
+      /takes no route azimuth/,
+    );
+  });
+
+  it("rejects a fixed relay sitting on one of its own endpoints (A21)", () => {
+    const bad = candidate("fixedRelay");
+    (bad.tx as Mutable).coordinates = structuredClone(
+      (bad.relay as Mutable).coordinates,
+    );
+    expect(reasonsAt(bad, "relay.coordinates").join()).toMatch(
+      /zero-length leg/,
+    );
   });
 
   it("rejects an explicit route azimuth on an ordinary path (M06)", () => {

@@ -183,6 +183,23 @@ function degeneracyToleranceRad(
   );
 }
 
+function isCoincident(
+  a: {
+    latitudeDeg: number;
+    longitudeDeg: number;
+    precision: { horizontalMeters: Known<number> };
+  },
+  b: {
+    latitudeDeg: number;
+    longitudeDeg: number;
+    precision: { horizontalMeters: Known<number> };
+  },
+): boolean {
+  const tolerance = degeneracyToleranceRad(a, b);
+  if (sameCoordinates(a, b)) return true;
+  return tolerance > 0 && angularSeparationRad(a, b) <= tolerance;
+}
+
 /** Same point on the sphere, with the antimeridian spelled either way. */
 function sameCoordinates(
   a: { latitudeDeg: number; longitudeDeg: number },
@@ -441,15 +458,49 @@ export const predictionRequestSchema = z
       value.tx.coordinates,
       value.rx.coordinates,
     );
-    const coincident =
-      sameCoordinates(value.tx.coordinates, value.rx.coordinates) ||
-      (tolerance > 0 && separation <= tolerance);
+    const coincident = isCoincident(value.tx.coordinates, value.rx.coordinates);
     const antipodal =
       separation >= Math.PI - Math.max(tolerance, NUMERIC_GUARD_RAD);
     const degenerate = coincident || antipodal;
     const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
       value.mechanismPolicy.geometryClass,
     );
+    if (relayed) {
+      // A21: a relayed request has no single great-circle tangent to derive or
+      // to be told. Each leg's bearing comes from the relay identity, so a
+      // caller-supplied azimuth would describe a path the request does not
+      // have, and the coincident/antipodal rules below apply only to a direct
+      // great-circle path.
+      if (value.route.azimuthDeg !== null) {
+        reject(
+          ctx,
+          ["route", "azimuthDeg"],
+          "A relayed geometry derives each leg's bearing from the relay; it takes no route azimuth (A21)",
+        );
+      }
+      if (value.relay !== null && value.relay.kind === "fixed") {
+        const legs: [
+          string,
+          {
+            latitudeDeg: number;
+            longitudeDeg: number;
+            precision: { horizontalMeters: Known<number> };
+          },
+        ][] = [
+          ["tx", value.tx.coordinates],
+          ["rx", value.rx.coordinates],
+        ];
+        for (const [end, endpoint] of legs) {
+          if (isCoincident(value.relay.coordinates, endpoint)) {
+            reject(
+              ctx,
+              ["relay", "coordinates"],
+              `A fixed relay coincident with the ${end} station is a zero-length leg (M06, A21)`,
+            );
+          }
+        }
+      }
+    }
     if (coincident && !relayed) {
       // M06: "a zero-distance MUF visualization is not a valid HF circuit
       // request". An explicit azimuth supplies a tangent, not a circuit, so it
@@ -462,14 +513,14 @@ export const predictionRequestSchema = z
         `Coincident endpoints are a zero-distance circuit, which geometry class ${value.mechanismPolicy.geometryClass} cannot answer (M06)`,
       );
     }
-    if (degenerate && value.route.azimuthDeg === null) {
+    if (!relayed && degenerate && value.route.azimuthDeg === null) {
       reject(
         ctx,
         ["route", "azimuthDeg"],
         "Coincident or antipodal endpoints have no derived short or long tangent; an explicit route azimuth is required (M06)",
       );
     }
-    if (!degenerate && value.route.azimuthDeg !== null) {
+    if (!relayed && !degenerate && value.route.azimuthDeg !== null) {
       reject(
         ctx,
         ["route", "azimuthDeg"],

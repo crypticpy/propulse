@@ -10,6 +10,7 @@
 import { z } from "zod";
 import {
   AVAILABILITY_STATES,
+  CALIBRATION_REQUIRED_QUANTITIES,
   CIRCUIT_SUPPORT_STATES,
   FALLBACK_REASONS,
   INTERVAL_KINDS,
@@ -501,11 +502,28 @@ const predictionHead = z
         "A numeric decode probability requires a calibration identity (M10)",
       );
     }
-    if (value.quantity === "completed_qso" && value.calibrationId === null) {
+    // M10: until a calibrated decoder response exists the head reports a dB
+    // margin and nothing else, so there is no probability for an interval to
+    // be about. An uncalibrated decode head therefore carries kind "none".
+    if (
+      value.quantity === "conditional_decode" &&
+      (payload.data as { probability: number | null }).probability === null &&
+      value.uncertainty.kind !== "none"
+    ) {
+      reject(
+        ctx,
+        ["uncertainty", "kind"],
+        "An uncalibrated decode head reports a margin, not an interval (M10)",
+      );
+    }
+    if (
+      CALIBRATION_REQUIRED_QUANTITIES.includes(value.quantity) &&
+      value.calibrationId === null
+    ) {
       reject(
         ctx,
         ["calibrationId"],
-        "A numeric completed-QSO probability requires a calibration identity (M22)",
+        `A value-bearing ${value.quantity} head requires a calibration identity (M22)`,
       );
     }
     if (

@@ -147,7 +147,7 @@
     "modeProfileId": "fm-voice-12k5",
     "route": {
       "leg": "short",
-      "azimuthDeg": 112.5
+      "azimuthDeg": null
     },
     "mechanismPolicy": {
       "family": "satellite",

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import {
+  CALIBRATION_REQUIRED_QUANTITIES,
+  QUANTITY_UNITS,
+} from "@/lib/propagation/contracts/enums";
+import {
   capabilityCovers,
   parseCapability,
 } from "@/lib/propagation/contracts/capability";
@@ -339,6 +343,58 @@ describe("parseCapability fails closed", () => {
     );
   });
 
+  it("requires calibration in capabilities for every quantity results require it for", () => {
+    for (const quantity of CALIBRATION_REQUIRED_QUANTITIES) {
+      const bad = candidate("hfPhysics");
+      const head = structuredClone((bad.heads as Mutable[])[1]);
+      head.quantity = quantity;
+      head.units = QUANTITY_UNITS[quantity];
+      head.calibrationId = null;
+      head.state = "implemented_unvalidated";
+      (bad.heads as Mutable[]).push(head);
+      expect(reasonsAt(bad, "heads[3].calibrationId").join()).toMatch(
+        /requires a calibration identity/,
+      );
+    }
+  });
+
+  it("rejects a routable completed_qso head with no calibration (M22)", () => {
+    const bad = candidate("hfPhysics");
+    const head = structuredClone((bad.heads as Mutable[])[1]);
+    head.quantity = "completed_qso";
+    head.units = "probability";
+    head.calibrationId = null;
+    head.state = "implemented_unvalidated";
+    (bad.heads as Mutable[]).push(head);
+    expect(reasonsAt(bad, "heads[3].calibrationId").join()).toMatch(
+      /requires a calibration identity/,
+    );
+  });
+
+  it("accepts a routable completed_qso head that names its calibration", () => {
+    const good = candidate("hfPhysics");
+    const head = structuredClone((good.heads as Mutable[])[1]);
+    head.quantity = "completed_qso";
+    head.units = "probability";
+    head.calibrationId = "qso-chain-calibration-0.1.0";
+    head.state = "implemented_unvalidated";
+    (good.heads as Mutable[]).push(head);
+    const outcome = parseCapability(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a planned completed_qso head with no calibration yet", () => {
+    const planned = candidate("hfPhysics");
+    const head = structuredClone((planned.heads as Mutable[])[1]);
+    head.quantity = "completed_qso";
+    head.units = "probability";
+    head.calibrationId = null;
+    head.state = "planned";
+    (planned.heads as Mutable[]).push(head);
+    const outcome = parseCapability(planned);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects a routable head that pins no feature hash (M19)", () => {
     const bad = candidate("hfPhysics");
     (bad.heads as Mutable[])[1].featureHash = null;
@@ -430,11 +486,36 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
-  it("rejects a transmitting station outside the head's receiver class (M18)", () => {
+  it("ignores the transmitting receive chain for a directed quantity", () => {
+    // snr2500 is measured at one receiver (M08/M09), so the transmitting
+    // station's own receive chain does not take part in coverage.
     expect(
       capabilityCovers(parsed("hfPhysics"), {
         ...baseQuery,
         txReceiverClass: "calibrated_system_temperature",
+      }),
+    ).toBe(true);
+  });
+
+  it("checks both receive chains for a reciprocal quantity (M18)", () => {
+    const reciprocal = {
+      ...baseQuery,
+      quantity: "circuit_support",
+    } as const;
+    expect(capabilityCovers(parsed("hfPhysics"), reciprocal)).toBe(true);
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...reciprocal,
+        txReceiverClass: "calibrated_system_temperature",
+      }),
+    ).toBe(false);
+  });
+
+  it("still rejects a directed head with an out-of-class receiving chain", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        rxReceiverClass: "calibrated_system_temperature",
       }),
     ).toBe(false);
   });

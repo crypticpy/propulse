@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
 import { findHead, parseResult } from "@/lib/propagation/contracts/result";
+import {
+  CALIBRATION_REQUIRED_QUANTITIES,
+  QUANTITY_UNITS,
+} from "@/lib/propagation/contracts/enums";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
 
 type Mutable = Record<string, unknown>;
@@ -430,6 +434,62 @@ describe("parseResult fails closed", () => {
     const decode = (headFor(good, "conditional_decode").state as Mutable)
       .value as Mutable;
     decode.marginDb = 100;
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a value-bearing head of a calibration-required quantity with no calibration", () => {
+    for (const quantity of CALIBRATION_REQUIRED_QUANTITIES) {
+      const bad = candidate("fullHfCircuit");
+      const head = heads(bad)[1];
+      head.quantity = quantity;
+      head.units = QUANTITY_UNITS[quantity];
+      head.calibrationId = null;
+      (head.state as Mutable).value = {
+        probability: 0.06,
+        pActivity: 0.3,
+        pLinkGivenActivity: 0.4,
+        pCompletionGivenLink: 0.5,
+        attemptProtocolId: "call-and-answer-v1",
+      };
+      expect(reasonsAt(bad, "heads[1].calibrationId").join()).toMatch(
+        /requires a calibration identity/,
+      );
+    }
+  });
+
+  it("rejects an uncalibrated decode head that carries an interval (M10)", () => {
+    const bad = candidate("fullHfCircuit");
+    const head = headFor(bad, "conditional_decode");
+    expect(((head.state as Mutable).value as Mutable).probability).toBeNull();
+    head.uncertainty = {
+      kind: "model_spread",
+      intervalKind: "central",
+      coverageProbability: 0.8,
+      low: 0.2,
+      high: 0.8,
+    };
+    expect(reasonsAt(bad, "heads[2].uncertainty.kind").join()).toMatch(
+      /reports a margin, not an interval/,
+    );
+  });
+
+  it("accepts an uncalibrated decode head with no interval (M10)", () => {
+    const outcome = parseResult(candidate("fullHfCircuit"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects an instant whose offset cannot be parsed", () => {
+    const bad = candidate("fullHfCircuit");
+    bad.validAt = "2026-09-11T19:00:00+24:00";
+    expect(reasonsAt(bad, "validAt").join()).toMatch(/real offset/);
+  });
+
+  it("accepts an instant written with a half-hour offset", () => {
+    const good = candidate("fullHfCircuit");
+    good.issuedAt = "2026-09-11T23:30:00+05:30";
+    good.validAt = "2026-09-12T00:30:00+05:30";
+    for (const head of heads(good)) head.validAt = good.validAt;
     const outcome = parseResult(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });

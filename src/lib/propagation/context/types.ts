@@ -125,7 +125,11 @@ export type ExclusionReason =
  * as one.
  */
 export type Selected =
-  | { readonly state: "selected"; readonly record: SourceRecord; readonly ageSeconds: number }
+  | {
+      readonly state: "selected";
+      readonly record: SourceRecord;
+      readonly ageSeconds: number;
+    }
   | {
       readonly state: "excluded";
       readonly reason: ExclusionReason;
@@ -227,7 +231,9 @@ export class ContextTimeError extends Error {
     readonly field: string,
     readonly value: unknown,
   ) {
-    super(`context timestamp "${field}" is not a parseable instant: ${String(value)}`);
+    super(
+      `context timestamp "${field}" is not a parseable instant: ${String(value)}`,
+    );
   }
 }
 
@@ -245,8 +251,13 @@ export function instantMs(value: Instant, field = "instant"): number {
  * `max(0, ceil((issue_time - observed).total_seconds()))` exactly, including
  * the clamp at zero, so the parity fixture compares like with like.
  */
-export function ageSecondsAt(issuedAt: Instant, observedIntervalEndAt: Instant): number {
-  const delta = instantMs(issuedAt, "issuedAt") - instantMs(observedIntervalEndAt, "observedIntervalEndAt");
+export function ageSecondsAt(
+  issuedAt: Instant,
+  observedIntervalEndAt: Instant,
+): number {
+  const delta =
+    instantMs(issuedAt, "issuedAt") -
+    instantMs(observedIntervalEndAt, "observedIntervalEndAt");
   return Math.max(0, Math.ceil(delta / 1000));
 }
 

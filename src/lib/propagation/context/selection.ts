@@ -43,7 +43,9 @@ export class ContextStampError extends Error {
     readonly sourceId: string,
     readonly detail: string,
   ) {
-    super(`record from "${sourceId}" describes an impossible history: ${detail}`);
+    super(
+      `record from "${sourceId}" describes an impossible history: ${detail}`,
+    );
   }
 }
 
@@ -81,8 +83,14 @@ export interface SelectOptions {
 }
 
 function assertCausalStamps(record: SourceRecord): void {
-  const observed = instantMs(record.stamps.observedIntervalEndAt, "observedIntervalEndAt");
-  const published = instantMs(record.stamps.publication.publishedAt, "publishedAt");
+  const observed = instantMs(
+    record.stamps.observedIntervalEndAt,
+    "observedIntervalEndAt",
+  );
+  const published = instantMs(
+    record.stamps.publication.publishedAt,
+    "publishedAt",
+  );
   const captured = instantMs(record.stamps.capturedAt, "capturedAt");
   if (published < observed) {
     throw new ContextStampError(
@@ -91,11 +99,20 @@ function assertCausalStamps(record: SourceRecord): void {
     );
   }
   if (captured < published) {
-    throw new ContextStampError(record.sourceId, "captured before it was published");
+    throw new ContextStampError(
+      record.sourceId,
+      "captured before it was published",
+    );
   }
   const start = record.stamps.observedIntervalStartAt;
-  if (start !== null && instantMs(start, "observedIntervalStartAt") > observed) {
-    throw new ContextStampError(record.sourceId, "observation interval ends before it starts");
+  if (
+    start !== null &&
+    instantMs(start, "observedIntervalStartAt") > observed
+  ) {
+    throw new ContextStampError(
+      record.sourceId,
+      "observation interval ends before it starts",
+    );
   }
 }
 
@@ -148,14 +165,20 @@ export function inactiveBarrierAsOf(
  * record fails is the reason reported, so "it arrived too late" is never
  * reported as "it was too old".
  */
-export function selectAsOf(history: SourceHistory, options: SelectOptions): Selected {
+export function selectAsOf(
+  history: SourceHistory,
+  options: SelectOptions,
+): Selected {
   const { entry, mode } = options;
   const issued = instantMs(options.issuedAt, "issuedAt");
   const barrier = options.barrier ?? null;
   const barrierAt = barrier === null ? null : instantMs(barrier, "barrier");
 
   let selected: SourceRecord | null = null;
-  let selectedKey: [number, number] = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
+  let selectedKey: [number, number] = [
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ];
   let latest: SourceRecord | null = null;
   let latestAt = Number.NEGATIVE_INFINITY;
   type ExclusionOf = Extract<Selected, { state: "excluded" }>["reason"];
@@ -171,13 +194,19 @@ export function selectAsOf(history: SourceHistory, options: SelectOptions): Sele
     }
     assertCausalStamps(record);
 
-    const observed = instantMs(record.stamps.observedIntervalEndAt, "observedIntervalEndAt");
+    const observed = instantMs(
+      record.stamps.observedIntervalEndAt,
+      "observedIntervalEndAt",
+    );
     if (observed > latestAt) {
       latest = record;
       latestAt = observed;
     }
 
-    const published = instantMs(record.stamps.publication.publishedAt, "publishedAt");
+    const published = instantMs(
+      record.stamps.publication.publishedAt,
+      "publishedAt",
+    );
     const captured = instantMs(record.stamps.capturedAt, "capturedAt");
 
     let failure: ExclusionOf | null = null;
@@ -219,7 +248,10 @@ export function selectAsOf(history: SourceHistory, options: SelectOptions): Sele
     }
 
     const key: [number, number] = [observed, captured];
-    if (key[0] > selectedKey[0] || (key[0] === selectedKey[0] && key[1] > selectedKey[1])) {
+    if (
+      key[0] > selectedKey[0] ||
+      (key[0] === selectedKey[0] && key[1] > selectedKey[1])
+    ) {
       selected = record;
       selectedKey = key;
     }
@@ -229,7 +261,10 @@ export function selectAsOf(history: SourceHistory, options: SelectOptions): Sele
     return {
       state: "selected",
       record: selected,
-      ageSeconds: ageSecondsAt(options.issuedAt, selected.stamps.observedIntervalEndAt),
+      ageSeconds: ageSecondsAt(
+        options.issuedAt,
+        selected.stamps.observedIntervalEndAt,
+      ),
     };
   }
   if (excluded !== null) return { state: "excluded", reason: excluded, latest };

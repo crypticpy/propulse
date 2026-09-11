@@ -1,0 +1,244 @@
+import { describe, expect, it } from "vitest";
+
+import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
+import { parseResult } from "@/lib/propagation/contracts/result";
+
+import { recordsFromSnapshotRow, type SolarSnapshotRow } from "./adapters";
+import { DISABLED_CAPABILITIES, LEDGER_VERSION } from "./ledger";
+import {
+  buildContextSnapshot,
+  CENSUS_SOURCE_IDS,
+  toEvidenceSources,
+} from "./snapshot";
+import type { ContextSnapshot } from "./types";
+
+/** The issue time the merged result fixture was written against. */
+const ISSUED = "2026-09-11T18:00:00Z";
+
+const ROW: SolarSnapshotRow = {
+  captured_at: "2026-09-11T17:50:00.000Z",
+  kp_index: 3,
+  sfi: 150,
+  bt: 6,
+  bx_gsm: 1,
+  by_gsm: 2,
+  bz_gsm: -3,
+  solar_wind_speed: 420,
+  solar_wind_temperature: 90000,
+  solar_wind_density: 5,
+  sunspot_number: 60,
+  proton_flux_10mev: 0.2,
+  dst_index: -12,
+  hp60: 2.7,
+  source_observed_at: {
+    kp: "2026-09-11T17:45:00.000Z",
+    f107: "2026-09-11T00:00:00.000Z",
+    magnetic_field: "2026-09-11T17:45:00.000Z",
+    solar_wind: "2026-09-11T17:45:00.000Z",
+    sunspot_number: "2026-09-11T00:00:00.000Z",
+    proton_flux_10mev: "2026-09-11T17:40:00.000Z",
+    dst: "2026-09-11T17:00:00.000Z",
+    hp60: "2026-09-11T16:00:00.000Z",
+  },
+  source_status: {
+    magnetic_field: { active: true },
+    solar_wind: { active: true },
+  },
+};
+
+function historiesFrom(
+  row: SolarSnapshotRow,
+): Record<string, ReturnType<typeof recordsFromSnapshotRow>> {
+  const histories: Record<
+    string,
+    ReturnType<typeof recordsFromSnapshotRow>
+  > = {};
+  for (const record of recordsFromSnapshotRow(row)) {
+    histories[record.sourceId] = [
+      ...(histories[record.sourceId] ?? []),
+      record,
+    ];
+  }
+  return histories;
+}
+
+async function snapshot(
+  overrides: Partial<Parameters<typeof buildContextSnapshot>[0]> = {},
+): Promise<ContextSnapshot> {
+  return buildContextSnapshot({
+    issuedAt: ISSUED,
+    mode: "cached_live",
+    histories: historiesFrom(ROW),
+    forecasts: {},
+    ...overrides,
+  });
+}
+
+/** Every `value` key reachable under a subtree, however deeply nested. */
+function valueKeys(node: unknown, path: string[] = []): string[] {
+  if (node === null || typeof node !== "object") return [];
+  if (Array.isArray(node)) {
+    return node.flatMap((child, index) =>
+      valueKeys(child, [...path, String(index)]),
+    );
+  }
+  return Object.entries(node as Record<string, unknown>).flatMap(
+    ([key, child]) =>
+      key === "value"
+        ? [[...path, key].join(".")]
+        : valueKeys(child, [...path, key]),
+  );
+}
+
+describe("buildContextSnapshot: the census", () => {
+  it("carries one entry for every declared source, present or not", async () => {
+    const built = await snapshot();
+    expect(Object.keys(built.sources).sort()).toEqual(
+      [...CENSUS_SOURCE_IDS].sort(),
+    );
+    expect(built.sources.r12_climatology.state).toBe("absent");
+    expect(built.sources.kp.state).toBe("selected");
+    expect(built.ledgerVersion).toBe(LEDGER_VERSION);
+  });
+
+  it("never exposes a number for a source that was not selected", async () => {
+    const built = await snapshot();
+    for (const [sourceId, entry] of Object.entries(built.sources)) {
+      if (entry.state === "selected") continue;
+      expect(valueKeys(entry), `${sourceId} exposes a value`).toEqual([]);
+    }
+  });
+
+  it("discloses the age of every selected source", async () => {
+    const built = await snapshot();
+    const kp = built.sources.kp;
+    expect(kp.state).toBe("selected");
+    if (kp.state !== "selected") return;
+    expect(kp.ageSeconds).toBe(900);
+  });
+
+  it("is deeply frozen", async () => {
+    const built = await snapshot();
+    expect(Object.isFrozen(built)).toBe(true);
+    expect(Object.isFrozen(built.sources)).toBe(true);
+    expect(Object.isFrozen(built.sources.kp)).toBe(true);
+    expect(() => {
+      (built as { issuedAt: string }).issuedAt = "2020-01-01T00:00:00.000Z";
+    }).toThrow(TypeError);
+  });
+});
+
+describe("buildContextSnapshot: identity", () => {
+  it("is deterministic for the same inputs", async () => {
+    const [first, second] = await Promise.all([snapshot(), snapshot()]);
+    expect(first.contextId).toMatch(/^ctx:sha256:[0-9a-f]{64}$/);
+    expect(first.contextId).toBe(second.contextId);
+  });
+
+  it("changes when the mode changes", async () => {
+    const live = await snapshot({ mode: "cached_live" });
+    const offline = await snapshot({ mode: "offline" });
+    expect(offline.contextId).not.toBe(live.contextId);
+  });
+
+  it("changes when one source degrades, so a degraded context cannot reuse a cache", async () => {
+    const healthy = await snapshot();
+    const degraded = await snapshot({
+      histories: historiesFrom({
+        ...ROW,
+        source_status: { ...ROW.source_status, solar_wind: { active: false } },
+      }),
+    });
+    expect(degraded.contextId).not.toBe(healthy.contextId);
+    expect(degraded.sources.solar_wind).toMatchObject({
+      reason: "source_inactive",
+    });
+    // The other evidence survives the outage untouched.
+    expect(degraded.sources.kp).toEqual(healthy.sources.kp);
+    expect(degraded.sources.magnetic_field.state).toBe("selected");
+  });
+});
+
+describe("buildContextSnapshot: modes", () => {
+  it("excludes every cached observation in offline mode and says why", async () => {
+    const built = await snapshot({ mode: "offline" });
+    for (const sourceId of ["kp", "f107", "magnetic_field", "dst", "hp60"]) {
+      expect(built.sources[sourceId]).toMatchObject({ reason: "offline_mode" });
+    }
+  });
+
+  it("names the capture-bounded sources and the disabled capabilities in its assumptions", async () => {
+    const built = await snapshot();
+    expect(built.assumptions.length).toBeGreaterThan(0);
+    expect(built.assumptions[0]).toContain("M02");
+    expect(
+      built.assumptions.some((line) => line.includes("capture_bounded")),
+    ).toBe(true);
+    for (const capability of DISABLED_CAPABILITIES) {
+      expect(
+        built.assumptions.some((line) => line.includes(capability.id)),
+      ).toBe(true);
+    }
+  });
+});
+
+describe("toEvidenceSources: the PROP-04 projection", () => {
+  it("parses inside the merged prediction result contract", async () => {
+    const built = await snapshot();
+    const fixture = resultCases.fullHfCircuit as unknown as Record<
+      string,
+      unknown
+    >;
+    const candidate = {
+      ...fixture,
+      contextId: built.contextId,
+      evidence: { sources: toEvidenceSources(built) },
+      heads: (fixture.heads as Record<string, unknown>[]).map((head) => ({
+        ...head,
+        contextId: built.contextId,
+      })),
+    };
+    const outcome = parseResult(candidate);
+    expect(
+      outcome.ok,
+      JSON.stringify(outcome.ok ? [] : outcome.issues, null, 2),
+    ).toBe(true);
+  });
+
+  it("pins an eligible source with a sha256 version and an excluded one with a reason", async () => {
+    const built = await snapshot();
+    const projected = toEvidenceSources(built);
+    const kp = projected.find((source) => source.sourceId === "kp");
+    expect(kp?.eligible).toBe(true);
+    expect(kp?.sourceVersion).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(kp?.exclusionReason).toBeNull();
+
+    const absent = projected.find(
+      (source) => source.sourceId === "r12_climatology",
+    );
+    expect(absent?.eligible).toBe(false);
+    expect(absent?.sourceVersion).toBe("unknown");
+    expect(absent?.exclusionReason).toBe("no_record_in_history");
+    expect(absent?.capturedAt).toBeNull();
+  });
+
+  it("keeps a stale source visible and dated rather than dropping or zeroing it", async () => {
+    const stale: SolarSnapshotRow = {
+      ...ROW,
+      source_observed_at: {
+        ...ROW.source_observed_at,
+        kp: "2026-09-11T10:00:00.000Z",
+      },
+    };
+    const built = await snapshot({ histories: historiesFrom(stale) });
+    expect(built.sources.kp).toMatchObject({
+      state: "excluded",
+      reason: "beyond_age_bound",
+    });
+    const projected = toEvidenceSources(built);
+    const kp = projected.find((source) => source.sourceId === "kp");
+    expect(kp?.eligible).toBe(false);
+    expect(kp?.observedIntervalEndAt).toBe("2026-09-11T10:00:00.000Z");
+    expect(kp?.sourceVersion).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+});

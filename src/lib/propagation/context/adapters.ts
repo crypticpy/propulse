@@ -20,7 +20,12 @@ import type {
   SolarFluxOutlookProduct,
 } from "@/lib/solar/dataTypes";
 
-import { instantMs, type Instant, type SourceRecord, type SourceStamps } from "@/lib/propagation/context/types";
+import {
+  instantMs,
+  type Instant,
+  type SourceRecord,
+  type SourceStamps,
+} from "@/lib/propagation/context/types";
 
 /** What the fetching layer already knows about a product it just received. */
 export interface CaptureMeta {
@@ -37,7 +42,9 @@ const KP_BIN_SECONDS = 10800;
 const DAY_SECONDS = 86400;
 
 function plusSeconds(at: Instant, seconds: number): Instant {
-  return new Date(instantMs(at, "interval anchor") + seconds * 1000).toISOString();
+  return new Date(
+    instantMs(at, "interval anchor") + seconds * 1000,
+  ).toISOString();
 }
 
 function captureBounded(capturedAt: Instant): SourceStamps["publication"] {
@@ -59,14 +66,19 @@ export interface KpRecords {
  * NOAA calls it, and it is flagged so a reader can see why it was classified
  * that way.
  */
-export function kpRecords(points: readonly KpPoint[], meta: CaptureMeta): KpRecords {
+export function kpRecords(
+  points: readonly KpPoint[],
+  meta: CaptureMeta,
+): KpRecords {
   const capturedAt = meta.fetchedAt;
   const capturedMs = instantMs(capturedAt, "fetchedAt");
   const observations: SourceRecord[] = [];
   const forecasts: SourceRecord[] = [];
 
   for (const point of points) {
-    const startAt = new Date(instantMs(point.time_tag, "time_tag")).toISOString();
+    const startAt = new Date(
+      instantMs(point.time_tag, "time_tag"),
+    ).toISOString();
     const endAt = plusSeconds(startAt, KP_BIN_SECONDS);
     const closed = instantMs(endAt, "bin end") <= capturedMs;
     const isForecast = point.kind === "predicted" || !closed;
@@ -93,7 +105,9 @@ export function kpRecords(points: readonly KpPoint[], meta: CaptureMeta): KpReco
         },
         origin: "network",
         activity: "not_reported",
-        qualityFlags: closed ? [point.kind] : [point.kind, "open_bin_at_capture"],
+        qualityFlags: closed
+          ? [point.kind]
+          : [point.kind, "open_bin_at_capture"],
       });
       continue;
     }
@@ -242,14 +256,21 @@ export interface SolarSnapshotRow {
   readonly proton_flux_10mev: number | null;
   readonly dst_index: number | null;
   readonly hp60: number | null;
-  readonly source_observed_at: Readonly<Record<string, string | null | undefined>>;
+  readonly source_observed_at: Readonly<
+    Record<string, string | null | undefined>
+  >;
   readonly source_status?: Readonly<
     Record<string, { readonly active?: boolean | null } | null | undefined>
   >;
 }
 
 /** column -> [ledger source, variable, units]. Mirrors `FIELD_DEFINITIONS`. */
-const SNAPSHOT_FIELDS: readonly (readonly [keyof SolarSnapshotRow, string, string, string])[] = [
+const SNAPSHOT_FIELDS: readonly (readonly [
+  keyof SolarSnapshotRow,
+  string,
+  string,
+  string,
+])[] = [
   ["kp_index", "kp", "kp", "dimensionless (Kp, thirds)"],
   ["sfi", "f107", "f107", "solar flux units"],
   ["bx_gsm", "magnetic_field", "bx_gsm", "nT"],
@@ -265,8 +286,12 @@ const SNAPSHOT_FIELDS: readonly (readonly [keyof SolarSnapshotRow, string, strin
   ["hp60", "hp60", "hp60", "dimensionless (Hp, thirds)"],
 ];
 
-export function recordsFromSnapshotRow(row: SolarSnapshotRow): readonly SourceRecord[] {
-  const capturedAt = new Date(instantMs(row.captured_at, "captured_at")).toISOString();
+export function recordsFromSnapshotRow(
+  row: SolarSnapshotRow,
+): readonly SourceRecord[] {
+  const capturedAt = new Date(
+    instantMs(row.captured_at, "captured_at"),
+  ).toISOString();
   const records: SourceRecord[] = [];
 
   for (const [column, sourceId, variable, units] of SNAPSHOT_FIELDS) {
@@ -276,9 +301,12 @@ export function recordsFromSnapshotRow(row: SolarSnapshotRow): readonly SourceRe
     // No observation time means no eligibility question can be answered, so
     // the value is not turned into a record at all.
     if (typeof observed !== "string" || observed.length === 0) continue;
-    const observedAt = new Date(instantMs(observed, "source_observed_at")).toISOString();
+    const observedAt = new Date(
+      instantMs(observed, "source_observed_at"),
+    ).toISOString();
     const status = row.source_status?.[sourceId];
-    const active = status === null || status === undefined ? undefined : status.active;
+    const active =
+      status === null || status === undefined ? undefined : status.active;
 
     records.push({
       sourceId,
@@ -298,7 +326,8 @@ export function recordsFromSnapshotRow(row: SolarSnapshotRow): readonly SourceRe
         archiveClass: "capture_bounded",
       },
       origin: "cached",
-      activity: active === undefined ? "not_reported" : active ? "active" : "inactive",
+      activity:
+        active === undefined ? "not_reported" : active ? "active" : "inactive",
       qualityFlags: [],
     });
   }

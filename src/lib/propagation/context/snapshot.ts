@@ -23,8 +23,14 @@ import {
   LEDGER_VERSION,
   SOURCE_LEDGER,
 } from "@/lib/propagation/context/ledger";
-import { inactiveBarrierAsOf, selectAsOf } from "@/lib/propagation/context/selection";
-import { buildTrajectory, DEFAULT_GRID_HOURS } from "@/lib/propagation/context/trajectory";
+import {
+  inactiveBarrierAsOf,
+  selectAsOf,
+} from "@/lib/propagation/context/selection";
+import {
+  buildTrajectory,
+  DEFAULT_GRID_HOURS,
+} from "@/lib/propagation/context/trajectory";
 import {
   ageSecondsAt,
   CONTEXT_SCHEMA_VERSION,
@@ -71,7 +77,8 @@ export interface EvidenceSourceProjection {
 
 /** Deterministic serialization: object keys sorted, arrays in order. */
 function canonical(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (value === null || typeof value !== "object")
+    return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, child]) => child !== undefined)
@@ -121,7 +128,8 @@ function assumptionsFor(mode: SourceMode): readonly string[] {
       ? "Mode offline: only bundled records are eligible, so observation residuals are excluded by rule rather than by connectivity."
       : `Mode ${mode}: connectivity is not eligibility; every record still passes the same as-of test.`,
     ...DISABLED_CAPABILITIES.map(
-      (capability) => `Disabled capability ${capability.id}: ${capability.reason} (owner: ${capability.owner})`,
+      (capability) =>
+        `Disabled capability ${capability.id}: ${capability.reason} (owner: ${capability.owner})`,
     ),
   ];
 }
@@ -135,7 +143,10 @@ export async function buildContextSnapshot(
   for (const sourceId of CENSUS_SOURCE_IDS) {
     const history = options.histories[sourceId] ?? [];
     if (history.length === 0) {
-      selections.set(sourceId, { state: "absent", reason: "no_record_in_history" });
+      selections.set(sourceId, {
+        state: "absent",
+        reason: "no_record_in_history",
+      });
       continue;
     }
     selections.set(
@@ -173,7 +184,9 @@ export async function buildContextSnapshot(
         reason: selected.reason,
         latest: selected.latest === null ? null : (dated as DatedRecord),
         sourceVersion:
-          selected.latest === null ? "unknown" : await sourceVersionOf(selected.latest),
+          selected.latest === null
+            ? "unknown"
+            : await sourceVersionOf(selected.latest),
       };
       continue;
     }
@@ -254,10 +267,21 @@ export function toEvidenceSources(
         publishedAt: latest?.stamps.publication.publishedAt ?? null,
         capturedAt: latest?.stamps.capturedAt ?? null,
         ageSeconds:
-          latest === null ? null : ageSecondsAt(snapshot.issuedAt, latest.stamps.observedIntervalEndAt),
+          latest === null
+            ? null
+            : ageSecondsAt(
+                snapshot.issuedAt,
+                latest.stamps.observedIntervalEndAt,
+              ),
         eligible: false,
         exclusionReason: entry.reason,
       };
     })
-    .sort((left, right) => (left.sourceId < right.sourceId ? -1 : left.sourceId > right.sourceId ? 1 : 0));
+    .sort((left, right) =>
+      left.sourceId < right.sourceId
+        ? -1
+        : left.sourceId > right.sourceId
+          ? 1
+          : 0,
+    );
 }

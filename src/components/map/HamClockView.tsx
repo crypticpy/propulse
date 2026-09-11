@@ -60,6 +60,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { HamClockWall } from "./hamclock/wall/HamClockWall";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -452,7 +453,11 @@ export function HamClockView({
 
   const mapStage = (
     <main
-      className="min-h-0 min-w-0 overflow-hidden relative bg-void-black"
+      data-map-stack-root
+      // `isolate` bounds the map's overlay portal (11000) to the map stage so
+      // it cannot outrank the wall chrome or a dialog opened above it; the
+      // chips inside this stage stay below the portal, as intended (#930).
+      className="min-h-0 min-w-0 overflow-hidden relative isolate bg-void-black"
       onPointerDownCapture={() => {
         userNavigated.current = true;
       }}
@@ -460,7 +465,12 @@ export function HamClockView({
         userNavigated.current = true;
       }}
     >
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
+      {/* Read-only chips: the legend tier, so the map's overlay portal and
+          every control still paint above them (#930). */}
+      <div
+        className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+      >
         {projectionChip && (
           <div
             role="status"
@@ -519,7 +529,10 @@ export function HamClockView({
             {mapContent === "both" && " · • Live activity"}
           </div>
         )}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+      <div
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      >
         <WatchStatusPill className="sm:hidden" />
       </div>
     </main>

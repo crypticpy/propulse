@@ -139,6 +139,7 @@ import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import {
   useMapOperationalContext,
   useOperationalWorkspaceSync,
@@ -1145,7 +1146,8 @@ export function PropSphere() {
 
               {/* Replay indicator (floating below toolbar) */}
               <div
-                className={`absolute ${mapToolbarLayout.stacked ? "top-20" : "top-12"} left-1/2 -translate-x-1/2 z-20`}
+                className={`absolute ${mapToolbarLayout.stacked ? "top-20" : "top-12"} left-1/2 -translate-x-1/2`}
+                style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
               >
                 <ReplayIndicator
                   displayTime={displayTime}
@@ -1156,7 +1158,10 @@ export function PropSphere() {
               </div>
 
               {/* Contest rate panel (floating, right side) */}
-              <div className="absolute top-14 right-3 z-20">
+              <div
+                className="absolute top-14 right-3"
+                style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+              >
                 <ContestRatePanel />
               </div>
 
@@ -1164,20 +1169,44 @@ export function PropSphere() {
                   ray-path bounce markers, which only exist on the globe with a
                   target set. LayerLegend covers every enabled colored marker
                   layer (spots, satellites, beacons, etc). */}
-              <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-col items-start gap-1">
-                <MapSizeSliders inline />
+              {/* The column itself takes no z-index, so each child resolves
+                  on the MAP_PAGE_CHROME_Z scale directly: the size sliders are
+                  operable controls and sit above the overlay portal, the
+                  legends read below it (#930). */}
+              <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-col items-start gap-1">
+                <div
+                  className="relative"
+                  style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                >
+                  <MapSizeSliders inline />
+                </div>
                 {(hasLayerLegend ||
                   layers.muf ||
                   (layers.ionosphere && target && viewMode === "globe")) && (
-                  <>
-                    <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                    {layers.ionosphere && target && viewMode === "globe" && (
-                      <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                    )}
-                    {layers.muf && (
-                      <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
-                    )}
-                  </>
+                  <div className="relative flex flex-col items-start gap-1">
+                    {/* LayerLegend collapses via a real button, so it is a
+                        control, not a legend, and takes the control tier
+                        whole -- never a header above the portal and a body
+                        below it (#930). */}
+                    <div
+                      className="relative flex flex-col items-start"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    >
+                      <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    </div>
+                    {/* The remaining legends are read-only. */}
+                    <div
+                      className="relative flex flex-col items-start gap-1"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+                    >
+                      {layers.ionosphere && target && viewMode === "globe" && (
+                        <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                      )}
+                      {layers.muf && (
+                        <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -1220,7 +1249,14 @@ export function PropSphere() {
                 {activityPanelOpen && showPublicActivity && (
                   <div
                     id="nearby-activity-map-drawer"
-                    className="absolute inset-x-2 top-2 z-30 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
+                    // Above MAP_PAGE_CHROME_Z's portal scale, not a bare
+                    // `z-30`: the map's overlay portal resolves at 11000 in
+                    // this same (Card) stacking context now that MapSurface
+                    // no longer isolates, so this near-full-map drawer has to
+                    // declare itself above it or the path inspector and the
+                    // cluster popover would paint through it (#930).
+                    className="absolute inset-x-2 top-2 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.activityDrawer }}
                   >
                     <NearbyActivityExplorer
                       className="bg-nebula-blue/95 backdrop-blur-xl"
@@ -1232,67 +1268,121 @@ export function PropSphere() {
                 {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
                 {layers.issTracker && <ISSSkyTracker />}
 
-                {/* Earth tilt slider — globe view only */}
-                {viewMode === "globe" && (
-                  <ObservatoryTiltSlider
-                    visible
-                    className="absolute bottom-2 right-2"
-                  />
-                )}
-
-                {/* Time Offset Warning - bottom right when viewing simulated time */}
-                {timeOffset !== 0 && (
-                  <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-caution-amber/90 backdrop-blur-sm border border-caution-amber shadow-lg">
-                      <svg
-                        className="w-4 h-4 text-black flex-shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <div className="text-black">
-                        <div className="text-xs font-semibold">
-                          Simulated Time
+                {/* Bottom-right corner column. PropSphere owns this corner:
+                    the tilt slider, the simulated-time warning, the labels
+                    panel and Lite's docked controls each anchored themselves
+                    here, so DOM order decided which one painted over the
+                    others and swallowed its input -- the collapsed labels
+                    header sat on top of the slider. One column, one fixed row
+                    order, every row keeping its own tier: bumping a tier would
+                    only rebuild the ladder this contract exists to remove
+                    (#930). The column takes no z-index of its own, so each
+                    row resolves on MAP_PAGE_CHROME_Z directly. */}
+                <div className="pointer-events-none absolute bottom-2 right-2 flex flex-col items-end gap-1">
+                  {timeOffset !== 0 && (
+                    <div
+                      className="pointer-events-auto"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    >
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-caution-amber/90 backdrop-blur-sm border border-caution-amber shadow-lg">
+                        <svg
+                          className="w-4 h-4 text-black flex-shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <div className="text-black">
+                          <div className="text-xs font-semibold">
+                            Simulated Time
+                          </div>
+                          <div className="text-[10px] opacity-80">
+                            Viewing {timeOffset > 0 ? "+" : ""}
+                            {timeOffset}h from now
+                          </div>
                         </div>
-                        <div className="text-[10px] opacity-80">
-                          Viewing {timeOffset > 0 ? "+" : ""}
-                          {timeOffset}h from now
-                        </div>
+                        <button
+                          onClick={() => setTimeOffset(0)}
+                          className="ml-1 px-2 py-1 text-[10px] font-medium bg-su-input/50 hover:bg-su-input/70 rounded transition-colors"
+                          title="Return to live view"
+                        >
+                          Go Live
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setTimeOffset(0)}
-                        className="ml-1 px-2 py-1 text-[10px] font-medium bg-su-input/50 hover:bg-su-input/70 rounded transition-colors"
-                        title="Return to live view"
-                      >
-                        Go Live
-                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
+                  {isLiteMode && (
+                    // The Lite dock came out of the Lite HUD wrapper, which
+                    // was `hidden lg:block`: the gate travels with the rows.
+                    <div
+                      className="hidden flex-col items-end gap-1.5 pointer-events-auto lg:flex"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    >
+                      {/* Aspect ratio slider — flat view only, docked above path box */}
+                      {viewMode === "flat" && (
+                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-2" />
+                      )}
+
+                      <div
+                        className={`transition-all duration-300 ease-out ${
+                          rightPanelExpanded ? "w-[320px]" : "w-auto"
+                        }`}
+                      >
+                        <PathAnalysis
+                          displayTime={displayTime}
+                          className={
+                            rightPanelExpanded
+                              ? "max-h-[400px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
+                              : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
+                          }
+                          collapsed={!rightPanelExpanded}
+                          onToggleCollapse={() =>
+                            setRightPanelExpanded(!rightPanelExpanded)
+                          }
+                          onShare={() => setShowShareModal(true)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {layers.labels && (
+                    <div
+                      className="pointer-events-auto"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    >
+                      <LabelsPanel />
+                    </div>
+                  )}
+                  {viewMode === "globe" && (
+                    <ObservatoryTiltSlider
+                      visible
+                      className="relative"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    />
+                  )}
+                </div>
+
 
                 {/* Optimal Bands Pop-out Panel (inside map container, below control bar) */}
                 {viewMode === "globe" && !isLiteMode && (
                   <OptimalBandsPanel displayTime={displayTime} />
                 )}
 
-                {/* Labels Panel — appears when labels layer is active */}
-                {layers.labels && (
-                  <LabelsPanel className="absolute bottom-2 right-2 z-10" />
-                )}
 
                 {/* ═══════════════════════════════════════════════════════════════
                   LITE MODE HUD OVERLAY
                   A minimal, professional heads-up display for maximum map visibility
                   ═══════════════════════════════════════════════════════════════ */}
                 {isLiteMode && (
-                  <div className="absolute inset-0 pointer-events-none z-10 hidden lg:block">
+                  <div
+                    className="absolute inset-0 pointer-events-none hidden lg:block"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
                     {/* ─── TOP HUD BAR ─── */}
                     <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
                       {/* Left cluster: Layout mode dropdown + Share */}
@@ -1393,37 +1483,13 @@ export function PropSphere() {
                       </div>
                     </div>
 
-                    {/* ─── BOTTOM RIGHT: Controls + Path Info (docked together) ─── */}
-                    <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
-                      {/* Aspect ratio slider — flat view only, docked above path box */}
-                      {viewMode === "flat" && (
-                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-2" />
-                      )}
-
-                      <div
-                        className={`transition-all duration-300 ease-out ${
-                          rightPanelExpanded ? "w-[320px]" : "w-auto"
-                        }`}
-                      >
-                        <PathAnalysis
-                          displayTime={displayTime}
-                          className={
-                            rightPanelExpanded
-                              ? "max-h-[400px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
-                              : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
-                          }
-                          collapsed={!rightPanelExpanded}
-                          onToggleCollapse={() =>
-                            setRightPanelExpanded(!rightPanelExpanded)
-                          }
-                          onShare={() => setShowShareModal(true)}
-                        />
-                      </div>
-                    </div>
                   </div>
                 )}
                 {isLiteMode && showOpsLoggerStrip && (
-                  <div className="absolute bottom-0 left-0 right-0 z-20 hidden lg:block">
+                  <div
+                    className="absolute bottom-0 left-0 right-0 hidden lg:block"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
                     <OpsLoggerStrip />
                   </div>
                 )}

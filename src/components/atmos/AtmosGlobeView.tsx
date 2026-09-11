@@ -43,7 +43,11 @@ export function AtmosGlobeView() {
 
   return (
     <BoundViewHost slot={ATMOS_VIEW_SLOT}>
-      <div className="relative w-full h-full">
+      {/* `isolate` bounds the map's overlay portal (11000) to this wrapper.
+          WeatherLegend (z-10) lives inside it, so the portal still paints
+          above the legend the way #930 requires, while nothing on the
+          AtmosPulse page below is outranked. */}
+      <div data-map-stack-root className="relative w-full h-full isolate">
         <Suspense
           fallback={
             <div className="absolute inset-0 flex items-center justify-center bg-void-black">

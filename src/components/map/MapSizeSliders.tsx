@@ -12,6 +12,7 @@ import { useState, useCallback } from "react";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMapStore } from "@/stores/mapStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 interface MapSizeSlidersProps {
   /** Render in a host control stack instead of self-positioning on the map */
@@ -49,7 +50,10 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-su-line/40 bg-void-black/70 text-su-muted backdrop-blur-sm transition-colors hover:border-su-line/50 hover:text-su-text`}
+        // Operable chrome: must clear the overlay portal in every host that
+        // mounts it without `hideSizeSliders` (#930).
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        className={`${inline ? "" : "absolute bottom-3 left-3"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-su-line/40 bg-void-black/70 text-su-muted backdrop-blur-sm transition-colors hover:border-su-line/50 hover:text-su-text`}
         title="Adjust spot & pin sizes"
         aria-label="Adjust spot and pin sizes"
       >
@@ -76,7 +80,8 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
 
   return (
     <div
-      className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto select-none rounded-lg border border-su-line/40 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
+      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      className={`${inline ? "" : "absolute bottom-3 left-3"} pointer-events-auto select-none rounded-lg border border-su-line/40 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
     >
       {/* Header with close button */}
       <div className="flex items-center justify-between mb-1.5">

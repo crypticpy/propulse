@@ -27,9 +27,14 @@
 
 import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, join, relative } from "node:path";
+import { resolve, join, relative, dirname } from "node:path";
 import { describe, expect, it } from "vitest";
-import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  MAP_PAGE_CHROME_Z,
+} from "@/lib/map/globeRenderOrder";
+
+type MapChromeTier = keyof typeof MAP_PAGE_CHROME_Z;
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const MAP_DIR = resolve(REPO_ROOT, "src/components/map");
@@ -66,6 +71,112 @@ const FILES = listMapTsxFiles(MAP_DIR).map((f) => relative(REPO_ROOT, f));
 
 function readSrc(file: string): string {
   return readFileSync(resolve(REPO_ROOT, file), "utf8");
+}
+
+/**
+ * The JSX subtree opened at `openedBy`, ending at the first closing tag
+ * indented to the same column (both files are JSX-formatted, so the
+ * element's own closing tag is the first `</` at its indentation).
+ */
+function scope(src: string, openedBy?: string): string {
+  if (!openedBy) return src;
+  const marker = src.indexOf(openedBy);
+  expect(marker, `no ${openedBy} in this file`).toBeGreaterThan(-1);
+  const tagStart = src.lastIndexOf("<", marker);
+  const lineStart = src.lastIndexOf("\n", tagStart) + 1;
+  const indent = " ".repeat(tagStart - lineStart);
+  const closeAt = src.indexOf(`\n${indent}</`, marker);
+  expect(
+    closeAt,
+    `no closing tag at the opener's indentation for ${openedBy}`,
+  ).toBeGreaterThan(-1);
+  return src.slice(tagStart, closeAt);
+}
+
+function resolveImport(spec: string, from: string): string | null {
+  let base: string;
+  if (spec.startsWith("@/")) base = join("src", spec.slice(2));
+  else if (spec.startsWith(".")) base = join(dirname(from), spec);
+  else return null;
+  for (const candidate of [
+    `${base}.tsx`,
+    `${base}.ts`,
+    join(base, "index.tsx"),
+    join(base, "index.ts"),
+  ]) {
+    try {
+      if (statSync(resolve(REPO_ROOT, candidate)).isFile()) return candidate;
+    } catch {
+      /* not this extension */
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads a whole opening tag from `start`, tracking quotes and braces so an
+ * arrow function in a handler (`onClick={() => ...}`) does not end it early.
+ */
+/**
+ * Follows a barrel: `src/components/map/index.ts` re-exports `LayerLegend`
+ * from `./LayerLegend`, and reading the barrel would show no button at all --
+ * which is exactly how #930 kept certifying a control as a legend.
+ */
+function throughBarrel(name: string, target: string): string {
+  if (!/\/index\.tsx?$/.test(target)) return target;
+  const barrel = readFileSync(resolve(REPO_ROOT, target), "utf8");
+  const named = new RegExp(
+    `export\\s+(?:type\\s+)?\\{[^}]*\\b${name}\\b[^}]*\\}\\s+from\\s+"([^"]+)"`,
+  ).exec(barrel);
+  if (named) return resolveImport(named[1], target) ?? target;
+  for (const star of barrel.matchAll(/export\s+\*\s+from\s+"([^"]+)"/g)) {
+    const next = resolveImport(star[1], target);
+    if (!next) continue;
+    const body = readFileSync(resolve(REPO_ROOT, next), "utf8");
+    if (new RegExp(`(function|const|class)\\s+${name}\\b`).test(body))
+      return next;
+  }
+  return target;
+}
+
+function openingTag(src: string, start: number): string {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = start; i < src.length; i += 1) {
+    const char = src[i];
+    // JSX allows comments between attributes, and an apostrophe in one
+    // ("the map's portal") would otherwise open a string that swallows the
+    // rest of the element -- which is how a stack root once looked like a
+    // z-10 wrapper.
+    if (!quote && char === "/" && (src[i + 1] === "/" || src[i + 1] === "*")) {
+      const end =
+        src[i + 1] === "/" ? src.indexOf("\n", i) : src.indexOf("*/", i) + 1;
+      if (end < 1) return src.slice(start);
+      i = end;
+      continue;
+    }
+    if (quote) {
+      if (char === quote && src[i - 1] !== "\\") quote = null;
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+    } else if (char === ">" && depth === 0) {
+      return src.slice(start, i + 1);
+    }
+  }
+  return src.slice(start);
+}
+
+/** `//` and block comments blanked out, positions preserved. Guards that
+ * read comments certify prose: three of the six pre-fix hits in this suite
+ * were a comment quoting the very class it forbids. */
+function withoutComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
 }
 
 describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () => {
@@ -188,6 +299,19 @@ describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#85
     ).toContain("isolate");
   });
 
+  it("does not isolate MapSurface itself — only the Canvas wrapper (#930)", () => {
+    const mapSurfaceStart = src.indexOf("<MapSurface");
+    expect(mapSurfaceStart).toBeGreaterThan(-1);
+    const mapSurfaceTag = src.slice(mapSurfaceStart, mapSurfaceStart + 400);
+    const classNameMatch = mapSurfaceTag.match(/className="([^"]*)"/);
+    expect(classNameMatch).not.toBeNull();
+    const classes = classNameMatch![1].split(/\s+/);
+    expect(
+      classes,
+      `MapSurface must not isolate or the overlay portal's z-index is trapped below PropSphere's z-${MAP_PAGE_CHROME_Z.legend} legend`,
+    ).not.toContain("isolate");
+  });
+
   it("declares mapOverlayPortal as a sibling of <Canvas>, not a descendant", () => {
     const canvasOpen = src.indexOf("<Canvas");
     const canvasClose = src.indexOf("</Canvas>");
@@ -202,5 +326,885 @@ describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#85
       mapOverlayPortalDecl,
       "mapOverlayPortal must be declared after </Canvas> (a sibling in MapSurface, outside the Canvas wrapper's isolated stacking context) so it keeps outranking every in-scene DOM band",
     ).toBeGreaterThan(canvasClose);
+  });
+});
+
+/**
+ * Page chrome inside the map Card shares one stacking context with
+ * `mapOverlayPortal` now that `MapSurface` no longer isolates (#930), so
+ * each overlay in `PropSphere` has to sit on the `MAP_PAGE_CHROME_Z` scale
+ * on the correct side of the portal. A bare Tailwind `z-*` class on a
+ * near-full-map overlay silently loses to the portal's 11000.
+ */
+describe("PropSphere page chrome sits on MAP_PAGE_CHROME_Z (#930)", () => {
+  const PROPSPHERE_PATH = "src/pages/PropSphere.tsx";
+  const page = readSrc(PROPSPHERE_PATH);
+
+  /** The opening tag starting at `from`, with `//` line comments stripped
+   * (both tags below carry an explanatory comment whose prose would
+   * otherwise confuse a naive scan for the tag's closing `>`). */
+  function openTagAt(from: number): string {
+    const window = page.slice(from, from + 1200).replace(/\/\/[^\n]*/g, "");
+    const end = window.indexOf(">");
+    expect(
+      end,
+      `no closing > within 1200 chars of:\n${window}`,
+    ).toBeGreaterThan(-1);
+    return window.slice(0, end + 1);
+  }
+
+  it("keeps the legend stack on MAP_PAGE_CHROME_Z.legend, below the portal", () => {
+    const marker = page.indexOf("Legends (bottom of map)");
+    expect(
+      marker,
+      "expected the `Legends (bottom of map)` comment in PropSphere.tsx",
+    ).toBeGreaterThan(-1);
+    const divStart = page.indexOf("<div", marker);
+    expect(divStart).toBeGreaterThan(marker);
+    // The column wrapper takes no z-index at all, so its children resolve on
+    // the MAP_PAGE_CHROME_Z scale directly; the legends themselves must be on
+    // the legend tier, below the portal the inspector renders into.
+    const column = openTagAt(divStart);
+    const columnClasses = (
+      column.match(/className="([^"]*)"/)?.[1] ?? ""
+    ).split(/\s+/);
+    expect(
+      columnClasses.filter((c) => /^z-/.test(c)),
+      "the legend column must not carry its own z-* class: it would become a stacking context and trap the size sliders below the overlay portal",
+    ).toEqual([]);
+    const legendGroup = page.indexOf("MAP_PAGE_CHROME_Z.legend", divStart);
+    expect(
+      legendGroup,
+      "the legend group must declare MAP_PAGE_CHROME_Z.legend so the path inspector paints above it",
+    ).toBeGreaterThan(divStart);
+    expect(MAP_PAGE_CHROME_Z.legend).toBeLessThan(
+      MAP_PAGE_CHROME_Z.mapOverlayPortal,
+    );
+  });
+
+  it("puts the nearby-activity drawer above the portal via the token, not a z-* class", () => {
+    const drawerId = page.indexOf('id="nearby-activity-map-drawer"');
+    expect(
+      drawerId,
+      "expected the nearby-activity drawer element in PropSphere.tsx",
+    ).toBeGreaterThan(-1);
+    const divStart = page.lastIndexOf("<div", drawerId);
+    expect(divStart).toBeGreaterThan(-1);
+    const tag = openTagAt(divStart);
+    expect(
+      tag,
+      "the drawer must take its stack level from MAP_PAGE_CHROME_Z.activityDrawer -- a bare Tailwind z-* class would land under the overlay portal and let the path inspector show through the drawer",
+    ).toContain("MAP_PAGE_CHROME_Z.activityDrawer");
+    const classNameMatch = tag.match(/className="([^"]*)"/);
+    expect(classNameMatch, `drawer has no className:\n${tag}`).not.toBeNull();
+    expect(
+      classNameMatch![1].split(/\s+/).filter((c) => /^z-/.test(c)),
+      "the drawer must not also carry a Tailwind z-* class: the class would win over the inline style only by accident of specificity, and the two would drift",
+    ).toEqual([]);
+  });
+});
+
+/**
+ * Every `GlobeView` host has to bound the overlay portal (#930, round 2).
+ *
+ * `MapSurface` no longer isolates, so `mapOverlayPortal`'s 11000 resolves in
+ * the nearest ancestor stacking context. Each host therefore owes one of two
+ * things:
+ *
+ *   - a `data-map-stack-root` wrapper carrying `isolate`, which contains the
+ *     `<GlobeView>` mount and any chrome that must stay BELOW the portal (a
+ *     legend), so everything outside it — the host's own toolbars, panels,
+ *     tab bars and dialogs — outranks the portal automatically; or
+ *   - explicit values on `MAP_PAGE_CHROME_Z` for the chrome on each side of
+ *     the portal. `PropSphere` is the one host that must take this route: its
+ *     legend stack is positioned against the map `Card`, not the map
+ *     container, so it cannot live inside an isolated wrapper. The `Card`'s
+ *     `backdrop-blur-md` bounds the escape there, and the suite below covers
+ *     the ordering.
+ */
+describe("every GlobeView host bounds the overlay portal (#930, round 2)", () => {
+  /** Hosts that bound the portal with an isolated `data-map-stack-root`. */
+  const STACK_ROOT_HOSTS = [
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+  ];
+
+  /** The host that bounds it with the `MAP_PAGE_CHROME_Z` scale instead. */
+  const TOKEN_SCALE_HOSTS = ["src/pages/PropSphere.tsx"];
+
+  /** Every non-test `.tsx` under `src/**`, recursively. */
+  function listTsxFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        out.push(...listTsxFiles(full));
+        continue;
+      }
+      if (!entry.endsWith(".tsx")) continue;
+      if (entry.endsWith(".test.tsx")) continue;
+      out.push(full);
+    }
+    return out;
+  }
+
+  const MOUNTS = listTsxFiles(resolve(REPO_ROOT, "src"))
+    .filter((f) => /<GlobeView[\s/>]/.test(readFileSync(f, "utf8")))
+    .map((f) => relative(REPO_ROOT, f))
+    .sort();
+
+  it("census: the known hosts are every GlobeView mount site in src", () => {
+    // A new host that skips both routes would let the portal escape into its
+    // page. Adding one means picking a route above and listing it here.
+    expect(MOUNTS).toEqual([...STACK_ROOT_HOSTS, ...TOKEN_SCALE_HOSTS].sort());
+  });
+
+  it.each(STACK_ROOT_HOSTS)(
+    "%s isolates its map stack root above the GlobeView mount",
+    (host) => {
+      const src = readSrc(host);
+      const marker = src.indexOf("data-map-stack-root");
+      expect(
+        marker,
+        `${host} mounts <GlobeView> with no data-map-stack-root wrapper: the overlay portal (${MAP_PAGE_CHROME_Z.mapOverlayPortal}) would outrank this host's own chrome and dialogs`,
+      ).toBeGreaterThan(-1);
+
+      const tagStart = src.lastIndexOf("<", marker);
+      expect(tagStart).toBeGreaterThan(-1);
+      const tag = src
+        .slice(tagStart, tagStart + 1200)
+        .replace(/\/\/[^\n]*/g, "");
+      const tagEnd = tag.indexOf(">");
+      expect(
+        tagEnd,
+        `no closing > for the stack root in ${host}`,
+      ).toBeGreaterThan(-1);
+      const openTag = tag.slice(0, tagEnd + 1);
+      const classNameMatch = openTag.match(/className="([^"]*)"/);
+      expect(
+        classNameMatch,
+        `the data-map-stack-root element in ${host} has no className:\n${openTag}`,
+      ).not.toBeNull();
+      expect(
+        classNameMatch![1].split(/\s+/),
+        `${host}'s data-map-stack-root must carry "isolate" or the overlay portal escapes into the host's chrome`,
+      ).toContain("isolate");
+
+      const mount = src.search(/<GlobeView[\s/>]/);
+      expect(
+        mount,
+        `${host}'s <GlobeView> must be mounted inside the data-map-stack-root wrapper, not before it`,
+      ).toBeGreaterThan(tagStart);
+    },
+  );
+
+  it.each(TOKEN_SCALE_HOSTS)(
+    "%s puts its chrome on MAP_PAGE_CHROME_Z instead of isolating",
+    (host) => {
+      const src = readSrc(host);
+      expect(src).toContain("MAP_PAGE_CHROME_Z");
+      // Positive control for the exemption: if this host ever gains a stack
+      // root, the suite above should own it instead of the token scale.
+      expect(
+        src.includes("data-map-stack-root"),
+        `${host} now has a data-map-stack-root: move it to STACK_ROOT_HOSTS`,
+      ).toBe(false);
+    },
+  );
+});
+
+/**
+ * Files scanned, and the slice of each that overlays the map. For a host
+ * with a `data-map-stack-root` that is the stack root's subtree; for
+ * `PropSphere` it is the map `Card`; the rest position themselves inside
+ * one of those, so the whole file counts.
+ */
+const CHROME_FILES: readonly { file: string; openedBy?: string }[] = [
+  { file: "src/pages/PropSphere.tsx", openedBy: '<Card className="flex-1' },
+  {
+    file: "src/components/map/FullscreenPropSphere.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/map/HamClockView.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/mobile/MobileMap.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/atmos/AtmosGlobeView.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  { file: "src/components/map/GlobeView.tsx" },
+  { file: "src/components/atmos/RadarScrubber3D.tsx" },
+  { file: "src/components/map/ReachMapControl.tsx" },
+  { file: "src/components/map/ObservatoryTiltSlider.tsx" },
+  { file: "src/components/map/MapSizeSliders.tsx" },
+  { file: "src/components/map/ISSSkyTracker.tsx" },
+];
+
+/**
+ * Nothing a person can operate may sit at or below the overlay portal
+ * (#930, round 3).
+ *
+ * The portal is `pointer-events-none` but its children are not: an inspector
+ * or cluster popover that paints over a slider, toggle or scrubber swallows
+ * the input meant for it. `MAP_PAGE_CHROME_Z.interactiveChrome` is the tier
+ * every control belongs at or above; passive overlays (legends, attribution,
+ * chips) may stay under the portal, and are recognised here by
+ * `pointer-events-none`.
+ *
+ * Scope: the five hosts plus `GlobeView.tsx`, whose chrome renders inside
+ * every one of them, plus the map-chrome components that position
+ * themselves.
+ */
+describe("map-host controls sit at or above interactiveChrome (#930, round 3)", () => {
+  /** `z-30`, `z-[220]` -> 30, 220. Non-numeric utilities (`z-auto`) -> null. */
+  function tailwindZ(cls: string): number | null {
+    const bare = cls.match(/^z-(\d+)$/);
+    if (bare) return Number(bare[1]);
+    const arbitrary = cls.match(/^z-\[(\d+)\]$/);
+    if (arbitrary) return Number(arbitrary[1]);
+    return null;
+  }
+
+  /** Every JSX open tag in a slice, comments stripped. */
+  function openTags(src: string): string[] {
+    const noComments = src.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "");
+    return noComments.match(/<[A-Za-z][^>]*?>/g) ?? [];
+  }
+
+  const INTERACTIVE_RE =
+    /pointer-events-auto|onClick=|onPointerDown=|onMouseDown=|onChange=|role="(button|slider|switch)"/;
+
+  /** A tag is a control if it, or the subtree it opens, takes input. */
+  function isInteractive(slice: string, tag: string): boolean {
+    if (INTERACTIVE_RE.test(tag)) return true;
+    const at = slice.indexOf(tag);
+    if (at < 0) return false;
+    const subtree = slice.slice(at, at + 1200);
+    return /<button|<input|<select|role="(button|slider|switch)"|pointer-events-auto/.test(
+      subtree,
+    );
+  }
+
+  function violationsFor(entry: { file: string; openedBy?: string }): string[] {
+    const out: string[] = [];
+    const slice = scope(readSrc(entry.file), entry.openedBy);
+    for (const tag of openTags(slice)) {
+      const className = tag.match(/className=[`"]([^`"]*)[`"]/)?.[1] ?? "";
+      for (const cls of className.split(/\s+/)) {
+        const level = tailwindZ(cls);
+        if (level === null) continue;
+        if (
+          !/pointer-events-none/.test(tag) &&
+          isInteractive(slice, tag) &&
+          level < MAP_PAGE_CHROME_Z.interactiveChrome
+        ) {
+          out.push(
+            `${entry.file}: "${cls}" (${level}) is an operable control below interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${tag.slice(0, 110)}`,
+          );
+        } else if (
+          level > MAP_PAGE_CHROME_Z.legend &&
+          level < MAP_PAGE_CHROME_Z.interactiveChrome
+        ) {
+          // The band around the portal belongs to the portal. Anything else
+          // landing in it is ordered against detail popups by accident.
+          out.push(
+            `${entry.file}: "${cls}" (${level}) sits in the overlay portal's band (${MAP_PAGE_CHROME_Z.legend}-${MAP_PAGE_CHROME_Z.interactiveChrome}): pick MAP_PAGE_CHROME_Z.legend if a popup may cover it, interactiveChrome if not: ${tag.slice(0, 110)}`,
+          );
+        }
+      }
+    }
+    return out;
+  }
+
+  it("has no control or stray overlay in the portal's band on any map host", () => {
+    const violations = CHROME_FILES.flatMap(violationsFor);
+    expect(
+      violations,
+      `overlays a map popup would paint over and steal input from -- put them on MAP_PAGE_CHROME_Z.interactiveChrome:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("finds the chrome it claims to scan (positive control)", () => {
+    // Guards against a scan that silently matches nothing: the slices do
+    // contain z-bearing tags, and the hosts do name the interactive tier.
+    const withZ = CHROME_FILES.filter((entry) =>
+      openTags(scope(readSrc(entry.file), entry.openedBy)).some(
+        (t) =>
+          // Either spelling counts: round 8 converts the raw classes to
+          // tiers, and a scan pinned to `z-*` alone would go vacuous file by
+          // file as it does so.
+          /className=[`"][^`"]*\bz-/.test(t) || /MAP_PAGE_CHROME_Z\./.test(t),
+      ),
+    );
+    expect(withZ.length).toBeGreaterThan(2);
+    const withTier = CHROME_FILES.filter((entry) =>
+      readSrc(entry.file).includes("MAP_PAGE_CHROME_Z.interactiveChrome"),
+    );
+    expect(withTier.length).toBeGreaterThan(3);
+  });
+});
+
+/**
+ * The set of map chrome components is derived, not hand-listed
+ * (#930, round 4).
+ *
+ * Rounds 1-3 each fixed the sites a review named, and round 3's guard still
+ * read from a hand-written file list -- so `MapSizeSliders`' own default
+ * (`absolute bottom-3 left-3 z-10`, mounted by every host that does not pass
+ * `hideSizeSliders`) and `OptimalBandsPanel`'s draggable root (`absolute
+ * z-10`) went another round under the portal. This suite removes the hand
+ * list from the equation: it walks the import graph of the five hosts plus
+ * `GlobeView`, keeps every module under the map/mobile/atmos/hamclock trees,
+ * and checks each component's *own* root element -- the one that lands in
+ * whatever container mounts it, i.e. the map.
+ *
+ * A component that positions itself `absolute` with a z-index therefore has
+ * to declare a tier whether or not anybody remembered to list it.
+ */
+describe("map chrome components declare a tier (#930, round 4)", () => {
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+  ];
+
+  /** Only modules that can paint on a map surface are in scope. */
+  const IN_SCOPE = [
+    "src/components/map/",
+    "src/components/mobile/",
+    "src/components/atmos/",
+    "src/components/hamclock/",
+    "src/pages/PropSphere.tsx",
+  ];
+
+  /** Every in-scope module reachable from the hosts. */
+  function reachableModules(): string[] {
+    const seen = new Set<string>();
+    const queue = [...HOSTS];
+    while (queue.length > 0) {
+      const file = queue.pop() as string;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+      for (const match of src.matchAll(/from\s+"([^"]+)"/g)) {
+        const next = resolveImport(match[1], file);
+        if (!next) continue;
+        if (next.endsWith(".test.ts") || next.endsWith(".test.tsx")) continue;
+        if (!IN_SCOPE.some((prefix) => next.startsWith(prefix))) continue;
+        if (!seen.has(next)) queue.push(next);
+      }
+    }
+    return [...seen].filter((file) => file.endsWith(".tsx")).sort();
+  }
+
+  /** The root, or the subtree it opens, takes pointer input. */
+  function takesInput(tag: string, subtree: string): boolean {
+    if (/pointer-events-none/.test(tag)) return false;
+    return /pointer-events-auto|onClick=|onPointerDown=|onMouseDown=|onChange=|<button|<input|<select|role="(button|slider|switch)"/.test(
+      subtree,
+    );
+  }
+
+  type RootTag = {
+    file: string;
+    line: number;
+    tag: string;
+    level: number;
+    interactive: boolean;
+  };
+
+  const TIER_RE = /MAP_PAGE_CHROME_Z\.(\w+)/;
+  const RETURN_ROOT_RE = /(?:return\s*\(\s*|return\s+)(<[A-Za-z])/g;
+
+  /** Root elements the component positions on its host's map surface. */
+  function rootTags(file: string): RootTag[] {
+    const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const found: RootTag[] = [];
+    for (const match of src.matchAll(RETURN_ROOT_RE)) {
+      const start = match.index + match[0].length - match[1].length;
+      const tag = openingTag(src, start).replace(/\s+/g, " ");
+      // `fixed` chrome is page chrome, bounded by the host's own root.
+      if (!tag.includes("absolute") || /\bfixed\b/.test(tag)) continue;
+      const tier = TIER_RE.exec(tag);
+      const cls = /(?<![\w-])z-(\d+|\[\d+\])/.exec(tag);
+      const style = /zIndex:\s*(\d+)/.exec(tag);
+      let level: number | undefined;
+      if (tier) level = MAP_PAGE_CHROME_Z[tier[1] as MapChromeTier];
+      else if (cls) level = Number(cls[1].replace(/[[\]]/g, ""));
+      else if (style) level = Number(style[1]);
+      if (level === undefined || Number.isNaN(level)) continue;
+      found.push({
+        file,
+        line: src.slice(0, start).split("\n").length,
+        tag: tag.slice(0, 110),
+        level,
+        // The whole rest of the file, not a truncated window: round 5's
+        // miss was evidence that lived past any fixed slice.
+        interactive: takesInput(tag, src.slice(start)),
+      });
+    }
+    return found;
+  }
+
+  const modules = reachableModules();
+  const roots = modules.flatMap(rootTags);
+
+  it("reaches the map component tree", () => {
+    // Non-vacuity: the walk must actually find the components this round fixed.
+    expect(modules.length).toBeGreaterThan(100);
+    const files = new Set(roots.map((root) => root.file));
+    expect(files).toContain("src/components/map/MapSizeSliders.tsx");
+    expect(files).toContain("src/components/map/OptimalBandsPanel.tsx");
+  });
+
+  it("only hand-lists components the hosts actually reach", () => {
+    // Keeps round 3's list honest: a file that no host imports cannot be
+    // certified by naming it.
+    const reachable = new Set(modules);
+    for (const { file } of CHROME_FILES) {
+      expect(
+        reachable,
+        `${file} is hand-listed but no host imports it`,
+      ).toContain(file);
+    }
+  });
+
+  it("puts every self-positioning control at or above interactiveChrome", () => {
+    const violations = roots
+      .filter((root) => root.interactive)
+      .filter((root) => root.level < MAP_PAGE_CHROME_Z.interactiveChrome)
+      .map(
+        (root) =>
+          `${root.file}:${root.line} z=${root.level} < interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${root.tag}`,
+      );
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps passive overlays out of the portal's band", () => {
+    // A passive overlay may sit under the portal (`legend`) or above the
+    // controls, but not inside the band the portal itself occupies.
+    const violations = roots
+      .filter((root) => !root.interactive)
+      .filter(
+        (root) =>
+          root.level > MAP_PAGE_CHROME_Z.legend &&
+          root.level < MAP_PAGE_CHROME_Z.interactiveChrome,
+      )
+      .map(
+        (root) =>
+          `${root.file}:${root.line} z=${root.level} sits in the overlay portal's band: ${root.tag}`,
+      );
+    expect(violations).toEqual([]);
+  });
+});
+
+/**
+ * A wrapper is classified by the component it wraps (#930, round 5).
+ *
+ * Round 3 read only the wrapper's own tag: `pointer-events-none` on the
+ * wrapper, no handler on it, so `legend`. But `LayerLegend` collapses via a
+ * real `<button>` (`LayerLegend.tsx:52-56`), and a legend you can click is a
+ * control -- it went under the overlay portal for two rounds because the
+ * evidence lives in another file.
+ *
+ * This suite follows the reference: for every z-bearing wrapper inside a
+ * host's map slice it resolves each component element in the wrapper's
+ * subtree through that host's own imports and reads the *whole* referenced
+ * file. One tier per component: a wrapper holding anything operable takes
+ * `interactiveChrome` entire, never a control header above the portal and a
+ * body below it.
+ */
+describe("wrappers take the tier of the component they wrap (#930, round 5)", () => {
+  /** Markers that make a component file operable, anywhere in the file. */
+  const OPERABLE_FILE_RE =
+    /<button\b|<a\s[^>]*href|<input\b|<select\b|<textarea\b|onClick=|onPointerDown=|onMouseDown=|onChange=|draggable\b|role="(button|slider|switch|link|menuitem)"|tabIndex=\{?0/;
+
+  /** `import { A, B } from "x"` / `import X from "x"` -> local name -> file. */
+  function importMap(file: string): Map<string, string> {
+    const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const map = new Map<string, string>();
+    for (const match of src.matchAll(
+      /import\s+(type\s+)?([^;]+?)\s+from\s+"([^"]+)"/g,
+    )) {
+      if (match[1]) continue;
+      const target = resolveImport(match[3], file);
+      if (!target) continue;
+      for (const name of match[2].matchAll(/[A-Z][A-Za-z0-9_]*/g)) {
+        if (!map.has(name[0])) map.set(name[0], target);
+      }
+    }
+    return map;
+  }
+
+  /** The subtree of the element opened at `open`, by its own indentation. */
+  function subtreeAt(src: string, open: number): string {
+    const lineStart = src.lastIndexOf("\n", open) + 1;
+    const indent = " ".repeat(open - lineStart);
+    const close = src.indexOf(`\n${indent}</`, open);
+    const selfClosing = src.indexOf("/>", open);
+    const tagEnd = src.indexOf(">", open);
+    if (selfClosing > -1 && selfClosing === tagEnd - 1)
+      return src.slice(open, tagEnd + 1);
+    return close > -1 ? src.slice(open, close) : src.slice(open, open + 4000);
+  }
+
+  type Wrapper = {
+    host: string;
+    line: number;
+    level: number;
+    operable: string[];
+    tag: string;
+  };
+
+  function wrappersIn(entry: { file: string; openedBy?: string }): Wrapper[] {
+    const src = readSrc(entry.file);
+    const slice = scope(src, entry.openedBy);
+    const offset = src.indexOf(slice);
+    const imports = importMap(entry.file);
+    const out: Wrapper[] = [];
+    for (const match of slice.matchAll(/<[A-Za-z]/g)) {
+      const open = match.index;
+      const tag = openingTag(slice, open).replace(/\s+/g, " ");
+      const tier = /MAP_PAGE_CHROME_Z\.(\w+)/.exec(tag);
+      const cls = /(?<![\w-])z-(\d+|\[\d+\])/.exec(tag);
+      let level: number | undefined;
+      if (tier) level = MAP_PAGE_CHROME_Z[tier[1] as MapChromeTier];
+      else if (cls) level = Number(cls[1].replace(/[[\]]/g, ""));
+      if (level === undefined || Number.isNaN(level)) continue;
+      const subtree = subtreeAt(slice, open);
+      const operable: string[] = [];
+      for (const ref of subtree.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)) {
+        const imported = imports.get(ref[1]);
+        if (!imported) continue;
+        const target = throughBarrel(ref[1], imported);
+        const body = readFileSync(resolve(REPO_ROOT, target), "utf8");
+        if (OPERABLE_FILE_RE.test(body)) operable.push(ref[1]);
+      }
+      out.push({
+        host: entry.file,
+        line:
+          slice.slice(0, open).split("\n").length +
+          src.slice(0, offset).split("\n").length -
+          1,
+        level,
+        operable: [...new Set(operable)],
+        tag: tag.slice(0, 90),
+      });
+    }
+    return out;
+  }
+
+  const wrappers = CHROME_FILES.flatMap(wrappersIn);
+
+  it("resolves the components each wrapper holds (non-vacuity)", () => {
+    expect(wrappers.length).toBeGreaterThan(5);
+    const resolved = wrappers.filter((w) => w.operable.length > 0);
+    expect(resolved.length).toBeGreaterThan(0);
+  });
+
+  it("puts a wrapper holding an operable component on interactiveChrome", () => {
+    const violations = wrappers
+      .filter((w) => w.operable.length > 0)
+      .filter((w) => w.level < MAP_PAGE_CHROME_Z.interactiveChrome)
+      .map(
+        (w) =>
+          `${w.host}:${w.line} z=${w.level} wraps ${w.operable.join(", ")}, which ${w.operable.length === 1 ? "takes" : "take"} input -- the whole wrapper belongs on interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${w.tag}`,
+      );
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * A raw z-index on map chrome is a bug, whatever its spelling (#930, round 8).
+ *
+ * `ObservatoryTiltSlider` sat at `z-[220]` as a sibling inside PropSphere's
+ * map Card, twenty tiers above the activity drawer (40): it painted through
+ * an open drawer and swallowed clicks at the lower-right edge. Round 4's
+ * census could not see it, because the component does not position itself --
+ * its root reads `className ?? "fixed bottom-16 right-4"`, so the scan saw
+ * `fixed` (page chrome, out of scope) and moved on, while every map host
+ * passed an `absolute` class in and pulled it into the map stack.
+ *
+ * That is the general hole: when the caller supplies the position, the caller
+ * owns the context, so the component may not hardcode a z-index for it. Two
+ * rules follow, and both are checked against the derived component set:
+ *
+ *   - a caller-positioned component may only spell a raw z inside its own
+ *     default placement string (the case where it does position itself);
+ *   - a host that positions such a component into the map stack must hand it
+ *     a `MAP_PAGE_CHROME_Z` tier, and a host's own map-stack element may not
+ *     carry a raw numeric z at all.
+ */
+describe("map chrome never spells a raw z-index (#930, round 8)", () => {
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+  ];
+  /** Any spelling of a numeric z-index. */
+  const RAW_Z = /(?<![\w-])z-(\d+|\[\d+\])|zIndex:\s*(\d+)/;
+
+  /** The component's root, with line and block comments removed. */
+  function rootTag(file: string): string | null {
+    const src = readSrc(file);
+    const match = /(?:return\s*\(\s*|return\s+)(<[A-Za-z])/.exec(src);
+    if (!match) return null;
+    const start = match.index + match[0].length - match[1].length;
+    return openingTag(src, start).replace(/\s+/g, " ");
+  }
+
+  /** A root that defers its position to the caller's `className`. */
+  function callerPositioned(tag: string): boolean {
+    return /\bclassName\b/.test(tag) && /\$\{[^}]*\bclassName\b/.test(tag);
+  }
+
+  /** `<Name` mounts in `host`, with the host's opening tag for each. */
+  function mountsIn(host: string): { name: string; tag: string }[] {
+    const src = readSrc(host);
+    const found: { name: string; tag: string }[] = [];
+    for (const match of src.matchAll(/<([A-Z][A-Za-z0-9]*)/g)) {
+      found.push({
+        name: match[1],
+        tag: openingTag(src, match.index).replace(/\s+/g, " "),
+      });
+    }
+    return found;
+  }
+
+  /** Import target for `name` in `host`, barrels followed. */
+  function componentFile(host: string, name: string): string | null {
+    const src = readSrc(host);
+    const named = new RegExp(
+      `import\\s+(?:\\{[^}]*\\b${name}\\b[^}]*\\}|${name})\\s+from\\s+"([^"]+)"`,
+    ).exec(src);
+    if (!named) return null;
+    const target = resolveImport(named[1], host);
+    return target ? throughBarrel(name, target) : null;
+  }
+
+  const mounted = HOSTS.flatMap((host) =>
+    mountsIn(host).map((m) => ({ host, ...m })),
+  );
+
+  it("finds the components the hosts position themselves", () => {
+    // Non-vacuity: the walk has to reach the component this round fixed.
+    const names = new Set(mounted.map((m) => m.name));
+    expect(names).toContain("ObservatoryTiltSlider");
+  });
+
+  it("lets a caller-positioned component z-index only its own placement", () => {
+    const violations: string[] = [];
+    const seen = new Set<string>();
+    for (const { host, name } of mounted) {
+      const file = componentFile(host, name);
+      if (!file || seen.has(file)) continue;
+      if (
+        !file.startsWith("src/components/") &&
+        !file.startsWith("src/pages/")
+      ) {
+        continue;
+      }
+      seen.add(file);
+      const tag = rootTag(file);
+      if (!tag || !callerPositioned(tag)) continue;
+      // The default placement string is the one case the component does own
+      // its context, so a raw z is allowed there and nowhere else.
+      const outside = tag.replace(/\?\?\s*(?:\n\s*)?"[^"]*"/g, "");
+      if (RAW_Z.test(outside)) {
+        violations.push(
+          `${file} hardcodes a z-index on a root the caller positions: ${tag.slice(0, 120)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("hands a tier to every component a host positions on the map", () => {
+    const violations: string[] = [];
+    for (const { host, name, tag } of mounted) {
+      if (
+        !/className="absolute/.test(tag) &&
+        !/className=\{`absolute/.test(tag)
+      ) {
+        continue;
+      }
+      const file = componentFile(host, name);
+      if (!file) continue;
+      const componentTag = rootTag(file);
+      if (!componentTag || !callerPositioned(componentTag)) continue;
+      if (!/MAP_PAGE_CHROME_Z\./.test(tag)) {
+        violations.push(
+          `${host} positions <${name}> on the map without a MAP_PAGE_CHROME_Z tier, so it resolves wherever its own class puts it: ${tag.slice(0, 120)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("keeps raw numeric z-indexes out of the hosts' map stacks", () => {
+    const violations: string[] = [];
+    for (const host of HOSTS) {
+      const src = withoutComments(readSrc(host));
+      for (const match of src.matchAll(
+        /(?<![\w-])z-(\d+|\[\d+\])|zIndex:\s*(\d+)/g,
+      )) {
+        const line = src.slice(0, match.index).split("\n").length;
+        const open = src.lastIndexOf("<", match.index);
+        const tag = openingTag(src, open).replace(/\s+/g, " ");
+        // `fixed` chrome escapes the map stack into the host's own overlay
+        // context (the fullscreen and HamClock roots run their own scale).
+        if (/\bfixed\b/.test(tag)) continue;
+        // `isolate` marks a stacking-context root; its own z-0 is the seal
+        // that bounds everything inside it, not chrome on the map's scale.
+        if (/\bisolate\b/.test(tag)) continue;
+        // A full-bleed bar is the host's own furniture, not map chrome.
+        if (/\bleft-0\b[^"`]*\bright-0\b/.test(tag)) continue;
+        violations.push(
+          `${host}:${line} carries a raw z-index in the map stack (${match[0]}); use a MAP_PAGE_CHROME_Z tier: ${tag.slice(0, 100)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+describe("one owner per corner, all four (#930, round 9)", () => {
+  /**
+   * Round 7 gave the map's bottom-left corner a single owner. Nothing made
+   * that a rule, so the same defect grew back on the right: the tilt slider,
+   * the simulated-time warning, the labels panel and Lite's docked controls
+   * each anchored themselves at `bottom right`, all on `interactiveChrome`,
+   * and DOM order decided which one painted over the others and took its
+   * input. The fix is not a tier bump -- that rebuilds the ladder this
+   * contract removed -- it is one column per corner, owned by the component
+   * that owns the corner, with the rows in a fixed order.
+   *
+   * So: within one host, two absolutely-positioned siblings may not claim
+   * the same corner, for any of the four corners.
+   */
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+    "src/components/map/FlatMapView.tsx",
+    "src/components/map/AzimuthalView.tsx",
+  ];
+
+  /**
+   * `bottom-3`, `top-[6px]`, `right-2` -- but never `left-1/2`, which is a
+   * centring anchor, nor `inset-0`/`left-0 right-0`, which are full-bleed
+   * and belong to no corner.
+   */
+  const VERTICAL = /(?<![\w-])(bottom|top)-(?:\d+|\[[^\]]+\])(?![\d/])/;
+  const HORIZONTAL = /(?<![\w-])(left|right)-(?:\d+|\[[^\]]+\])(?![\d/])/;
+
+  /**
+   * Every corner-anchored opening tag in a source, keyed by corner. Note
+   * this reads the *host*: an element that positions itself and a mount the
+   * host positions through `className` both land here, which is the pair
+   * that produced this round's defect.
+   */
+  function cornersIn(file: string, source?: string) {
+    const src = withoutComments(source ?? readSrc(file));
+    const found = new Map<string, string[]>();
+    for (const match of src.matchAll(/<([A-Za-z][A-Za-z0-9.]*)/g)) {
+      const tag = openingTag(src, match.index).replace(/\s+/g, " ");
+      // `fixed` leaves the map stack for the host's own overlay context.
+      if (!/\babsolute\b/.test(tag)) continue;
+      // Full-bleed: a bar or a transparent layer, not a corner.
+      if (/\binset-0\b/.test(tag)) continue;
+      if (/\bleft-0\b[^"`]*\bright-0\b/.test(tag)) continue;
+      const vertical = VERTICAL.exec(tag);
+      const horizontal = HORIZONTAL.exec(tag);
+      if (!vertical || !horizontal) continue;
+      const corner = `${vertical[1]}-${horizontal[1]}`;
+      const line = src.slice(0, match.index).split("\n").length;
+      const hits = found.get(corner) ?? [];
+      hits.push(`${file}:${line} <${match[1]} ${vertical[0]} ${horizontal[0]}`);
+      found.set(corner, hits);
+    }
+    return found;
+  }
+
+  function collisions(file: string, source?: string): string[] {
+    return [...cornersIn(file, source)]
+      .filter(([, hits]) => hits.length > 1)
+      .map(
+        ([corner, hits]) => `${file} ${corner}:\n    ${hits.join("\n    ")}`,
+      );
+  }
+
+  /**
+   * PropSphere's bottom-left corner still holds two anchors at this branch's
+   * head: the page-level column and the Lite HUD's band row. That pair is
+   * the subject of #1034, which is stacked directly on this branch and moves
+   * the Lite row into the column's `cornerSlot`. Listing it here rather than
+   * silently scoping this suite to one corner keeps the rule stated in full;
+   * the entry comes out when #1034 merges.
+   */
+  const PENDING_1034 = "src/pages/PropSphere.tsx bottom-left:";
+
+  it("finds the corners the hosts anchor (non-vacuity)", () => {
+    const all = HOSTS.flatMap((host) => [...cornersIn(host).keys()]);
+    expect(new Set(all)).toContain("bottom-right");
+    expect(new Set(all)).toContain("bottom-left");
+    expect(new Set(all)).toContain("top-left");
+  });
+
+  it("catches two siblings in one corner (positive control)", () => {
+    const synthetic = `
+      const X = () => (
+        <div>
+          <div className="absolute bottom-2 right-2">a</div>
+          <Panel className="absolute bottom-4 right-4" />
+          <div className="absolute top-3 left-3">unique</div>
+        </div>
+      );
+    `;
+    const found = collisions("synthetic.tsx", synthetic);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain("bottom-right");
+  });
+
+  it("ignores centring and full-bleed anchors (positive control)", () => {
+    const synthetic = `
+      const X = () => (
+        <div>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">a</div>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">b</div>
+          <div className="absolute bottom-0 left-0 right-0">bar</div>
+          <div className="absolute inset-0">layer</div>
+        </div>
+      );
+    `;
+    expect(collisions("synthetic.tsx", synthetic)).toEqual([]);
+  });
+
+  it("gives every corner in every map host a single owner", () => {
+    const found = HOSTS.flatMap((host) => collisions(host));
+    const unexpected = found.filter((f) => !f.startsWith(PENDING_1034));
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+    // The exemption has to stay load-bearing: if #1034's fix lands here, the
+    // entry is dead and must be deleted rather than left as cover.
+    expect(
+      found.some((f) => f.startsWith(PENDING_1034)),
+      "PropSphere's bottom-left corner has a single owner now: delete PENDING_1034",
+    ).toBe(true);
   });
 });

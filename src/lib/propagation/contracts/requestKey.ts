@@ -60,14 +60,28 @@ function knownProjection<T extends Canonical>(
     : { state: "unknown", reason: field.reason };
 }
 
+/**
+ * Fold -0 onto 0 so the key text is byte-stable, and fold the +180 meridian
+ * onto -180 so the antimeridian has one spelling. The wire schema still
+ * accepts both; only this projection is normalized.
+ */
+function canonicalLongitude(value: number): number {
+  const folded = value === 180 ? -180 : value;
+  return folded === 0 ? 0 : folded;
+}
+
+function canonicalLatitude(value: number): number {
+  return value === 0 ? 0 : value;
+}
+
 function stationProjection(
   station: PredictionRequest["tx"],
 ): Record<string, Canonical> {
   return {
     stationId: station.stationId,
     callsign: station.callsign,
-    latitudeDeg: station.coordinates.latitudeDeg,
-    longitudeDeg: station.coordinates.longitudeDeg,
+    latitudeDeg: canonicalLatitude(station.coordinates.latitudeDeg),
+    longitudeDeg: canonicalLongitude(station.coordinates.longitudeDeg),
     datum: station.coordinates.datum,
     precisionKind: station.coordinates.precision.kind,
     precisionHorizontalMeters: knownProjection(

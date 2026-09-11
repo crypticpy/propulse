@@ -326,6 +326,58 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("rejects an inconsistent margin against an experimental SNR head (M10)", () => {
+    const bad = candidate("fullHfCircuit");
+    const snr = headFor(bad, "snr2500");
+    (snr.state as Mutable).availability = "experimental";
+    ((snr.state as Mutable).value as Mutable).snr2500Db = 10;
+    const decode = (headFor(bad, "conditional_decode").state as Mutable)
+      .value as Mutable;
+    decode.thresholdSnr2500Db = 4;
+    decode.marginDb = 100;
+    expect(reasonsAt(bad, "heads[2].state.value.marginDb").join()).toMatch(
+      /minus the declared threshold/,
+    );
+  });
+
+  it("accepts a consistent margin on an experimental decode head (M10)", () => {
+    const good = candidate("fullHfCircuit");
+    const decodeHead = headFor(good, "conditional_decode");
+    (decodeHead.state as Mutable).availability = "experimental";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts the fixture's eligible source age of 3600 seconds (M02)", () => {
+    const outcome = parseResult(candidate("fullHfCircuit"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects an eligible source age that contradicts its timestamps (M02)", () => {
+    const bad = candidate("fullHfCircuit");
+    ((bad.evidence as Mutable).sources as Mutable[])[0].ageSeconds = 0;
+    expect(reasonsAt(bad, "evidence.sources[0].ageSeconds").join()).toMatch(
+      /issuedAt minus observedIntervalEndAt/,
+    );
+  });
+
+  it("rejects an eligible source with no age (M02)", () => {
+    const bad = candidate("fullHfCircuit");
+    ((bad.evidence as Mutable).sources as Mutable[])[0].ageSeconds = null;
+    expect(reasonsAt(bad, "evidence.sources[0].ageSeconds").join()).toMatch(
+      /must state its age as issued/,
+    );
+  });
+
+  it("still accepts a null age on an ineligible source", () => {
+    const good = candidate("fullHfCircuit");
+    const sources = (good.evidence as Mutable).sources as Mutable[];
+    expect(sources[1].eligible).toBe(false);
+    expect(sources[1].ageSeconds).toBeNull();
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("accepts a decode head when the result carries no SNR head", () => {
     const good = candidate("fullHfCircuit");
     good.heads = heads(good).filter((head) => head.quantity !== "snr2500");

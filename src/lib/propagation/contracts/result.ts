@@ -549,6 +549,12 @@ const provenance = z
     }
   });
 
+/** `ageSeconds` is whole seconds; the timestamps carry milliseconds. */
+const AGE_TOLERANCE_SECONDS = 1;
+
+/** States that carry a payload rather than a reason (M01 availability). */
+const VALUE_BEARING_STATES: readonly string[] = ["available", "experimental"];
+
 /**
  * M10: `margin_dB = SNR2500 - threshold2500`. When one result carries both an
  * available SNR head and an available decode head from the same model, the
@@ -577,12 +583,15 @@ function crossCheckDecodeMargin(
   const snr = heads.find((head) => head.quantity === "snr2500") as
     Extract<PredictionHead, { quantity: "snr2500" }> | undefined;
   if (snr === undefined) return;
+  // "experimental" is value-bearing exactly like "available": it carries a
+  // payload, so the M10 identity has to hold for it too, in any combination.
   if (
-    decode.state.availability !== "available" ||
-    snr.state.availability !== "available"
+    !VALUE_BEARING_STATES.includes(decode.state.availability) ||
+    !VALUE_BEARING_STATES.includes(snr.state.availability)
   ) {
     return;
   }
+  if (!("value" in decode.state) || !("value" in snr.state)) return;
   if (
     snr.effectiveModelId !== decode.effectiveModelId ||
     snr.effectiveModelVersion !== decode.effectiveModelVersion
@@ -633,6 +642,29 @@ export const predictionResultSchema = z
             ctx,
             ["evidence", "sources", index, field],
             `An eligible source must have ${field} no later than issuedAt (M02)`,
+          );
+        }
+      }
+      /**
+       * M02: the age of an eligible source is `issuedAt` minus the end of the
+       * interval it observed, not a free-standing number a producer may pick.
+       * The tolerance is one second because `ageSeconds` is whole seconds
+       * while the timestamps carry milliseconds.
+       */
+      if (source.ageSeconds === null) {
+        reject(
+          ctx,
+          ["evidence", "sources", index, "ageSeconds"],
+          "An eligible source must state its age as issued (M02)",
+        );
+      } else if (source.observedIntervalEndAt !== null) {
+        const expected =
+          (issued - instantMs(source.observedIntervalEndAt)) / 1000;
+        if (Math.abs(source.ageSeconds - expected) > AGE_TOLERANCE_SECONDS) {
+          reject(
+            ctx,
+            ["evidence", "sources", index, "ageSeconds"],
+            `An eligible source age must be issuedAt minus observedIntervalEndAt (M02); expected ${expected}`,
           );
         }
       }

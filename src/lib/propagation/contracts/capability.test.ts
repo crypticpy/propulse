@@ -336,6 +336,29 @@ describe("parseCapability fails closed", () => {
     );
   });
 
+  it("rejects a routable capability with no model hash (M11)", () => {
+    const bad = candidate("hfPhysics");
+    bad.modelHash = null;
+    expect(reasonsAt(bad, "modelHash").join()).toMatch(/pin its model hash/);
+  });
+
+  it("rejects a routable capability with no preprocessing hash (M11)", () => {
+    const bad = candidate("hfPhysics");
+    bad.preprocessingHash = null;
+    expect(reasonsAt(bad, "preprocessingHash").join()).toMatch(
+      /pin its preprocessing hash/,
+    );
+  });
+
+  it("accepts unpinned hashes on a planned-only declaration", () => {
+    const planned = candidate("hfPhysics");
+    planned.modelHash = null;
+    planned.preprocessingHash = null;
+    for (const head of planned.heads as Mutable[]) head.state = "planned";
+    const outcome = parseCapability(planned);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects a capability declared under another source policy version", () => {
     expect(
       capabilityCovers(parsed("hfPhysics"), {

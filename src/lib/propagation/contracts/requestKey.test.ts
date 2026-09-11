@@ -45,6 +45,30 @@ describe("requestKey identity", () => {
     }
   });
 
+  it("gives the two spellings of the antimeridian one key", () => {
+    const west = build((draft) => {
+      ((draft.rx as Mutable).coordinates as Mutable).longitudeDeg = -180;
+    });
+    const east = build((draft) => {
+      ((draft.rx as Mutable).coordinates as Mutable).longitudeDeg = 180;
+    });
+    expect(requestKey(east)).toBe(requestKey(west));
+  });
+
+  it("gives negative zero and zero one key", () => {
+    const negative = build((draft) => {
+      const coordinates = (draft.rx as Mutable).coordinates as Mutable;
+      coordinates.latitudeDeg = -0;
+      coordinates.longitudeDeg = -0;
+    });
+    const positive = build((draft) => {
+      const coordinates = (draft.rx as Mutable).coordinates as Mutable;
+      coordinates.latitudeDeg = 0;
+      coordinates.longitudeDeg = 0;
+    });
+    expect(requestKey(negative)).toBe(requestKey(positive));
+  });
+
   it("keeps the key stable across two spellings of one instant", () => {
     const zulu = build();
     const offset = build((draft) => {

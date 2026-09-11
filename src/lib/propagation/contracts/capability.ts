@@ -220,6 +220,26 @@ export const modelCapabilitySchema = z
       }
       seenHeads.add(key);
     });
+    // M11/M19: an issued prediction has to be traceable to the exact artefact
+    // that produced it, so a declaration with any routable head must pin both
+    // hashes. A planned-only or no-op declaration has nothing to pin yet.
+    const routable = value.heads.some((head) =>
+      ROUTABLE_CAPABILITY_STATES.includes(head.state),
+    );
+    if (routable && value.modelHash === null) {
+      reject(
+        ctx,
+        ["modelHash"],
+        "A capability with a routable head must pin its model hash (M11)",
+      );
+    }
+    if (routable && value.preprocessingHash === null) {
+      reject(
+        ctx,
+        ["preprocessingHash"],
+        "A capability with a routable head must pin its preprocessing hash (M11)",
+      );
+    }
     const owners = new Map<string, string>();
     value.corrections.forEach((correction, index) => {
       if (correction.covarianceOwnership !== "owns_total") return;

@@ -3,8 +3,8 @@
     "schemaVersion": "propagation-capability-0.1.0",
     "modelId": "propulse-physics-v1",
     "modelVersion": "1.0.0",
-    "modelHash": null,
-    "preprocessingHash": null,
+    "modelHash": "sha256:e6b6e3c8d57eb93ee4c2f36b73b4e2b2871ededb631026a8439a9bb611cd40ad",
+    "preprocessingHash": "sha256:58126e4deeb4562003e21aec60eb2e43d2908f70c67655a3dc964dd4926f8030",
     "sourcePolicyVersion": "source-policy-0.1.0",
     "heads": [
       {

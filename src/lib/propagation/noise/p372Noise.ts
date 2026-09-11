@@ -26,6 +26,15 @@
  * decoded but not used, exactly as in the reference: they describe the
  * variability of the deciles themselves and P.372 section 8 does not consume
  * them.
+ *
+ * Two different totals, deliberately. The reference itself uses two:
+ * `Noise.c:189` reports `FamT = min(FamTu, FamTl)` from the section 8
+ * log-normal combination, but `P533/CircuitReliability.c:166` forms the
+ * signal-to-noise ratio against the plain power sum of the three medians,
+ * 10*log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10)). The two differ by up to
+ * about 1 dB. `combineNoiseP372` gives the first and `powerSumMediansP372` the
+ * second; the SNR path must use `powerSumMediansP372`, so that our SNR matches
+ * the reference's analog goldens (#952, #954). Do not "simplify" them into one.
  */
 
 import {
@@ -256,6 +265,25 @@ export function atmosphericNoiseP372(
     du: interpolateDb(now.du, adjacent.du, slope),
     dl: interpolateDb(now.dl, adjacent.dl, slope),
   };
+}
+
+/**
+ * The plain power sum of the component medians, in dB.
+ *
+ * This is the noise figure the reference uses for signal-to-noise ratio
+ * (`P533/CircuitReliability.c:166`): `SNR = PR - (Fsum - 204 + 10*log10(BW))`
+ * holds to better than 0.05 dB on all 28 analog golden circuits only with this
+ * sum, not with the section 8 `FamT`. It ignores the deciles by construction;
+ * use `combineNoiseP372` when the spread is what you want.
+ */
+export function powerSumMediansP372(
+  components: readonly NoiseComponent[],
+): number {
+  let power = 0;
+  for (const component of components) {
+    power += Math.pow(10, component.fa / 10);
+  }
+  return 10 * Math.log10(power);
 }
 
 /**

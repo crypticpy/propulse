@@ -9,6 +9,7 @@ import {
 import { atmosphericNoiseP372 } from "./p372Noise";
 import {
   getExternalNoise,
+  getExternalNoiseFigure,
   type NoiseEnvironment,
 } from "@/lib/utils/noiseModel";
 
@@ -22,7 +23,8 @@ import {
  * harness that loads the monthly `COEFF*W.txt` coefficients and calls
  * `Noise(&np, hour, lon*D2R, lat*D2R, freq)` once per row. `faA` is
  * `noiseP->FaA`, `faTotal` is `noiseP->FamT`, `duTotal`/`dlTotal` are
- * `noiseP->DuT`/`noiseP->DlT`. The regeneration procedure is in
+ * `noiseP->DuT`/`noiseP->DlT`, and `faMedianSum` is the power sum of the same
+ * run's `FaA`, `FaM` and `FaG`. The regeneration procedure is in
  * `docs/plans.local/prop-02-948-notes.md`.
  *
  * Coverage: 16 cases over both hemispheres (latitude -34.6 to +64.1), all four
@@ -38,7 +40,16 @@ interface GoldenCase {
   frequencyMHz: number;
   environment: NoiseEnvironment;
   faA: number;
+  /** `noiseP->FamT`: the P.372 section 8 log-normal combination. */
   faTotal: number;
+  /**
+   * The plain power sum of the reference's three medians,
+   * 10*log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10)), computed from the same
+   * run's `FaA`/`FaM`/`FaG`. This is the SNR convention
+   * `P533/CircuitReliability.c:166` uses, and it differs from `faTotal` by up
+   * to 0.93 dB across these 16 cases.
+   */
+  faMedianSum: number;
   duTotal: number;
   dlTotal: number;
 }
@@ -54,6 +65,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 36.164487,
     faTotal: 42.292813,
+    faMedianSum: 42.082855,
     duTotal: 10.057709,
     dlTotal: 4.509608,
   },
@@ -67,6 +79,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "city",
     faA: 32.817623,
     faTotal: 53.295207,
+    faMedianSum: 53.295207,
     duTotal: 11.002658,
     dlTotal: 6.638548,
   },
@@ -80,6 +93,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 21.26845,
     faTotal: 57.115888,
+    faMedianSum: 57.161642,
     duTotal: 10.591538,
     dlTotal: 5.260558,
   },
@@ -93,6 +107,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "rural",
     faA: 10.928588,
     faTotal: 30.790584,
+    faMedianSum: 31.021971,
     duTotal: 9.075608,
     dlTotal: 4.26778,
   },
@@ -106,6 +121,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "quiet_rural",
     faA: 3.462025,
     faTotal: 18.831991,
+    faMedianSum: 19.696582,
     duTotal: 6.427704,
     dlTotal: 1.918028,
   },
@@ -119,6 +135,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "rural",
     faA: 45.319782,
     faTotal: 50.344522,
+    faMedianSum: 49.945097,
     duTotal: 8.255824,
     dlTotal: 4.808035,
   },
@@ -132,6 +149,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 37.056522,
     faTotal: 45.403033,
+    faMedianSum: 45.469422,
     duTotal: 10.35858,
     dlTotal: 4.735542,
   },
@@ -145,6 +163,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "city",
     faA: 38.584799,
     faTotal: 42.934026,
+    faMedianSum: 43.642495,
     duTotal: 10.684253,
     dlTotal: 5.761504,
   },
@@ -158,6 +177,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 19.981116,
     faTotal: 57.454085,
+    faMedianSum: 57.499272,
     duTotal: 10.59177,
     dlTotal: 5.261451,
   },
@@ -171,6 +191,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "rural",
     faA: 10.97788,
     faTotal: 28.898005,
+    faMedianSum: 29.148954,
     duTotal: 9.059444,
     dlTotal: 4.232654,
   },
@@ -184,6 +205,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "city",
     faA: 53.88361,
     faTotal: 55.719049,
+    faMedianSum: 56.631085,
     duTotal: 10.203251,
     dlTotal: 5.279012,
   },
@@ -197,6 +219,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "quiet_rural",
     faA: 35.461102,
     faTotal: 36.124364,
+    faMedianSum: 36.006565,
     duTotal: 4.939562,
     dlTotal: 4.141338,
   },
@@ -210,6 +233,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 44.308617,
     faTotal: 57.380092,
+    faMedianSum: 57.380092,
     duTotal: 10.962368,
     dlTotal: 5.759211,
   },
@@ -223,6 +247,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "rural",
     faA: -18.027425,
     faTotal: 27.311365,
+    faMedianSum: 27.574922,
     duTotal: 9.077212,
     dlTotal: 4.259759,
   },
@@ -236,6 +261,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "residential",
     faA: 33.029872,
     faTotal: 44.994345,
+    faMedianSum: 45.073687,
     duTotal: 10.495392,
     dlTotal: 4.976774,
   },
@@ -249,6 +275,7 @@ const GOLDEN: readonly GoldenCase[] = [
     environment: "quiet_rural",
     faA: 6.829299,
     faTotal: 21.733165,
+    faMedianSum: 22.667051,
     duTotal: 6.709702,
     dlTotal: 1.965186,
   },
@@ -309,11 +336,58 @@ describe("ITU-R P.372 combined noise matches the reference implementation", () =
         month: c.month,
         utcHour: c.utcHour,
       });
-      expect(Math.abs(noise.total.fa - c.faTotal)).toBeLessThan(TOLERANCE_DB);
-      expect(Math.abs(noise.total.du - c.duTotal)).toBeLessThan(TOLERANCE_DB);
-      expect(Math.abs(noise.total.dl - c.dlTotal)).toBeLessThan(TOLERANCE_DB);
+      expect(Math.abs(noise.faDecileTotal_dB - c.faTotal)).toBeLessThan(
+        TOLERANCE_DB,
+      );
+      expect(Math.abs(noise.duTotal_dB - c.duTotal)).toBeLessThan(TOLERANCE_DB);
+      expect(Math.abs(noise.dlTotal_dB - c.dlTotal)).toBeLessThan(TOLERANCE_DB);
     });
   }
+});
+
+/**
+ * The SNR convention. `P372/Src/P372/Noise.c:189` sets
+ * `FamT = min(FamTu, FamTl)`, but `P533/Src/P533/CircuitReliability.c:166`
+ * forms the signal-to-noise ratio against the plain power sum of the three
+ * medians. The two differ by up to 0.93 dB over these cases, and
+ * `SNR = PR - (Fsum - 204 + 10*log10(BW))` reproduces the reference's analog
+ * golden circuits only with the power sum, so that is what
+ * `getExternalNoiseFigure` returns and what every noise floor here uses.
+ *
+ * Tolerance is the same 0.05 dB as the other goldens: the only error sources
+ * are the int16 coefficient storage (<=0.013 dB of FaA) and float64 rounding,
+ * and the man-made and galactic medians are closed-form and exact.
+ */
+describe("ITU-R P.372 median power sum is the SNR convention", () => {
+  for (const c of GOLDEN) {
+    it(`${c.name}`, () => {
+      const noise = getExternalNoise(c.frequencyMHz, c.environment, {
+        latitude: c.latitude,
+        longitude: c.longitude,
+        month: c.month,
+        utcHour: c.utcHour,
+      });
+      expect(Math.abs(noise.faMedianSum_dB - c.faMedianSum)).toBeLessThan(
+        TOLERANCE_DB,
+      );
+      // getExternalNoiseFigure is the SNR path; it must be the power sum, not
+      // the section 8 FamT.
+      expect(
+        getExternalNoiseFigure(c.frequencyMHz, c.environment, {
+          latitude: c.latitude,
+          longitude: c.longitude,
+          month: c.month,
+          utcHour: c.utcHour,
+        }),
+      ).toBe(noise.faMedianSum_dB);
+    });
+  }
+
+  it("differs from the section 8 combination by up to about 1 dB", () => {
+    const gaps = GOLDEN.map((c) => Math.abs(c.faMedianSum - c.faTotal));
+    expect(Math.max(...gaps)).toBeGreaterThan(0.9);
+    expect(Math.max(...gaps)).toBeLessThan(1.5);
+  });
 });
 
 describe("ITU-R P.372 atmospheric noise contract", () => {

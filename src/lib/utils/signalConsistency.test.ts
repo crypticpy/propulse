@@ -68,12 +68,19 @@ const AUSTIN_NOON = { ...AUSTIN, utcHour: 18 };
 /** 06 UTC = 00 h receiver local mean time. */
 const AUSTIN_MIDNIGHT = { ...AUSTIN, utcHour: 6 };
 
-/** Reference Fa (dB above kT0b) for the cases used below. */
+/**
+ * Reference Fa (dB above kT0b) for the cases used below: the plain power sum
+ * of the reference's FaA, FaM and FaG medians, which is the convention
+ * `P533/CircuitReliability.c` forms the SNR against and therefore the one the
+ * noise floor must use. The section 8 `FamT` for the same four cases is
+ * 42.376513 / 41.315448 / 49.214435 / 55.158271 -- up to 0.5 dB away, pinned
+ * separately in `p372Noise.test.ts`.
+ */
 const REFERENCE_FA = {
-  noon14MHz: 42.376513,
-  midnight14MHz: 41.315448,
-  noon7MHz: 49.214435,
-  midnight7MHz: 55.158271,
+  noon14MHz: 42.158187,
+  midnight14MHz: 41.808076,
+  noon7MHz: 49.111587,
+  midnight7MHz: 55.467055,
 } as const;
 
 describe("PROP-02 noise plane is kT0B + Fa (M09/M10)", () => {
@@ -97,7 +104,7 @@ describe("PROP-02 noise plane is kT0B + Fa (M09/M10)", () => {
       KT0B_DBM + REFERENCE_FA.noon14MHz,
       1,
     );
-    // -97.6 dBm in 2500 Hz: a residential 20 m daytime floor, not the -77.9
+    // -97.8 dBm in 2500 Hz: a residential 20 m daytime floor, not the -77.9
     // the uncited `Faa = 100 - 33 log10 f` curve produced (#948, #955).
     expect(noise.noiseFloorDbm).toBeLessThan(-95);
     expect(noise.noiseFloorDbm).toBeGreaterThan(-100);
@@ -197,9 +204,10 @@ describe("PROP-02 noise-environment policy (M09/M10)", () => {
     // computed here from the published formulas rather than from the code
     // under test: man-made Fam = 72.5 - 27.7*log10(f) (P.372-16 Table 1,
     // residential) and galactic Fag = 52 - 23*log10(f). With no receiver
-    // context there is no atmospheric term, so Fa must sit between the larger
-    // of the two and their power sum -- P.372 section 8 combines log-normals,
-    // so the median of the sum is below the sum of the medians.
+    // context there is no atmospheric term, so Fa is exactly their power sum:
+    // the SNR convention adds the medians in power, and the section 8
+    // log-normal combination (which would sit ~0.2 dB lower here) is reported
+    // separately as faDecileTotal_dB rather than used for the floor.
     const lg = Math.log10(14);
     const fam = 72.5 - 27.7 * lg;
     const fag = 52 - 23 * lg;
@@ -207,7 +215,7 @@ describe("PROP-02 noise-environment policy (M09/M10)", () => {
     const noise = calculateReferenceNoise(14);
     expect(noise.environment).toBe(DEFAULT_NOISE_ENVIRONMENT);
     expect(noise.fa_dB).toBeGreaterThan(Math.max(fam, fag));
-    expect(noise.fa_dB).toBeLessThan(powerSum);
+    expect(Math.abs(noise.fa_dB - powerSum)).toBeLessThan(1e-9);
 
     const txPowerDbm = 30 + 10 * Math.log10(100);
     // calculateExpectedSNR reports to 0.1 dB.

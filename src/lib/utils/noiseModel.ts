@@ -9,9 +9,20 @@
  *    `@/lib/propagation/noise/p372Noise` as a port of the ITU-R Study Group 3
  *    reference code, over the vendored coefficient asset.
  *
- * The three are combined by P.372 section 8 ("the combination of noises from
- * several sources"), not by a power sum of the medians: see
- * `combineNoiseP372`.
+ * Two totals, because the reference uses two (see `p372Noise.ts`):
+ * `faMedianSum_dB` is the plain power sum of the three medians, which is what
+ * `P533/CircuitReliability.c` forms the SNR against and therefore what the
+ * noise floor and every SNR in this application use. `faDecileTotal_dB` is the
+ * P.372 section 8 log-normal combination `FamT = min(FamTu, FamTl)`, reported
+ * with `duTotal_dB`/`dlTotal_dB` for anything that wants the spread. They
+ * differ by up to about 1 dB.
+ *
+ * Temperature reference: the P.372 noise factors are defined against
+ * T0 = 288 K in the reference implementation, while the thermal term here uses
+ * the conventional T0 = 290 K (kT0B = -174 dBm/Hz). The difference is
+ * 10*log10(290/288) = 0.03 dB, below every tolerance in this module's tests
+ * and below the 0.1 dB resolution at which SNR is reported. 290 K is kept
+ * deliberately and is pinned by `signalConsistency.test.ts`; do not "fix" it.
  *
  * Reference: ITU-R P.372-16 "Radio noise".
  */
@@ -19,6 +30,7 @@
 import {
   atmosphericNoiseP372,
   combineNoiseP372,
+  powerSumMediansP372,
   type NoiseComponent,
   type P372ReceiverContext,
 } from "@/lib/propagation/noise/p372Noise";
@@ -199,26 +211,39 @@ export function getAtmosphericNoise(
 
 /**
  * Total external noise factor Fa at a frequency, for a receiver environment and
- * context, combined per ITU-R P.372 section 8.
+ * context: the plain power sum of the atmospheric, man-made and galactic
+ * medians, as `P533/CircuitReliability.c` forms it.
  *
- * The combination is log-normal, not a power sum of medians: the returned value
- * is the worse case of the upper- and lower-decile medians, as in the reference
- * implementation. Where the components are comparable this sits 1-2 dB below
- * the arithmetic power sum.
+ * This is the SNR convention, and it is the only total that belongs in a noise
+ * floor. The P.372 section 8 log-normal combination sits up to about 1 dB away
+ * from it and is available as `getExternalNoise(...).faDecileTotal_dB`.
  *
  * When `options` is incomplete the atmospheric term is absent (see
- * `getAtmosphericNoise`) and the result is the man-made/galactic combination.
+ * `getAtmosphericNoise`) and the result is the man-made/galactic sum.
  */
 export function getExternalNoiseFigure(
   frequencyMHz: number,
   environment: NoiseEnvironment,
   options?: AtmosphericNoiseOptions,
 ): number {
-  return getExternalNoise(frequencyMHz, environment, options).total.fa;
+  return getExternalNoise(frequencyMHz, environment, options).faMedianSum_dB;
 }
 
 export interface ExternalNoise {
-  total: NoiseComponent;
+  /**
+   * Plain power sum of the component medians. The SNR convention; this is what
+   * `getExternalNoiseFigure` returns and what the noise floor uses.
+   */
+  faMedianSum_dB: number;
+  /**
+   * ITU-R P.372 section 8 log-normal combination, `FamT = min(FamTu, FamTl)`.
+   * Not the SNR convention -- do not substitute it for `faMedianSum_dB`.
+   */
+  faDecileTotal_dB: number;
+  /** Combined upper decile deviation from the section 8 combination, dB. */
+  duTotal_dB: number;
+  /** Combined lower decile deviation from the section 8 combination, dB. */
+  dlTotal_dB: number;
   manMade: NoiseComponent;
   galactic: NoiseComponent;
   /** `null` when the receiver context was incomplete. */
@@ -246,8 +271,12 @@ export function getExternalNoise(
   const components = atmospheric
     ? [atmospheric, galactic, manMade]
     : [galactic, manMade];
+  const decileTotal = combineNoiseP372(components);
   return {
-    total: combineNoiseP372(components),
+    faMedianSum_dB: powerSumMediansP372(components),
+    faDecileTotal_dB: decileTotal.fa,
+    duTotal_dB: decileTotal.du,
+    dlTotal_dB: decileTotal.dl,
     manMade,
     galactic,
     atmospheric,
@@ -370,7 +399,7 @@ export function getAllBandNoise(
 ): BandNoiseEntry[] {
   return Object.entries(HF_BAND_FREQUENCIES).map(([band, freq]) => {
     const noise = getExternalNoise(freq, environment, options);
-    const fa_dB = noise.total.fa;
+    const fa_dB = noise.faMedianSum_dB;
     return {
       band,
       frequencyMHz: freq,

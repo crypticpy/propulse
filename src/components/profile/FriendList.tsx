@@ -8,6 +8,8 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSocialStore } from "@/stores/socialStore";
+import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
+import type { PublicProfile } from "@/types/social";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthRequiredPlaceholder } from "@/components/auth";
@@ -206,6 +208,7 @@ interface ProfileCardProps {
     callsign: string;
     operatorName?: string;
     grid?: string;
+    visibilitySettings?: PublicProfile["visibilitySettings"];
     lastActiveAt?: string;
   };
   isFollowing: boolean;
@@ -233,7 +236,14 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
             {profile.operatorName && (
               <span className="truncate">{profile.operatorName}</span>
             )}
-            {profile.grid && <span className="font-mono">{profile.grid}</span>}
+            {/* Following them makes the viewer a friend, but a private
+                location is still private. */}
+            {profile.grid &&
+              isSectionVisibleToViewer(
+                profile.visibilitySettings,
+                "location",
+                true,
+              ) && <span className="font-mono">{profile.grid}</span>}
           </div>
         </div>
       </div>

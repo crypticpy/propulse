@@ -28,6 +28,12 @@ import { OperatingHoursMini } from "./OperatingHoursMini";
 
 interface VisitorProfileCardProps {
   profile: PublicProfile;
+  /**
+   * Whether the target's published location may be shown to this viewer.
+   * Decided once on ProfilePage with `isSectionVisibleToViewer` so the grid,
+   * the coordinates and the contact panel cannot disagree.
+   */
+  locationDisclosed: boolean;
   /** Viewer's own interest tags — used to highlight shared interests */
   viewerInterests?: InterestTag[];
   isFollowing: boolean;
@@ -60,6 +66,7 @@ function resolveRank(raw: string | undefined): RankTier {
 
 export function VisitorProfileCard({
   profile,
+  locationDisclosed,
   viewerInterests,
   isFollowing,
   onFollow,
@@ -74,15 +81,14 @@ export function VisitorProfileCard({
 
   const totalQSOs = (profile.statsCache?.totalQSOs as number) || 0;
   const uniqueCountries = (profile.statsCache?.uniqueCountries as number) || 0;
-  const displayGrid = profile.grid || "\u2014";
+  const displayGrid = locationDisclosed ? profile.grid || "\u2014" : "\u2014";
   const interests = profile.interests ?? [];
   const operatingHours = profile.operatingHours ?? [];
 
-  // Coordinate visibility — respect the profile's visibility settings
+  // Coordinate visibility — the page decided it; a friends-only location was
+  // treated as public here before (#995 round 4).
   const showLocation =
-    profile.visibilitySettings?.location !== "private" &&
-    profile.lat != null &&
-    profile.lon != null;
+    locationDisclosed && profile.lat != null && profile.lon != null;
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
@@ -119,13 +125,15 @@ export function VisitorProfileCard({
                   alt=""
                   className={[
                     "w-16 h-16 rounded-full object-cover mx-auto mb-3",
-                    !effects.animatedBadges || !effects.glow ? "" : rank === "ethereal"
-                      ? "animate-rank-chromatic-ring"
-                      : isRankAtLeast(rank, "master")
-                        ? "animate-rank-golden-ring"
-                        : isRankAtLeast(rank, "expert")
-                          ? "animate-rank-pulse-glow"
-                          : "",
+                    !effects.animatedBadges || !effects.glow
+                      ? ""
+                      : rank === "ethereal"
+                        ? "animate-rank-chromatic-ring"
+                        : isRankAtLeast(rank, "master")
+                          ? "animate-rank-golden-ring"
+                          : isRankAtLeast(rank, "expert")
+                            ? "animate-rank-pulse-glow"
+                            : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}

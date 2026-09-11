@@ -32,7 +32,11 @@ function toPublicProfile(row: Record<string, unknown>): PublicProfile {
       ? (row.social_links as { type: string; url: string }[])
       : undefined,
     statsCache: (row.stats_cache as Record<string, unknown>) ?? undefined,
-    visibilitySettings: undefined,
+    // Carry the owner's disclosure settings through: every surface that shows
+    // a followed operator's grid runs them past `isSectionVisibleToViewer`.
+    visibilitySettings:
+      (row.visibility_settings as PublicProfile["visibilitySettings"]) ??
+      undefined,
     lastActiveAt: (row.last_active_at as string) ?? undefined,
   };
 }
@@ -48,12 +52,40 @@ function toActivityEvent(row: Record<string, unknown>): ActivityEvent {
   };
 }
 
+/**
+ * Whether the viewer counts as a friend of `profileId`: this app's friend
+ * relation is "the viewer follows them". Deliberately tri-state — until the
+ * following set is known to belong to the signed-in account the answer is
+ * `unknown`, and callers keep friends-only content closed on `unknown` the
+ * same as on `stranger`.
+ */
+export type ViewerFriendship = "friend" | "stranger" | "unknown";
+
+export function viewerFriendship(
+  following: PublicProfile[],
+  followingLoadedForUserId: string | null,
+  authUserId: string | null,
+  profileId: string,
+): ViewerFriendship {
+  if (!authUserId || followingLoadedForUserId !== authUserId) return "unknown";
+  return following.some((profile) => profile.id === profileId)
+    ? "friend"
+    : "stranger";
+}
+
 // ── Store ───────────────────────────────────────────────────────────────
 
 interface SocialStore {
   // State
   followers: PublicProfile[];
   following: PublicProfile[];
+  /**
+   * Which auth user the `following` set was loaded for, or null when nothing
+   * is loaded. A follow relation is an account-scoped fact: without this tag
+   * account B inherits account A's cached relationships and sees their
+   * friends-only sections.
+   */
+  followingLoadedForUserId: string | null;
   feed: ActivityEvent[];
   isLoadingFollowers: boolean;
   isLoadingFeed: boolean;
@@ -65,12 +97,15 @@ interface SocialStore {
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   fetchFeed: (append?: boolean) => Promise<void>;
+  /** Drop the following set at an account boundary (called by authStore). */
+  clearFollowing: () => void;
   reset: () => void;
 }
 
 const initialState = {
   followers: [] as PublicProfile[],
   following: [] as PublicProfile[],
+  followingLoadedForUserId: null as string | null,
   feed: [] as ActivityEvent[],
   isLoadingFollowers: false,
   isLoadingFeed: false,
@@ -134,7 +169,19 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
 
-    set({ isLoadingFollowers: true });
+    // The set in hand belongs to whoever it was loaded for. Drop it before
+    // the request so nothing reads the previous account's relationships
+    // while this one is in flight; `followingLoadedForUserId` stays null
+    // until the answer for THIS user lands, which is what makes the
+    // viewer-is-friend question answer "unknown" in between.
+    set({
+      following: [],
+      followingLoadedForUserId: null,
+      isLoadingFollowers: true,
+    });
+
+    /** A result is only ours if the signed-in user has not changed since. */
+    const stillCurrent = () => useAuthStore.getState().user?.id === userId;
 
     try {
       const supabase = getSupabase();
@@ -144,8 +191,14 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         .select("following_id")
         .eq("follower_id", userId);
 
+      if (!stillCurrent()) return;
+
       if (followsError || !follows?.length) {
-        set({ following: [], isLoadingFollowers: false });
+        set({
+          following: [],
+          followingLoadedForUserId: followsError ? null : userId,
+          isLoadingFollowers: false,
+        });
         return;
       }
 
@@ -156,8 +209,14 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         .select("*")
         .in("id", followingIds);
 
+      if (!stillCurrent()) return;
+
       if (profilesError || !profiles) {
-        set({ following: [], isLoadingFollowers: false });
+        set({
+          following: [],
+          followingLoadedForUserId: null,
+          isLoadingFollowers: false,
+        });
         return;
       }
 
@@ -165,9 +224,11 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         following: profiles.map((p) =>
           toPublicProfile(p as unknown as Record<string, unknown>),
         ),
+        followingLoadedForUserId: userId,
         isLoadingFollowers: false,
       });
     } catch {
+      if (!stillCurrent()) return;
       set({ isLoadingFollowers: false });
     }
   },
@@ -289,6 +350,8 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
   },
 
   // ── Reset ─────────────────────────────────────────────────────────
+
+  clearFollowing: () => set({ following: [], followingLoadedForUserId: null }),
 
   reset: () => set(initialState),
 }));

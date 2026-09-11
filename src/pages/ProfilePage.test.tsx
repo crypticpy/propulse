@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
 
+const VIEWER_ID = "viewer-1";
+
 const fixture = vi.hoisted(() => ({
   authenticated: true,
+  followingLoadedForUserId: "viewer-1" as string | null,
   mobile: false,
   profile: {} as Record<string, unknown>,
   following: [] as { id: string }[],
@@ -30,13 +33,27 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/stores/authStore", () => ({
   selectIsAuthenticated: (state: { authenticated: boolean }) =>
     state.authenticated,
-  useAuthStore: (selector: (state: { authenticated: boolean }) => unknown) =>
-    selector({ authenticated: fixture.authenticated }),
+  useAuthStore: (
+    selector: (state: {
+      authenticated: boolean;
+      user: { id: string } | null;
+    }) => unknown,
+  ) =>
+    selector({
+      authenticated: fixture.authenticated,
+      user: fixture.authenticated ? { id: VIEWER_ID } : null,
+    }),
 }));
-vi.mock("@/stores/socialStore", () => ({
+vi.mock("@/stores/socialStore", async (importOriginal) => ({
+  // The real predicate: the page's follow state is what it computes, so a
+  // hand-written stand-in here would test nothing.
+  viewerFriendship: (
+    await importOriginal<typeof import("@/stores/socialStore")>()
+  ).viewerFriendship,
   useSocialStore: (
     selector: (state: {
       following: { id: string }[];
+      followingLoadedForUserId: string | null;
       fetchFollowing: () => void;
       followUser: typeof fixture.follow;
       unfollowUser: typeof fixture.unfollow;
@@ -44,6 +61,7 @@ vi.mock("@/stores/socialStore", () => ({
   ) =>
     selector({
       following: fixture.following,
+      followingLoadedForUserId: fixture.followingLoadedForUserId,
       fetchFollowing: () => {},
       followUser: fixture.follow,
       unfollowUser: fixture.unfollow,
@@ -144,6 +162,7 @@ beforeEach(() => {
   fixture.authenticated = true;
   fixture.mobile = false;
   fixture.following = [];
+  fixture.followingLoadedForUserId = VIEWER_ID;
   fixture.follow.mockClear();
   fixture.unfollow.mockClear();
   fixture.query.mockClear();
@@ -231,6 +250,32 @@ describe("redesigned visitor profile preservation", () => {
     expect(screen.queryByRole("heading", { name: /N0TEST/ })).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(fixture.follow).not.toHaveBeenCalled();
+  });
+
+  // #995 round 4: socialStore.following is a cache with an owner. A set that
+  // has not been confirmed to belong to the signed-in account must not unlock
+  // a friends-only location, however "following" it looks.
+  it("keeps a friends-only location closed while the follow set is unconfirmed", async () => {
+    fixture.mobile = true;
+    fixture.following = [{ id: "synthetic-operator" }];
+    fixture.followingLoadedForUserId = null;
+    (fixture.profile.visibility_settings as Record<string, string>).location =
+      "friends";
+
+    openProfile();
+    await screen.findAllByRole("heading", { name: /N0TEST/ });
+    expect(screen.queryByText("DM79")).toBeNull();
+  });
+
+  it("opens a friends-only location once the follow set is confirmed for this account", async () => {
+    fixture.mobile = true;
+    fixture.following = [{ id: "synthetic-operator" }];
+    fixture.followingLoadedForUserId = VIEWER_ID;
+    (fixture.profile.visibility_settings as Record<string, string>).location =
+      "friends";
+
+    openProfile();
+    expect(await screen.findByText("DM79")).toBeTruthy();
   });
 
   it("requires the existing confirmation before unfollowing an operator", async () => {

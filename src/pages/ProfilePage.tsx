@@ -25,7 +25,7 @@ import type {
 } from "@/types/social";
 import type { RankTier } from "@/types/rank";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
-import { useSocialStore } from "@/stores/socialStore";
+import { useSocialStore, viewerFriendship } from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 // LocationManager moved to Settings — locations managed via /settings route
@@ -104,6 +104,10 @@ function OtherProfileView({
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const requireAuth = useRequireAuth();
   const following = useSocialStore((s) => s.following);
+  const followingLoadedForUserId = useSocialStore(
+    (s) => s.followingLoadedForUserId,
+  );
+  const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
   const followUser = useSocialStore((s) => s.followUser);
   const unfollowUser = useSocialStore((s) => s.unfollowUser);
@@ -282,15 +286,24 @@ function OtherProfileView({
   // Visibility shorthand
   const vis = profile.visibilitySettings;
 
-  // Follow state
-  const isFollowing = following.some((f) => f.id === profile.id);
+  // Follow state. Tri-state on purpose: until the following set is known to
+  // belong to the signed-in account the relationship is "unknown", and an
+  // unknown viewer is not a friend, so friends-only sections stay closed
+  // rather than opening on another account's cached relationships.
+  const friendship = viewerFriendship(
+    following,
+    followingLoadedForUserId,
+    authUserId,
+    profile.id,
+  );
+  const isFollowing = friendship === "friend";
 
   // One predicate for the published location: the grid line, "Where to find
   // me" and the contact panel's coordinates are the same disclosure.
   const locationDisclosed = isSectionVisibleToViewer(
     vis,
     "location",
-    isFollowing,
+    friendship === "friend",
   );
 
   const handleFollow = () => {
@@ -632,6 +645,7 @@ function OtherProfileView({
         ) : (
           <VisitorProfileCard
             profile={profile}
+            locationDisclosed={locationDisclosed}
             viewerInterests={viewerInterests}
             isFollowing={isFollowing}
             onFollow={handleFollow}

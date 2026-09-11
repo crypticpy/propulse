@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 
 from reference.cases import GOLDEN_CASES, GOLDEN_REVISION
-from reference.portable import golden_case
+from reference.portable import golden_case, require_golden_header
 from reference.runner import (
     COMMIT, REPOSITORY, TAG, Case, ReferenceBuild, case_inputs, input_digest,
 )
@@ -142,6 +142,23 @@ class GoldenTests(unittest.TestCase):
         stranger["input_sha256"] = input_digest(Case(**stranger["inputs"]))
         with self.assertRaisesRegex(PortableError, "not in the frozen case set"):
             golden_case(stranger)
+
+    def test_edited_golden_header_cannot_be_proved(self):
+        """A golden naming another reference commit or revision must not
+        reach the proof, whose header copies those values (Codex round 13)."""
+        from reference.portable import PortableError
+
+        require_golden_header(self.golden)
+        edited = dict(self.golden, reference_commit="0" * 40)
+        with self.assertRaisesRegex(PortableError, "reference_commit"):
+            require_golden_header(edited)
+        edited = dict(self.golden, revision="golden-v2")
+        with self.assertRaisesRegex(PortableError, "revision"):
+            require_golden_header(edited)
+        edited = dict(self.golden)
+        del edited["reference_commit"]
+        with self.assertRaisesRegex(PortableError, "reference_commit"):
+            require_golden_header(edited)
 
     def test_no_output_is_nan_or_infinite(self):
         for entry in self.cases:

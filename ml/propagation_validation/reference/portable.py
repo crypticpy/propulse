@@ -40,16 +40,16 @@ from typing import Any
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from reference.cases import GOLDEN_CASES  # type: ignore
+    from reference.cases import GOLDEN_CASES, GOLDEN_REVISION  # type: ignore
     from reference.runner import (  # type: ignore
-        DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
+        COMMIT, DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
         Case, ReferenceBuild, case_inputs, input_digest, parse_report,
         render_input,
     )
 else:
-    from .cases import GOLDEN_CASES
+    from .cases import GOLDEN_CASES, GOLDEN_REVISION
     from .runner import (
-        DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
+        COMMIT, DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
         Case, ReferenceBuild, case_inputs, input_digest, parse_report,
         render_input,
     )
@@ -435,7 +435,26 @@ def golden_case(entry: dict[str, Any]) -> Case:
     return case
 
 
+def require_golden_header(golden: dict[str, Any]) -> None:
+    """The proof copies the golden's revision and reference_commit into its
+    own header. The Wasm build always comes from the pinned checkout, so a
+    golden whose header names another commit or revision would be certified
+    against a reference that was never executed (Codex round 13, PR #1090):
+    reject it before anything runs."""
+    commit = golden.get("reference_commit")
+    if commit != COMMIT:
+        raise PortableError(
+            f"golden reference_commit {commit!r} is not the pinned {COMMIT}"
+        )
+    revision = golden.get("revision")
+    if revision != GOLDEN_REVISION:
+        raise PortableError(
+            f"golden revision {revision!r} is not the supported {GOLDEN_REVISION}"
+        )
+
+
 def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
+    require_golden_header(golden)
     source = build_dir / SOURCE_DIRNAME
     native = ReferenceBuild(source)
     native.require()

@@ -363,6 +363,14 @@ class CleanCheckoutTests(unittest.TestCase):
                 require_clean_checkout(repo)
             extra.unlink()
             require_clean_checkout(repo)
+            # An ignored file is still on disk and still inventoried (Codex
+            # round 10): .git/info/exclude must not hide it either.
+            (repo / ".git/info/exclude").write_text("P372/Data/EXTRA.txt\n")
+            extra.write_text("local\n")
+            with self.assertRaisesRegex(RuntimeError, "P372/Data/EXTRA.txt"):
+                require_clean_checkout(repo)
+            extra.unlink()
+            require_clean_checkout(repo)
             # A Makefile under a build directory is provenance, not a product.
             (repo / "P533/Linux/Makefile").write_text("all:\n")
             subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)

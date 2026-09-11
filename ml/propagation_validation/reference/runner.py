@@ -140,12 +140,15 @@ def require_clean_checkout(source: Path) -> None:
 
     HEAD alone does not prove provenance: an edited source or coefficient
     file would be compiled and then recorded as if it came from COMMIT.
-    Untracked files count too: inventory() digests every file under the Data
-    directories, so a locally added coefficient file would otherwise be
-    attributed to COMMIT. Only the rebuilt generated artifacts are exempt.
+    Untracked and ignored files count too: inventory() digests every file
+    under the Data directories, so a locally added coefficient file would
+    otherwise be attributed to COMMIT, and --untracked-files=all alone omits
+    anything matched by .gitignore, .git/info/exclude or the global excludes.
+    Only the rebuilt generated artifacts are exempt.
     """
     status = subprocess.check_output(
-        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=all"],
+        ["git", "-C", str(source), "status", "--porcelain",
+         "--untracked-files=all", "--ignored=matching"],
         text=True,
         env=git_env(),
     )

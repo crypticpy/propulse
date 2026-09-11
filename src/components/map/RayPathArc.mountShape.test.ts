@@ -121,3 +121,18 @@ describe("GlobeView threads mapOverlayPortal into RayPathArc (#853 F1)", () => {
     expect(tag).toMatch(/portalTarget=\{mapOverlayPortal\}/);
   });
 });
+
+describe("GlobeView threads onOpenPathAnalysis into RayPathArc (#931)", () => {
+  it("accepts onOpenPathAnalysis on GlobeViewProps and forwards it to GlobeScene", () => {
+    const source = readFileSync(GLOBE_VIEW_SOURCE_PATH, "utf8");
+    expect(source).toMatch(/onOpenPathAnalysis\?: \(\) => void;/);
+    const sceneTag = readJsxOpenTag(source, "GlobeScene");
+    expect(sceneTag).toMatch(/onOpenPathAnalysis=\{onOpenPathAnalysis\}/);
+  });
+
+  it("forwards onOpenPathAnalysis from GlobeScene to RayPathArc", () => {
+    const source = readFileSync(GLOBE_VIEW_SOURCE_PATH, "utf8");
+    const tag = readJsxOpenTag(source, "RayPathArc");
+    expect(tag).toMatch(/onOpenPathAnalysis=\{onOpenPathAnalysis\}/);
+  });
+});

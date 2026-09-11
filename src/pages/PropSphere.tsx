@@ -792,6 +792,30 @@ export function PropSphere() {
     ],
   );
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    if (isLiteMode) {
+      setRightPanelExpanded(true);
+      return;
+    }
+    const useBottomTabs =
+      compactFit ||
+      (typeof window !== "undefined" && window.innerWidth < 1024);
+    if (useBottomTabs) {
+      setActiveTab("path");
+      return;
+    }
+    if (rightPanelMode !== "full") {
+      setRightPanelWidth(rightPanelLastWidth);
+      setRightPanelMode("full");
+    }
+  }, [
+    compactFit,
+    isLiteMode,
+    rightPanelLastWidth,
+    rightPanelMode,
+    setRightPanelWidth,
+  ]);
+
   return (
     <BoundViewHost slot={familySlot}>
     <BoundSelectionClear clearRef={clearBoundSelectionRef} />
@@ -1197,6 +1221,7 @@ export function PropSphere() {
                     <GlobeView
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
+                      onOpenPathAnalysis={handleOpenPathAnalysis}
                       hideSizeSliders
                     />
                   )}

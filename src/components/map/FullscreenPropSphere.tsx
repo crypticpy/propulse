@@ -345,6 +345,13 @@ export function FullscreenPropSphere({
     setFullscreen(false);
   }, [setFullscreen]);
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    if (proPanelLayout["path-analysis"]?.collapsed) {
+      toggleProPanelCollapse("path-analysis");
+    }
+    bringToFront("path-analysis");
+  }, [bringToFront, proPanelLayout, toggleProPanelCollapse]);
+
   return (
     <div
       style={ambientMode && !showCursor ? { cursor: "none" } : undefined}
@@ -357,6 +364,7 @@ export function FullscreenPropSphere({
           <GlobeView
             displayTime={displayTime}
             onLocationClick={onLocationClick}
+            onOpenPathAnalysis={handleOpenPathAnalysis}
           />
         )}
         {viewMode === "flat" && (

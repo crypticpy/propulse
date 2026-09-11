@@ -228,6 +228,32 @@ export function PathPointInspector({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-su-line/40 px-3 py-2.5">
+            <div className="min-w-0">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-signal-green">
+                Path point details
+              </h2>
+              <p className="mt-0.5 text-xs text-su-muted">
+                Modeled bounce points along the active path
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
+              aria-label="Close path point details"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path
+                  d="M3 3l8 8M11 3l-8 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
           <PathPointList
             points={pointSet.points}
             selectedId={selectedId}
@@ -238,7 +264,6 @@ export function PathPointInspector({
             status={pointSet.status}
             unavailableReason={pointSet.unavailableReason}
             pathSummary={pathSummary}
-            onClose={onClose}
             onOpenPathAnalysis={onOpenPathAnalysis}
           />
         </section>

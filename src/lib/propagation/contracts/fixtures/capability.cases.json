@@ -12,25 +12,15 @@
         "units": "boolean",
         "domain": "characterized_fixed_path",
         "state": "implemented_unvalidated",
-        "horizons": [
-          "climatology",
-          "current",
-          "forecast_1_24h"
-        ],
-        "mechanismFamilies": [
-          "regular_ef"
-        ],
-        "geometryClasses": [
-          "terrestrial_great_circle"
-        ],
+        "horizons": ["climatology", "current", "forecast_1_24h"],
+        "mechanismFamilies": ["regular_ef"],
+        "geometryClasses": ["terrestrial_great_circle"],
         "frequencyRangeHz": {
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
         "bandKeys": [],
-        "modeProfileIds": [
-          "ft8-wsjtx-2.7.0-15s"
-        ],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
           "station_pair",
           "smoothed_solar_index",
@@ -50,42 +40,22 @@
         "units": "dB",
         "domain": "characterized_fixed_path",
         "state": "implemented_unvalidated",
-        "horizons": [
-          "climatology",
-          "current",
-          "forecast_1_24h"
-        ],
-        "mechanismFamilies": [
-          "regular_ef"
-        ],
-        "geometryClasses": [
-          "terrestrial_great_circle"
-        ],
+        "horizons": ["climatology", "current", "forecast_1_24h"],
+        "mechanismFamilies": ["regular_ef"],
+        "geometryClasses": ["terrestrial_great_circle"],
         "frequencyRangeHz": {
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
-        "bandKeys": [
-          "160m",
-          "80m",
-          "40m",
-          "20m",
-          "15m",
-          "10m",
-          "6m"
-        ],
-        "modeProfileIds": [
-          "ft8-wsjtx-2.7.0-15s"
-        ],
+        "bandKeys": ["160m", "80m", "40m", "20m", "15m", "10m", "6m"],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
           "station_pair",
           "smoothed_solar_index",
           "mode_profile",
           "noise_assumption"
         ],
-        "optionalInputs": [
-          "eligible_foF2_observations"
-        ],
+        "optionalInputs": ["eligible_foF2_observations"],
         "featureSchemaId": "physics-feature-schema-0.1.0",
         "outputSchemaId": "propagation-result-0.1.0",
         "calibrationId": null,
@@ -99,28 +69,16 @@
         "units": "probability",
         "domain": "characterized_fixed_path",
         "state": "planned",
-        "horizons": [
-          "current",
-          "forecast_1_24h"
-        ],
-        "mechanismFamilies": [
-          "regular_ef"
-        ],
-        "geometryClasses": [
-          "terrestrial_great_circle"
-        ],
+        "horizons": ["current", "forecast_1_24h"],
+        "mechanismFamilies": ["regular_ef"],
+        "geometryClasses": ["terrestrial_great_circle"],
         "frequencyRangeHz": {
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
         "bandKeys": [],
-        "modeProfileIds": [
-          "ft8-wsjtx-2.7.0-15s"
-        ],
-        "requiredInputs": [
-          "snr2500",
-          "decoder_response_calibration"
-        ],
+        "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
+        "requiredInputs": ["snr2500", "decoder_response_calibration"],
         "optionalInputs": [],
         "featureSchemaId": "physics-feature-schema-0.1.0",
         "outputSchemaId": "propagation-result-0.1.0",
@@ -140,9 +98,7 @@
         "ownsQuantityId": "ionospheric_state_departure",
         "mechanism": "geomagnetic_storm_prior",
         "covarianceOwnership": "owns_total",
-        "assumptions": [
-          "kp_driver_only"
-        ],
+        "assumptions": ["kp_driver_only"],
         "active": true,
         "inactiveReason": null
       },
@@ -152,9 +108,7 @@
         "ownsQuantityId": "total_xray_absorption_db",
         "mechanism": "d_region_absorption",
         "covarianceOwnership": "owns_total",
-        "assumptions": [
-          "goes_xrs_long_channel"
-        ],
+        "assumptions": ["goes_xrs_long_channel"],
         "active": false,
         "inactiveReason": "source_outside_age_limit"
       }

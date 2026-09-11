@@ -112,9 +112,7 @@
                 "referencePlane": "transmitter_output_to_antenna_input"
               }
             ],
-            "alreadyIncludedMechanisms": [
-              "itu_reference_cd172be_regular_modes"
-            ]
+            "alreadyIncludedMechanisms": ["itu_reference_cd172be_regular_modes"]
           }
         }
       },
@@ -127,9 +125,7 @@
         "effectiveModelId": "propulse-physics-v1",
         "effectiveModelVersion": "1.0.0",
         "calibrationId": null,
-        "assumptions": [
-          "threshold_uncalibrated_published_benchmark"
-        ],
+        "assumptions": ["threshold_uncalibrated_published_benchmark"],
         "fallbackReason": null,
         "uncertainty": {
           "kind": "none"
@@ -268,9 +264,7 @@
         "effectiveModelId": "propulse-physics-v1",
         "effectiveModelVersion": "1.0.0",
         "calibrationId": null,
-        "assumptions": [
-          "above_basic_muf_loss_from_reference"
-        ],
+        "assumptions": ["above_basic_muf_loss_from_reference"],
         "fallbackReason": null,
         "uncertainty": {
           "kind": "none"
@@ -299,9 +293,7 @@
                 "referencePlane": "transmitter_output_to_antenna_input"
               }
             ],
-            "alreadyIncludedMechanisms": [
-              "itu_reference_cd172be_regular_modes"
-            ]
+            "alreadyIncludedMechanisms": ["itu_reference_cd172be_regular_modes"]
           }
         }
       }

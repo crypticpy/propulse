@@ -143,8 +143,10 @@ describe("dock tab across the /map/ops popout", () => {
   // run driven by the *second* message. Both events are delivered in their own
   // act() below so the effect runs in between, exactly as in a real window.
   it("does not revert an explicit tab that arrived over the sync channel", async () => {
-    // --- Sending window: the operator clicks Contest with the workspace shut
-    // and a call in the draft, so the click itself moves the automatic scope.
+    // --- Sending window: the operator clicks Contest and picks Log in the
+    // scope control in the same gesture, so the click itself moves the scope
+    // that crosses the channel (`manualScope` is synced; `workspaceOpen` is
+    // per-window and deliberately is not — #884 round 12).
     const senderWindow = render(<Window />);
     await flush();
     const sender = TestChannel.instances.at(-1) as TestChannel;
@@ -152,7 +154,7 @@ describe("dock tab across the /map/ops popout", () => {
     act(() => {
       useContestUIEphemeralStore.getState().setDockTabIntent("contest");
       useContestUIStore.getState().setDockTab(NO_SESSION_DOCK_KEY, "contest");
-      useMapOperationalStore.getState().setWorkspaceOpen(true);
+      useMapOperationalStore.getState().setManualScope("log");
     });
     await flush();
 
@@ -186,7 +188,7 @@ describe("dock tab across the /map/ops popout", () => {
       dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
     });
     useContestUIEphemeralStore.setState({ dockTabIntent: null });
-    useMapOperationalStore.setState({ workspaceOpen: false });
+    useMapOperationalStore.setState({ manualScope: null });
 
     render(<Window />);
     await flush();
@@ -204,13 +206,13 @@ describe("dock tab across the /map/ops popout", () => {
       scope: "log",
     });
 
-    // Event two: the workspace change that moves the scope to Log. The intent
+    // Event two: the scope change that moves this window to Log. The intent
     // matches the new scope, so it is consumed here and the tab survives.
     await act(async () => {
       deliver(receiver, operational);
       await Promise.resolve();
     });
-    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(useMapOperationalStore.getState().manualScope).toBe("log");
     expect(dockTab()).toBe("contest");
     expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
   });
@@ -292,8 +294,7 @@ describe("dock tab across the /map/ops popout", () => {
       deliver(
         receiver,
         snapshotMessage("operational", {
-          manualScope: null,
-          workspaceOpen: true,
+          manualScope: "log",
           selectedReport: null,
         }),
       );
@@ -512,5 +513,75 @@ describe("dock tab across the /map/ops popout", () => {
 
     expect(dockTab()).toBe("contest");
     expect(snapshotsSince(reloaded, 0)).toEqual([]);
+  });
+
+  // #884 round 12 (Codex, PropSphereOpsWindow.tsx:31): the popout applies its
+  // startup state before the sync subscription exists, so that write is never
+  // published. It then sends the startup request and the main window — whose
+  // own `workspaceOpen` is false — replies. Accepting that reply undid the
+  // popout's startup state and flipped its scope from Log back to Observe.
+  // `workspaceOpen` is per-window, so it is off the wire entirely.
+  it("keeps its own workspace flag when the handshake reply says otherwise", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+      explicitDockTabScopeByDockKey: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    useMapOperationalStore.setState({ workspaceOpen: false });
+
+    render(<PropSphereOpsWindow />);
+    await flush();
+    const popout = TestChannel.instances.at(-1) as TestChannel;
+    const before = messagesOf(popout).length;
+
+    // The main window answers the startup request with its own state, in which
+    // the inline workspace is shut.
+    await act(async () => {
+      deliver(
+        popout,
+        snapshotMessage("operational", {
+          manualScope: null,
+          workspaceOpen: false,
+          selectedReport: null,
+        }),
+      );
+      await Promise.resolve();
+    });
+    for (let turn = 0; turn < 3; turn += 1) await flush();
+
+    // The popout is the workspace: its flag, its scope and the operator's tab
+    // all stand, and it has no reversal to broadcast.
+    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(dockTab()).toBe("contest");
+    expect(
+      useContestUIStore.getState().explicitDockTabScopeByDockKey[
+        NO_SESSION_DOCK_KEY
+      ],
+    ).toBe("log");
+    expect(snapshotsSince(popout, before)).toEqual([]);
+  });
+
+  // The mirror image: a window with its inline workspace open keeps it when a
+  // peer's snapshot arrives, so closing the popout cannot shut the main
+  // window's panel. Everything else in the payload still applies.
+  it("does not take another window's workspace flag, but still takes its scope", async () => {
+    useMapOperationalStore.setState({ workspaceOpen: true });
+    render(<Window />);
+    await flush();
+    const main = TestChannel.instances.at(-1) as TestChannel;
+
+    await act(async () => {
+      deliver(
+        main,
+        snapshotMessage("operational", {
+          manualScope: "contest",
+          workspaceOpen: false,
+          selectedReport: null,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(useMapOperationalStore.getState().manualScope).toBe("contest");
   });
 });

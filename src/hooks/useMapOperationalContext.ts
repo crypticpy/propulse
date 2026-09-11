@@ -109,9 +109,19 @@ export function useScopedMapLayers() {
 }
 
 type WorkspaceSnapshot = {
+  /**
+   * `workspaceOpen` is deliberately absent (#884 round 12). It is per-window UI
+   * state — the popout *is* the workspace, so its flag is true by
+   * construction, while the main window's flag describes its own inline panel.
+   * Syncing it let one window's value overwrite the other's, which moved the
+   * receiving window's derived scope (`workspaceOpen && draft callsign` is a
+   * `stationOperationActive` term) and undid a popout's startup state on the
+   * handshake reply. Nothing reads another window's value: the only consumer
+   * is this hook's own scope derivation.
+   */
   operational: Pick<
     ReturnType<typeof useMapOperationalStore.getState>,
-    "manualScope" | "workspaceOpen" | "selectedReport"
+    "manualScope" | "selectedReport"
   >;
   qso: Pick<
     ReturnType<typeof useQSOStore.getState>,
@@ -214,7 +224,6 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
   return {
     operational: {
       manualScope: operational.manualScope,
-      workspaceOpen: operational.workspaceOpen,
       selectedReport: operational.selectedReport,
     },
     qso: { form: qso.form, operatingMode: qso.operatingMode },
@@ -310,9 +319,10 @@ export function useOperationalWorkspaceSync(): void {
     // target, draft, or selected report did not change.
     const subscriptions = [
       useMapOperationalStore.subscribe((state, previous) => {
+        // `workspaceOpen` is per-window and not on the wire (#884 round 12),
+        // so a change to it publishes nothing.
         if (
           state.manualScope !== previous.manualScope ||
-          state.workspaceOpen !== previous.workspaceOpen ||
           state.selectedReport !== previous.selectedReport
         ) {
           publish("operational");

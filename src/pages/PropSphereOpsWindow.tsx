@@ -13,7 +13,9 @@ import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
  *
  * This outer component exists only to apply the popout's startup state before
  * anything that reads the derived operating scope mounts (#884 round 11).
- * `workspaceOpen` is not persisted, so a fresh popout starts with it false;
+ * `workspaceOpen` is not persisted, so a fresh popout starts with it false; it
+ * is also per-window and never synced (#884 round 12), so this write cannot be
+ * undone by the handshake reply from a main window whose own flag is false;
  * opening it in an effect *beside* `useDockTabReconciler` gave the reconciler a
  * first run at a scope the window was about to leave, and it cleared the
  * operator's explicit dock tab on the way past. The reconciler's contract is

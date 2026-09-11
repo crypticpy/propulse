@@ -67,7 +67,6 @@ function isSelectedReport(value: unknown): value is SelectedReportAttribution {
 
 export interface OperationalWirePatch {
   manualScope?: MapDataScope | null;
-  workspaceOpen?: boolean;
   selectedReport?: SelectedReportAttribution | null;
 }
 
@@ -80,9 +79,9 @@ export function normalizeOperationalState(
   if (state.manualScope === null || isScope(state.manualScope)) {
     patch.manualScope = state.manualScope;
   }
-  if (typeof state.workspaceOpen === "boolean") {
-    patch.workspaceOpen = state.workspaceOpen;
-  }
+  // `workspaceOpen` is per-window UI state and is never taken from the wire
+  // (#884 round 12), including from a peer on an older bundle that still sends
+  // it: every window keeps its own flag.
   if (state.selectedReport === null || isSelectedReport(state.selectedReport)) {
     patch.selectedReport = state.selectedReport;
   }

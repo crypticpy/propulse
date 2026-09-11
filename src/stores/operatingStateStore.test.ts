@@ -777,6 +777,77 @@ describe("operatingStateStore", () => {
       b.disconnect();
     });
 
+    it("stamps a selection's command with the write it already published", async () => {
+      // #859 round 17. One tap publishes twice — the cursor write as a state
+      // patch and the command for the screens that act on a selection — and
+      // the two must name the same stamp, or the receiver's replay guard
+      // (which requires equal stamps) reads the command as a second, later
+      // write of the same value and renumbers the cursor.
+      const bus = createMemoryBus();
+      const sent: OperatingMessage[] = [];
+      bus.connect("tap").subscribe((message) => sent.push(message));
+      const a = await openScreen(bus, "a");
+      const b = await openScreen(bus, "b");
+
+      const spot = {
+        id: "spot-9",
+        callsign: "VK3ABC",
+        band: null,
+        frequency: null,
+        mode: null,
+        grid: "QF22",
+      };
+      a.store.getState().selectSpot(spot);
+
+      const patch = sent.find(
+        (message) => message.kind === "state" && "target" in message.patch,
+      );
+      const command = sent.find(
+        (message) =>
+          message.kind === "command" && message.command.type === "selectSpot",
+      );
+      const writtenAt =
+        patch?.kind === "state" ? patch.patch.target?.at : undefined;
+      expect(writtenAt).toBeDefined();
+      expect(
+        command?.kind === "command" && command.command.type === "selectSpot"
+          ? command.command.at
+          : undefined,
+      ).toBe(writtenAt);
+      // The envelope is still stamped when it is sent, which is exactly what
+      // made it look like a newer write when the receiver read it as one.
+      expect(command?.sentAt).toBeGreaterThanOrEqual(writtenAt as number);
+      // And a bundle already deployed still reads the command: the stamp is
+      // an added optional key, not a new version (round 7's rule).
+      expect(legacyWouldAccept(command as OperatingMessage)).toBe(true);
+
+      // Two selections inside one millisecond still order. `nextStamp` is
+      // monotonic; `sentAt` is a plain `Date.now()`, so keying on it would
+      // hand both the same instant and leave the second to lose its own
+      // author's tie-break — the target would stick on the first tap.
+      a.store
+        .getState()
+        .selectSpot({ ...spot, id: "spot-10", callsign: "ZL1AB" });
+      const stamps = sent
+        .filter(
+          (message) =>
+            message.kind === "command" && message.command.type === "selectSpot",
+        )
+        .map((message) =>
+          message.kind === "command" && message.command.type === "selectSpot"
+            ? (message.command.at as number)
+            : 0,
+        );
+      expect(stamps).toHaveLength(2);
+      expect(stamps[1]).toBeGreaterThan(stamps[0] as number);
+      expect(b.store.getState().cursor.target).toMatchObject({
+        callsign: "ZL1AB",
+      });
+
+      a.disconnect();
+      b.disconnect();
+    });
+
     it("carries flipPage and setView to the other screen", async () => {
       const bus = createMemoryBus();
       const a = await openScreen(bus, "a");

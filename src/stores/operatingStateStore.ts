@@ -574,11 +574,15 @@ function mergePatch(
   return changed ? { cursor, stamps } : null;
 }
 
-/** Writes one field locally and, when following, sends it. */
+/**
+ * Writes one field locally and, when following, sends it. Returns the stamp
+ * it minted, so one user action that publishes more than one message can put
+ * the *same* stamp on all of them (#859 round 17).
+ */
 function writeField<K extends CursorField>(
   field: K,
   value: WorkflowCursor[K],
-): void {
+): number {
   const state = useOperatingStateStore.getState();
   const at = nextStamp();
   // Named explicitly rather than left to the receiver's `senderId` fallback,
@@ -593,6 +597,7 @@ function writeField<K extends CursorField>(
   const next = mergePatch(state, patch, state.deviceId);
   if (next) useOperatingStateStore.setState(next);
   post({ kind: "state", patch });
+  return at;
 }
 
 /**
@@ -635,9 +640,23 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
           lon: null,
           spotId: spot.id,
         };
-        writeField("target", target);
+        // One selection, one stamp. The command is not a second write of
+        // the target — it is the same write travelling down the other pipe —
+        // so it carries the stamp the patch was given rather than letting
+        // `post` stamp it a moment later (#859 round 17). The receiver's
+        // replay guard then recognises the two as one write; before this, the
+        // duplicate took a fresh `appliedSeq` and could outrank a map target
+        // the operator picked between the two deliveries.
+        //
+        // Census of this shape: `selectSpot` is the only action here that
+        // publishes a state patch *and* a command. `flipPage`, `setView`,
+        // `tune` and `reportTuneResult` publish a command alone and touch no
+        // cursor field, so there is no second stamp of the same write to
+        // reconcile; `setSessionId`/`setBand`/`setTarget`/`setContact`
+        // publish a patch alone.
+        const at = writeField("target", target);
         if (spot.band) writeField("band", spot.band);
-        const command: OperatingCommand = { type: "selectSpot", spot };
+        const command: OperatingCommand = { type: "selectSpot", spot, at };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
@@ -840,7 +859,11 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
                       lon: null,
                       spotId: spot.id,
                     },
-                    at: message.sentAt,
+                    // The stamp of the write itself when the sender named
+                    // it, and only then the envelope's (#859 round 17). A
+                    // screen on an older bundle sends no stamp, and `sentAt`
+                    // is the same approximation it always was.
+                    at: message.command.at ?? message.sentAt,
                     // First-hand: the screen that tapped the spot is the
                     // author, so state it here rather than leaving it to a
                     // fallback in `mergePatch` that cannot tell a first-hand

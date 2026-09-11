@@ -109,6 +109,55 @@ function authorlessRelay(
 }
 
 /**
+ * The two messages one tap on a spot sends (#859 round 17): the cursor write
+ * as a state patch, and the command for the screens that act on a selection.
+ * Both describe the same write, so both carry the stamp `writeField` minted —
+ * the envelope's `sentAt` is later on the command, and deliberately so here,
+ * because that lateness is exactly what used to make it look like a second
+ * write.
+ */
+function spotSelection(
+  senderId: string,
+  callsign: string,
+  grid: string,
+  spotId: string,
+  at: number,
+) {
+  const spot = {
+    id: spotId,
+    callsign,
+    band: null,
+    frequency: null,
+    mode: null,
+    grid,
+  };
+  return {
+    patch: {
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId,
+      sentAt: at,
+      kind: "state" as const,
+      patch: {
+        target: {
+          value: { callsign, grid, lat: null, lon: null, spotId },
+          at,
+          by: senderId,
+        },
+      },
+    },
+    command: {
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId,
+      // The other pipe, delivered later: the bug was reading this as the
+      // write time.
+      sentAt: at + 250,
+      kind: "command" as const,
+      command: { type: "selectSpot" as const, spot, at },
+    },
+  };
+}
+
+/**
  * A live selection broadcast from another window of this app — `trigger:
  * "update"`, which is what separates a real pick from the republish every
  * peer sends when a window joins (#859 round 15).
@@ -1269,5 +1318,66 @@ describe("useHamClockWallOperatingState", () => {
     });
 
     expect(useMapStore.getState().target?.name).toBe("K1ABC");
+  });
+  it("keeps a target picked between a selection's patch and its command", () => {
+    // #859 round 17. One tap on a spot publishes twice — a state patch and a
+    // `selectSpot` command — and the command used to be stamped with its own
+    // envelope's `sentAt`, a moment later than the patch. The replay guard
+    // needs equal stamps to see a re-delivery, so the duplicate was applied
+    // as a fresh cursor write, took a newer `appliedSeq`, and beat the map
+    // target the operator picked while the wall was unmounted and the two
+    // pipes were still in flight. One selection, one stamp.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+    const at = Date.now();
+    const tap = spotSelection("phone", "K1ABC", "EM10", "spot-1", at);
+
+    useOperatingStateStore.getState().applyMessage(tap.patch);
+    const seq = useOperatingStateStore.getState().stamps.target.appliedSeq;
+
+    // The operator picks something else on this screen while the wall is down.
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    // The command finally arrives. Same write, so nothing is renumbered.
+    useOperatingStateStore.getState().applyMessage(tap.command);
+    expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(
+      seq,
+    );
+
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+  });
+
+  it("keeps a target picked between a selection's command and its patch", () => {
+    // The reversed delivery order: the command pipe is the quick one. It is
+    // still a write — the cursor must move — and the patch that follows must
+    // not be dropped as stale nor re-applied as new.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+    const at = Date.now();
+    const tap = spotSelection("phone", "K1ABC", "EM10", "spot-1", at);
+
+    useOperatingStateStore.getState().applyMessage(tap.command);
+    expect(useOperatingStateStore.getState().cursor.target).toMatchObject({
+      callsign: "K1ABC",
+    });
+    const seq = useOperatingStateStore.getState().stamps.target.appliedSeq;
+    // The stamp is the selection's, not the envelope's late `sentAt`.
+    expect(useOperatingStateStore.getState().stamps.target.at).toBe(at);
+
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    useOperatingStateStore.getState().applyMessage(tap.patch);
+    expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(
+      seq,
+    );
+    expect(useOperatingStateStore.getState().cursor.target).toMatchObject({
+      callsign: "K1ABC",
+    });
+
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
   });
 });

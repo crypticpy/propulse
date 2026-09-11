@@ -69,7 +69,12 @@ const COMMAND_MAX_AGE_MS = 30_000;
 export const OPERATING_CHANNEL_NAME = "propulse-operating-state-v1";
 
 /** Cursor fields that merge independently — last writer wins *per field*, not per message. */
-export const CURSOR_FIELDS = ["sessionId", "band", "target", "contact"] as const;
+export const CURSOR_FIELDS = [
+  "sessionId",
+  "band",
+  "target",
+  "contact",
+] as const;
 
 export type CursorField = (typeof CURSOR_FIELDS)[number];
 
@@ -137,7 +142,31 @@ export interface WorkspaceRegistration {
  */
 export type OperatingCommand =
   | { type: "flipPage"; workspaceId: string; pageIndex: number }
-  | { type: "selectSpot"; spot: SpotRef }
+  /**
+   * One logical selection carries one stamp (#859 round 17).
+   *
+   * Tapping a spot publishes twice: the cursor's `target` as a state patch,
+   * and this command for the screens that act on a selection. Both describe
+   * the *same* write, so they must carry the same `at` — the stamp
+   * `writeField` minted for the patch. Stamping the command with the
+   * envelope's `sentAt` instead made it a second, later write of the same
+   * value: the receiver's replay guard needs equal stamps to recognise a
+   * re-delivery, so the command was applied as a fresh cursor write, took a
+   * newer `appliedSeq`, and on remount overwrote a map target the operator
+   * had picked locally in between (the two pipes deliver at different
+   * delays). It also orders two selections made inside one millisecond,
+   * which `sentAt` — a plain `Date.now()` — cannot: `nextStamp` is
+   * monotonic, so the second selection's patch stamp is strictly higher.
+   *
+   * Optional, because a screen on an older bundle sends the command without
+   * it; the receiver then falls back to `sentAt`, which is what it always
+   * did. Additive, so `OPERATING_PROTOCOL_VERSION` is unchanged — an older
+   * parser reads past the extra key.
+   *
+   * No author field: a command is never relayed, so the envelope's
+   * `senderId` *is* the author, the same value `writeField` wrote into `by`.
+   */
+  | { type: "selectSpot"; spot: SpotRef; at?: number }
   | { type: "setView"; workspaceId: string; viewId: string }
   /**
    * #660 / PR #694 review: the phone acts as a remote for whichever screen
@@ -158,7 +187,13 @@ export type OperatingCommand =
    * `parseCommand` below, exactly like any other malformed message — no
    * whole-channel version bump is needed to make that safe.
    */
-  | { type: "tune"; deviceId: string; workspaceId: string; frequencyKHz: number; mode: string | null }
+  | {
+      type: "tune";
+      deviceId: string;
+      workspaceId: string;
+      frequencyKHz: number;
+      mode: string | null;
+    }
   /**
    * PR #694 review: TUNE was fire-and-forget. The screen that handled (or
    * refused) a `tune` reports back so the requesting phone can show an
@@ -168,7 +203,13 @@ export type OperatingCommand =
    * the phone can match this result to the attempt it is currently showing
    * feedback for.
    */
-  | { type: "tuneResult"; deviceId: string; workspaceId: string; ok: boolean; reason: string | null };
+  | {
+      type: "tuneResult";
+      deviceId: string;
+      workspaceId: string;
+      ok: boolean;
+      reason: string | null;
+    };
 
 /** One field's proposed value plus the stamp that resolves the race. */
 export type CursorPatch = {
@@ -251,7 +292,9 @@ function asFiniteNumber(value: unknown): number | null {
 
 function asNullableNumber(value: unknown): number | null | undefined {
   if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function parseTarget(value: unknown): OperatingTarget | null | undefined {
@@ -262,7 +305,8 @@ function parseTarget(value: unknown): OperatingTarget | null | undefined {
   const lat = asNullableNumber(value.lat);
   const lon = asNullableNumber(value.lon);
   const spotId = asNullableString(value.spotId);
-  if (callsign === null || grid === undefined || lat === undefined) return undefined;
+  if (callsign === null || grid === undefined || lat === undefined)
+    return undefined;
   if (lon === undefined || spotId === undefined) return undefined;
   return { callsign, grid, lat, lon, spotId };
 }
@@ -285,12 +329,16 @@ function parseSpotRef(value: unknown): SpotRef | null {
   const mode = asNullableString(value.mode);
   const grid = asNullableString(value.grid);
   if (callsign === null || id === undefined || band === undefined) return null;
-  if (frequency === undefined || mode === undefined || grid === undefined) return null;
+  if (frequency === undefined || mode === undefined || grid === undefined)
+    return null;
   return { id, callsign, band, frequency, mode, grid };
 }
 
 /** One `{ value, at }` entry, validated against the field it claims to set. */
-function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorField] | null {
+function parsePatchEntry(
+  field: CursorField,
+  raw: unknown,
+): CursorPatch[CursorField] | null {
   if (!isRecord(raw)) return null;
   const at = asFiniteNumber(raw.at);
   if (at === null) return null;
@@ -352,7 +400,11 @@ function parseCommand(raw: unknown): OperatingCommand | null {
     }
     case "selectSpot": {
       const spot = parseSpotRef(raw.spot);
-      return spot === null ? null : { type: "selectSpot", spot };
+      if (spot === null) return null;
+      const at = asFiniteNumber(raw.at);
+      return at === null
+        ? { type: "selectSpot", spot }
+        : { type: "selectSpot", spot, at };
     }
     case "setView": {
       const workspaceId = asString(raw.workspaceId);
@@ -375,7 +427,13 @@ function parseCommand(raw: unknown): OperatingCommand | null {
       const workspaceId = asString(raw.workspaceId);
       const ok = typeof raw.ok === "boolean" ? raw.ok : null;
       const reason = parseTuneResultReason(raw.reason);
-      if (deviceId === null || workspaceId === null || ok === null || reason === undefined) return null;
+      if (
+        deviceId === null ||
+        workspaceId === null ||
+        ok === null ||
+        reason === undefined
+      )
+        return null;
       return { type: "tuneResult", deviceId, workspaceId, ok, reason };
     }
     default:
@@ -389,16 +447,30 @@ function parseTuneResultReason(value: unknown): string | null | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-const CANVAS_TYPES: readonly CanvasType[] = ["phone", "tablet", "workstation", "wall"];
+const CANVAS_TYPES: readonly CanvasType[] = [
+  "phone",
+  "tablet",
+  "workstation",
+  "wall",
+];
 
-function parseRegistration(raw: unknown, senderId: string): WorkspaceRegistration | null {
+function parseRegistration(
+  raw: unknown,
+  senderId: string,
+): WorkspaceRegistration | null {
   if (!isRecord(raw)) return null;
   const workspaceId = asString(raw.workspaceId);
   const label = asString(raw.label);
   const canvasType = CANVAS_TYPES.find((c) => c === raw.canvasType);
   const lastSeen = asFiniteNumber(raw.lastSeen);
   const capabilities = isRecord(raw.capabilities) ? raw.capabilities : null;
-  if (workspaceId === null || label === null || !canvasType || lastSeen === null) return null;
+  if (
+    workspaceId === null ||
+    label === null ||
+    !canvasType ||
+    lastSeen === null
+  )
+    return null;
   if (!capabilities) return null;
   if (typeof capabilities.canTune !== "boolean") return null;
   if (typeof capabilities.canCommand !== "boolean") return null;
@@ -409,7 +481,10 @@ function parseRegistration(raw: unknown, senderId: string): WorkspaceRegistratio
     workspaceId,
     canvasType,
     label,
-    capabilities: { canTune: capabilities.canTune, canCommand: capabilities.canCommand },
+    capabilities: {
+      canTune: capabilities.canTune,
+      canCommand: capabilities.canCommand,
+    },
     lastSeen,
   };
 }
@@ -434,15 +509,21 @@ export function parseOperatingMessage(raw: unknown): OperatingMessage | null {
     case "command": {
       if (Date.now() - sentAt > COMMAND_MAX_AGE_MS) return null;
       const command = parseCommand(raw.command);
-      return command === null ? null : { ...envelope, kind: "command", command };
+      return command === null
+        ? null
+        : { ...envelope, kind: "command", command };
     }
     case "register": {
       const registration = parseRegistration(raw.registration, senderId);
-      return registration === null ? null : { ...envelope, kind: "register", registration };
+      return registration === null
+        ? null
+        : { ...envelope, kind: "register", registration };
     }
     case "unregister": {
       const workspaceId = asString(raw.workspaceId);
-      return workspaceId === null ? null : { ...envelope, kind: "unregister", workspaceId };
+      return workspaceId === null
+        ? null
+        : { ...envelope, kind: "unregister", workspaceId };
     }
     case "hello":
       return { ...envelope, kind: "hello" };
@@ -572,7 +653,9 @@ export interface AccountTransportOptions {
  * transport) whenever the gating condition changes, so a later sign-in or
  * migration apply is picked up without this function retrying on its own.
  */
-export function createAccountTransport(options: AccountTransportOptions): OperatingTransport {
+export function createAccountTransport(
+  options: AccountTransportOptions,
+): OperatingTransport {
   const { accountId, client } = options;
   const name = `account:${accountId}`;
   /** CHANNEL_ERROR retry backoff, in ms, before giving up (owner review, #698 fix round). */
@@ -614,9 +697,12 @@ export function createAccountTransport(options: AccountTransportOptions): Operat
     clearRetryTimer();
     if (!loggedError) {
       loggedError = true;
-      console.error("[operatingChannel] account transport subscribe failed; closing", {
-        accountId,
-      });
+      console.error(
+        "[operatingChannel] account transport subscribe failed; closing",
+        {
+          accountId,
+        },
+      );
     }
     closed = true;
     safeUnsubscribe();
@@ -676,7 +762,11 @@ export function createAccountTransport(options: AccountTransportOptions): Operat
       if (closed || !subscribed) return;
       try {
         Promise.resolve(
-          channel.send({ type: "broadcast", event: "operating", payload: message }),
+          channel.send({
+            type: "broadcast",
+            event: "operating",
+            payload: message,
+          }),
         ).catch(() => {});
       } catch {
         // A closed channel or a transient send failure: best effort, same
@@ -724,7 +814,9 @@ export function createCompositeTransport(
  * one `createMemoryBus()` sees the others' posts, exactly like real tabs —
  * including their own, which the store filters on `senderId`.
  */
-export function createMemoryBus(): { connect: (name?: string) => OperatingTransport } {
+export function createMemoryBus(): {
+  connect: (name?: string) => OperatingTransport;
+} {
   const listeners = new Set<OperatingListener>();
 
   return {

@@ -137,6 +137,15 @@ export function getGlobeLayerSlotForRenderOrder(
  * outranks every in-scene band -- see `globeDomZBands.test.ts`'s
  * "GlobeView's Canvas wrapper isolates the DOM bands from map chrome" guard.
  *
+ * `MapSurface` itself must NOT carry `isolate` (#930): isolation on the
+ * root collapses the whole globe subtree (including `mapOverlayPortal`'s
+ * 11000) into one auto-level stacking context that paints below
+ * PropSphere's page-level legend stack (`MAP_PAGE_CHROME_Z.legend`, z-10).
+ * Only the `<Canvas>` wrapper isolates the in-scene 0-7999 bands. The map
+ * `Card` is what bounds the escape (its `backdrop-blur-md` establishes a
+ * stacking context), so page overlays inside that card — and only those —
+ * now share a scale with the portal: see `MAP_PAGE_CHROME_Z` below.
+ *
  *   placeLabel        tile-draped place/city labels and country/state
  *                      names (`LabelsOverlay`) — pure reference text, reads
  *                      under everything that represents live data.
@@ -198,13 +207,58 @@ export function getGlobeLayerSlotForRenderOrder(
  *   rayPathInspector    the ray-path point inspector portal (`RayPathArc.tsx`,
  *                      `<Html portal={overlayPortal}>`). This band is
  *                      portal-local: it only orders elements against each
- *                      other inside `mapOverlayPortal`'s own stacking
- *                      context, not against in-scene labels directly — its
- *                      effective position above them comes from
- *                      `mapOverlayPortal` itself being the top slot.
- *   mapOverlayPortal    single top value (not a range): the map's shared
- *                      DOM overlay portal, above all `<Html>` bands.
+ *                      other inside the overlay portal's own stacking
+ *                      context, not against in-scene labels directly — the
+ *                      portal clears every band here structurally, because
+ *                      the `<Canvas>` wrapper that hosts them is isolated at
+ *                      `z-0` and the portal is a later sibling with a
+ *                      positive level (`MAP_PAGE_CHROME_Z.mapOverlayPortal`).
  */
+/**
+ * Map-host chrome tiers, and the overlay portal's place among them (#930).
+ *
+ * `MapSurface` does not isolate, so the map's DOM overlay portal is ordered
+ * against the host's own chrome rather than sealed away from it. The portal
+ * only ever needed to clear the legend: the in-scene drei bands above are
+ * already sealed inside the `<Canvas>` wrapper's `isolate`, so the portal
+ * clears them at any positive level. These are therefore small numbers on
+ * one scale, lowest first, and every overlay on a map host picks one:
+ *
+ *   legend             passive chrome that a detail popup may cover:
+ *                      legends, imagery attribution, the contact-path and
+ *                      logged chips. Nothing here takes a click.
+ *   mapOverlayPortal   the map's shared DOM overlay portal (path bounce-point
+ *                      inspector, cluster popover, selected-spot card). Above
+ *                      the legend — that is the whole of #930 — and below
+ *                      everything a person can operate.
+ *   interactiveChrome  every control a person can click, drag or tab to:
+ *                      sliders, toggles, scrubbers, panels, dismissible
+ *                      warnings, HUD bars. A popup must never paint over one
+ *                      of these or it steals the input meant for it, so
+ *                      ANYTHING INTERACTIVE ON A MAP HOST BELONGS AT OR ABOVE
+ *                      THIS TIER. A bare Tailwind `z-*` class below it is a
+ *                      bug; `globeDomZBands.test.ts` guards the hosts.
+ *   activityDrawer     near-full-map overlays that are a mode of their own
+ *                      (PropSphere's nearby-activity drawer). Outranks the
+ *                      portal and the chrome underneath it.
+ *
+ * Hosts that mount `<GlobeView>` inside an isolated `data-map-stack-root`
+ * bound this whole scale to that wrapper; `PropSphere` cannot (its legend is
+ * positioned against the map `Card`), and there the `Card`'s `backdrop-blur-md`
+ * bounds it instead. Either way nothing on this scale reaches page modals,
+ * toasts or the tour.
+ */
+export const MAP_PAGE_CHROME_Z = {
+  legend: 10,
+  mapOverlayPortal: 20,
+  interactiveChrome: 30,
+  activityDrawer: 40,
+} as const;
+
+/** Tier order, lowest first — asserted in `globeRenderOrder.test.ts`. */
+export const MAP_PAGE_CHROME_TIERS: readonly (keyof typeof MAP_PAGE_CHROME_Z)[] =
+  ["legend", "mapOverlayPortal", "interactiveChrome", "activityDrawer"];
+
 export const GLOBE_DOM_LAYER_ORDER = {
   placeLabel: [999, 0] as [number, number],
   clusterChip: [1999, 1000] as [number, number],
@@ -214,7 +268,6 @@ export const GLOBE_DOM_LAYER_ORDER = {
   activeSpotLabel: [5999, 5000] as [number, number],
   hud: [6999, 6000] as [number, number],
   rayPathInspector: [7999, 7000] as [number, number],
-  mapOverlayPortal: 11000,
 } as const;
 
 /**
@@ -231,7 +284,6 @@ export const GLOBE_DOM_LAYER_BANDS: readonly (keyof typeof GLOBE_DOM_LAYER_ORDER
     "activeSpotLabel",
     "hud",
     "rayPathInspector",
-    "mapOverlayPortal",
   ];
 
 /**

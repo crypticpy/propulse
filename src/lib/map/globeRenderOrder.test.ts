@@ -5,6 +5,8 @@ import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_LAYER_SLOTS,
+  MAP_PAGE_CHROME_TIERS,
+  MAP_PAGE_CHROME_Z,
   GLOBE_MIN_OVERLAY_RADIUS,
   GLOBE_OVERLAY_MATERIAL,
   GLOBE_SURFACE_MARKER_MATERIAL,
@@ -90,18 +92,50 @@ describe("GLOBE_LAYER_ORDER", () => {
     expect(
       getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.markers + 0.25),
     ).toBe("markers");
-    expect(getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.hud)).toBe(
-      "hud",
-    );
+    expect(getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.hud)).toBe("hud");
     expect(
       getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.nightShade - 0.1),
     ).toBe("nightShade");
   });
 
-  it("keeps opaque map previews above every Drei spot label", () => {
-    expect(GLOBE_DOM_LAYER_ORDER.mapOverlayPortal).toBeGreaterThan(
-      GLOBE_DOM_LAYER_ORDER.pinLabel[0],
+  it("orders the map-host chrome tiers, lowest first (#930)", () => {
+    // legend < mapOverlayPortal < interactiveChrome < activityDrawer.
+    // The middle pair is the whole point: a detail popup covers a legend,
+    // never a control someone is about to click.
+    const values = MAP_PAGE_CHROME_TIERS.map((t) => MAP_PAGE_CHROME_Z[t]);
+    for (let i = 1; i < values.length; i += 1) {
+      expect(values[i]).toBeGreaterThan(values[i - 1]);
+    }
+    expect([...MAP_PAGE_CHROME_TIERS].sort()).toEqual(
+      Object.keys(MAP_PAGE_CHROME_Z).sort(),
     );
+  });
+
+  it("keeps the overlay portal above the legend and below every control (#930)", () => {
+    expect(MAP_PAGE_CHROME_Z.mapOverlayPortal).toBeGreaterThan(
+      MAP_PAGE_CHROME_Z.legend,
+    );
+    expect(MAP_PAGE_CHROME_Z.mapOverlayPortal).toBeLessThan(
+      MAP_PAGE_CHROME_Z.interactiveChrome,
+    );
+  });
+
+  it("keeps the escaped portal below the nearby-activity drawer (#930)", () => {
+    // The drawer covers nearly the whole map: while it is open it must
+    // paint over the path inspector, the cluster popover and every other
+    // child of the overlay portal.
+    expect(MAP_PAGE_CHROME_Z.activityDrawer).toBeGreaterThan(
+      MAP_PAGE_CHROME_Z.mapOverlayPortal,
+    );
+  });
+
+  it("clears every in-scene DOM band structurally, not numerically (#930)", () => {
+    // The portal no longer needs a huge value: drei's <Html> bands live
+    // inside the <Canvas> wrapper's own `isolate` at z-0, so any positive
+    // level clears all of them. The wrapper's isolation is asserted in
+    // globeDomZBands.test.ts; here we only pin that the portal is positive.
+    expect(MAP_PAGE_CHROME_Z.mapOverlayPortal).toBeGreaterThan(0);
+    expect(GLOBE_DOM_LAYER_ORDER).not.toHaveProperty("mapOverlayPortal");
     expect(GLOBE_DOM_LAYER_ORDER.pinLabel[1]).toBeGreaterThan(
       GLOBE_DOM_LAYER_ORDER.passiveSpotLabel[0],
     );
@@ -117,8 +151,7 @@ describe("GLOBE_LAYER_ORDER", () => {
   });
 
   it("keeps every DOM band non-overlapping and in ascending paint order", () => {
-    // Each range band's low bound must clear the previous band's high bound;
-    // the trailing mapOverlayPortal is a single top value, not a range.
+    // Each range band's low bound must clear the previous band's high bound.
     let previousHigh = -Infinity;
     for (const band of GLOBE_DOM_LAYER_BANDS) {
       const value = GLOBE_DOM_LAYER_ORDER[band];

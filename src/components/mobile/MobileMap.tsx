@@ -13,6 +13,7 @@ import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { FlatMapView } from "@/components/map/FlatMapView";
 import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { ReachMapControl } from "@/components/map/ReachMapControl";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useMapStore } from "@/stores/mapStore";
@@ -252,8 +253,10 @@ export function MobileMap() {
   return (
     <BoundViewHost slot="normal">
     <div className="flex flex-col h-full relative">
-      {/* Map fills available space */}
-      <div className="flex-1 relative min-h-0">
+      {/* Map fills available space. `isolate` bounds the map's overlay portal
+          (11000) here so it cannot outrank the bottom panel (z-20), the tab
+          bar (z-50) or a modal on the page (#930). */}
+      <div data-map-stack-root className="flex-1 relative min-h-0 isolate">
         {viewMode === "globe" ? (
           <Suspense fallback={<GlobeLoadingFallback />}>
             <GlobeView displayTime={displayTime} />
@@ -263,7 +266,10 @@ export function MobileMap() {
         )}
 
         {/* View toggle (globe / flat) */}
-        <div className="absolute top-3 left-3 z-10 flex gap-1">
+        <div
+          className="absolute top-3 left-3 flex gap-1"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
           {(["globe", "flat"] as const).map((mode) => (
             <button
               key={mode}
@@ -295,7 +301,10 @@ export function MobileMap() {
 
         {/* Landscape orientation hint */}
         {showLandscapeHint && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
+          <div
+            className="absolute top-3 left-1/2 -translate-x-1/2 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
             <svg
               className="w-4 h-4 text-cosmic-cyan flex-shrink-0"
               fill="none"
@@ -343,6 +352,7 @@ export function MobileMap() {
           <ObservatoryTiltSlider
             visible
             className="absolute bottom-2 right-2"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
           />
         )}
       </div>

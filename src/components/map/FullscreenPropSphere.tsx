@@ -351,8 +351,11 @@ export function FullscreenPropSphere({
       className={`fixed inset-0 z-[200] bg-black transition-opacity duration-300
         ${isAnimating ? "opacity-0" : "opacity-100"}`}
     >
-      {/* Full-size map view (background) */}
-      <div className="absolute inset-0">
+      {/* Full-size map view (background). `isolate` bounds the map's overlay
+          portal (11000) to this wrapper so it can never outrank the ribbon
+          (z-[210]), the floating panels (z-[205]), the status pills (z-[215])
+          or a dialog opened inside this fullscreen root (#930). */}
+      <div data-map-stack-root className="absolute inset-0 isolate">
         {viewMode === "globe" && (
           <GlobeView
             displayTime={displayTime}

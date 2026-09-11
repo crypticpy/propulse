@@ -10,12 +10,14 @@
  * IonosphereLegend uses for the ray-path bounce markers.
  *
  * Collapsible: defaults to expanded, toggled via a real button so it stays
- * keyboard accessible. Collapsed state shows only the header pill.
+ * keyboard accessible. Collapsed state shows only the header pill, and lives
+ * in `mapChromeUiStore` so a projection switch cannot reset it (#930).
  */
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapChromeUiStore } from "@/stores/mapChromeUiStore";
 import { useUIInteractionPrefs } from "@/stores/settingsStore";
 import { useReplayStore } from "@/stores/replayStore";
 import { buildLayerLegends } from "@/lib/map/layerLegends";
@@ -32,7 +34,10 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
   const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode = uiPrefs.spotColorMode ?? "mode";
-  const [collapsed, setCollapsed] = useState(false);
+  // Session state, not component state: this legend renders inside the map
+  // view's corner column, and switching projection unmounts the view (#930).
+  const collapsed = useMapChromeUiStore((s) => s.legendCollapsed);
+  const setCollapsed = useMapChromeUiStore((s) => s.setLegendCollapsed);
 
   const specs = useMemo(
     () =>
@@ -51,7 +56,7 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
     <div className={`text-xs ${className}`}>
       <button
         type="button"
-        onClick={() => setCollapsed((prev) => !prev)}
+        onClick={() => setCollapsed(!collapsed)}
         aria-expanded={!collapsed}
         className="flex items-center gap-1.5 text-su-muted font-medium"
       >

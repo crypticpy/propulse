@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { calculateReflectionPoints, traceRayPath } from "./rayTrace";
+import {
+  calculateReflectionPoints,
+  crossingAt,
+  DECLARED_MIRROR_HEIGHT_KM,
+  evaluateHopQuality,
+  traceRayPath,
+} from "./rayTrace";
+import { dRegionAbsorption } from "@/lib/propagation/absorption/dRegion";
+import { hopGeometry } from "@/lib/propagation/geometry/hop";
+import {
+  resolveRoute,
+  routeSampleAtFraction,
+} from "@/lib/propagation/geometry/route";
+import { sfiToR12 } from "./ionosphere";
 
 const DATE = new Date("2026-06-21T18:00:00Z");
 
@@ -177,5 +190,88 @@ describe("traceRayPath", () => {
     for (let i = 0; i < points.length; i++) {
       expect(points[i].fractionAlongPath).toBeCloseTo((2 * i + 1) / 14, 12);
     }
+  });
+});
+
+describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings", () => {
+  // London to New York at 08:00 UTC on the equinox. The first hop's midpoint
+  // is in daylight and its exit penetration point is past the terminator, so
+  // a midpoint-only sample cannot describe the hop.
+  const LONDON = { lat: 51.5, lon: -0.1 };
+  const TERMINATOR_DATE = new Date("2026-03-20T08:00:00Z");
+  const FREQUENCY_MHZ = 14.1;
+  const SFI = 150;
+
+  function terminatorTrace() {
+    return traceRayPath({
+      startLat: LONDON.lat,
+      startLon: LONDON.lon,
+      endLat: NY.lat,
+      endLon: NY.lon,
+      frequencyMHz: FREQUENCY_MHZ,
+      date: TERMINATOR_DATE,
+      sfi: SFI,
+      kp: 2,
+    });
+  }
+
+  it("absorbs a straddling hop as entry plus exit, not as twice the lit midpoint", () => {
+    const result = terminatorTrace();
+    const route = resolveRoute(
+      { latitudeDeg: LONDON.lat, longitudeDeg: LONDON.lon },
+      { latitudeDeg: NY.lat, longitudeDeg: NY.lon },
+    );
+    if (route.kind !== "resolved") throw new Error("unreachable");
+    const geometry = hopGeometry({
+      groundDistanceKm: route.groundDistanceKm,
+      hopCount: result.hops.length,
+      mirrorHeightKm: DECLARED_MIRROR_HEIGHT_KM,
+    });
+    if (geometry.kind !== "supported") throw new Error("unreachable");
+
+    const hop = result.hops[0];
+    const entry = routeSampleAtFraction(route, geometry.penetrationFractions[0]);
+    const exit = routeSampleAtFraction(route, geometry.penetrationFractions[1]);
+    const entryCrossing = crossingAt(entry, TERMINATOR_DATE, SFI);
+    const exitCrossing = crossingAt(exit, TERMINATOR_DATE, SFI);
+
+    // The case only bites when the two ends of the hop are on opposite sides
+    // of the terminator while the reflection point is still lit.
+    expect(hop.reflectionPoint.solarZenithAngle).toBeLessThan(90);
+    expect(entryCrossing.zenithAngleDeg).toBeLessThan(90);
+    expect(exitCrossing.zenithAngleDeg).toBeGreaterThan(90);
+
+    const expected = dRegionAbsorption({
+      crossings: [entryCrossing, exitCrossing],
+      hopCount: 1,
+      frequencyMHz: FREQUENCY_MHZ,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn: sfiToR12(SFI),
+    }).absorptionDb;
+    expect(hop.absorptionDb).toBe(expected);
+
+    // And it is a different number from the one the midpoint alone gives, by
+    // enough to move a displayed figure and a hop ranking.
+    const midpointOnly = evaluateHopQuality(
+      hop.reflectionPoint.lat,
+      hop.reflectionPoint.lon,
+      FREQUENCY_MHZ,
+      TERMINATOR_DATE,
+      SFI,
+      2,
+      geometry.hopGroundDistanceKm,
+      DECLARED_MIRROR_HEIGHT_KM,
+    ).absorptionDb;
+    expect(Math.abs(hop.absorptionDb - midpointOnly)).toBeGreaterThan(0.1);
+  });
+
+  it("makes the mode total the exact sum of its hops", () => {
+    const result = terminatorTrace();
+    const summed = result.hops.reduce((total, hop) => total + hop.absorptionDb, 0);
+    // Exact, not close: the total is that sum, not a second evaluation of the
+    // same crossings that is free to disagree with it.
+    expect(result.totalAbsorptionDb).toBe(summed);
+    expect(result.absorptionPassCount).toBe(2 * result.hops.length);
+    expect(result.losses.absorptionDb).toBe(summed);
   });
 });

@@ -359,8 +359,14 @@ export function calculateReflectionPoints(
   return points;
 }
 
-/** Build the D-region crossing description for one point on the path. */
-function crossingAt(
+/**
+ * Build the D-region crossing description for one point on the path.
+ *
+ * Exported so a test can reconstruct the very crossings the engine evaluates,
+ * rather than re-deriving them from a copy of this construction that is free
+ * to drift away from it.
+ */
+export function crossingAt(
   point: GeodeticPoint,
   date: Date,
   sfi: number,
@@ -384,6 +390,13 @@ function crossingAt(
 
 /**
  * Evaluate ionospheric quality at a single reflection point.
+ *
+ * Absorption here is the one sample this function can take: it is given a
+ * reflection point and no route, so it evaluates the crossing there twice.
+ * `traceRayPath`, which does know the route, replaces it with the hop's own
+ * entry and exit penetration points. A caller holding only a point, such as
+ * the path MUF sampler, gets the midpoint reading and that is the honest best
+ * available from a point.
  *
  * Nothing here is rounded. The values are the values; a component that wants
  * two decimal places is welcome to ask for them at the point of display.
@@ -540,7 +553,25 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     pathMode,
   );
 
-  const hops: HopQuality[] = reflectionPoints.map((rp) => {
+  // Absorption is evaluated at the 2n penetration points of the mode, not once
+  // at the path midpoint, and the n factor of equation (20) is the pass count.
+  // Hop k enters the layer at fraction 2k and leaves it at 2k + 1.
+  const crossings = geometry.penetrationFractions.map((fraction) =>
+    crossingAt(routeSampleAtFraction(route, fraction), date, sfi),
+  );
+  const ssn = sfiToR12(sfi);
+
+  const hopAbsorptions = Array.from({ length: numHops }, (_unused, index) =>
+    dRegionAbsorption({
+      crossings: [crossings[2 * index], crossings[2 * index + 1]],
+      hopCount: 1,
+      frequencyMHz,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn,
+    }),
+  );
+
+  const hops: HopQuality[] = reflectionPoints.map((rp, index) => {
     const hop = evaluateHopQuality(
       rp.lat,
       rp.lon,
@@ -551,8 +582,26 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       hopDistanceKm,
       mirrorHeightKm,
     );
-    hop.reflectionPoint = rp;
-    return hop;
+    // `evaluateHopQuality` has only a reflection point to work from, so it
+    // samples absorption there. This hop has its own two penetration points,
+    // and a hop that straddles the terminator absorbs like neither end alone.
+    // Taking the same two crossings the mode total is built from is what makes
+    // the displayed per-hop figure, the limiting-hop choice and the total agree
+    // by construction instead of by coincidence.
+    const absorptionDb = hopAbsorptions[index].absorptionDb;
+    return {
+      ...hop,
+      reflectionPoint: rp,
+      absorptionDb,
+      qualityScore: scoreHop(
+        frequencyMHz,
+        hop.muf,
+        absorptionDb,
+        kp,
+        rp.lat,
+        rp.lon,
+      ),
+    };
   });
 
   const isPathViable = hops.every((h) => h.isFrequencySupported);
@@ -566,19 +615,15 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     }
   }
 
-  // Absorption is evaluated at the 2n penetration points of the mode, not once
-  // at the path midpoint, and the n factor of equation (20) is the pass count.
-  const crossings = geometry.penetrationFractions.map((fraction) =>
-    crossingAt(routeSampleAtFraction(route, fraction), date, sfi),
+  // The mode total is the sum of the hops, not a second evaluation of the same
+  // crossings. Equation (20) is linear in the crossing terms, so summing the
+  // n single-hop losses is the n-hop loss exactly, and the two can no longer
+  // disagree about the circuit they describe.
+  const totalAbsorptionDb = hops.reduce((total, h) => total + h.absorptionDb, 0);
+  const absorptionPassCount = hopAbsorptions.reduce(
+    (total, a) => total + a.passCount,
+    0,
   );
-  const absorption = dRegionAbsorption({
-    crossings,
-    hopCount: numHops,
-    frequencyMHz,
-    incidenceAngle110Rad: geometry.incidenceAngle110Rad,
-    ssn: sfiToR12(sfi),
-  });
-  const totalAbsorptionDb = absorption.absorptionDb;
 
   const terrainTypes = bouncePointTerrain(route, numHops);
   const terrainLoss =
@@ -642,8 +687,8 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     losses,
     support: { kind: "supported" },
     elevationAngleDeg: (geometry.elevationAngleRad * 180) / Math.PI,
-    absorptionPassCount: absorption.passCount,
-    assumptions: [...assumptions, ...absorption.assumptions],
+    absorptionPassCount,
+    assumptions: [...assumptions, ...hopAbsorptions[0].assumptions],
   };
 }
 

@@ -178,6 +178,51 @@ describe("shackSync tombstones (#326)", () => {
     );
   });
 
+  it("pull cascades a tombstoned custom_radios row to applyGearRemoval so dependent instances get cleaned up (#326)", async () => {
+    mocks.shackState.customRadios = [
+      { id: "custom-1", displayName: "Homebrew Rig" },
+    ];
+    mocks.shackState.radios = [
+      {
+        id: "radio-1",
+        equipmentId: "custom-1",
+        addedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "custom_radios") {
+        return queryBuilder([
+          {
+            id: "custom-1",
+            user_id: "user-1",
+            display_name: "Homebrew Rig",
+            manufacturer: "DIY",
+            specs: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            updated_at: "2026-01-03T00:00:00.000Z",
+            deleted_at: "2026-01-03T00:00:00.000Z",
+          },
+        ]);
+      }
+      return queryBuilder([]);
+    });
+
+    await shackSync.pull("user-1", "2026-01-02T00:00:00.000Z");
+
+    expect(mocks.setState).toHaveBeenCalledWith(
+      expect.objectContaining({ customRadios: [] }),
+    );
+    // custom_radios must cascade like every other tombstoned gear table —
+    // the local applyGearRemoval action removes dependent UserRadio
+    // instances and their preset/chain references (#326).
+    expect(mocks.applyGearRemoval).toHaveBeenCalledWith(
+      "custom_radios",
+      ["custom-1"],
+      "user-1",
+    );
+  });
+
   it("push applies pending deletions before upserting survivors, filtered by user_id and the correct id column", async () => {
     mocks.shackState.pendingGearDeletions = [
       {

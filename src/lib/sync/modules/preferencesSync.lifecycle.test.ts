@@ -81,3 +81,83 @@ it("does not restore a radio from the prefs blob when it has a pending local del
     expect.objectContaining({ radios: [] }),
   );
 });
+
+it("merges a blob radio's changed fields into the matching local entry while keeping an unmatched local entry (#326)", async () => {
+  // A radio added offline (radio-b) exists locally but not yet in the
+  // blob; the old intersection-replace logic silently dropped it. The
+  // merge must update matching fields for radio-a and retain radio-b.
+  const radioA = {
+    id: "radio-a",
+    equipmentId: "ic-7300",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const radioB = {
+    id: "radio-b",
+    equipmentId: "ft-991a",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  mocks.shackState = {
+    radios: [radioA, radioB],
+    customRadios: [],
+    activeRadioId: "radio-a",
+    pendingGearDeletions: [],
+  };
+  mocks.maybeSingle.mockResolvedValue({
+    data: {
+      preferences: {
+        radios: [{ ...radioA, nickname: "Updated Name" }],
+      },
+      updated_at: "2026-09-07",
+    },
+    error: null,
+  });
+
+  await preferencesSync.pull("owner-a", null);
+
+  expect(mocks.write).toHaveBeenCalledWith(
+    expect.objectContaining({
+      radios: [{ ...radioA, nickname: "Updated Name" }, radioB],
+    }),
+  );
+});
+
+it("drops a radio entirely when it has a pending deletion, even though the blob still lists it (#326)", async () => {
+  const radioA = {
+    id: "radio-a",
+    equipmentId: "ic-7300",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const radioB = {
+    id: "radio-b",
+    equipmentId: "ft-991a",
+    addedAt: "2026-01-01T00:00:00.000Z",
+  };
+  mocks.shackState = {
+    radios: [radioA, radioB],
+    customRadios: [],
+    activeRadioId: "radio-a",
+    pendingGearDeletions: [
+      {
+        table: "user_radios",
+        recordId: "radio-b",
+        requestedAt: "2026-01-02T00:00:00.000Z",
+        ownerId: "owner-a",
+      },
+    ],
+  };
+  mocks.maybeSingle.mockResolvedValue({
+    data: {
+      preferences: {
+        radios: [radioA, radioB],
+      },
+      updated_at: "2026-09-07",
+    },
+    error: null,
+  });
+
+  await preferencesSync.pull("owner-a", null);
+
+  expect(mocks.write).toHaveBeenCalledWith(
+    expect.objectContaining({ radios: [radioA] }),
+  );
+});

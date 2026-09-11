@@ -158,6 +158,48 @@ describe("shackStore gear deletion intents (#326)", () => {
     );
   });
 
+  it("applyGearRemoval (pulled custom_radios tombstone) removes dependent instances and their preset, and enqueues user_radios + station_presets intents (#326)", () => {
+    // Another device tombstoned custom-1 while this device still has two
+    // UserRadio instances referencing it and a preset on one of them; the
+    // pull-side cascade must clear all of it, not just the definition.
+    useShackStore.setState({
+      customRadios: [],
+      radios: [
+        radio("radio-1", "custom-1"),
+        radio("radio-2", "custom-1"),
+        radio("radio-3", "other-custom"),
+      ],
+      stationPresets: [
+        preset("preset-1", { radioId: "radio-1" }),
+        preset("preset-2", { radioId: "radio-3" }),
+      ],
+      activeRadioId: "radio-1",
+    });
+
+    useShackStore
+      .getState()
+      .applyGearRemoval("custom_radios", ["custom-1"], "user-1");
+
+    expect(useShackStore.getState().radios.map((r) => r.id)).toEqual([
+      "radio-3",
+    ]);
+    expect(
+      useShackStore.getState().stationPresets.map((p) => p.id),
+    ).toEqual(["preset-2"]);
+    expect(useShackStore.getState().activeRadioId).toBe("radio-3");
+    const keys = useShackStore
+      .getState()
+      .pendingGearDeletions.map((d) => `${d.table}:${d.recordId}`)
+      .sort();
+    expect(keys).toEqual(
+      [
+        "user_radios:radio-1",
+        "user_radios:radio-2",
+        "station_presets:preset-1",
+      ].sort(),
+    );
+  });
+
   it("applyGearRemoval (pulled tombstone) clears activeRadioId and removes presets referencing the removed radio (#326)", () => {
     useShackStore.setState({
       radios: [],

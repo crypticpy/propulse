@@ -990,6 +990,7 @@ export const shackSync: SyncModule = {
       ["inline_components", inlineMerge?.removedIds ?? []],
       ["station_presets", presetMerge?.removedIds ?? []],
       ["station_chains", chainMerge?.removedIds ?? []],
+      ["custom_radios", customRadioMerge?.removedIds ?? []],
     ];
     for (const [table, ids] of removalCascades) {
       if (ids.length > 0) {

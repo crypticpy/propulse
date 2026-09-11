@@ -21,7 +21,10 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
-import { gearDeletionKey } from "@/lib/sync/shackDeletionIntent";
+import {
+  gearDeletionKey,
+  type GearDeletionTable,
+} from "@/lib/sync/shackDeletionIntent";
 import { pendingGearDeletionKeys } from "@/lib/sync/shackGearTombstone";
 import type { SyncModule, SyncableTable, SyncLifecycle } from "../types";
 import type { UserPreferences } from "@/types/user";
@@ -29,6 +32,33 @@ import type { Json } from "@/types/supabase";
 
 /** Current preferences schema version — bumped for theme/map/DX consolidation */
 const PREFERENCES_VERSION = 17;
+
+/**
+ * Merges a legacy preferences blob's gear array into the current local
+ * array in place: matching ids get their fields updated from the blob,
+ * unmatched local entries (e.g. added offline, not yet synced) are kept
+ * as-is, and blob entries absent locally are never added. Any id with a
+ * pending deletion intent is dropped entirely, regardless of whether it
+ * appears in the blob (#326).
+ */
+function mergeBlobGearIntoLocal<T extends { id: string }>(
+  localItems: readonly T[],
+  blobItems: T[] | undefined,
+  table: GearDeletionTable,
+  pendingKeys: ReadonlySet<string>,
+): T[] {
+  if (blobItems === undefined) return [...localItems];
+  const blobById = new Map(blobItems.map((item) => [item.id, item]));
+  return localItems
+    .filter(
+      (item) =>
+        !pendingKeys.has(gearDeletionKey({ table, recordId: item.id })),
+    )
+    .map((item) => {
+      const blobItem = blobById.get(item.id);
+      return blobItem ? { ...item, ...blobItem } : item;
+    });
+}
 
 export const preferencesSync: SyncModule = {
   name: "preferences",
@@ -132,32 +162,25 @@ export const preferencesSync: SyncModule = {
           // device (or another) already tombstoned, and it must never ADD
           // gear absent locally — it may only update entries that still
           // exist in the local store; adding new gear is shackSync's job.
+          // It must also never DROP a local entry the blob doesn't know
+          // about yet (e.g. a radio added offline, not yet pushed) — merge
+          // matching blob entries into the current local arrays in place
+          // and retain every unmatched local entry (#326).
           const pendingKeys = pendingGearDeletionKeys(
             currentShack.pendingGearDeletions ?? [],
           );
-          const filteredRadios =
-            radios !== undefined
-              ? radios.filter(
-                  (r) =>
-                    currentShack.radios.some((lr) => lr.id === r.id) &&
-                    !pendingKeys.has(
-                      gearDeletionKey({ table: "user_radios", recordId: r.id }),
-                    ),
-                )
-              : currentShack.radios;
-          const filteredCustomRadios =
-            customRadios !== undefined
-              ? customRadios.filter(
-                  (r) =>
-                    currentShack.customRadios.some((lr) => lr.id === r.id) &&
-                    !pendingKeys.has(
-                      gearDeletionKey({
-                        table: "custom_radios",
-                        recordId: r.id,
-                      }),
-                    ),
-                )
-              : currentShack.customRadios;
+          const filteredRadios = mergeBlobGearIntoLocal(
+            currentShack.radios,
+            radios,
+            "user_radios",
+            pendingKeys,
+          );
+          const filteredCustomRadios = mergeBlobGearIntoLocal(
+            currentShack.customRadios,
+            customRadios,
+            "custom_radios",
+            pendingKeys,
+          );
           useShackStore.setState({
             radios: filteredRadios,
             customRadios: filteredCustomRadios,

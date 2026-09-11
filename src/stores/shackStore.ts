@@ -115,6 +115,10 @@ interface GearRemovalCascadeResult {
   activeChainId: string | null;
   /** Presets hard-removed by this cascade — the caller must also tombstone these. */
   orphanedPresetIds: string[];
+  /** `radios`, updated when a `custom_radios` removal cascades into dependent instances. */
+  radios: UserRadio[];
+  /** UserRadio instances hard-removed by a `custom_radios` cascade — the caller must also tombstone these. */
+  removedRadioIds: string[];
 }
 
 /**
@@ -132,7 +136,9 @@ function applyGearRemovalCascade(
   let activeRadioId = input.activeRadioId;
   let activePresetId = input.activePresetId;
   let activeChainId = input.activeChainId;
+  let radios = input.radios;
   const orphanedPresetIds: string[] = [];
+  const removedRadioIds: string[] = [];
 
   switch (input.table) {
     case "user_radios": {
@@ -252,6 +258,36 @@ function applyGearRemovalCascade(
       }
       break;
     }
+    case "custom_radios": {
+      // A tombstoned custom radio definition orphans any UserRadio
+      // instance that references it as its equipmentId. Remove those
+      // instances and recurse through the same user_radios cascade a
+      // direct instance removal runs, so presets/chains/active-selection
+      // never keep a dangling reference to unresolvable equipment (#326).
+      const affectedRadioIds = input.radios
+        .filter((r) => idSet.has(r.equipmentId))
+        .map((r) => r.id);
+      if (affectedRadioIds.length > 0) {
+        radios = input.radios.filter((r) => !affectedRadioIds.includes(r.id));
+        const nested = applyGearRemovalCascade({
+          table: "user_radios",
+          ids: affectedRadioIds,
+          stationPresets,
+          stationChains,
+          activeRadioId,
+          activePresetId,
+          activeChainId,
+          radios,
+        });
+        stationPresets = nested.stationPresets;
+        stationChains = nested.stationChains;
+        activeRadioId = nested.activeRadioId;
+        activePresetId = nested.activePresetId;
+        orphanedPresetIds.push(...nested.orphanedPresetIds);
+        removedRadioIds.push(...affectedRadioIds);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -263,6 +299,8 @@ function applyGearRemovalCascade(
     activePresetId,
     activeChainId,
     orphanedPresetIds,
+    radios,
+    removedRadioIds,
   };
 }
 
@@ -472,18 +510,26 @@ export const useShackStore = create<ShackStore>()(
             activeChainId: state.activeChainId,
             radios: state.radios,
           });
+          const deletionIntents = [
+            ...cascade.removedRadioIds.map((recordId) => ({
+              table: "user_radios" as const,
+              recordId,
+            })),
+            ...cascade.orphanedPresetIds.map((recordId) => ({
+              table: "station_presets" as const,
+              recordId,
+            })),
+          ];
           return {
             pendingGearDeletions:
-              cascade.orphanedPresetIds.length > 0
+              deletionIntents.length > 0
                 ? enqueueGearDeletionIntents(
                     state.pendingGearDeletions,
                     ownerId,
-                    cascade.orphanedPresetIds.map((recordId) => ({
-                      table: "station_presets" as const,
-                      recordId,
-                    })),
+                    deletionIntents,
                   )
                 : state.pendingGearDeletions,
+            radios: cascade.radios,
             stationPresets: cascade.stationPresets,
             stationChains: cascade.stationChains,
             activeRadioId: cascade.activeRadioId,
@@ -778,14 +824,11 @@ export const useShackStore = create<ShackStore>()(
         const customRadio = (get().customRadios || []).find((r) => r.id === id);
         const name = customRadio?.displayName ?? "Unknown";
 
-        // Find all user radio IDs that reference this custom radio
-        const affectedRadioIds = get()
-          .radios.filter((r) => r.equipmentId === id)
-          .map((r) => r.id);
-        const affectedRadios = get().radios.filter((r) =>
-          affectedRadioIds.includes(r.id),
-        );
-
+        // Best-effort local image cleanup for radios that reference this
+        // custom radio — the shared cascade below handles referential
+        // cleanup and tombstoning, but image blobs are a local-only
+        // concern the pull path doesn't need to duplicate.
+        const affectedRadios = get().radios.filter((r) => r.equipmentId === id);
         for (const radio of affectedRadios) {
           if (radio.imageId) {
             deleteImage(radio.imageId).catch(() => {
@@ -804,18 +847,18 @@ export const useShackStore = create<ShackStore>()(
           const nextCustom = (state.customRadios || []).filter(
             (r) => r.id !== id,
           );
-          const updatedRadios = state.radios.filter(
-            (r) => r.equipmentId !== id,
-          );
+          // Shared with the sync pull path (#326): a custom_radios removal
+          // cascades into any dependent UserRadio instances and their
+          // preset/chain references.
           const cascade = applyGearRemovalCascade({
-            table: "user_radios",
-            ids: affectedRadioIds,
+            table: "custom_radios",
+            ids: [id],
             stationPresets: state.stationPresets,
             stationChains: state.stationChains,
             activeRadioId: state.activeRadioId,
             activePresetId: state.activePresetId,
             activeChainId: state.activeChainId,
-            radios: updatedRadios,
+            radios: state.radios,
           });
 
           return {
@@ -824,7 +867,7 @@ export const useShackStore = create<ShackStore>()(
               ownerId,
               [
                 { table: "custom_radios", recordId: id },
-                ...affectedRadioIds.map((recordId) => ({
+                ...cascade.removedRadioIds.map((recordId) => ({
                   table: "user_radios" as const,
                   recordId,
                 })),
@@ -835,7 +878,7 @@ export const useShackStore = create<ShackStore>()(
               ],
             ),
             customRadios: nextCustom,
-            radios: updatedRadios,
+            radios: cascade.radios,
             activeRadioId: cascade.activeRadioId,
             stationChains: cascade.stationChains,
             stationPresets: cascade.stationPresets,

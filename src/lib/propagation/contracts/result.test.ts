@@ -289,6 +289,16 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("rejects a head answering a different time slice than the result (M02)", () => {
+    const mixed = candidate("fullHfCircuit");
+    // The 24-hour view evaluates 24 labelled instants; a second slice is its
+    // own result, not another head on this one.
+    headFor(mixed, "snr2500").validAt = "2026-09-11T20:00:00Z";
+    expect(reasonsAt(mixed, "heads[1].validAt").join()).toMatch(
+      /answers the result's valid time/,
+    );
+  });
+
   it("rejects a head belonging to another context", () => {
     const bad = candidate("fullHfCircuit");
     headFor(bad, "snr2500").contextId = "ctx-other-view";

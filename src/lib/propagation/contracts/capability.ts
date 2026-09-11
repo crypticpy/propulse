@@ -12,6 +12,8 @@
 import { z } from "zod";
 import {
   CAPABILITY_SCHEMA_VERSION,
+  CAPABILITY_INPUT_IDS,
+  type CapabilityInputId,
   CAPABILITY_STATES,
   CORRECTION_ORDER,
   COVARIANCE_OWNERSHIP,
@@ -59,8 +61,8 @@ const capabilityHead = z
     /** Derived labels for display; the frequency range is authoritative. */
     bandKeys: z.array(identifier),
     modeProfileIds: z.array(identifier),
-    requiredInputs: z.array(identifier),
-    optionalInputs: z.array(identifier),
+    requiredInputs: z.array(z.enum(CAPABILITY_INPUT_IDS)),
+    optionalInputs: z.array(z.enum(CAPABILITY_INPUT_IDS)),
     featureSchemaId: identifier,
     outputSchemaId: identifier,
     calibrationId: identifier.nullable(),
@@ -142,6 +144,35 @@ const correctionDescriptor = z
     }
   });
 
+/**
+ * The complete coverage tuple a head declares. Two heads of the same quantity
+ * and domain are legitimate and common (HF regular E/F SNR and VHF meteor SNR,
+ * for example); folding them into one head would advertise the Cartesian
+ * product of their frequencies, mechanisms, geometries, horizons and modes.
+ * Only an exact repeat of the whole tuple is a duplicate.
+ */
+function coverageTupleKey(head: {
+  quantity: string;
+  domain: string;
+  horizons: readonly string[];
+  mechanismFamilies: readonly string[];
+  geometryClasses: readonly string[];
+  modeProfileIds: readonly string[];
+  frequencyRangeHz: { minHz: number; maxHz: number };
+}): string {
+  const list = (values: readonly string[]): string =>
+    [...values].sort().join("+");
+  return [
+    head.quantity,
+    head.domain,
+    list(head.horizons),
+    list(head.mechanismFamilies),
+    list(head.geometryClasses),
+    list(head.modeProfileIds),
+    `${head.frequencyRangeHz.minHz}-${head.frequencyRangeHz.maxHz}`,
+  ].join("|");
+}
+
 export const modelCapabilitySchema = z
   .object({
     schemaVersion: z.literal(CAPABILITY_SCHEMA_VERSION),
@@ -159,12 +190,12 @@ export const modelCapabilitySchema = z
   .superRefine((value, ctx) => {
     const seenHeads = new Set<string>();
     value.heads.forEach((head, index) => {
-      const key = `${head.quantity}|${head.domain}`;
+      const key = coverageTupleKey(head);
       if (seenHeads.has(key)) {
         reject(
           ctx,
           ["heads", index, "quantity"],
-          `Duplicate capability head for ${key}`,
+          `Duplicate capability head for coverage tuple ${key}`,
         );
       }
       seenHeads.add(key);
@@ -218,7 +249,9 @@ export function parseCapability(
  * no-op capability declares no heads and therefore answers nothing.
  *
  * `mechanismFamily` is the family the router already resolved; the request's
- * own "auto" is resolved before this call.
+ * own "auto" is resolved before this call. Every input the head declares as
+ * required must be present in `availableInputs`; optional inputs never gate,
+ * because a head may improve on them rather than depend on them.
  */
 export function capabilityCovers(
   capability: ModelCapability,
@@ -230,8 +263,11 @@ export function capabilityCovers(
     geometryClass: ModelCapabilityHead["geometryClasses"][number];
     mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
     modeProfileId: string;
+    /** The input identifiers the request actually carries (M11/M19). */
+    availableInputs: readonly CapabilityInputId[];
   },
 ): boolean {
+  const available = new Set<CapabilityInputId>(query.availableInputs);
   return capability.heads.some(
     (head) =>
       ROUTABLE_CAPABILITY_STATES.includes(head.state) &&
@@ -242,6 +278,7 @@ export function capabilityCovers(
       head.mechanismFamilies.includes(query.mechanismFamily) &&
       head.modeProfileIds.includes(query.modeProfileId) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
-      query.frequencyHz <= head.frequencyRangeHz.maxHz,
+      query.frequencyHz <= head.frequencyRangeHz.maxHz &&
+      head.requiredInputs.every((input) => available.has(input)),
   );
 }

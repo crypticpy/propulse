@@ -31,7 +31,54 @@ const baseQuery = {
   mechanismFamily: "regular_ef",
   modeProfileId: "ft8-wsjtx-2.7.0-15s",
   frequencyHz: 14074000,
+  availableInputs: [
+    "station_pair",
+    "smoothed_solar_index",
+    "mode_profile",
+    "noise_assumption",
+  ],
 } as const;
+
+/** The same quantity and domain as the fixture's SNR head, other physics. */
+const METEOR_SNR_HEAD = {
+  quantity: "snr2500",
+  units: "dB",
+  domain: "characterized_fixed_path",
+  state: "implemented_unvalidated",
+  horizons: ["current"],
+  mechanismFamilies: ["meteor"],
+  geometryClasses: ["terrestrial_great_circle"],
+  frequencyRangeHz: { minHz: 50000000, maxHz: 148000000 },
+  bandKeys: ["6m", "2m"],
+  modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
+  requiredInputs: ["station_pair", "mode_profile"],
+  optionalInputs: [],
+  featureSchemaId: "meteor-feature-schema-0.1.0",
+  outputSchemaId: "propagation-result-0.1.0",
+  calibrationId: null,
+  uncertaintyKind: "model_spread",
+  internalFallback: { kind: "none" },
+};
+
+const meteorQuery = {
+  ...baseQuery,
+  frequencyHz: 144140000,
+  mechanismFamily: "meteor",
+  modeProfileId: "msk144-wsjtx-2.7.0-15s",
+} as const;
+
+/** The fixture plus a second SNR head for a different mechanism family. */
+function twoMechanismCapability() {
+  const draft = structuredClone(cases.hfPhysics) as Mutable;
+  (draft.heads as Mutable[]).push(structuredClone(METEOR_SNR_HEAD));
+  const outcome = parseCapability(draft);
+  if (!outcome.ok) {
+    throw new Error(
+      `two-mechanism capability must parse: ${JSON.stringify(outcome.issues)}`,
+    );
+  }
+  return outcome.value;
+}
 
 function issues(value: unknown): ContractIssue[] {
   const outcome = parseCapability(value);
@@ -94,6 +141,61 @@ describe("parseCapability fixtures", () => {
     expect(
       capabilityCovers(gap.value, { ...baseQuery, frequencyHz: 14074000 }),
     ).toBe(false);
+  });
+
+  it("lets one quantity and domain carry separate mechanism coverage", () => {
+    const capability = twoMechanismCapability();
+    // Both heads are declared, and each answers only its own physics.
+    expect(capabilityCovers(capability, baseQuery)).toBe(true);
+    expect(capabilityCovers(capability, meteorQuery)).toBe(true);
+    // The HF head does not acquire the meteor head's frequencies or family,
+    // and the meteor head does not acquire the HF head's.
+    expect(
+      capabilityCovers(capability, {
+        ...baseQuery,
+        mechanismFamily: "meteor",
+      }),
+    ).toBe(false);
+    expect(
+      capabilityCovers(capability, {
+        ...meteorQuery,
+        mechanismFamily: "regular_ef",
+      }),
+    ).toBe(false);
+    expect(
+      capabilityCovers(capability, { ...baseQuery, frequencyHz: 144140000 }),
+    ).toBe(false);
+  });
+
+  it("does not route a head whose required input is absent (M11)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    (draft.heads as Mutable[])[1].requiredInputs = [
+      "station_pair",
+      "mode_profile",
+      "terrain_profile",
+    ];
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) throw new Error("mutated fixture must parse");
+    expect(capabilityCovers(outcome.value, baseQuery)).toBe(false);
+    expect(
+      capabilityCovers(outcome.value, {
+        ...baseQuery,
+        availableInputs: [...baseQuery.availableInputs, "terrain_profile"],
+      }),
+    ).toBe(true);
+  });
+
+  it("does not let a missing optional input block routing", () => {
+    const capability = parsed("hfPhysics");
+    // The SNR head lists eligible_foF2_observations as optional and the query
+    // does not carry it; the head is still routable.
+    expect(capability.heads[1].optionalInputs).toContain(
+      "eligible_foF2_observations",
+    );
+    expect(baseQuery.availableInputs).not.toContain(
+      "eligible_foF2_observations",
+    );
+    expect(capabilityCovers(capability, baseQuery)).toBe(true);
   });
 
   it("does not route a mechanism family the head never declared", () => {
@@ -228,7 +330,7 @@ describe("parseCapability fails closed", () => {
     );
   });
 
-  it("rejects a duplicate head for the same quantity and domain", () => {
+  it("rejects a head that repeats a complete coverage tuple", () => {
     const bad = candidate("hfPhysics");
     const heads = bad.heads as Mutable[];
     heads.push(structuredClone(heads[1]));

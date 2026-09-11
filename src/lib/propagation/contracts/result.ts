@@ -556,6 +556,13 @@ export const predictionResultSchema = z
         );
       }
       seen.add(head.quantity);
+      if (head.validAt !== value.validAt) {
+        reject(
+          ctx,
+          ["heads", index, "validAt"],
+          "A head answers the result's valid time; a different time slice is its own result (M02)",
+        );
+      }
       if (head.contextId !== value.contextId) {
         reject(
           ctx,

@@ -271,6 +271,30 @@ export const ROUTE_LEGS = ["short", "long"] as const;
 export type RouteLeg = (typeof ROUTE_LEGS)[number];
 
 /**
+ * The inputs a capability head may name in `requiredInputs`/`optionalInputs`,
+ * and that a router reports as present when it dispatches a request. A closed
+ * vocabulary is what lets input availability be checked at all: an input the
+ * contract cannot name is an input nobody can prove was supplied.
+ */
+export const CAPABILITY_INPUT_IDS = [
+  "station_pair",
+  "mode_profile",
+  "noise_assumption",
+  "environment_pack",
+  "terrain_profile",
+  "ephemeris",
+  "smoothed_solar_index",
+  "observed_solar_index",
+  "eligible_foF2_observations",
+  "eligible_absorption_observations",
+  "eligible_radio_observations",
+  "network_exposure_context",
+  "snr2500",
+  "decoder_response_calibration",
+] as const;
+export type CapabilityInputId = (typeof CAPABILITY_INPUT_IDS)[number];
+
+/**
  * M11 immutable correction order. A capability declares which stage each of
  * its corrections owns; two corrections may not own the same total quantity.
  */

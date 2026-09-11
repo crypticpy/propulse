@@ -370,6 +370,15 @@ function SatelliteInfoPopup({
           </span>
         </div>
 
+        {/* Map orbit — same toggle semantics as the modal's OrbitTrackControls
+            (mapStore.satelliteTracks keyed by noradId), reachable without
+            opening the modal */}
+        <div
+          className="my-0.5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        />
+        <OrbitTrackToggleButton noradId={satellite.noradId} color={color} />
+
         {/* Details affordance — a real button so keyboard users can open
             the modal; the surrounding popup is also clickable for pointers */}
         <div
@@ -399,6 +408,53 @@ function SatelliteInfoPopup({
         </button>
       </div>
     </Html>
+  );
+}
+
+/**
+ * "Map orbit" / "Clear orbit" toggle for the inline marker popup (#994 PR B).
+ * Mirrors `SatelliteDetailModal.tsx`'s `OrbitTrackControls` toggle exactly —
+ * same store calls, same semantics — so mapping a satellite's orbit track
+ * doesn't require opening the full details modal first.
+ */
+export function OrbitTrackToggleButton({
+  noradId,
+  color,
+}: {
+  noradId: number;
+  color: string;
+}) {
+  const id = String(noradId);
+  const isTracked = useMapStore((s) => s.satelliteTracks[id] !== undefined);
+  const setSatelliteTrack = useMapStore((s) => s.setSatelliteTrack);
+  const clearSatelliteTrack = useMapStore((s) => s.clearSatelliteTrack);
+
+  const handleToggleTrack = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isTracked) {
+        clearSatelliteTrack(noradId);
+      } else {
+        setSatelliteTrack(noradId, {});
+      }
+    },
+    [isTracked, noradId, clearSatelliteTrack, setSatelliteTrack],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggleTrack}
+      aria-pressed={isTracked}
+      className={`flex w-full items-center justify-center gap-1 rounded text-xs font-semibold uppercase tracking-wider focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
+        isTracked
+          ? "bg-su-accent/15 text-su-accent hover:bg-su-accent/25"
+          : "hover:bg-su-line/10"
+      }`}
+      style={{ color: isTracked ? undefined : `${color}aa` }}
+    >
+      {isTracked ? "Clear orbit" : "Map orbit"}
+    </button>
   );
 }
 

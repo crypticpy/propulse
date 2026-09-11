@@ -19,6 +19,7 @@ import {
   DOMAIN_GEOMETRY_CLASSES,
   isProtocolCoverage,
   isProtocolGeometry,
+  ORBITAL_RELAY_BODIES_BY_MECHANISM,
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
   permittedRelayKinds,
@@ -43,6 +44,11 @@ import {
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
   MIN_REQUEST_FREQUENCY_HZ,
+  modeProfileEntry,
+  MODEL_KINDS,
+  MODEL_KINDS_BY_POLICY,
+  type ModelKind,
+  type ModelPolicy,
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
@@ -63,6 +69,7 @@ import {
   instantMs,
   parseWith,
   reject,
+  schemaVersionLiteral,
   type ContractIssue,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
@@ -350,12 +357,18 @@ function coverageTupleKey(head: {
 
 export const modelCapabilitySchema = z
   .object({
-    schemaVersion: z.literal(CAPABILITY_SCHEMA_VERSION),
+    schemaVersion: schemaVersionLiteral(CAPABILITY_SCHEMA_VERSION),
     modelId: identifier,
     modelVersion: identifier,
     /** Hashes that pin the trained artefact and its preprocessing (M19). */
     modelHash: artifactHash.nullable(),
     preprocessingHash: artifactHash.nullable(),
+    /**
+     * M11/M19: what the model is made of. A request may ask for physics only,
+     * and "physics" is not something a router can read off a model id, so the
+     * declaration says it and routing matches on it like any other dimension.
+     */
+    modelKind: z.enum(MODEL_KINDS),
     sourcePolicyVersion: identifier,
     /** Empty is legal and meaningful: a no-op capability declares no heads. */
     heads: z.array(capabilityHead),
@@ -419,7 +432,7 @@ export const modelCapabilitySchema = z
       if (!ROUTABLE_CAPABILITY_STATES.includes(head.state)) return;
       for (const dimension of ROUTING_DIMENSIONS) {
         if (!dimension.gates(head)) continue;
-        if (dimension.values(head).length > 0) continue;
+        if (dimension.values(head, value).length > 0) continue;
         // M19: routing matches this dimension by membership, so an empty list
         // matches no request at all. A head that declares one is advertised as
         // an active capability while being silently routed past, which shows up
@@ -464,7 +477,7 @@ export const modelCapabilitySchema = z
       for (let other = 0; other < index; other += 1) {
         const earlier = value.heads[other];
         if (!ROUTABLE_CAPABILITY_STATES.includes(earlier.state)) continue;
-        if (!headsOverlap(earlier, head)) continue;
+        if (!headsOverlap(earlier, head, value)) continue;
         reject(
           ctx,
           ["heads", index, "frequencyRangeHz"],
@@ -628,6 +641,44 @@ export const modelCapabilitySchema = z
           `A routable head is answered by ${RESULT_SCHEMA_VERSION}, not ${head.outputSchemaId} (M19)`,
         );
       }
+      if (head.quantity === "conditional_decode") {
+        // M07/M11: a decode probability is conditioned on a decoder and on the
+        // length of one attempt, and `MODE_PROFILE_REGISTRY` is the only place
+        // those are written down. A routable head declaring a profile the
+        // registry does not carry would be routed to by `capabilityCovers` and
+        // then have every served result refused by the binder, so the claim is
+        // refused where it is made. Like the output schema above, this sits in
+        // the routable branch: a planned or unsupported head may name a
+        // profile the registry has not taken up yet, which is the gap it is
+        // declaring.
+        head.modeProfileIds.forEach((profileId, profileIndex) => {
+          const entry = modeProfileEntry(profileId);
+          const path = ["heads", index, "modeProfileIds", profileIndex];
+          if (entry === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} is not registered, so a routable decode head cannot declare it (M07, M11)`,
+            );
+            return;
+          }
+          if (entry.decoderId === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
+            );
+            return;
+          }
+          if (entry.criterionId === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} registers no decode criterion, so there is nothing a decode probability could be about (M07, M11)`,
+            );
+          }
+        });
+      }
       if (!hasPointValue(head.quantity) && head.uncertaintyKind !== "none") {
         // M17: these quantities report no scalar, so the result contract
         // refuses any numeric interval on them. A routable head promising an
@@ -706,6 +757,11 @@ export interface CapabilityQuery {
   rxReceiverClass: ReceiverClass;
   /** M11/M19: the routing/source policy version the request was issued under. */
   policyVersion: string;
+  /**
+   * M11/M19: the model policy the request was issued under. `physics_only` is
+   * a routing constraint, not a preference: a learned model may not answer it.
+   */
+  modelPolicy: ModelPolicy;
   /** The source posture the request was issued under (M11). */
   sourceMode: SourceMode;
   /** The input identifiers the request actually carries (M11/M19). */
@@ -722,6 +778,11 @@ export interface CapabilityQuery {
  * not both answer one request. Three rules written by hand would drift apart;
  * one table cannot.
  */
+/** The declaration-level facts a routing dimension may read (M11, M19). */
+interface DeclaredModelKind {
+  modelKind: ModelKind;
+}
+
 interface RoutingDimension {
   /** The head field, used for the issue path and the message. */
   field:
@@ -731,9 +792,17 @@ interface RoutingDimension {
     | "modeProfileIds"
     | "sourceModes"
     | "antennaClasses"
-    | "receiverClasses";
-  /** The populations the head declares on this dimension. */
-  values: (head: ModelCapabilityHead) => readonly string[];
+    | "receiverClasses"
+    | "modelKind";
+  /**
+   * The populations the head declares on this dimension. Most live on the head;
+   * the model kind is a property of the whole declaration, which is why the
+   * declaration it belongs to is passed alongside.
+   */
+  values: (
+    head: ModelCapabilityHead,
+    declaration: DeclaredModelKind,
+  ) => readonly string[];
   /** Whether this dimension gates this head's quantity at all. */
   gates: (head: ModelCapabilityHead) => boolean;
   /** The query values that must all be declared; read only when it gates. */
@@ -778,6 +847,19 @@ export const ROUTING_DIMENSIONS: readonly RoutingDimension[] = [
     // every quantity, so both ends always gate (A01).
     gates: () => true,
     required: (query) => [query.txAntennaClass, query.rxAntennaClass],
+  },
+  {
+    field: "modelKind",
+    values: (_head, declaration) => [declaration.modelKind],
+    gates: () => true,
+    // The declaration names exactly one kind, so a policy that admits the whole
+    // vocabulary demands nothing and a policy that narrows demands the one kind
+    // it admits. `MODEL_KINDS_BY_POLICY` is the only place that distinction is
+    // written down.
+    required: (query) => {
+      const admitted = MODEL_KINDS_BY_POLICY[query.modelPolicy];
+      return admitted.length === MODEL_KINDS.length ? [] : admitted;
+    },
   },
   {
     field: "receiverClasses",
@@ -878,6 +960,7 @@ function intersects(
 function headsOverlap(
   left: ModelCapabilityHead,
   right: ModelCapabilityHead,
+  declaration: DeclaredModelKind,
 ): boolean {
   if (left.quantity !== right.quantity || left.domain !== right.domain) {
     return false;
@@ -891,7 +974,10 @@ function headsOverlap(
   if (!rangesMeet) return false;
   return ROUTING_DIMENSIONS.every((dimension) => {
     if (!dimension.gates(left) && !dimension.gates(right)) return true;
-    return intersects(dimension.values(left), dimension.values(right));
+    return intersects(
+      dimension.values(left, declaration),
+      dimension.values(right, declaration),
+    );
   });
 }
 
@@ -933,7 +1019,7 @@ export function capabilityCovers(
       head.domain === query.domain &&
       ROUTING_DIMENSIONS.every((dimension) =>
         dimensionDemands(dimension, head, query).every((value) =>
-          dimension.values(head).includes(value),
+          dimension.values(head, capability).includes(value),
         ),
       ) &&
       RANGE_ROUTING_DIMENSIONS.every((dimension) =>
@@ -976,6 +1062,10 @@ export function capabilityKeyProjection(
     modelVersion: capability.modelVersion,
     modelHash: capability.modelHash,
     preprocessingHash: capability.preprocessingHash,
+    // M11/M24: the kind is a routing dimension (`physics_only` admits one kind
+    // and refuses the others), so two otherwise identical declarations that
+    // differ by kind route differently and must not share a digest.
+    modelKind: capability.modelKind,
     sourcePolicyVersion: capability.sourcePolicyVersion,
     heads: capability.heads.map((head): Record<string, Canonical> => ({
       quantity: head.quantity,
@@ -1098,13 +1188,29 @@ interface ResultBinding {
    * carrier) have nothing to read.
    */
   onUnavailableTarget: boolean;
+  /**
+   * Whether the check cannot run at all without a payload to read. This is the
+   * only reason a row may decline an unavailable target head, so the table is
+   * fully determined: `onUnavailableTarget` is true for exactly the rows that
+   * carry a check and read no payload. A row whose identity half reads no
+   * payload and whose remainder does (the mode profile) is written here as
+   * false and guards the payload half on `"value" in head.state`.
+   */
+  readsPayload: boolean;
   /** Why a result cannot carry this dimension at all, or null when bound. */
   exemption: string | null;
   /** The head field a violation is reported on. */
   path: string | ((head: PredictionHead) => string);
-  /** The violation reason, or null when the head satisfies the request. */
+  /**
+   * The violation, or null when the head satisfies the request. A reason on
+   * its own is reported at the row's `path`; a row that can fail on more than
+   * one field returns the path with it.
+   */
   check:
-    | ((head: PredictionHead, request: PredictionRequest) => string | null)
+    | ((
+        head: PredictionHead,
+        request: PredictionRequest,
+      ) => string | { path: string; reason: string } | null)
     | null;
 }
 
@@ -1112,6 +1218,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "domain",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "domain",
@@ -1123,6 +1230,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "horizons",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "horizon",
@@ -1134,6 +1242,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "mechanismFamilies",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "mechanismFamily",
@@ -1148,9 +1257,15 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "geometryClasses",
     onUnavailableTarget: true,
-    appliesTo: "target",
+    readsPayload: false,
+    appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
+    // A21/A22: the geometry class is the caller's description of the physical
+    // path, and every head answers that one path, so this binds every served
+    // head rather than the target alone. The family a head answers is its own
+    // (a decode row may be frozen on another mechanism than the SNR row
+    // beside it); the path it is answered over is not.
     check: (head, request) => {
       const geometryClass = request.mechanismPolicy.geometryClass;
       if (
@@ -1168,9 +1283,12 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "scatterBasis",
     onUnavailableTarget: true,
-    appliesTo: "target",
+    readsPayload: false,
+    appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
+    // As above: one request locates one scattering region, and a head whose
+    // family scatters on another basis is describing a different geometry.
     check: (head, request) => {
       if (request.route.kind !== "scatter") return null;
       const basis = SCATTER_BASIS_BY_MECHANISM[head.mechanismFamily];
@@ -1180,13 +1298,37 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
     },
   },
   {
-    field: "relayKinds",
-    appliesTo: "target",
+    field: "modelKind",
+    appliesTo: "served",
     onUnavailableTarget: true,
+    readsPayload: false,
+    exemption: null,
+    path: "effectiveModelKind",
+    check: (head, request) => {
+      // M11/M19: physics_only is a constraint on what may answer, not a
+      // preference, and it binds every head that carries a value: a result
+      // whose target is physics can still serve a companion head from a
+      // learned fallback, and that head is a learned answer to a request that
+      // refused learned answers. The head names what produced it, because the
+      // capability digest beside it is opaque and this pass is offline.
+      const admitted = MODEL_KINDS_BY_POLICY[
+        request.requestedModel.policy
+      ] as readonly string[];
+      return admitted.includes(head.effectiveModelKind)
+        ? null
+        : `Model policy ${request.requestedModel.policy} admits ${admitted.join(", ")}, and this head was produced by a ${head.effectiveModelKind} model (M11, M19)`;
+    },
+  },
+  {
+    field: "relayKinds",
+    appliesTo: "served",
+    onUnavailableTarget: true,
+    readsPayload: false,
     exemption: null,
     path: "mechanismFamily",
     check: (head, request) => {
-      // A21/A22: the request side applies this to a named family, but a
+      // A21/A22: one request has one relay leg, so this binds every served
+      // head. The request side applies this to a named family, but a
       // request that asked for "auto" leaves the router free, and geometry
       // alone does not pin the family: two_leg_relay admits both a fixed
       // ground repeater and a transponder, so a satellite head could answer a
@@ -1200,14 +1342,25 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
           ? null
           : `Mechanism family ${head.mechanismFamily} answers over a relay leg and the request carries none (A21, A22)`;
       }
-      return permitted.includes(request.relay.kind)
+      if (!permitted.includes(request.relay.kind)) {
+        return `Mechanism family ${head.mechanismFamily} is not served by a relay of kind ${request.relay.kind}; it admits ${permitted.length === 0 ? "no relay at all" : permitted.join(", ")} (A21, A22)`;
+      }
+      if (request.relay.kind !== "orbital") return null;
+      // A21/A22: an element set parses the same for the Moon and for a
+      // cubesat, so the family that answers has to be the one whose physics
+      // the named body is: eme is lunar and satellite is not.
+      const bodies = ORBITAL_RELAY_BODIES_BY_MECHANISM[
+        head.mechanismFamily
+      ] as readonly string[];
+      return bodies.includes(request.relay.body)
         ? null
-        : `Mechanism family ${head.mechanismFamily} is not served by a relay of kind ${request.relay.kind}; it admits ${permitted.length === 0 ? "no relay at all" : permitted.join(", ")} (A21, A22)`;
+        : `Mechanism family ${head.mechanismFamily} is relayed by ${bodies.length === 0 ? "no orbiting body" : bodies.join(", ")}, not by the ${request.relay.body} the request named (A21, A22)`;
     },
   },
   {
     field: "intervalSecondsRange",
     onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "target",
     exemption: null,
     path: "intervalSeconds",
@@ -1218,7 +1371,8 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "frequencyRangeHz",
-    onUnavailableTarget: false,
+    onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
@@ -1234,11 +1388,15 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
       )
         ? null
         : `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} at ${request.frequencyHz} Hz (M11)`,
+    // The coverage row is identity, not payload: an unavailable target head
+    // claims a population at the requested frequency just as a served one
+    // does, and a gap on a tuple the protocol never froze is misattributed.
   },
   {
     field: "payloadFrequency",
     appliesTo: "served",
     onUnavailableTarget: false,
+    readsPayload: true,
     exemption: null,
     path: (head) =>
       payloadCarrierFields(head.quantity).length === 0
@@ -1263,16 +1421,87 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "modeProfileIds",
-    onUnavailableTarget: false,
+    onUnavailableTarget: true,
+    readsPayload: false,
     appliesTo: "served",
-    exemption:
-      "A head carries the mode ids it evaluated, not the profile that selected them; the profile enters the request key and the capability head declares it.",
-    path: "quantity",
-    check: null,
+    exemption: null,
+    path: "effectiveModeProfileId",
+    check: (head, request) => {
+      // M07/M11: the profile is a routing dimension, so a head answers the
+      // profile that was asked for and no other. The equality half reads no
+      // payload and therefore also binds an unavailable target: a gap tagged
+      // with another profile is counted against the wrong population. The
+      // decoder and attempt length below are payload and are guarded.
+      if (head.effectiveModeProfileId !== request.modeProfileId) {
+        return `A served head answers the requested mode profile ${request.modeProfileId}, not ${head.effectiveModeProfileId ?? "none"} (M07, M11)`;
+      }
+      if (head.quantity !== "conditional_decode") return null;
+      // No payload, so nothing further to resolve: an unavailable target head
+      // has been checked for the profile it claims and that is all there is.
+      if (!("value" in head.state)) return null;
+      // A decode probability is conditioned on a decoder and on the length of
+      // one attempt. Both are properties of the profile, so a head that
+      // reports its own belongs to a different profile than the one requested.
+      const entry = modeProfileEntry(request.modeProfileId);
+      if (entry === null) {
+        return `Mode profile ${request.modeProfileId} is not registered, so the decoder a decode head reports cannot be checked against it (M07, M11)`;
+      }
+      const payload = head.state.value as {
+        decoderId: string;
+        decoderVersion: string;
+        observationSeconds: number;
+        criterionId: string;
+      };
+      if (entry.decoderId === null) {
+        return {
+          path: "state.value.decoderId",
+          reason: `Mode profile ${request.modeProfileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
+        };
+      }
+      if (payload.decoderId !== entry.decoderId) {
+        return {
+          path: "state.value.decoderId",
+          reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId}, and this head reports ${payload.decoderId} (M07, M11)`,
+        };
+      }
+      // A decoder is not one algorithm across its releases, and the protocol
+      // conditions the event on "declared decoder/version" for that reason, so
+      // the release binds beside the decoder itself.
+      if (payload.decoderVersion !== entry.decoderVersion) {
+        return {
+          path: "state.value.decoderVersion",
+          reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId} ${entry.decoderVersion}, and this head reports ${payload.decoderVersion} (M07, M11)`,
+        };
+      }
+      // The profile defines what counts as a decode, which is why the protocol
+      // conditions the event on the declared decoder meeting "its criterion
+      // within observation duration". Two heads scoring different criteria
+      // answer different questions, however close the probabilities read.
+      if (entry.criterionId === null) {
+        return {
+          path: "state.value.criterionId",
+          reason: `Mode profile ${request.modeProfileId} registers no decode criterion, so there is nothing a decode probability could be about (M07, M11)`,
+        };
+      }
+      if (payload.criterionId !== entry.criterionId) {
+        return {
+          path: "state.value.criterionId",
+          reason: `A decode on ${request.modeProfileId} is ${entry.criterionId}, and this head reports ${payload.criterionId} (M07, M11)`,
+        };
+      }
+      if (payload.observationSeconds !== entry.observationSeconds) {
+        return {
+          path: "state.value.observationSeconds",
+          reason: `One ${request.modeProfileId} attempt lasts ${entry.observationSeconds} s, and this head reports ${payload.observationSeconds} s (M07, M11)`,
+        };
+      }
+      return null;
+    },
   },
   {
     field: "sourceModes",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result records the sources it used, not the posture it was issued under; the as-issued evidence rules bound every posture alike.",
@@ -1282,6 +1511,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "antennaClasses",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result carries no station description; the stations enter the request key and the context identity the result echoes.",
@@ -1291,6 +1521,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "receiverClasses",
     onUnavailableTarget: false,
+    readsPayload: false,
     appliesTo: "served",
     exemption:
       "A result carries no receive chain description; the receiver classes enter the request key and the context identity the result echoes.",
@@ -1383,10 +1614,14 @@ export async function bindResult(
       // gap is attributed to: a gap copied from another route or interval is a
       // misattribution. Only the checks that read a value are skipped.
       if (!served && !(isTarget && binding.onUnavailableTarget)) continue;
-      const reason = binding.check(head, request);
-      if (reason === null) continue;
-      const path =
+      const violation = binding.check(head, request);
+      if (violation === null) continue;
+      const fallback =
         typeof binding.path === "string" ? binding.path : binding.path(head);
+      const path =
+        typeof violation === "string" ? fallback : `${violation.path}`;
+      const reason =
+        typeof violation === "string" ? violation : violation.reason;
       add(`heads[${index}].${path}`, reason);
     }
   });

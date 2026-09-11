@@ -1,6 +1,6 @@
 {
   "hfShortPath": {
-    "schemaVersion": "propagation-request-0.1.0",
+    "schemaVersion": "propagation-request-0.2.0",
     "contextId": "ctx-hf-path-2026-09-11T18",
     "viewScopeId": "view-globe-primary",
     "issuedAt": "2026-09-11T18:00:00Z",
@@ -131,7 +131,7 @@
     "sourceMode": "cached_live"
   },
   "satellitePass": {
-    "schemaVersion": "propagation-request-0.1.0",
+    "schemaVersion": "propagation-request-0.2.0",
     "contextId": "ctx-sat-pass-2026-09-11T18",
     "viewScopeId": "view-satellite-panel",
     "issuedAt": "2026-09-11T18:00:00Z",
@@ -253,6 +253,7 @@
     "relay": {
       "kind": "orbital",
       "relayId": "so-50",
+      "body": "spacecraft",
       "ephemerisId": "celestrak-tle-2026-09-11",
       "ephemerisEpoch": "2026-09-11T06:14:02Z"
     },
@@ -265,7 +266,7 @@
     "sourceMode": "cached_live"
   },
   "fixedRelay": {
-    "schemaVersion": "propagation-request-0.1.0",
+    "schemaVersion": "propagation-request-0.2.0",
     "contextId": "ctx-repeater-2026-09-11T18",
     "viewScopeId": "view-repeater-panel",
     "issuedAt": "2026-09-11T18:00:00Z",

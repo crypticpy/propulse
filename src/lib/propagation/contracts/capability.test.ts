@@ -17,9 +17,11 @@ import {
 } from "@/lib/propagation/contracts/enums";
 import {
   hasPointValue,
+  parseResult,
   RESULT_SCHEMA_VERSION,
 } from "@/lib/propagation/contracts/result";
 import {
+  bindResult,
   capabilityCovers,
   capabilityDigest,
   parseCapability,
@@ -28,6 +30,11 @@ import {
   RESULT_BINDINGS,
   ROUTING_DIMENSIONS,
 } from "@/lib/propagation/contracts/capability";
+import {
+  MODEL_KINDS,
+  MODEL_KINDS_BY_POLICY,
+  MODEL_POLICIES,
+} from "@/lib/propagation/contracts/enums";
 import requestCases from "@/lib/propagation/contracts/fixtures/request.cases.json";
 import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
 import { parseRequest } from "@/lib/propagation/contracts/request";
@@ -50,6 +57,9 @@ function parsed(name: string) {
   return outcome.value;
 }
 
+/** Routing dimensions the declaration carries rather than the head. */
+const DECLARATION_DIMENSIONS: readonly string[] = ["modelKind"];
+
 /** A request shape the HF physics fixture's SNR head does declare. */
 const baseQuery = {
   quantity: "snr2500",
@@ -66,6 +76,7 @@ const baseQuery = {
   txReceiverClass: "modeled_noise_figure_chain",
   rxReceiverClass: "modeled_noise_figure_chain",
   policyVersion: "source-policy-0.1.0",
+  modelPolicy: "auto",
   sourceMode: "cached_live",
   availableInputs: [
     "station_pair",
@@ -96,7 +107,7 @@ const SECOND_SNR_HEAD = {
   featureSchemaId: "vhf-feature-schema-0.1.0",
   featureHash:
     "sha256:0000000000000000000000000000000000000000000000000000000000000001",
-  outputSchemaId: "propagation-result-0.1.0",
+  outputSchemaId: "propagation-result-0.2.0",
   calibrationId: null,
   uncertaintyKind: "model_spread",
   internalFallback: { kind: "none" },
@@ -136,6 +147,12 @@ function protocolHead(
   }
   const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
   head.quantity = quantity;
+  // M07: a decode head may only declare a profile the registry carries with a
+  // decoder, and the SNR head this is cloned from deliberately carries an
+  // unregistered one (the registry constrains decode claims, not labels).
+  if (quantity === "conditional_decode") {
+    head.modeProfileIds = ["ft8-wsjtx-2.7.0-15s"];
+  }
   head.units = QUANTITY_UNITS[quantity];
   head.domain = tuple.domain;
   head.horizons = [tuple.horizon];
@@ -275,6 +292,48 @@ describe("parseCapability fixtures", () => {
     expect(
       capabilityCovers(outcome.value, { ...baseQuery, frequencyHz: 14074000 }),
     ).toBe(false);
+  });
+
+  it("routes physics_only to a physics model only (M11, M19)", () => {
+    // The residual: physics_only was carried in the request and read by
+    // nobody, so a learned model answered a request that asked for physics.
+    const physics = parsed("hfPhysics");
+    expect(
+      capabilityCovers(physics, { ...baseQuery, modelPolicy: "physics_only" }),
+    ).toBe(true);
+    const learnedDraft = candidate("hfPhysics");
+    learnedDraft.modelKind = "learned";
+    const learned = parseCapability(learnedDraft);
+    if (!learned.ok) throw new Error("learned draft must parse");
+    expect(
+      capabilityCovers(learned.value, {
+        ...baseQuery,
+        modelPolicy: "physics_only",
+      }),
+    ).toBe(false);
+    // Every other policy leaves the kind to the router.
+    for (const policy of ["auto", "named"] as const) {
+      expect(
+        capabilityCovers(learned.value, { ...baseQuery, modelPolicy: policy }),
+      ).toBe(true);
+    }
+  });
+
+  it("narrows a model policy to every kind or to exactly one (M11, M19)", () => {
+    // Routing matches this dimension by membership against a declaration that
+    // names one kind, so a policy admitting two of three could never be
+    // satisfied and would silently route nothing.
+    for (const policy of MODEL_POLICIES) {
+      const admitted = MODEL_KINDS_BY_POLICY[policy];
+      expect(
+        admitted.length === MODEL_KINDS.length || admitted.length === 1,
+        `policy ${policy} admits ${admitted.join(", ")}`,
+      ).toBe(true);
+      expect(
+        admitted.length,
+        `policy ${policy} admits nothing`,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("answers coverage from the frequency range, not a band nickname", () => {
@@ -982,9 +1041,20 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
+  it("rejects a declaration tagged with an older schema version (M19)", () => {
+    // 0.2.0 added the required modelKind, so a 0.1.0 declaration cannot carry
+    // it and a 0.1.0 reader cannot see it. The rejection names both versions
+    // rather than reporting an invalid literal on a root field.
+    const bad = candidate("hfPhysics");
+    bad.schemaVersion = "propagation-capability-0.1.0";
+    expect(reasonsAt(bad, "schemaVersion").join()).toMatch(
+      /This contract is propagation-capability-0\.2\.0 and the payload is tagged propagation-capability-0\.1\.0; a schema version bump is a shape change/,
+    );
+  });
+
   it("rejects a routable head that advertises another result schema (M19)", () => {
     const bad = candidate("hfPhysics");
-    (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.2.0";
+    (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.3.0";
     expect(reasonsAt(bad, "heads[1].outputSchemaId").join()).toMatch(
       new RegExp(`answered by ${RESULT_SCHEMA_VERSION}`),
     );
@@ -1317,6 +1387,10 @@ describe("parseCapability fails closed", () => {
 
   it("a routable head declares every dimension capabilityCovers matches on", () => {
     for (const dimension of ROUTING_DIMENSIONS) {
+      // The model kind is declared once for the whole model rather than per
+      // head, and a declaration names exactly one, so there is no empty list
+      // to leave behind on a head.
+      if (DECLARATION_DIMENSIONS.includes(dimension.field)) continue;
       const bad = candidate("hfPhysics");
       const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
       head.bandKeys = [];
@@ -1340,6 +1414,48 @@ describe("parseCapability fails closed", () => {
     }
   });
 
+  /** A routable decode head on a frozen row, carrying `profileId`. */
+  function decodeHeadWithProfile(profileId: string): Mutable {
+    const draft = candidate("hfPhysics");
+    const { head } = protocolHead("conditional_decode");
+    head.modeProfileIds = [profileId];
+    (draft.heads as Mutable[]).push(head);
+    return draft;
+  }
+
+  it("rejects a routable decode head declaring an unregistered mode profile (M07, M11)", () => {
+    // `capabilityCovers` would route a request naming this profile to the
+    // head, and the binder would then refuse every result it served, because
+    // nothing outside MODE_PROFILE_REGISTRY says what decoder the profile
+    // uses or how long one attempt lasts.
+    const bad = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    expect(reasonsAt(bad, "heads[3].modeProfileIds[0]").join()).toMatch(
+      /Mode profile msk144-wsjtx-2\.7\.0-15s is not registered, so a routable decode head cannot declare it \(M07, M11\)/,
+    );
+  });
+
+  it("rejects a routable decode head declaring a profile with no decoder (M07, M11)", () => {
+    const bad = decodeHeadWithProfile("fm-voice-12k5");
+    expect(reasonsAt(bad, "heads[3].modeProfileIds[0]").join()).toMatch(
+      /Mode profile fm-voice-12k5 carries no decoder, so no decode probability is defined for it \(M07, M11\)/,
+    );
+  });
+
+  it("lets a planned decode head name a profile the registry has not taken up (M07, M19)", () => {
+    // The same allowance the output schema and the unfrozen coverage rows
+    // already make: a head with no implementation is describing work, and the
+    // profile it names may be registered by the time it has one. Nothing can
+    // be routed to it in the meantime.
+    const planned = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    (planned.heads as Mutable[])[3].state = "planned";
+    const outcome = parseCapability(planned);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+
+    // The same head with an implementation is routable, and fails.
+    const routable = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    expect(reasonsAt(routable, "heads[3].modeProfileIds[0]")).toHaveLength(1);
+  });
+
   it("allows only one head per coverage tuple, whatever its state", () => {
     const bad = candidate("hfPhysics");
     const heads = bad.heads as Mutable[];
@@ -1354,6 +1470,19 @@ describe("capabilityDigest (M24)", () => {
     const second = await capabilityDigest(parsed("hfPhysics"));
     expect(first).toBe(second);
     expect(first).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("gives two declarations that differ only by model kind different digests (M11, M24)", async () => {
+    // `physics_only` admits one kind and refuses the others, so a physics and
+    // a learned declaration route differently. A shared digest would let a
+    // result pin the routing table of a model that could not have served it.
+    const draft = candidate("hfPhysics");
+    draft.modelKind = "learned";
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) throw new Error("mutated fixture must parse");
+    expect(await capabilityDigest(outcome.value)).not.toBe(
+      await capabilityDigest(parsed("hfPhysics")),
+    );
   });
 
   it("gives two declarations that differ only by a head's state different digests", async () => {
@@ -1520,10 +1649,14 @@ describe("parseResultForRequest binds a result to its request", () => {
       (requestCases as unknown as Record<string, Mutable>).fixedRelay,
     ) as Mutable;
     (draft.mechanismPolicy as Mutable).family = "auto";
+    // The repeater fixture asks for FM voice, and a decode head answers a
+    // profile that has a decoder: the target event here is conditional_decode.
+    draft.modeProfileId = "ft8-wsjtx-2.7.0-15s";
     if (relayKind === "orbital") {
       draft.relay = {
         kind: "orbital",
         relayId: "sat-ao-91",
+        body: "spacecraft",
         ephemerisId: "tle-ao-91-2026-09-11",
         ephemerisEpoch: "2026-09-11T17:30:00Z",
       };
@@ -1541,6 +1674,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     const head = structuredClone((draft.heads as Mutable[])[2]) as Mutable;
     head.domain = "configured_two_leg_path";
     head.mechanismFamily = family;
+    head.effectiveModeProfileId = "ft8-wsjtx-2.7.0-15s";
     head.contextId = contextId;
     draft.contextId = contextId;
     draft.heads = [head];
@@ -1575,6 +1709,233 @@ describe("parseResultForRequest binds a result to its request", () => {
     ).toEqual([]);
   });
 
+  /** A physics_only request names no model, so the provenance echoes none. */
+  function unnamedModel(draft: Mutable): void {
+    (draft.provenance as Mutable).requestedModelId = null;
+    (draft.provenance as Mutable).requestedModelVersion = null;
+  }
+
+  it("rejects a served head that answers another mode profile (M07, M11)", async () => {
+    // The residual: the profile was exempt from binding, so a head evaluated
+    // on FT4 could answer an FT8 request as long as the row matched.
+    const result = boundResult((draft) => {
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.effectiveModeProfileId = "ft4-wsjtx-2.7.0-7.5s";
+    });
+    expect(await bind(result)).toEqual([
+      {
+        path: "heads[1].effectiveModeProfileId",
+        reason:
+          "A served head answers the requested mode profile ft8-wsjtx-2.7.0-15s, not ft4-wsjtx-2.7.0-7.5s (M07, M11)",
+      },
+    ]);
+  });
+
+  it("rejects a decode head whose decoder is not the profile's (M07, M11)", async () => {
+    // The reviewer's case: a wsjtx-ft8 decoder reported against a profile the
+    // registry says is decoded by something else, or by nothing at all.
+    const request = relayRequest("fixed");
+    const wrongDecoder = relayResult("relay");
+    ((wrongDecoder.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((wrongDecoder.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      decoderId: "wsjtx-ft4",
+    };
+    expect(
+      (await bind(wrongDecoder, request)).map((issue) => issue.path),
+    ).toEqual(["heads[0].state.value.decoderId"]);
+
+    // The duration is part of the same claim: one FT8 attempt is 15 s.
+    const wrongDuration = relayResult("relay");
+    ((wrongDuration.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((wrongDuration.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      observationSeconds: 7.5,
+    };
+    expect(
+      (await bind(wrongDuration, request)).map((issue) => issue.reason).join(),
+    ).toMatch(
+      /One ft8-wsjtx-2.7.0-15s attempt lasts 15 s, and this head reports 7.5 s/,
+    );
+  });
+
+  it("rejects a decode head whose decoder release is not the profile's (M07, M11)", async () => {
+    // The residual: the registry pinned the decoder and the attempt length but
+    // not the release, so a 2.6.1 decode answered a profile that names 2.7.0.
+    // A decoder is not one algorithm across its releases, and the protocol
+    // conditions the event on the declared decoder AND version.
+    const request = relayRequest("fixed");
+    const result = relayResult("relay");
+    ((result.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((result.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      decoderVersion: "2.6.1",
+    };
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "heads[0].state.value.decoderVersion",
+    ]);
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Mode profile ft8-wsjtx-2\.7\.0-15s is decoded by wsjtx-ft8 2\.7\.0, and this head reports 2\.6\.1/,
+    );
+  });
+
+  it("rejects a decode head scored against another criterion (M07, M11)", async () => {
+    // The cap-round residual: the decoder, its release and the attempt length
+    // were pinned while the success criterion was not, so a probability for
+    // "two decodes in the sequence" answered a request for the profile whose
+    // decode is a single one. The protocol conditions the event on the
+    // declared decoder meeting its criterion, so the criterion is the event.
+    const request = relayRequest("fixed");
+    const result = relayResult("relay");
+    ((result.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((result.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      criterionId: "two_decodes_within_sequence",
+    };
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "heads[0].state.value.criterionId",
+    ]);
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /A decode on ft8-wsjtx-2\.7\.0-15s is single_decode_within_sequence, and this head reports two_decodes_within_sequence/,
+    );
+  });
+
+  it("refuses a decode head on a profile that carries no decoder (M07, M11)", async () => {
+    const request = relayRequest("fixed");
+    request.modeProfileId = "fm-16k0-voice-v1";
+    const result = relayResult("relay");
+    (result.heads as Mutable[])[0].effectiveModeProfileId = "fm-16k0-voice-v1";
+    expect(
+      (await bind(result, request)).map((issue) => issue.reason).join(),
+    ).toMatch(
+      /Mode profile fm-16k0-voice-v1 carries no decoder, so no decode probability is defined for it/,
+    );
+  });
+
+  it("rejects a learned head answering a physics_only request (M11, M19)", async () => {
+    // The residual on the result side: the digest matches, the row is frozen,
+    // and the model that answered is not the kind the caller asked for.
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    const result = boundResult((draft) => {
+      unnamedModel(draft);
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      // A learned head is a head another model served, which is the only way
+      // one result carries two kinds: one artefact has one kind.
+      head.effectiveModelKind = "learned";
+      head.effectiveModelId = "propulse-learned-v1";
+      head.fallbackReason = "requested_model_unavailable";
+    });
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[1].effectiveModelKind",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Model policy physics_only admits physics, and this head was produced by a learned model/,
+    );
+  });
+
+  it("rejects a learned companion head answering a physics_only request (M11, M19)", async () => {
+    // The residual: the kind bound on the target alone, so a physics target
+    // could be served beside a companion head that a learned fallback
+    // produced, and parseResultForRequest handed the caller that value.
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    const result = boundResult((draft) => {
+      unnamedModel(draft);
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "circuit_support",
+      ) as Mutable;
+      head.effectiveModelKind = "observation_assisted";
+      head.effectiveModelId = "propulse-observation-assisted-v1";
+      head.fallbackReason = "requested_model_unavailable";
+    });
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[0].effectiveModelKind",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /Model policy physics_only admits physics, and this head was produced by an? observation_assisted model/,
+    );
+  });
+
+  it("rejects an unavailable target head tagged with another mode profile (M07, M11)", async () => {
+    // A gap is attributed to a population: an FT8 request answered by a gap
+    // that was evaluated on FT4 counts the FT4 gap against FT8 operators.
+    const result = boundResult((draft) => {
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.effectiveModeProfileId = "ft4-wsjtx-2.7.0-7.5s";
+      head.uncertainty = { kind: "none" };
+      head.state = { availability: "unavailable", reason: "no_solar_input" };
+    });
+    const issues = await bind(result);
+    expect(issues.map((issue) => issue.path)).toContain(
+      "heads[1].effectiveModeProfileId",
+    );
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /answers the requested mode profile ft8-wsjtx-2\.7\.0-15s, not ft4-wsjtx-2\.7\.0-7\.5s/,
+    );
+  });
+
+  it("accepts a physics head answering a physics_only request (M11, M19)", async () => {
+    const request = boundRequest((draft) => {
+      (draft.requestedModel as Mutable).policy = "physics_only";
+      (draft.requestedModel as Mutable).modelId = null;
+      (draft.requestedModel as Mutable).modelVersion = null;
+    });
+    expect(await bind(boundResult(unnamedModel), request)).toEqual([]);
+  });
+
+  it("rejects an eme head answering a spacecraft relay (A21, A22)", async () => {
+    // The lunar residual on the result side. Each object is valid on its own:
+    // a lunar Doppler result and a legal earth-space pass request, both with an
+    // orbital relay. Only the body says the pairing is wrong, which is why the
+    // pair has to be bound rather than parsed.
+    const parsedResult = parseResult(dopplerResult(145950000));
+    if (!parsedResult.ok) {
+      throw new Error(
+        `result must parse: ${JSON.stringify(parsedResult.issues)}`,
+      );
+    }
+    const parsedRequest = parseRequest(
+      structuredClone(
+        (requestCases as unknown as Record<string, Mutable>).satellitePass,
+      ),
+    );
+    if (!parsedRequest.ok) throw new Error("request must parse");
+    // No frozen row pairs lunar physics with an earth-space domain, so this
+    // pairing cannot be reached through a target head: the relay body is the
+    // backstop that refuses it, and the row is exercised where it lives.
+    const binding = RESULT_BINDINGS.find(
+      (candidate) => candidate.field === "relayKinds",
+    );
+    expect(binding?.check).toBeTypeOf("function");
+    const reason = binding?.check?.(
+      parsedResult.value.heads[0],
+      parsedRequest.value,
+    );
+    expect(typeof reason === "string" ? reason : "").toMatch(
+      /Mechanism family eme is relayed by moon, not by the spacecraft the request named/,
+    );
+    // And the whole binder still refuses the pair, on the request key.
+    const issues = await bindResult(parsedResult.value, parsedRequest.value);
+    expect(issues.length).toBeGreaterThan(0);
+  });
+
   /** The EME pair the reviewer named: a 145.95 MHz request for a Doppler shift. */
   function dopplerRequest(): Mutable {
     const draft = structuredClone(
@@ -1594,6 +1955,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     draft.relay = {
       kind: "orbital",
       relayId: "moon",
+      body: "moon",
       ephemerisId: "jpl-de440-2026-09-11",
       ephemerisEpoch: "2026-09-11T00:00:00Z",
     };
@@ -1622,6 +1984,7 @@ describe("parseResultForRequest binds a result to its request", () => {
     head.uncertainty = { kind: "none" };
     head.contextId = satellite.contextId;
     head.validAt = satellite.validAt;
+    head.effectiveModeProfileId = satellite.modeProfileId;
     head.state = {
       availability: "available",
       value: {
@@ -1691,19 +2054,17 @@ describe("parseResultForRequest binds a result to its request", () => {
         expect(binding.exemption, `binding for ${field}`).toBeNull();
       }
     }
-    // Every row says whether it survives an unavailable target head, and a row
-    // that reads a value cannot: there is none to read.
+    // Every row says whether it survives an unavailable target head, and the
+    // answer is not a choice: a declared gap is attributed to a request
+    // population, so every check that reads no payload binds the gap too. Only
+    // a row with nothing to check, or one that cannot run without a value, may
+    // decline. Stating it as an equality is what stops a row being written
+    // served-only and quietly dropping the identity it could still have bound.
     for (const binding of RESULT_BINDINGS) {
       expect(
-        typeof binding.onUnavailableTarget,
-        `${binding.field} declares onUnavailableTarget`,
-      ).toBe("boolean");
-      if (binding.check === null || binding.appliesTo === "served") {
-        expect(
-          binding.onUnavailableTarget,
-          `${binding.field} reads a value and cannot bind a gap`,
-        ).toBe(false);
-      }
+        binding.onUnavailableTarget,
+        `${binding.field} binds an unavailable target unless it reads a payload`,
+      ).toBe(binding.check !== null && !binding.readsPayload);
     }
   });
 });

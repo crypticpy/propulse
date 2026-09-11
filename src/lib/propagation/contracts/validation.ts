@@ -66,6 +66,29 @@ export const requestKeyDigestText = trimmed(
     ),
 );
 
+/**
+ * The `schemaVersion` literal a wire shape is tagged with.
+ *
+ * A version bump is a shape change, so a payload tagged with another version
+ * is a different shape and is refused rather than reshaped. The message names
+ * both versions, because "invalid literal" on a root field reads like a typo
+ * and this is the one rejection a caller fixes by upgrading rather than by
+ * correcting a value.
+ */
+export function schemaVersionLiteral<Version extends string>(version: Version) {
+  return z.literal(version, {
+    errorMap: (issue) => {
+      const received =
+        issue.code === "invalid_literal" && typeof issue.received === "string"
+          ? issue.received
+          : "no version";
+      return {
+        message: `This contract is ${version} and the payload is tagged ${received}; a schema version bump is a shape change, so the older payload is refused rather than reshaped (M19)`,
+      };
+    },
+  });
+}
+
 /** More than three fractional-second digits. */
 const SUB_MILLISECOND = /\.\d{4,}/;
 

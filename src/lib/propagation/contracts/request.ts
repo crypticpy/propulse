@@ -36,7 +36,9 @@ import {
   PREDICTION_QUANTITIES,
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
+  ORBITAL_RELAY_BODY,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
+  RELAY_BODIES,
   isProtocolGeometry,
   DOMAIN_GEOMETRY_CLASSES,
   protocolCoverageContainsHz,
@@ -59,6 +61,7 @@ import {
   knownOrUnknown,
   parseWith,
   reject,
+  schemaVersionLiteral,
   type Known,
   type ParseOutcome,
 } from "@/lib/propagation/contracts/validation";
@@ -516,6 +519,12 @@ const relayIdentity = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("orbital"),
       relayId: identifier,
+      /**
+       * A21/A22: the Moon and a spacecraft both come with an element set, and
+       * both parse. Which one it is decides the physics, so the caller names
+       * it and the geometry class it was requested on has to agree.
+       */
+      body: z.enum(RELAY_BODIES),
       ephemerisId: identifier,
       /** Epoch of the element set / ephemeris actually used (A21, A22). */
       ephemerisEpoch: instant,
@@ -587,7 +596,7 @@ const requestScope = z
 
 export const predictionRequestSchema = z
   .object({
-    schemaVersion: z.literal(REQUEST_SCHEMA_VERSION),
+    schemaVersion: schemaVersionLiteral(REQUEST_SCHEMA_VERSION),
     /** Immutable environment/station context identity (M01). */
     contextId: identifier,
     /** UI ownership only: preference and cancellation, never cache identity. */
@@ -768,6 +777,21 @@ export const predictionRequestSchema = z
         ctx,
         ["relay", "kind"],
         `Mechanism family ${value.mechanismPolicy.family} is not served by a relay of kind ${value.relay.kind} (A21)`,
+      );
+    }
+    if (
+      value.relay !== null &&
+      value.relay.kind === "orbital" &&
+      value.relay.body !==
+        ORBITAL_RELAY_BODY[value.mechanismPolicy.geometryClass]
+    ) {
+      // A21/A22: an earth-moon-earth path reflects off the Moon and an
+      // earth-space path is flown by a spacecraft. Accepting either element
+      // set on either geometry lets a cubesat TLE answer a lunar request.
+      reject(
+        ctx,
+        ["relay", "body"],
+        `Geometry class ${value.mechanismPolicy.geometryClass} is relayed by ${ORBITAL_RELAY_BODY[value.mechanismPolicy.geometryClass] ?? "no orbiting body"}, not by ${value.relay.body}`,
       );
     }
     if (

@@ -5,13 +5,16 @@ import {
   parseResult,
   payloadCarrierFields,
   payloadFieldNames,
+  PAYLOAD_FIELD_OWNERSHIP,
   PAYLOAD_FREQUENCY_FIELDS,
+  profileOwnedFields,
 } from "@/lib/propagation/contracts/result";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import { parseCapability } from "@/lib/propagation/contracts/capability";
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
   INTERVAL_VALUED_QUANTITIES,
+  MODE_PROFILE_REGISTRY,
   PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
@@ -257,6 +260,17 @@ describe("parseResult fixtures", () => {
 });
 
 describe("parseResult fails closed", () => {
+  it("rejects a result tagged with an older schema version (M19)", () => {
+    // 0.2.0 made every head echo the kind of model that produced it and the
+    // mode profile it was evaluated on. A 0.1.0 result carries neither, and
+    // defaulting them would invent the two facts the binder checks.
+    const bad = candidate("fullHfCircuit");
+    bad.schemaVersion = "propagation-result-0.1.0";
+    expect(reasonsAt(bad, "schemaVersion").join()).toMatch(
+      /This contract is propagation-result-0\.2\.0 and the payload is tagged propagation-result-0\.1\.0; a schema version bump is a shape change/,
+    );
+  });
+
   it("rejects non-objects and an empty head list without throwing", () => {
     expect(parseResult(null).ok).toBe(false);
     const empty = candidate("fullHfCircuit");
@@ -983,6 +997,8 @@ describe("parseResult fails closed", () => {
       validAt: bad.validAt,
       effectiveModelId: "propulse-physics-v1",
       effectiveModelVersion: "1.0.0",
+      effectiveModelKind: "physics",
+      effectiveModeProfileId: "ft8-wsjtx-2.7.0-15s",
       modelHash: MODEL_HASH,
       preprocessingHash: PREPROCESSING_HASH,
       featureHash: FEATURE_HASH,
@@ -1026,6 +1042,28 @@ describe("parseResult fails closed", () => {
     expect(reasonsAt(bad, "heads[0].state.value.losAt").join()).toMatch(
       /must follow acquisition/,
     );
+  });
+
+  it("gives one effective model one kind across the heads it served (M11, M19)", () => {
+    // The residual: the kind sits on the head, so two heads naming the same
+    // model id and version could disagree about what that model is, and each
+    // head is admissible on its own. A learned answer would then ride into an
+    // auto or named result behind a physics identity.
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").effectiveModelKind = "learned";
+    expect(reasonsAt(bad, "heads[1].effectiveModelKind").join()).toMatch(
+      /Model propulse-physics-v1 1\.0\.0 is a physics model at heads\[0\]\.effectiveModelKind and a learned model here; one model artefact has one kind \(M11, M19\)/,
+    );
+
+    // The same two kinds are legitimate when they are two models, which is
+    // what a fallback is; the head then names its own reason.
+    const fallback = candidate("fullHfCircuit");
+    const head = headFor(fallback, "snr2500");
+    head.effectiveModelKind = "learned";
+    head.effectiveModelId = "propulse-learned-v1";
+    head.fallbackReason = "requested_model_unavailable";
+    const outcome = parseResult(fallback);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("requires a fallback reason when only the head's model version differs (M19)", () => {
@@ -1799,6 +1837,41 @@ describe("parseResult fails closed", () => {
     coverage.exclusionReason = null;
     const outcome = parseResult(bad.result);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("gives every payload field exactly one owner (M07, M11, M19)", () => {
+    // The structural guarantee behind the decode residual: a field nobody
+    // classified is a field a head may set freely while answering somebody
+    // else's question. The criterion escaped that way, so the question is now
+    // asked of every field of every quantity, once.
+    for (const quantity of PREDICTION_QUANTITIES) {
+      const owned = PAYLOAD_FIELD_OWNERSHIP[quantity];
+      const fields = payloadFieldNames(quantity);
+      expect(
+        owned.map((entry) => entry.field).sort(),
+        `${quantity} payload fields`,
+      ).toEqual([...fields].sort());
+      for (const entry of owned) {
+        expect(entry.note, `note for ${quantity}.${entry.field}`).toMatch(/\w/);
+      }
+    }
+  });
+
+  it("registers every profile-owned field it claims to pin (M07, M11)", () => {
+    // A profile-owned field is bound by equality against the registry, so the
+    // registry has to carry a value of that name for every profile that can
+    // be routed to. Naming the link here is what stops the table saying
+    // "profile" while the registry knows nothing about the field.
+    for (const quantity of PREDICTION_QUANTITIES) {
+      for (const field of profileOwnedFields(quantity)) {
+        for (const entry of MODE_PROFILE_REGISTRY) {
+          expect(
+            Object.prototype.hasOwnProperty.call(entry, field),
+            `${entry.profileId} registers ${field}`,
+          ).toBe(true);
+        }
+      }
+    }
   });
 
   it("classifies every frequency a payload can carry (M02, M11)", () => {

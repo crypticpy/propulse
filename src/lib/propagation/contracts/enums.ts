@@ -158,6 +158,62 @@ export type RelayKind = "orbital" | "fixed";
  * no relay leg of its own. Every other family is a direct path and admits no
  * relay at all.
  */
+/**
+ * A21/A22: which body an orbital relay is. An element set parses the same way
+ * for a cubesat and for the Moon, so "orbital" alone lets an earth-moon-earth
+ * request be answered from a spacecraft TLE and a satellite request from a
+ * lunar ephemeris. The body is what the two cases actually differ by, so it is
+ * declared rather than inferred.
+ */
+export const RELAY_BODIES = ["moon", "spacecraft"] as const;
+export type RelayBody = (typeof RELAY_BODIES)[number];
+
+/**
+ * The body an orbital relay must be for each geometry class, or null where the
+ * geometry admits no orbital relay at all. Earth-moon-earth reflects off the
+ * Moon by definition; an earth-space path and the orbital form of a two-leg
+ * relay circuit are both flown by a spacecraft.
+ */
+export const ORBITAL_RELAY_BODY: Record<GeometryClass, RelayBody | null> = {
+  terrestrial_great_circle: null,
+  ground_wave: null,
+  bistatic_scatter: null,
+  waveguide_mode: null,
+  two_leg_relay: "spacecraft",
+  earth_space: "spacecraft",
+  earth_moon_earth: "moon",
+};
+
+/**
+ * The bodies each mechanism family may answer over. A family that admits no
+ * orbital relay declares an empty list, which is also what makes a mismatched
+ * pair refusable on the capability side: `eme` physics is lunar, and satellite
+ * physics is not.
+ */
+export const ORBITAL_RELAY_BODIES_BY_MECHANISM: Record<
+  MechanismFamily,
+  readonly RelayBody[]
+> = {
+  aircraft_scatter: [],
+  atmospheric_los: [],
+  aurora: [],
+  eme: ["moon"],
+  es: [],
+  event_head: [],
+  f2_daytime: [],
+  ground_sky_coherent: [],
+  groundwave: [],
+  meteor: [],
+  rain_scatter: [],
+  refractivity_pe: [],
+  regular_ef: [],
+  relay: [],
+  satellite: ["spacecraft"],
+  tep_evening: [],
+  terrain_troposphere: [],
+  waveguide: [],
+};
+
 export const PERMITTED_RELAY_KINDS_BY_MECHANISM: Record<
   MechanismFamily,
   readonly RelayKind[]
@@ -1348,6 +1404,133 @@ export type SourceMode = (typeof SOURCE_MODES)[number];
 export const MODEL_POLICIES = ["auto", "named", "physics_only"] as const;
 export type ModelPolicy = (typeof MODEL_POLICIES)[number];
 
+/**
+ * M11/M19: what a model is made of, declared by the model rather than inferred
+ * from its name. `physics` is a deterministic forward calculation with no
+ * fitted parameters; `learned` has parameters fitted to data; and
+ * `observation_assisted` is a calculation that assimilates current
+ * observations, which is neither pure physics nor a fitted model and behaves
+ * differently when its observations are missing.
+ */
+export const MODEL_KINDS = [
+  "physics",
+  "learned",
+  "observation_assisted",
+] as const;
+export type ModelKind = (typeof MODEL_KINDS)[number];
+
+/**
+ * The model kinds each request policy admits.
+ *
+ * - `auto` delegates the choice, so every kind is admissible.
+ * - `named` pins one model by id and version; whatever kind that model is, the
+ *   caller asked for that model, and the provenance binding already refuses a
+ *   different one.
+ * - `physics_only` is the narrowing one: a caller who asks for physics is
+ *   asking for a calculation with no fitted parameters and no assimilated
+ *   observations, so neither of the other kinds may answer.
+ *
+ * A policy narrows to the whole vocabulary or to exactly one kind; routing
+ * matches this dimension by membership over a declaration that names a single
+ * kind, and `capability.test.ts` fails if a policy is written to admit some
+ * other subset.
+ */
+export const MODEL_KINDS_BY_POLICY: Record<ModelPolicy, readonly ModelKind[]> =
+  {
+    auto: MODEL_KINDS,
+    named: MODEL_KINDS,
+    physics_only: ["physics"],
+  };
+
+/**
+ * M07/M11: the mode profiles a request may name, and what each one actually
+ * is. A profile id is otherwise an opaque string, which is how a decode head
+ * reporting a WSJT-X decoder could answer a request for an FM voice profile:
+ * nothing in the contract said the two were different.
+ *
+ * A profile that carries a decoder names it and the duration of one decode
+ * attempt, which is what a `conditional_decode` payload has to agree with. A
+ * voice profile carries neither, and therefore no decode head can answer it.
+ *
+ * This is the minimal registry the contracts need to check the claims they
+ * already carry. It is deliberately a table and not a service: the binder is
+ * offline and pure. A richer profile catalogue (audio bandwidths, symbol
+ * rates, per-version decoder behaviour) belongs to the mode layer, and the
+ * seam is this table: the mode layer owns the catalogue and publishes these
+ * three fields per profile.
+ */
+export interface ModeProfileEntry {
+  readonly profileId: string;
+  /** The decoder a decode head must report, or null for a voice profile. */
+  readonly decoderId: string | null;
+  /**
+   * The decoder release the profile is defined by, or null for a voice
+   * profile. A decoder is not one algorithm across its releases: the profile
+   * id names the release for that reason, and a head decoded by another one
+   * answers a different profile however its identifier reads. The frozen
+   * protocol says the same in its conditional_decode definition: "Declared
+   * decoder/version meets its criterion within observation duration"
+   * (ml/propagation_validation/protocol-v0.1.json, events.conditional_decode).
+   * The release itself is read off the profile id, which carries it.
+   */
+  readonly decoderVersion: string | null;
+  /** The length of one decode attempt in seconds, null where there is none. */
+  readonly observationSeconds: number | null;
+  /**
+   * What counts as a decode on this profile, null for a voice profile. The
+   * protocol conditions the event on the declared decoder and version meeting
+   * "its criterion within observation duration", so the criterion is part of
+   * the event and not of the calibration that scores it: two heads scoring
+   * different criteria are answering different questions however close their
+   * probabilities read. The threshold that criterion is met at is a
+   * calibration output and is deliberately not registered here.
+   */
+  readonly criterionId: string | null;
+  readonly note: string;
+}
+
+export const MODE_PROFILE_REGISTRY: readonly ModeProfileEntry[] = [
+  {
+    profileId: "ft8-wsjtx-2.7.0-15s",
+    decoderId: "wsjtx-ft8",
+    decoderVersion: "2.7.0",
+    observationSeconds: 15,
+    criterionId: "single_decode_within_sequence",
+    note: "FT8 as decoded by WSJT-X 2.7.0: one 15 s transmit/receive sequence per attempt. The criterion is the one the result fixture's FT8 decode head reports: a single decode within the sequence.",
+  },
+  {
+    profileId: "ft4-wsjtx-2.7.0-7.5s",
+    decoderId: "wsjtx-ft4",
+    decoderVersion: "2.7.0",
+    observationSeconds: 7.5,
+    criterionId: "single_decode_within_sequence",
+    note: "FT4 as decoded by WSJT-X 2.7.0: a 7.5 s sequence, which is a different event from FT8. Same criterion, scored within its own shorter sequence.",
+  },
+  {
+    profileId: "fm-voice-12k5",
+    decoderId: null,
+    decoderVersion: null,
+    observationSeconds: null,
+    criterionId: null,
+    note: "Narrow FM voice. There is no decoder, so no decode probability is defined for it.",
+  },
+  {
+    profileId: "fm-16k0-voice-v1",
+    decoderId: null,
+    decoderVersion: null,
+    observationSeconds: null,
+    criterionId: null,
+    note: "16 kHz FM voice through a repeater. As above: audible or not, never decoded.",
+  },
+];
+
+/** The registry entry for a profile id, or null when it is not registered. */
+export function modeProfileEntry(profileId: string): ModeProfileEntry | null {
+  return (
+    MODE_PROFILE_REGISTRY.find((entry) => entry.profileId === profileId) ?? null
+  );
+}
+
 /** M06 great-circle leg. */
 export const ROUTE_LEGS = ["short", "long"] as const;
 export type RouteLeg = (typeof ROUTE_LEGS)[number];
@@ -1484,10 +1667,25 @@ export type CovarianceOwnership = (typeof COVARIANCE_OWNERSHIP)[number];
 /** M10 reference bandwidth for SNR2500 and any reported noise floor. */
 export const REFERENCE_BANDWIDTH_HZ = 2500;
 
-/** Schema identifiers. Bump with any breaking shape change. */
-export const REQUEST_SCHEMA_VERSION = "propagation-request-0.1.0";
-export const RESULT_SCHEMA_VERSION = "propagation-result-0.1.0";
-export const CAPABILITY_SCHEMA_VERSION = "propagation-capability-0.1.0";
+/**
+ * Schema identifiers. Bump with any breaking shape change.
+ *
+ * 0.2.0 adds a required field to each of the three wire shapes and is
+ * therefore not readable as 0.1.0: the request carries the body an orbital
+ * relay is (`relay.body`), the capability declares the kind of model that
+ * produced it (`modelKind`), and a result head echoes the kind and the mode
+ * profile it was evaluated on (`effectiveModelKind`,
+ * `effectiveModeProfileId`). A 0.1.0 payload cannot supply them and a 0.1.0
+ * reader cannot see them, so the version is refused rather than defaulted.
+ *
+ * These identify the contract shape, not the science. `ALIGNED_PROTOCOL_ID`
+ * below is a different axis: it names the frozen protocol revision whose
+ * coverage rows these contracts are checked against, and that revision is
+ * unchanged by a wire-shape bump.
+ */
+export const REQUEST_SCHEMA_VERSION = "propagation-request-0.2.0";
+export const RESULT_SCHEMA_VERSION = "propagation-result-0.2.0";
+export const CAPABILITY_SCHEMA_VERSION = "propagation-capability-0.2.0";
 
 /** The protocol revision these contracts are aligned against. */
 export const ALIGNED_PROTOCOL_ID = "propagation-candidate-0.1.0";

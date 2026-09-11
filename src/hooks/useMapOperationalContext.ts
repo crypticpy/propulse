@@ -4,6 +4,10 @@ import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
+import {
+  useContestUIEphemeralStore,
+  type DockTabIntent,
+} from "@/stores/contestUIEphemeralStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
@@ -18,6 +22,13 @@ import {
   type MapDataScope,
 } from "@/lib/map/operationalScope";
 import { resolveMapPolicyScope } from "@/lib/map/contactMapPolicy";
+import { WORKSPACE_CHANNEL } from "@/lib/map/workspaceChannel";
+import { refreshOperatingPopoutLiveness } from "@/lib/workspace/operatingPopout";
+import {
+  normalizeContestUiState,
+  normalizeDockTabIntent,
+  normalizeOperationalState,
+} from "@/lib/map/workspaceSyncPayload";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 
 export interface MapOperationalContext {
@@ -37,6 +48,11 @@ export function useMapOperationalContext(): MapOperationalContext {
   const qsoDraftCallsign = useQSOStore((state) => state.form.callsign);
   const manualScope = useMapOperationalStore((state) => state.manualScope);
   const workspaceOpen = useMapOperationalStore((state) => state.workspaceOpen);
+  // A popout this window opened is operating too, even though the inline dock
+  // is shut (#884 round 15).
+  const workspacePopoutOpen = useMapOperationalStore(
+    (state) => state.workspacePopoutOpen,
+  );
   const opsPosture = useOpsPostureStore((state) => state.posture);
   const contestSessionId = activeSession?.id ?? null;
   const storedAssistance = useContestUIStore((state) =>
@@ -53,7 +69,8 @@ export function useMapOperationalContext(): MapOperationalContext {
   const stationOperationActive =
     rigConnected ||
     wsjtxConnected ||
-    (workspaceOpen && qsoDraftCallsign.trim().length > 0);
+    ((workspaceOpen || workspacePopoutOpen) &&
+      qsoDraftCallsign.trim().length > 0);
   const automaticScope = deriveMapDataScope({
     manualScope: null,
     contestActive: Boolean(activeSession),
@@ -100,9 +117,19 @@ export function useScopedMapLayers() {
 }
 
 type WorkspaceSnapshot = {
+  /**
+   * `workspaceOpen` is deliberately absent (#884 round 12). It is per-window UI
+   * state — the popout *is* the workspace, so its flag is true by
+   * construction, while the main window's flag describes its own inline panel.
+   * Syncing it let one window's value overwrite the other's, which moved the
+   * receiving window's derived scope (`workspaceOpen && draft callsign` is a
+   * `stationOperationActive` term) and undid a popout's startup state on the
+   * handshake reply. Nothing reads another window's value: the only consumer
+   * is this hook's own scope derivation.
+   */
   operational: Pick<
     ReturnType<typeof useMapOperationalStore.getState>,
-    "manualScope" | "workspaceOpen" | "selectedReport"
+    "manualScope" | "selectedReport"
   >;
   qso: Pick<
     ReturnType<typeof useQSOStore.getState>,
@@ -123,7 +150,19 @@ type WorkspaceSnapshot = {
     | "draftSelectionBySessionId"
     | "draftUpdatedAtBySessionId"
     | "publicAssistanceBySessionId"
-  >;
+  > & {
+    /**
+     * The operator's explicit dock-tab choice travels with the tab it explains
+     * (#884 round 6). Without it the receiving window sees only the tab plus
+     * the scope change the click caused, has no intent, and reconciles the
+     * shared tab straight back. It carries the scope it is paired with, so the
+     * receiver can tell the transition the click explains from any other one
+     * (#884 round 7). Since round 14 it rides in the same message as that
+     * scope change and lives only until the receiver's next reconciler run.
+     * Ephemeral in both windows, never persisted.
+     */
+    dockTabIntent: DockTabIntent | null;
+  };
 };
 
 type WorkspaceDomain = keyof WorkspaceSnapshot;
@@ -139,15 +178,42 @@ const WORKSPACE_DOMAINS: readonly WorkspaceDomain[] = [
 
 type WorkspaceMessage =
   | { kind: "request"; sender: string }
+  /**
+   * A `/map/ops` popout is going away (#884 round 15). Additive: a receiver
+   * that does not know this kind falls through the `kind !== "snapshot"` guard
+   * and ignores it, and the opener's `handle.closed` check on focus still
+   * clears liveness — so this does not change the meaning of any field and
+   * does not need a channel bump.
+   */
+  | { kind: "popout-closed" }
   | {
       kind: "snapshot";
       sender: string;
-      domain: WorkspaceDomain;
       revision: number;
-      state: WorkspaceSnapshot[WorkspaceDomain];
+      /**
+       * Every domain one publish produced, in one message (#884 round 14). The
+       * domains of a single change used to go out as separate messages, and a
+       * BroadcastChannel delivers each in its own task — so the receiver ran
+       * its effects between them and saw the dock tab before the scope change
+       * that explains it. One message is one task is one effect pass.
+       */
+      domains: Partial<WorkspaceSnapshot>;
     };
 
-const WORKSPACE_CHANNEL = "propulse-operating-workspace-v2";
+// The channel name and its bump rule live in `@/lib/map/workspaceChannel`, so
+// the popout-liveness module can open the same wire without importing this
+// hook (#884 round 15). Re-exported here because that is where every existing
+// caller and test reads it from.
+export { WORKSPACE_CHANNEL };
+
+/**
+ * Only a *stamped* intent means anything to another window: an unstamped one
+ * has no scope to pair with there, and the stamp follows in the same task.
+ */
+function stampedDockTabIntent(): DockTabIntent | null {
+  const intent = useContestUIEphemeralStore.getState().dockTabIntent;
+  return intent !== null && intent.scope !== null ? intent : null;
+}
 
 function createWorkspaceSnapshot(): WorkspaceSnapshot {
   const operational = useMapOperationalStore.getState();
@@ -159,7 +225,6 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
   return {
     operational: {
       manualScope: operational.manualScope,
-      workspaceOpen: operational.workspaceOpen,
       selectedReport: operational.selectedReport,
     },
     qso: { form: qso.form, operatingMode: qso.operatingMode },
@@ -177,6 +242,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       draftSelectionBySessionId: contestUi.draftSelectionBySessionId,
       draftUpdatedAtBySessionId: contestUi.draftUpdatedAtBySessionId,
       publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
+      dockTabIntent: stampedDockTabIntent(),
     },
   };
 }
@@ -198,10 +264,12 @@ export function useOperationalWorkspaceSync(): void {
     let publishQueued = false;
     let nextRevision = 0;
     const pendingDomains = new Set<WorkspaceDomain>();
-    const receivedRevisions = new Map<
-      string,
-      Map<WorkspaceDomain, number>
-    >();
+    // The local reconciler stamps and then clears the dock-tab intent in its
+    // effects, which run before the microtask that publishes. Latch the stamped
+    // intent so the outgoing message still carries it to the other window
+    // (#884 rounds 6 and 7).
+    let pendingDockTabIntent: DockTabIntent | null = null;
+    const receivedRevisions = new Map<string, number>();
 
     const publish = (...domains: WorkspaceDomain[]) => {
       if (disposed || applyingRemote) return;
@@ -216,17 +284,28 @@ export function useOperationalWorkspaceSync(): void {
         }
         if (pendingDomains.size === 0) return;
         const snapshot = createWorkspaceSnapshot();
-        const domainsToPublish = [...pendingDomains];
-        pendingDomains.clear();
-        for (const domain of domainsToPublish) {
-          channel.postMessage({
-            kind: "snapshot",
-            sender,
-            domain,
-            revision: ++nextRevision,
-            state: snapshot[domain],
-          } satisfies WorkspaceMessage);
+        if (pendingDockTabIntent !== null) {
+          snapshot.contestUi = {
+            ...snapshot.contestUi,
+            dockTabIntent: pendingDockTabIntent,
+          };
+          pendingDockTabIntent = null;
         }
+        // One message for the whole batch: the receiver must apply the dock
+        // tab, the intent that explains it and the scope change it is paired
+        // with in a single task, or its reconciler runs in between and judges
+        // the tab against a scope that has not moved yet (#884 round 14).
+        const domains: Partial<WorkspaceSnapshot> = {};
+        for (const domain of pendingDomains) {
+          domains[domain] = snapshot[domain] as never;
+        }
+        pendingDomains.clear();
+        channel.postMessage({
+          kind: "snapshot",
+          sender,
+          revision: ++nextRevision,
+          domains,
+        } satisfies WorkspaceMessage);
       });
     };
 
@@ -236,9 +315,10 @@ export function useOperationalWorkspaceSync(): void {
     // target, draft, or selected report did not change.
     const subscriptions = [
       useMapOperationalStore.subscribe((state, previous) => {
+        // `workspaceOpen` is per-window and not on the wire (#884 round 12),
+        // so a change to it publishes nothing.
         if (
           state.manualScope !== previous.manualScope ||
-          state.workspaceOpen !== previous.workspaceOpen ||
           state.selectedReport !== previous.selectedReport
         ) {
           publish("operational");
@@ -282,61 +362,104 @@ export function useOperationalWorkspaceSync(): void {
           publish("contestUi");
         }
       }),
+      // The explicit dock-tab marker lives in the ephemeral store but belongs
+      // to the same domain as the tab it explains, so it rides the same
+      // message and cannot arrive after it.
+      useContestUIEphemeralStore.subscribe((state, previous) => {
+        if (state.dockTabIntent === previous.dockTabIntent) return;
+        // Only a locally produced intent may populate the latch (#884 round 8,
+        // Codex P1). `publish` checks `applyingRemote`, but the assignment
+        // below happens first, so a remote apply used to leave the intent
+        // latched; the next local publish sent it back to the window it came
+        // from, which consumed it and published again — an endless ping-pong
+        // after any cross-window tab click.
+        if (applyingRemote) return;
+        // Only a stamped intent is worth sending, and a clear carries nothing
+        // a peer can use (a remote null never clears a held intent), so those
+        // transitions publish nothing at all.
+        if (state.dockTabIntent === null || state.dockTabIntent.scope === null) {
+          return;
+        }
+        pendingDockTabIntent = state.dockTabIntent;
+        publish("contestUi");
+      }),
     ];
 
     channel.onmessage = (event: MessageEvent<WorkspaceMessage>) => {
       const message = event.data;
-      if (!message || message.sender === sender) return;
+      if (!message) return;
+      if (message.kind === "popout-closed") {
+        // The message is only the moment to look: a reload posts it too, and
+        // there the handle is still open, so liveness (and the scope) hold.
+        refreshOperatingPopoutLiveness();
+        return;
+      }
+      if (message.sender === sender) return;
       if (message.kind === "request") {
         publish(...WORKSPACE_DOMAINS);
         return;
       }
       if (
         message.kind !== "snapshot" ||
-        !WORKSPACE_DOMAINS.includes(message.domain) ||
         !Number.isFinite(message.revision) ||
-        !message.state
+        !message.domains
       ) {
         return;
       }
 
-      const senderRevisions =
-        receivedRevisions.get(message.sender) ??
-        new Map<WorkspaceDomain, number>();
-      const receivedRevision = senderRevisions.get(message.domain) ?? -1;
-      if (message.revision <= receivedRevision) return;
-      senderRevisions.set(message.domain, message.revision);
-      receivedRevisions.set(message.sender, senderRevisions);
+      // Revisions are monotonic per sender and a batch carries everything that
+      // sender had pending, so one counter per sender is enough.
+      const lastRevision = receivedRevisions.get(message.sender) ?? -1;
+      if (message.revision <= lastRevision) return;
+      receivedRevisions.set(message.sender, message.revision);
 
       applyingRemote = true;
       try {
-        // Apply one domain at a time so editing a QSO draft can never replay a
-        // stale contest session, target, or UI snapshot from another window.
-        switch (message.domain) {
-          case "operational":
-            useMapOperationalStore.setState(
-              message.state as WorkspaceSnapshot["operational"],
-            );
-            break;
-          case "qso":
-            useQSOStore.setState(message.state as WorkspaceSnapshot["qso"]);
-            break;
-          case "map":
-            useMapStore.setState(message.state as WorkspaceSnapshot["map"]);
-            break;
-          case "dx":
-            useDXStore.setState(message.state as WorkspaceSnapshot["dx"]);
-            break;
-          case "contest":
-            useContestStore.setState(
-              message.state as WorkspaceSnapshot["contest"],
-            );
-            break;
-          case "contestUi":
-            useContestUIStore.setState(
-              message.state as WorkspaceSnapshot["contestUi"],
-            );
-            break;
+        // Apply in a fixed order inside the one task, so editing a QSO draft
+        // can never replay a stale contest session, target, or UI snapshot
+        // from another window, and so the dock tab and the intent that
+        // explains it land before the reconciler's single run at the end.
+        for (const domain of WORKSPACE_DOMAINS) {
+          const state = message.domains[domain];
+          if (state === undefined) continue;
+          switch (domain) {
+            case "operational":
+              // Mixed-version windows are the normal state during a deploy, so
+              // every field is validated before it is stored (#884 round 8).
+              useMapOperationalStore.setState(normalizeOperationalState(state));
+              break;
+            case "qso":
+              useQSOStore.setState(state as WorkspaceSnapshot["qso"]);
+              break;
+            case "map":
+              useMapStore.setState(state as WorkspaceSnapshot["map"]);
+              break;
+            case "dx":
+              useDXStore.setState(state as WorkspaceSnapshot["dx"]);
+              break;
+            case "contest":
+              useContestStore.setState(state as WorkspaceSnapshot["contest"]);
+              break;
+            case "contestUi": {
+              // A window on a bundle that predates the intent sends a payload
+              // without the field at all: `normalizeDockTabIntent` turns that
+              // (and any other malformed value) into null rather than storing
+              // an `undefined` the reconciler would dereference (#884 r8).
+              const intent = normalizeDockTabIntent(
+                (state as Record<string, unknown>).dockTabIntent,
+              );
+              // A null never clears a locally held intent: the sending window
+              // clears its own copy as soon as it consumes it, and that later
+              // message would otherwise strip an intent this window has not
+              // had a run to act on yet (#884 round 7). The reconciler's own
+              // one-run lifetime is the only thing that releases it.
+              if (intent !== null) {
+                useContestUIEphemeralStore.setState({ dockTabIntent: intent });
+              }
+              useContestUIStore.setState(normalizeContestUiState(state));
+              break;
+            }
+          }
         }
       } finally {
         applyingRemote = false;
@@ -344,7 +467,15 @@ export function useOperationalWorkspaceSync(): void {
     };
 
     channel.postMessage({ kind: "request", sender } satisfies WorkspaceMessage);
+    // A popout killed by the browser sends nothing at all, and a real close
+    // often has not flipped `closed` yet when its `pagehide` message arrives —
+    // but focus comes back to this window either way (#884 round 15).
+    const recheckPopout = () => refreshOperatingPopoutLiveness();
+    window.addEventListener("focus", recheckPopout);
+    document.addEventListener("visibilitychange", recheckPopout);
     return () => {
+      window.removeEventListener("focus", recheckPopout);
+      document.removeEventListener("visibilitychange", recheckPopout);
       disposed = true;
       for (const unsubscribe of subscriptions) unsubscribe();
       channel.close();

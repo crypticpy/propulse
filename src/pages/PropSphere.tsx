@@ -139,6 +139,7 @@ import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
+import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import {
   useMapOperationalContext,
@@ -235,7 +236,6 @@ export function PropSphere() {
   const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
-  const setContestDockTab = useContestUIStore((s) => s.setDockTab);
   const operationalContext = useMapOperationalContext();
   const showPublicActivity = policyAllows(
     operationalContext.policy,
@@ -254,19 +254,11 @@ export function PropSphere() {
   useOperationalWorkspaceSync();
 
   // Restore the relevant tab without opening the console on route entry.
-  // Explicit scope changes and workspace actions own expansion.
-  useEffect(() => {
-    if (operationalContext.scope === "observe") return;
-    const dockKey = contestSessionId ?? "no-session";
-    setContestDockTab(
-      dockKey,
-      operationalContext.scope === "contest" ? "contest" : "log",
-    );
-  }, [
-    contestSessionId,
-    operationalContext.scope,
-    setContestDockTab,
-  ]);
+  // Explicit scope changes and workspace actions own expansion. This page is
+  // the single owner of that reconciliation (#884 round 4): it runs whether or
+  // not the console is expanded, and `OpsConsole` no longer keeps a rule of
+  // its own that this one would overwrite.
+  useDockTabReconciler();
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });

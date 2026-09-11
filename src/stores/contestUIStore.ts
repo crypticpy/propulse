@@ -11,6 +11,18 @@ import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 
 export type OpsDockTab = "dx" | "log" | "contest";
 
+/**
+ * Dock key used while no contest session is active. The dock tab is stored per
+ * session, and the pre-session dock is a real dock with its own tab (#884), so
+ * everything that reads or writes it has to agree on this one spelling.
+ */
+export const NO_SESSION_DOCK_KEY = "no-session";
+
+/** The `dockTabBySessionId` key for a session id that may be absent. */
+export function dockKeyForSession(sessionId: string | null | undefined): string {
+  return sessionId ?? NO_SESSION_DOCK_KEY;
+}
+
 export interface DraftSelection {
   start: number;
   end: number;

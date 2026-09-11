@@ -112,25 +112,57 @@ export function useSpotsPreferences(
     [view],
   );
 
+  const currentSpots = useCallback(
+    () => view.store.getState().config.spots,
+    [view],
+  );
+
   const patchFilters = useCallback(
     (patch: Partial<SpotFilterPreferences>) => {
-      writeSpots({ ...config.spots, filters: { ...config.spots.filters, ...patch } });
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      writeSpots({ ...spots, filters: { ...spots.filters, ...patch } });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const patchGrouping = useCallback(
     (patch: Partial<GroupingPreferences>) => {
-      writeSpots({ ...config.spots, grouping: { ...config.spots.grouping, ...patch } });
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      writeSpots({ ...spots, grouping: { ...spots.grouping, ...patch } });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const patchPaths = useCallback(
     (patch: Partial<PathPreferences>) => {
-      writeSpots({ ...config.spots, paths: { ...config.spots.paths, ...patch } });
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      const paths = spots.paths;
+      writeSpots({
+        ...spots,
+        paths: {
+          ...paths,
+          ...patch,
+          ...(patch.background
+            ? { background: { ...paths.background, ...patch.background } }
+            : {}),
+          ...(patch.selected !== undefined
+            ? {
+                selected:
+                  patch.selected === null
+                    ? null
+                    : {
+                        ...(paths.selected ?? paths.background),
+                        ...patch.selected,
+                      },
+              }
+            : {}),
+        },
+      });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const setFollowRadio = useCallback(
@@ -142,8 +174,10 @@ export function useSpotsPreferences(
   );
 
   const clearFilters = useCallback(() => {
-    writeSpots({ ...config.spots, filters: defaultFilters() });
-  }, [config.spots, writeSpots]);
+    if (view.isDisposed()) return;
+    const spots = currentSpots();
+    writeSpots({ ...spots, filters: defaultFilters() });
+  }, [currentSpots, view, writeSpots]);
 
   const previewPreset = useCallback(
     (recipe: PresetRecipe): ApplyPresetResult =>

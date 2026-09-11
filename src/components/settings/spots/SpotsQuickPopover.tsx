@@ -5,6 +5,7 @@ import {
   MODE_CATEGORIES,
   SPOT_FILTER_BANDS,
   categoryState,
+  isAllModesSelected,
   selectAllModes,
   summarizeFilters,
   toggleModeCategory,
@@ -105,6 +106,8 @@ export function SpotsQuickPopover({
   if (!open) return null;
 
   const { spots, customization } = controller;
+  const modes = spots.filters.modes;
+  const allModes = isAllModesSelected(modes);
   const activeRecipe = listActivityRecipes().find((recipe) => recipe.id === customization.presetId);
   return createPortal(
     <div
@@ -122,21 +125,21 @@ export function SpotsQuickPopover({
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            aria-pressed={spots.filters.modes.all}
-            onClick={() => controller.patchFilters({ modes: selectAllModes(spots.filters.modes) })}
-            className={`${CHIP} ${spots.filters.modes.all ? CHIP_ON : CHIP_OFF}`}
+            aria-pressed={allModes}
+            onClick={() => controller.patchFilters({ modes: selectAllModes(modes) })}
+            className={`${CHIP} ${allModes ? CHIP_ON : CHIP_OFF}`}
           >
             All
           </button>
           {MODE_CATEGORIES.map(({ key, label }) => {
-            const state = categoryState(spots.filters.modes, key);
+            const state = categoryState(modes, key);
             return (
               <button
                 key={key}
                 type="button"
                 aria-pressed={state === "on"}
                 onClick={() =>
-                  controller.patchFilters({ modes: toggleModeCategory(spots.filters.modes, key) })
+                  controller.patchFilters({ modes: toggleModeCategory(modes, key) })
                 }
                 className={`${CHIP} ${state === "off" ? CHIP_OFF : CHIP_ON}`}
               >

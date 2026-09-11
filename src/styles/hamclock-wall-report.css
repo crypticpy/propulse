@@ -1471,9 +1471,15 @@ a.hca-row:focus-visible {
 .hcr-forecast-legend { display: flex; gap: 1vw; font: 1.3vh var(--hc-font-mono); color: var(--hc-dim); }
 .hcr-forecast-hour { display: flex; gap: 1vw; font: 1.3vh var(--hc-font-mono); color: var(--hc-dim); }
 .hcr-forecast-hour input { flex: 1; }
-.hcr-forecast-grid { display: grid; grid-template-columns: minmax(3em, 1.5fr) repeat(24, minmax(44px, 1fr)); gap: 0.12vw; color: var(--hc-fg); font: max(1.1vh, 12px) var(--hc-font-mono); }
+.hcr-forecast-grid { display: grid; grid-template-columns: minmax(3em, 1.5fr) repeat(24, minmax(max(44px, 2.8vh), 1fr)); gap: 0.12vw; color: var(--hc-fg); font: 1.4vh / 1.2 var(--hc-font-mono); }
+.hcr-forecast-grid-hour,
+.hcr-forecast-grid-band { white-space: nowrap; overflow: visible; }
+.hcr-forecast-grid-hour { text-align: center; }
+.hcr-forecast-grid-band { text-align: left; }
 .hcr-forecast-grid button { min-height: max(3vh, 44px); border: 1px solid var(--hc-line); background: transparent; }
 .hcr-forecast-grid button[aria-pressed="true"] { outline: 2px solid var(--hc-accent); }
+.hcr:has(.hcr-forecast-plot) .hcr-forecast-model { flex: 0 0 auto; padding: 0.4vh 1vw; }
+.hcr:has(.hcr-forecast-plot) .hcr-forecast-model .hcr-kv { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); font-size: 1.4vh; gap: 0.2vh 1.2vw; }
 .hcr-forecast-horizons { display: grid; gap: 0.6vh; }
 .hcr-forecast-horizons section { display: grid; grid-template-columns: 4vw minmax(0, 1fr); gap: 0.4vh 1vw; padding: 0.6vh; border-bottom: 1px solid var(--hc-line); font: 1.4vh var(--hc-font-mono); color: var(--hc-fg); }
 .hcr-forecast-horizons section > p:last-child:not(:nth-child(2)) { grid-column: 2; color: var(--hc-dim); }

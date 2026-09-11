@@ -272,7 +272,7 @@ function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
 
   return (
     /*
-      This footer sits in the same fixed 232px LayersPopover submenu column
+      This footer sits in the same rem-sized LayersPopover submenu column
       as BasemapCategory's "Image quality" row. The tracking label ("Tracking
       <n> of <n>") and the "Manage" link are both `text-xs`; at the xl scale
       a two-digit count on each side can push their combined width past the

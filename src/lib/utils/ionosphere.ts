@@ -472,6 +472,12 @@ export interface DRegionContext {
   monthIndex?: number;
   /** Solar zenith angle at this crossing's local noon, degrees. */
   zenithNoonAngleDeg?: number;
+  /**
+   * Instant of the crossing. Supplied instead of `zenithNoonAngleDeg`, it
+   * derives the noon angle honestly from the latitude and the solar
+   * declination rather than falling back to the declared equinox.
+   */
+  date?: Date;
   /** Modified magnetic dip magnitude, degrees. */
   modifiedDipDeg?: number;
   /** E-layer critical frequency at the crossing, MHz. */
@@ -492,6 +498,13 @@ export const D_REGION_STANDIN = {
   latitudeDeg: 45,
   monthIndex: 2,
   modifiedDipDeg: 60,
+  /**
+   * March is an equinox month, so the declared crossing's solar declination is
+   * zero and its local-noon zenith angle is `|latitude|`. Stating the
+   * declination here is what keeps `chi_noon` a real angle rather than a copy
+   * of the current one.
+   */
+  declinationDeg: 0,
 } as const;
 
 export function calculateDLayerAbsorption(
@@ -506,8 +519,15 @@ export function calculateDLayerAbsorption(
   const modifiedDipDeg =
     options.modifiedDipDeg ?? D_REGION_STANDIN.modifiedDipDeg;
   const foEMHz = options.foEMHz ?? calculateF0E(zenithAngle, sfi);
+  // The noon zenith angle is a property of where and when the crossing is, not
+  // of the current sun. Setting it equal to the current angle makes
+  // F(chi)/F(chi_noon) identically one and deletes the whole diurnal term, so
+  // every hour of the day absorbs like local noon. chi_noon = |lat - decl|.
   const zenithNoonAngleDeg =
-    options.zenithNoonAngleDeg ?? Math.min(zenithAngle, 90);
+    options.zenithNoonAngleDeg ??
+    (options.date !== undefined
+      ? solarNoonZenithAngle(latitudeDeg, options.date)
+      : Math.abs(latitudeDeg - D_REGION_STANDIN.declinationDeg));
 
   const crossing: DRegionCrossing = {
     latitudeDeg,

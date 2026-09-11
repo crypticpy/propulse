@@ -13,6 +13,7 @@ import {
   calculateF0F2,
   sfiToR12,
   obliqueIncidenceAngle,
+  solarNoonZenithAngle,
 } from "./ionosphere";
 import {
   evaluateHopQuality,
@@ -177,6 +178,37 @@ describe("item 4/12 - D-layer absorption", () => {
       ssn: 100,
     }).absorptionDb;
     expect(Math.abs(10 * Math.log10(li / 14.3536))).toBeLessThan(0.25);
+  });
+
+  it("attenuates away from local noon instead of copying the noon angle", () => {
+    // PR #1106 round 1, Codex P1. The positionless entry points used to
+    // default the noon zenith angle to the current one, which makes
+    // F(chi)/F(chi_noon) identically 1 and deletes the diurnal term of
+    // equation (21): every hour absorbed like local noon. The declared
+    // crossing is 45 N in March, an equinox month, so its noon angle is
+    // |45 - 0| = 45 degrees and the ratio is a real number at every other
+    // hour.
+    const noon = calculateDLayerAbsorption(7, 45, 150);
+    const midAfternoon = calculateDLayerAbsorption(7, 70, 150);
+    const evening = calculateDLayerAbsorption(7, 85, 150);
+    expect(midAfternoon).toBeLessThan(noon);
+    expect(evening).toBeLessThan(midAfternoon);
+    expect(noon).toBeCloseTo(9.3587, 3);
+    expect(midAfternoon).toBeCloseTo(5.4664, 3);
+
+    // A caller that holds the instant gets the honest declination rather
+    // than the equinox stand-in.
+    const solstice = new Date(Date.UTC(2026, 5, 21, 12, 0, 0));
+    const derived = calculateDLayerAbsorption(7, 40, 150, 90, {
+      latitudeDeg: 60,
+      date: solstice,
+    });
+    const declared = calculateDLayerAbsorption(7, 40, 150, 90, {
+      latitudeDeg: 60,
+      zenithNoonAngleDeg: solarNoonZenithAngle(60, solstice),
+    });
+    expect(derived).toBe(declared);
+    expect(solarNoonZenithAngle(60, solstice)).toBeLessThan(60);
   });
 
   it("no longer clamps absorption at 50 dB", () => {

@@ -43,13 +43,15 @@ if __package__ in (None, ""):
     from reference.cases import GOLDEN_CASES  # type: ignore
     from reference.runner import (  # type: ignore
         DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
-        ReferenceBuild, parse_report, render_input,
+        Case, ReferenceBuild, case_inputs, input_digest, parse_report,
+        render_input,
     )
 else:
     from .cases import GOLDEN_CASES
     from .runner import (
         DEFAULT_BUILD_DIR, HERE, JOIN_KEYS, REPORT_PASSES, SOURCE_DIRNAME,
-        ReferenceBuild, parse_report, render_input,
+        Case, ReferenceBuild, case_inputs, input_digest, parse_report,
+        render_input,
     )
 
 PROOF_PATH = HERE / "portable-proof.json"
@@ -412,6 +414,27 @@ def golden_digest(golden: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def golden_case(entry: dict[str, Any]) -> Case:
+    """The case a golden entry actually records. It is rebuilt from the
+    entry's stored inputs, checked against the stored input digest, and
+    checked against the frozen definition of the same id, so an edited input
+    can neither run the source-defined case in its place nor publish a PASS
+    bound to inputs that were never executed (Codex round 11, PR #1090)."""
+    case_id = entry["case_id"]
+    try:
+        case = Case(**entry["inputs"])
+    except TypeError as exc:
+        raise PortableError(f"{case_id}: golden inputs are not a Case: {exc}") from exc
+    if input_digest(case) != entry.get("input_sha256"):
+        raise PortableError(f"{case_id}: golden inputs do not match input_sha256")
+    frozen = {c.case_id: c for c in GOLDEN_CASES}.get(case_id)
+    if frozen is None:
+        raise PortableError(f"{case_id}: not in the frozen case set")
+    if case_inputs(frozen) != entry["inputs"]:
+        raise PortableError(f"{case_id}: golden inputs differ from the frozen case")
+    return case
+
+
 def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
     source = build_dir / SOURCE_DIRNAME
     native = ReferenceBuild(source)
@@ -424,7 +447,7 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
     workdir = build_dir / "wasm-runs"
     if workdir.exists():
         shutil.rmtree(workdir)
-    cases_by_id = {case.case_id: case for case in GOLDEN_CASES}
+    cases_by_id = {entry["case_id"]: golden_case(entry) for entry in golden["cases"]}
 
     started = time.monotonic()
     wasm_outputs: dict[str, dict[str, Any]] = {}

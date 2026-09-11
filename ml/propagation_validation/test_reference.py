@@ -15,7 +15,10 @@ import unittest
 from pathlib import Path
 
 from reference.cases import GOLDEN_CASES, GOLDEN_REVISION
-from reference.runner import COMMIT, REPOSITORY, TAG, ReferenceBuild, input_digest
+from reference.portable import golden_case
+from reference.runner import (
+    COMMIT, REPOSITORY, TAG, Case, ReferenceBuild, case_inputs, input_digest,
+)
 
 REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
 MANIFEST = REFERENCE_DIR / "manifest.json"
@@ -119,6 +122,26 @@ class GoldenTests(unittest.TestCase):
                 self.assertEqual(entry["inputs"]["month"], case.month)
                 self.assertEqual(entry["inputs"]["hour_utc"], case.hour_utc)
                 self.assertEqual(entry["input_sha256"], input_digest(case))
+                # every recorded input, not just three of them
+                self.assertEqual(entry["inputs"], case_inputs(case))
+                self.assertEqual(golden_case(entry), case)
+
+    def test_edited_golden_inputs_cannot_run_the_frozen_case(self):
+        from reference.portable import PortableError
+
+        entry = json.loads(json.dumps(self.cases[0]))
+        entry["inputs"]["tx_power_watts"] = entry["inputs"]["tx_power_watts"] + 1
+        with self.assertRaisesRegex(PortableError, "input_sha256"):
+            golden_case(entry)
+        entry["input_sha256"] = input_digest(Case(**entry["inputs"]))
+        with self.assertRaisesRegex(PortableError, "differ from the frozen case"):
+            golden_case(entry)
+        stranger = json.loads(json.dumps(self.cases[0]))
+        stranger["case_id"] = "G99"
+        stranger["inputs"]["case_id"] = "G99"
+        stranger["input_sha256"] = input_digest(Case(**stranger["inputs"]))
+        with self.assertRaisesRegex(PortableError, "not in the frozen case set"):
+            golden_case(stranger)
 
     def test_no_output_is_nan_or_infinite(self):
         for entry in self.cases:

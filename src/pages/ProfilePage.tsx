@@ -59,6 +59,7 @@ import { WhereToFindMe } from "@/components/profile/WhereToFindMe";
 import { OnAirToggle } from "@/components/profile/OnAirToggle";
 import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
+import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
@@ -196,28 +197,21 @@ function OtherProfileView({
             : undefined,
           lastActiveAt: data.last_active_at ?? undefined,
           country: (data as Record<string, unknown>).country as
-            | string
-            | undefined,
+            string | undefined,
           interests: (data as Record<string, unknown>).interests as
-            | InterestTag[]
-            | undefined,
+            InterestTag[] | undefined,
           onAirStatus: (data as Record<string, unknown>).on_air_status as
-            | OnAirStatus
-            | null
-            | undefined,
+            OnAirStatus | null | undefined,
           skedAvailability: (data as Record<string, unknown>)
             .sked_availability as SkedAvailability | undefined,
           favoriteFreqs: (data as Record<string, unknown>).favorite_freqs as
-            | FavoriteFrequency[]
-            | undefined,
+            FavoriteFrequency[] | undefined,
           operatingHours: (data.stats_cache as Record<string, unknown> | null)
             ?.qsosByHourUtc as number[] | undefined,
           operatorRank: (data as Record<string, unknown>).operator_rank as
-            | string
-            | undefined,
+            string | undefined,
           rankPoints: (data as Record<string, unknown>).rank_points as
-            | number
-            | undefined,
+            number | undefined,
           lat: (data as Record<string, unknown>).lat as number | undefined,
           lon: (data as Record<string, unknown>).lon as number | undefined,
         });
@@ -290,6 +284,14 @@ function OtherProfileView({
 
   // Follow state
   const isFollowing = following.some((f) => f.id === profile.id);
+
+  // One predicate for the published location: the grid line, "Where to find
+  // me" and the contact panel's coordinates are the same disclosure.
+  const locationDisclosed = isSectionVisibleToViewer(
+    vis,
+    "location",
+    isFollowing,
+  );
 
   const handleFollow = () => {
     requireAuth(() => followUser(profile.id), "Sign in to follow operators");
@@ -393,18 +395,18 @@ function OtherProfileView({
                 viewerLat={viewerStation?.lat}
                 viewerLon={viewerStation?.lon}
                 viewerGrid={viewerStation?.grid}
+                viewerIsFriend={isFollowing}
                 viewerStats={viewerStats as unknown as Record<string, unknown>}
                 viewerHours={viewerHours}
               />
               {/* Where to Find Me — read-only */}
-              {(!vis || vis.location !== "private") && (
+              {locationDisclosed && (
                 <div className={panelClass}>
                   <WhereToFindMe
                     hours={profile.operatingHours}
                     qsosByDate={
                       profile.statsCache?.qsosByDate as
-                        | Record<string, number>
-                        | undefined
+                        Record<string, number> | undefined
                     }
                     favoriteFreqs={profile.favoriteFreqs}
                     skedAvailability={profile.skedAvailability}
@@ -622,7 +624,7 @@ function OtherProfileView({
             <div>
               <h2>{profile.callsign || "UNKNOWN"}</h2>
               {profile.operatorName && <p>{profile.operatorName}</p>}
-              {profile.grid && (!vis || vis.location !== "private") && (
+              {profile.grid && locationDisclosed && (
                 <p className="su-hint su-mono">{profile.grid}</p>
               )}
             </div>

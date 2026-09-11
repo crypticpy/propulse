@@ -15,6 +15,7 @@ import {
   farEndGainDbiFromPublicErp,
   parsePublicEquipmentSummary,
 } from "@/lib/station/stationIdentity";
+import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 
@@ -85,6 +86,8 @@ interface ContactThisStationProps {
   viewerLon?: number;
   /** Viewer's Maidenhead grid */
   viewerGrid?: string;
+  /** Whether the viewer follows this operator, for friends-only sections. */
+  viewerIsFriend?: boolean;
   /** Viewer's stats cache (contains qsosByBand, qsosByMode) */
   viewerStats?: Record<string, unknown>;
   /** Viewer's 24-element operating hours */
@@ -118,17 +121,30 @@ export function ContactThisStation({
   viewerLat,
   viewerLon,
   viewerGrid,
+  viewerIsFriend = false,
   viewerStats,
   viewerHours,
 }: ContactThisStationProps) {
-  const coords = readContactCoordinates(
-    profile.lat,
-    profile.lon,
-    profile.grid,
-    viewerLat,
-    viewerLon,
-    viewerGrid,
+  // The target's coordinates are a published profile section. This panel is
+  // rendered unconditionally by ProfilePage, so it enforces the disclosure
+  // rule itself rather than trusting the call site: an unauthorized viewer
+  // gets no coordinates, and therefore no distance, bearing, grid line or
+  // contact analysis over them.
+  const locationDisclosed = isSectionVisibleToViewer(
+    profile.visibilitySettings,
+    "location",
+    viewerIsFriend,
   );
+  const coords = !locationDisclosed
+    ? null
+    : readContactCoordinates(
+        profile.lat,
+        profile.lon,
+        profile.grid,
+        viewerLat,
+        viewerLon,
+        viewerGrid,
+      );
 
   const ourPerf = useChainPerformance();
   const stationGain = useActiveStationGain();

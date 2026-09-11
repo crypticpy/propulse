@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PublicProfile } from "@/types/social";
+import { DEFAULT_VISIBILITY, type PublicProfile } from "@/types/social";
 import { ContactThisStation } from "./ContactThisStation";
 
 const analysisFixture = {
@@ -147,6 +147,62 @@ describe("ContactThisStation coordinate presence (#369)", () => {
       viewerGrid: "",
     });
     expect(container.firstChild).toBeNull();
+  });
+
+  // #995 round 3: the target's coordinates are a published section. The panel
+  // is rendered unconditionally by ProfilePage, so an unauthorized viewer must
+  // get nothing here, whether or not the coordinates happen to be zero.
+  it.each([
+    ["zero coordinates", { lat: 0, lon: 0, grid: "JJ00aa" }],
+    ["ordinary coordinates", { lat: 10, lon: 20, grid: "JJ11bb" }],
+  ] as const)(
+    "discloses nothing for a private location with %s",
+    (_label, coords) => {
+      const { container } = draw({
+        ...baseProfile,
+        ...coords,
+        visibilitySettings: { ...DEFAULT_VISIBILITY, location: "private" },
+      });
+      expect(container.firstChild).toBeNull();
+      expect(useContactAnalysisMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetLat: 0,
+          targetLon: 0,
+          viewerLat: 0,
+          viewerLon: 0,
+        }),
+      );
+    },
+  );
+
+  it("discloses nothing for a friends-only location when the viewer does not follow", () => {
+    const { container } = draw({
+      ...baseProfile,
+      visibilitySettings: { ...DEFAULT_VISIBILITY, location: "friends" },
+    });
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders a friends-only location for a following viewer", () => {
+    render(
+      <ContactThisStation
+        profile={{
+          ...baseProfile,
+          visibilitySettings: { ...DEFAULT_VISIBILITY, location: "friends" },
+        }}
+        {...viewer}
+        viewerIsFriend
+      />,
+    );
+    expect(screen.getByText("Contact TEST1")).toBeTruthy();
+  });
+
+  it("renders a public location for any viewer", () => {
+    draw({
+      ...baseProfile,
+      visibilitySettings: { ...DEFAULT_VISIBILITY, location: "public" },
+    });
+    expect(screen.getByText("Contact TEST1")).toBeTruthy();
   });
 
   it("still renders when only one coordinate of a gridless station is zero", () => {

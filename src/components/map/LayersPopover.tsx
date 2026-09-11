@@ -302,7 +302,7 @@ function CategoryRow({
 
       {/* Label */}
       <span
-        className={`flex-1 text-[12px] font-medium transition-colors ${
+        className={`flex-1 text-xs font-medium transition-colors ${
           isActive ? "text-su-text" : "text-su-text/70"
         }`}
       >
@@ -351,6 +351,12 @@ function ToggleRow({
   const availability = getLayerAvailability(item.key, viewMode);
   const active = availability.available && item.getValue();
   return (
+    /* The row height is a rem floor, not a px lock: the label is `text-xs`,
+       which follows Settings -> Text Size, so at the xl scale a two-word
+       label wraps to a second line. A fixed-height box would let those
+       lines paint over the next row (the same failure #839 hit on the Grid
+       Detail row); `min-h-[1.875rem]` keeps the base row height and lets it
+       grow. */
     <div
       title={
         availability.available
@@ -358,7 +364,7 @@ function ToggleRow({
           : `${item.title}: ${availability.reason}`
       }
       aria-disabled={!availability.available}
-      className={`flex items-center h-[30px] px-1 rounded transition-colors ${
+      className={`flex items-center min-h-[1.875rem] px-1 rounded transition-colors ${
         availability.available
           ? "hover:bg-su-line/20 cursor-pointer"
           : "cursor-not-allowed opacity-45"
@@ -371,7 +377,7 @@ function ToggleRow({
         }`}
       />
       <span
-        className={`flex-1 text-[12px] transition-colors ${
+        className={`flex-1 text-xs transition-colors ${
           active ? "text-su-text" : "text-su-text/80"
         }`}
       >
@@ -1053,7 +1059,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             ? "Showing ionosphere bounces — arcs skip off E/F1/F2 layers by band. Click for flat arcs."
             : "Showing flat arcs on globe surface. Click for ionosphere bounces."
         }
-        className="flex items-center h-[30px] px-1 rounded hover:bg-su-line/20 transition-colors cursor-pointer"
+        className="flex items-center min-h-[1.875rem] px-1 rounded hover:bg-su-line/20 transition-colors cursor-pointer"
         onClick={() =>
           updateUIInteraction({
             bandHeightArcs: !(uiPrefs.bandHeightArcs ?? true),
@@ -1066,7 +1072,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           }`}
         />
         <span
-          className={`flex-1 text-[12px] transition-colors ${
+          className={`flex-1 text-xs transition-colors ${
             (uiPrefs.bandHeightArcs ?? true) ? "text-su-text" : "text-su-text/80"
           }`}
         >
@@ -1389,7 +1395,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                                 display: "block",
                                 marginBottom: 4,
                                 color: "rgba(255,255,255,0.35)",
-                                fontSize: 12,
+                                fontSize: "0.75rem",
                                 letterSpacing: "0.06em",
                                 textTransform: "uppercase",
                               }}
@@ -1414,7 +1420,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                                 background: "#111522",
                                 padding: "6px 8px",
                                 color: "rgba(255,255,255,0.8)",
-                                fontSize: 12,
+                                fontSize: "0.75rem",
                               }}
                               title="Choose whether highlighted grids represent contact destinations, reporting receivers, or both"
                             >

@@ -6,21 +6,25 @@
  *
  * Reads/writes spotDotScale and mapPinScale via the settings store.
  * Starts collapsed as a small icon button; expands to show two sliders.
+ *
+ * Positioning belongs to the caller: each map view renders this inside the
+ * one column it owns in its bottom-left corner, so the control cannot end up
+ * anchored on top of chrome it does not know about (#930).
  */
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapChromeUiStore } from "@/stores/mapChromeUiStore";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
-interface MapSizeSlidersProps {
-  /** Render in a host control stack instead of self-positioning on the map */
-  inline?: boolean;
-}
-
-export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
+export function MapSizeSliders() {
   const isFullscreen = useMapStore((s) => s.isFullscreen);
-  const [expanded, setExpanded] = useState(false);
+  // Session state, not component state: this control renders inside the map
+  // view's corner column, and switching projection unmounts the view (#930).
+  const expanded = useMapChromeUiStore((s) => s.sizePanelExpanded);
+  const setExpanded = useMapChromeUiStore((s) => s.setSizePanelExpanded);
 
   const prefs = useUIInteractionPrefs();
   const spotDotScale = prefs.spotDotScale ?? 1.0;
@@ -49,7 +53,10 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-su-line/40 bg-void-black/70 text-su-muted backdrop-blur-sm transition-colors hover:border-su-line/50 hover:text-su-text`}
+        // Operable chrome: must clear the map's overlay portal wherever the
+        // corner column places it (#930).
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-su-line/40 bg-void-black/70 text-su-muted backdrop-blur-sm transition-colors hover:border-su-line/50 hover:text-su-text"
         title="Adjust spot & pin sizes"
         aria-label="Adjust spot and pin sizes"
       >
@@ -76,7 +83,8 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
 
   return (
     <div
-      className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto select-none rounded-lg border border-su-line/40 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
+      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      className="pointer-events-auto select-none rounded-lg border border-su-line/40 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm"
     >
       {/* Header with close button */}
       <div className="flex items-center justify-between mb-1.5">

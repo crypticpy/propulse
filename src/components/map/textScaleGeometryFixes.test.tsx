@@ -1193,3 +1193,23 @@ describe("round-15 Codex site family: fixed-column tile grids in the narrow pane
     }
   });
 });
+
+describe("#925 round: LayersPopover submenu rows are height floors, not height locks", () => {
+  // #925 moved these rows' labels off a fixed pixel size and onto `text-xs`,
+  // so they now follow Settings -> Text Size and reach 16.5px at the xl
+  // scale. A two-word label ("Terminator Line", "Grid Activity") wraps at
+  // that size, and the rows were still pixel-locked to a single 30px line --
+  // the second line would paint over the row below, which is exactly how the
+  // Grid Detail row failed in #839. Both rows now carry a min-height instead.
+  const source = () =>
+    readFileSync(resolve(REPO_ROOT, "src/components/map/LayersPopover.tsx"), "utf8");
+
+  it("no submenu row is pinned to a fixed 30px height", () => {
+    expect(source()).not.toContain("flex items-center h-[30px]");
+  });
+
+  it("the toggle row and the arc-mode row both use a rem min-height", () => {
+    const matches = source().match(/flex items-center min-h-\[1\.875rem\] px-1/g) ?? [];
+    expect(matches).toHaveLength(2);
+  });
+});

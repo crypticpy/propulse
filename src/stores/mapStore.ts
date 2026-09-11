@@ -677,6 +677,24 @@ export interface MapState {
   satelliteShowAll: boolean;
   setSatelliteShowAll: (show: boolean) => void;
 
+  // Per-satellite "Map orbit" track state (#994), keyed by NORAD id as a
+  // string. Selecting a satellite no longer implies a track — mapping one
+  // is an explicit action from SatelliteDetailModal. Persisted, capped at
+  // MAX_SATELLITE_TRACKS with the oldest track dropped on overflow.
+  satelliteTracks: Record<string, SatelliteTrackConfig>;
+  // Insertion order for satelliteTracks (oldest first), used for the
+  // oldest-dropped cap. Kept in the store rather than a module-level
+  // variable so `reset()`, a test's direct `setState`, and any future
+  // writer stay consistent with `satelliteTracks` by construction
+  // (#994 review finding 7).
+  satelliteTrackOrder: string[];
+  setSatelliteTrack: (
+    noradId: number,
+    patch: Partial<SatelliteTrackConfig>,
+  ) => void;
+  clearSatelliteTrack: (noradId: number) => void;
+  clearAllSatelliteTracks: () => void;
+
   // Beacon inactive opacity (0-1, persisted)
   beaconInactiveOpacity: number;
   setBeaconInactiveOpacity: (opacity: number) => void;
@@ -909,6 +927,100 @@ function persistTileProviderId(id: TileProviderId | null) {
     /* ignore */
   }
 }
+
+// ── Satellite orbit track persistence (#994) ─────────────────────────────────
+//
+// This store predates zustand's `persist` middleware (see the tile-provider
+// comment above), so this field's "version bump and migration" is the same
+// small versioned envelope: SATELLITE_TRACKS_SCHEMA_VERSION gates whether a
+// stored payload is trusted, and any absent/stale/corrupt value resolves to
+// the safe default (`{}`, no tracks, no order) — which is exactly what
+// "migrate in the field" means for a brand-new key with no prior schema.
+//
+// Insertion order (for the oldest-dropped cap) is tracked separately from
+// the `Record<string, SatelliteTrackConfig>` rather than relied on from
+// object key order: NORAD ids are numeric-looking strings, and JS objects
+// iterate integer-like string keys in ascending numeric order, not
+// insertion order, which would silently break "oldest dropped".
+export interface SatelliteTrackConfig {
+  orbitsAhead: 1 | 2 | 3;
+  showPast: boolean;
+  showFootprint: boolean;
+}
+
+const SATELLITE_TRACKS_LS_KEY = "propulse-satellite-tracks";
+const SATELLITE_TRACKS_SCHEMA_VERSION = 1;
+const MAX_SATELLITE_TRACKS = 5;
+
+function isValidSatelliteTrackConfig(
+  value: unknown,
+): value is SatelliteTrackConfig {
+  if (!value || typeof value !== "object") return false;
+  const cfg = value as Record<string, unknown>;
+  return (
+    (cfg.orbitsAhead === 1 || cfg.orbitsAhead === 2 || cfg.orbitsAhead === 3) &&
+    typeof cfg.showPast === "boolean" &&
+    typeof cfg.showFootprint === "boolean"
+  );
+}
+
+function loadSatelliteTracks(): {
+  tracks: Record<string, SatelliteTrackConfig>;
+  order: string[];
+} {
+  try {
+    const raw = localStorage.getItem(SATELLITE_TRACKS_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        order?: unknown;
+        tracks?: unknown;
+      };
+      if (
+        parsed.version === SATELLITE_TRACKS_SCHEMA_VERSION &&
+        Array.isArray(parsed.order) &&
+        parsed.tracks &&
+        typeof parsed.tracks === "object"
+      ) {
+        const rawTracks = parsed.tracks as Record<string, unknown>;
+        const order = parsed.order.filter(
+          (id): id is string =>
+            typeof id === "string" && isValidSatelliteTrackConfig(rawTracks[id]),
+        );
+        // Defensive cap in case a bad write ever exceeded the limit.
+        const cappedOrder = order.slice(-MAX_SATELLITE_TRACKS);
+        const tracks: Record<string, SatelliteTrackConfig> = {};
+        for (const id of cappedOrder) {
+          tracks[id] = rawTracks[id] as SatelliteTrackConfig;
+        }
+        return { tracks, order: cappedOrder };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { tracks: {}, order: [] };
+}
+
+function saveSatelliteTracks(
+  tracks: Record<string, SatelliteTrackConfig>,
+  order: string[],
+): void {
+  try {
+    localStorage.setItem(
+      SATELLITE_TRACKS_LS_KEY,
+      JSON.stringify({
+        version: SATELLITE_TRACKS_SCHEMA_VERSION,
+        order,
+        tracks,
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+const persistedSatelliteTracks = loadSatelliteTracks();
 
 /** Shared bounded-number persistence for map appearance controls. */
 function loadStoredNumber(
@@ -1469,6 +1581,10 @@ const initialState = {
   satelliteModalId: null as number | null,
   satelliteCategoryFilter: "all" as SatelliteCategory | "all",
   satelliteShowAll: false,
+
+  // Per-satellite orbit track state (persisted, see #994)
+  satelliteTracks: persistedSatelliteTracks.tracks,
+  satelliteTrackOrder: persistedSatelliteTracks.order,
 
   // Beacon inactive opacity (persisted)
   beaconInactiveOpacity: loadStoredNumber(
@@ -2396,6 +2512,65 @@ export const useMapStore = create<MapState>((set, get) => ({
   setSatelliteModalId: (noradId) => set({ satelliteModalId: noradId }),
   setSatelliteCategoryFilter: (cat) => set({ satelliteCategoryFilter: cat }),
   setSatelliteShowAll: (show) => set({ satelliteShowAll: show }),
+
+  // Per-satellite orbit track state (persisted, see #994)
+  setSatelliteTrack: (noradId, patch) =>
+    set((state) => {
+      const id = String(noradId);
+      const existing = state.satelliteTracks[id];
+      const next: SatelliteTrackConfig = {
+        orbitsAhead: existing?.orbitsAhead ?? 1,
+        showPast: existing?.showPast ?? false,
+        showFootprint: existing?.showFootprint ?? false,
+        ...patch,
+      };
+
+      // Defensive: reconcile the order against the actual tracks before
+      // applying the cap. A direct setState (tests) or any writer that
+      // touches satelliteTracks without going through this action can
+      // desync the two; this keeps the cap correct either way
+      // (#994 review finding 7).
+      const reconciled = state.satelliteTrackOrder.filter(
+        (existingId) => existingId in state.satelliteTracks,
+      );
+      for (const key of Object.keys(state.satelliteTracks)) {
+        if (!reconciled.includes(key)) reconciled.push(key);
+      }
+
+      const order = reconciled.filter((existingId) => existingId !== id);
+      order.push(id);
+      const tracks = { ...state.satelliteTracks, [id]: next };
+
+      // Cap at MAX_SATELLITE_TRACKS, dropping the oldest by insertion order.
+      while (order.length > MAX_SATELLITE_TRACKS) {
+        const droppedId = order.shift();
+        if (droppedId !== undefined) delete tracks[droppedId];
+        // TODO(#994 PR B): status chip on eviction
+      }
+
+      saveSatelliteTracks(tracks, order);
+      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+    }),
+
+  clearSatelliteTrack: (noradId) =>
+    set((state) => {
+      const id = String(noradId);
+      if (!(id in state.satelliteTracks)) return {};
+
+      const tracks = { ...state.satelliteTracks };
+      delete tracks[id];
+      const order = state.satelliteTrackOrder.filter(
+        (existingId) => existingId !== id,
+      );
+      saveSatelliteTracks(tracks, order);
+      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+    }),
+
+  clearAllSatelliteTracks: () =>
+    set(() => {
+      saveSatelliteTracks({}, []);
+      return { satelliteTracks: {}, satelliteTrackOrder: [] };
+    }),
 
   // Beacon inactive opacity
   setBeaconInactiveOpacity: (opacity) => {

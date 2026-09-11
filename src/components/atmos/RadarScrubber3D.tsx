@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import type { RadarAnimationState } from "@/components/map/WeatherRadarOverlay";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 const FRAME_INTERVAL_MS = 500;
 const LATEST_PAUSE_MS = 2000;
@@ -163,7 +164,10 @@ export function RadarScrubber3D({
   const ageLabel = currentTs ? formatAge(currentTs) : "";
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full px-3 py-1.5">
+    <div
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full px-3 py-1.5"
+      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+    >
       {/* Play / Pause */}
       <button
         type="button"

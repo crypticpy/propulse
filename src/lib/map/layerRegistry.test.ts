@@ -71,6 +71,39 @@ describe("LAYER_REGISTRY", () => {
       .sort();
     expect(blockedKeys).toEqual(["tec", "wspr"]);
   });
+
+  /**
+   * #887 (owner decision B), following #622.
+   *
+   * The wall's DX news ticker reads its feeds directly — `DXNewsTicker.tsx`,
+   * `tickerCrawl.ts` and `feedStore.ts` never consult this registry — so
+   * nothing stops a source the audit marks `blocked` from scrolling past on
+   * the wall. That is what #160 reported for lightning; #622 settled it by
+   * unblocking lightning, so today the two sets are disjoint and there is no
+   * live instance to fix.
+   *
+   * This test keeps them disjoint. The day someone marks a ticker-backed
+   * source `blocked` in `LAYER_REGISTRY`, this fails and that PR decides
+   * whether to suppress the ticker entry (option C on #887) or to accept the
+   * split. It asserts a principle, not a behaviour: nothing on screen moves.
+   *
+   * The ticker's other sources have no registry entry and cannot be blocked
+   * here — solar flux / K-index (`useSolarData`), space-weather notices
+   * (`useSolarAlerts`) and operator RSS feeds (`feedStore` / `useRssFeed`)
+   * are not map layers. Add a key below if a ticker source ever gains one.
+   */
+  it("reads no source the audit marks Blocked (#887, ticker vs registry)", () => {
+    const tickerBackedKeys = [
+      "lightning", // useLightning — strike proximity break-ins
+      "weather", // useWeatherAlerts — NWS active alerts
+      "spots", // useDXStore — spot activity counts
+    ] as const satisfies ReadonlyArray<keyof typeof LAYER_REGISTRY>;
+
+    const blocked = tickerBackedKeys.filter(
+      (key) => LAYER_REGISTRY[key].availability === "blocked",
+    );
+    expect(blocked).toEqual([]);
+  });
 });
 
 describe("effectiveLayerCaveat", () => {

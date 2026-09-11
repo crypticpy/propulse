@@ -442,3 +442,139 @@ describe("buildTrajectory: missing is marked, never fabricated (M11, M14)", () =
     );
   });
 });
+
+describe("a bundled prior passes the same as-of test as a forecast", () => {
+  const prior = (overrides: Partial<ForecastOptions> = {}): SourceRecord => ({
+    ...forecast({
+      sourceId: "r12_climatology",
+      variable: "r12",
+      value: 96.4,
+      issuedAt: "2026-08-01T00:00:00.000Z",
+      validFrom: "2026-08-01T00:00:00.000Z",
+      validTo: "2026-10-01T00:00:00.000Z",
+      intervalSeconds: 86400 * 30,
+      revision: "silso-2026-08",
+      ...overrides,
+    }),
+    origin: "bundled",
+  });
+
+  it("does not emit a prior this service had not captured at the issue instant", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: { r12: [] },
+      priors: { r12: prior({ capturedAt: "2026-09-11T13:00:00.000Z" }) },
+      mode: "offline",
+    });
+    for (const sample of samples) {
+      expect(sample.drivers.r12.origin).toBe("absent");
+      expect(sample.drivers.r12).not.toHaveProperty("value");
+    }
+  });
+
+  it("does not emit a prior issued after the issue instant", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: { r12: [] },
+      priors: {
+        r12: prior({
+          issuedAt: "2026-09-12T00:00:00.000Z",
+          capturedAt: "2026-09-12T00:00:00.000Z",
+        }),
+      },
+      mode: "offline",
+    });
+    expect(samples).toHaveLength(2);
+    for (const sample of samples) {
+      expect(sample.drivers.r12.origin).toBe("absent");
+      expect(sample.drivers.r12).not.toHaveProperty("value");
+    }
+  });
+
+  it("does not carry a monthly climatology past the month it describes", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: "2026-09-30T20:00:00.000Z",
+      hours: 8,
+      forecasts: { r12: [] },
+      priors: { r12: prior() },
+      mode: "offline",
+    });
+    // Valid to 2026-10-01T00:00:00Z: the first four samples are inside it.
+    for (const sample of samples.slice(0, 4)) {
+      expect(sample.drivers.r12).toMatchObject({
+        origin: "climatological_prior",
+        value: 96.4,
+      });
+    }
+    for (const sample of samples.slice(4)) {
+      expect(sample.drivers.r12.origin).toBe("absent");
+      expect(sample.drivers.r12).not.toHaveProperty("value");
+    }
+  });
+});
+
+describe("a forecast history is bound to the variable it is filed under", () => {
+  it("never reports a flux forecast as Kp", () => {
+    const mixed = [
+      forecast({
+        sourceId: "outlook_27day",
+        variable: "f107",
+        value: 152,
+        issuedAt: "2026-09-11T11:00:00.000Z",
+        validFrom: "2026-09-11T00:00:00.000Z",
+        validTo: "2026-09-12T00:00:00.000Z",
+        intervalSeconds: 86400,
+      }),
+      forecast({
+        sourceId: "outlook_27day",
+        variable: "kp",
+        value: 3,
+        issuedAt: "2026-09-11T11:00:00.000Z",
+        validFrom: "2026-09-11T00:00:00.000Z",
+        validTo: "2026-09-12T00:00:00.000Z",
+        intervalSeconds: 86400,
+      }),
+    ];
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 2,
+        forecasts: { kp: mixed },
+        mode: "live",
+      }),
+    ).toThrow(ContextForecastError);
+  });
+
+  it("drops a record whose source never declared that variable", () => {
+    const undeclared = forecast({
+      sourceId: "kp_forecast",
+      variable: "planetary_a",
+      value: 12,
+      issuedAt: "2026-09-11T11:00:00.000Z",
+      validFrom: "2026-09-11T12:00:00.000Z",
+      validTo: "2026-09-11T15:00:00.000Z",
+      intervalSeconds: 10800,
+    });
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: { planetary_a: [undeclared] },
+      mode: "live",
+    });
+    for (const sample of samples) {
+      expect(sample.drivers.planetary_a.origin).toBe("absent");
+    }
+  });
+
+  it("still places a correctly filed record", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: 2,
+      forecasts: { kp: kpBins() },
+      mode: "live",
+    });
+    expect(samples[0].drivers.kp).toMatchObject({ origin: "issued_forecast" });
+  });
+});

@@ -327,7 +327,11 @@ export function recordsFromSnapshotRow(
       },
       origin: "cached",
       activity:
-        active === undefined ? "not_reported" : active ? "active" : "inactive",
+        active === true
+          ? "active"
+          : active === false
+            ? "inactive"
+            : "not_reported",
       qualityFlags: [],
     });
   }

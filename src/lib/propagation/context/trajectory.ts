@@ -23,6 +23,7 @@
  *    M13's lag states and relaxation dynamics belong to PROP-12 and are not
  *    implemented here.
  */
+import { getLedgerEntry } from "@/lib/propagation/context/ledger";
 import {
   instantMs,
   type BucketWindow,
@@ -88,11 +89,26 @@ interface PlacedForecast {
  */
 function eligibleForecasts(
   history: SourceHistory,
+  variable: string,
   options: TrajectoryOptions,
   issued: number,
 ): PlacedForecast[] {
   const placed: PlacedForecast[] = [];
   for (const record of history) {
+    if (!getLedgerEntry(record.sourceId).variables.includes(record.variable)) {
+      // M11: a variable its own source never declared cannot be selected, so
+      // it is dropped here rather than driving a sample.
+      continue;
+    }
+    if (record.variable !== variable) {
+      // A declared record filed under the wrong driver is a caller bug: the
+      // outlook carries f107, kp and planetary_a under one issue time, and
+      // emitting a flux number as Kp would be silent nonsense.
+      throw new ContextForecastError(
+        record.sourceId,
+        `carries "${record.variable}" but was filed under the driver "${variable}"`,
+      );
+    }
     const { stamps } = record;
     if (stamps.forecastIssuedAt === null) {
       throw new ContextForecastError(record.sourceId, "no forecast issue time");
@@ -165,6 +181,46 @@ function bucketKey(bucket: BucketWindow): string {
   ].join("\u0000");
 }
 
+/**
+ * Whether a bundled prior was available at `issuedAt` and describes `at`.
+ *
+ * A climatology is still a dated product. One bundled after the issue instant
+ * could not have informed the prediction, and a monthly value says nothing
+ * about the month after the one it covers, so both are absent rather than
+ * approximated.
+ */
+function priorAppliesAt(
+  prior: SourceRecord,
+  options: TrajectoryOptions,
+  issued: number,
+  at: number,
+): boolean {
+  if (!Number.isFinite(prior.value)) return false;
+  if (options.mode === "offline" && prior.origin !== "bundled") return false;
+  if (
+    options.requireVerifiedArchive === true &&
+    prior.stamps.archiveClass !== "verified_as_issued"
+  ) {
+    return false;
+  }
+  const { stamps } = prior;
+  if (instantMs(stamps.publication.publishedAt, "publishedAt") > issued)
+    return false;
+  if (instantMs(stamps.capturedAt, "capturedAt") > issued) return false;
+  if (
+    stamps.forecastIssuedAt !== null &&
+    instantMs(stamps.forecastIssuedAt, "forecastIssuedAt") > issued
+  ) {
+    return false;
+  }
+  // No stated validity means a value with no expiry, which is what a plain
+  // climatology is. A stated one is honoured exactly.
+  if (stamps.validFrom === null || stamps.validTo === null) return true;
+  const from = instantMs(stamps.validFrom, "validFrom");
+  const to = instantMs(stamps.validTo, "validTo");
+  return at >= from && at < to;
+}
+
 export function buildTrajectory(options: TrajectoryOptions): Trajectory {
   const issued = instantMs(options.issuedAt, "issuedAt");
   const hours = options.hours ?? DEFAULT_GRID_HOURS;
@@ -185,7 +241,12 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
   for (const variable of variables) {
     placedByVariable.set(
       variable,
-      eligibleForecasts(options.forecasts[variable] ?? [], options, issued),
+      eligibleForecasts(
+        options.forecasts[variable] ?? [],
+        variable,
+        options,
+        issued,
+      ),
     );
   }
 
@@ -246,7 +307,7 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
       }
 
       const prior = options.priors?.[variable];
-      if (prior !== undefined && Number.isFinite(prior.value)) {
+      if (prior !== undefined && priorAppliesAt(prior, options, issued, at)) {
         drivers[variable] = {
           origin: "climatological_prior",
           value: prior.value,

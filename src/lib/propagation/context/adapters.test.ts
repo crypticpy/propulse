@@ -237,3 +237,75 @@ describe("recordsFromSnapshotRow: the collector row is the parity input shape", 
     expect(records.some((record) => record.variable === "dst")).toBe(false);
   });
 });
+
+describe("an unreported activity flag is not an outage", () => {
+  const row = (
+    status: Record<string, { active?: boolean | null } | null>,
+  ): SolarSnapshotRow => ({
+    captured_at: "2026-09-11T11:50:00.000Z",
+    kp_index: 3,
+    sfi: 150,
+    bt: 6,
+    bx_gsm: 1,
+    by_gsm: 2,
+    bz_gsm: -3,
+    solar_wind_speed: 420,
+    solar_wind_temperature: 90000,
+    solar_wind_density: 5,
+    sunspot_number: 60,
+    proton_flux_10mev: 0.2,
+    dst_index: -12,
+    hp60: 2.7,
+    source_observed_at: {
+      kp: "2026-09-11T09:00:00.000Z",
+      f107: "2026-09-11T00:00:00.000Z",
+      magnetic_field: "2026-09-11T11:45:00.000Z",
+      solar_wind: "2026-09-11T11:45:00.000Z",
+      sunspot_number: "2026-09-11T00:00:00.000Z",
+      proton_flux_10mev: "2026-09-11T11:40:00.000Z",
+      dst: "2026-09-11T11:00:00.000Z",
+      hp60: "2026-09-11T10:00:00.000Z",
+    },
+    source_status: status,
+  });
+
+  it("reads a null active flag as not reported, exactly as the oracle does", () => {
+    const records = recordsFromSnapshotRow(
+      row({ magnetic_field: { active: null }, solar_wind: { active: null } }),
+    );
+    for (const sourceId of ["magnetic_field", "solar_wind"]) {
+      const forSource = records.filter(
+        (record) => record.sourceId === sourceId,
+      );
+      expect(
+        forSource.every((record) => record.activity === "not_reported"),
+      ).toBe(true);
+      expect(
+        selectAsOf(
+          forSource.filter(
+            (record) => record.variable === forSource[0].variable,
+          ),
+          {
+            issuedAt: "2026-09-11T11:55:00.000Z",
+            entry: getLedgerEntry(sourceId),
+            mode: "cached_live",
+          },
+        ).state,
+      ).toBe("selected");
+    }
+  });
+
+  it("keeps literal false as the only outage signal", () => {
+    const records = recordsFromSnapshotRow(
+      row({ solar_wind: { active: false } }),
+    );
+    const wind = records.filter((record) => record.sourceId === "solar_wind");
+    expect(wind.every((record) => record.activity === "inactive")).toBe(true);
+    const field = records.filter(
+      (record) => record.sourceId === "magnetic_field",
+    );
+    expect(field.every((record) => record.activity === "not_reported")).toBe(
+      true,
+    );
+  });
+});

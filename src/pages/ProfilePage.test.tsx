@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
+import { applyIdentitySave } from "@/stores/applyIdentitySave";
+import { gridToLatLon } from "@/lib/utils/grid";
+import type { UserStation } from "@/types/user";
 
 const VIEWER_ID = "viewer-1";
 
@@ -379,5 +382,142 @@ describe("redesigned visitor profile preservation", () => {
       name: "Follow operator",
     }) as HTMLButtonElement;
     expect(follow.disabled).toBe(true);
+  });
+});
+
+const preciseStation = (): UserStation => ({
+  callsign: "W0TEST",
+  operatorName: "Old Name",
+  homeLocationId: "home-1",
+  activeLocationId: null,
+  savedLocations: [
+    {
+      id: "home-1",
+      name: "Home",
+      grid: "EM38",
+      lat: 38.123456,
+      lon: -92.654321,
+      type: "home",
+      timezone: "America/Chicago",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "pota-1",
+      name: "POTA K-1234",
+      grid: "EM29",
+      lat: 39.1,
+      lon: -94.2,
+      type: "pota",
+      createdAt: "2026-02-01T00:00:00.000Z",
+    },
+  ],
+  grid: "EM38",
+  lat: 38.123456,
+  lon: -92.654321,
+  timezone: "America/Chicago",
+  name: "Shack nickname",
+});
+
+describe("identity save preserves locations (#351)", () => {
+  it("keeps precise home coordinates on a name-only save", () => {
+    const next = applyIdentitySave(preciseStation(), {
+      callsign: "W0TEST",
+      operatorName: "New Name",
+      grid: "EM38",
+    });
+    expect(next?.operatorName).toBe("New Name");
+    expect(next?.lat).toBe(38.123456);
+    expect(next?.lon).toBe(-92.654321);
+    expect(next?.savedLocations[0]?.lat).toBe(38.123456);
+    expect(next?.savedLocations[0]?.lon).toBe(-92.654321);
+    expect(next?.name).toBe("Shack nickname");
+    expect(next?.timezone).toBe("America/Chicago");
+    expect(gridToLatLon("EM38")).toEqual({ lat: 38.5, lon: -93 });
+  });
+
+  it("retains other saved locations and metadata when adding Home", () => {
+    const portableOnly: UserStation = {
+      callsign: "W0TEST",
+      operatorName: "Pat",
+      homeLocationId: "",
+      activeLocationId: "pota-1",
+      savedLocations: [
+        {
+          id: "pota-1",
+          name: "POTA K-1234",
+          grid: "EM29",
+          lat: 39.1,
+          lon: -94.2,
+          type: "pota",
+          createdAt: "2026-02-01T00:00:00.000Z",
+        },
+      ],
+      grid: "",
+      lat: 39.1,
+      lon: -94.2,
+      timezone: "America/Denver",
+      name: "Field kit",
+    };
+    const next = applyIdentitySave(
+      portableOnly,
+      { callsign: "W0TEST", operatorName: "Pat", grid: "EM38" },
+      { createId: () => "home-new", now: () => "2026-09-10T00:00:00.000Z" },
+    );
+    expect(next?.savedLocations.map((loc) => loc.id)).toEqual([
+      "pota-1",
+      "home-new",
+    ]);
+    expect(next?.homeLocationId).toBe("home-new");
+    expect(next?.activeLocationId).toBe("pota-1");
+    expect(next?.timezone).toBe("America/Denver");
+    expect(next?.name).toBe("Field kit");
+  });
+
+  it("updates only the home location when the grid field changes", () => {
+    const next = applyIdentitySave(preciseStation(), {
+      callsign: "W0TEST",
+      operatorName: "Old Name",
+      grid: "EM29",
+    });
+    const centroid = gridToLatLon("EM29");
+    expect(next?.grid).toBe("EM29");
+    expect(next?.lat).toBe(centroid.lat);
+    expect(next?.lon).toBe(centroid.lon);
+    expect(next?.savedLocations[0]).toMatchObject({
+      id: "home-1",
+      grid: "EM29",
+      lat: centroid.lat,
+      lon: centroid.lon,
+    });
+    expect(next?.savedLocations[1]).toMatchObject({
+      id: "pota-1",
+      lat: 39.1,
+      lon: -94.2,
+    });
+  });
+
+  it("does not fabricate a 0,0 Home when the grid is cleared or missing", () => {
+    const cleared = applyIdentitySave(preciseStation(), {
+      callsign: "W0TEST",
+      operatorName: "Old Name",
+      grid: "",
+    });
+    expect(cleared?.grid).toBe("");
+    expect(cleared?.lat).toBe(38.123456);
+    expect(cleared?.lon).toBe(-92.654321);
+    expect(cleared?.savedLocations).toHaveLength(2);
+    expect(
+      cleared?.savedLocations.some((loc) => loc.lat === 0 && loc.lon === 0),
+    ).toBe(false);
+
+    const callsignOnly = applyIdentitySave(null, {
+      callsign: "W0TEST",
+      operatorName: "Pat",
+      grid: "",
+    });
+    expect(callsignOnly?.savedLocations).toEqual([]);
+    expect(callsignOnly?.homeLocationId).toBe("");
+    expect(callsignOnly?.lat).toBe(0);
+    expect(callsignOnly?.lon).toBe(0);
   });
 });

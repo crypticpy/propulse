@@ -561,8 +561,21 @@ jobs:
             # cannot race each other's read-modify-write.
             { printf '## Update for %s\n\n' "$HEAD7"; cat /tmp/review-cap-issue-body.md; } \
               > /tmp/review-cap-issue-update.md
-            gh api -X POST "repos/${REPO}/issues/${PRIOR_ISSUE}/comments" -F body=@/tmp/review-cap-issue-update.md >/dev/null \
-              || echo "::error::could not append the update for ${HEAD7} to issue #${PRIOR_ISSUE}"
+            # Retried, and fatal on final failure: once the verdict comment is
+            # posted for this head, `reviewed` is true and the architect never
+            # runs again, so a swallowed failure here would leave this head's
+            # residual edges unrecorded forever (Codex, PR #1067 round 4).
+            api_post() {
+              local n
+              for n in 1 2 3; do
+                if gh api -X POST "$@" >/dev/null; then return 0; fi
+                echo "::warning::gh api -X POST $1 failed (attempt ${n}/3)" >&2
+                sleep $((n * 5))
+              done
+              return 1
+            }
+            api_post "repos/${REPO}/issues/${PRIOR_ISSUE}/comments" -F body=@/tmp/review-cap-issue-update.md \
+              || { echo "::error::could not append the update for ${HEAD7} to issue #${PRIOR_ISSUE}"; exit 1; }
           else
             ISSUE_URL=$(gh api -X POST "repos/${REPO}/issues" \
                 -f title="$TITLE" -F body=@/tmp/review-cap-issue-body.md --jq '.number') \

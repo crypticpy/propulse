@@ -457,8 +457,10 @@ npm run dev
 The dev server serves the app at `http://localhost:5173` with hot module replacement.
 This machine runs exactly one dev server, on port 5173, owned by the human or the
 orchestrator session. Agents never start one; check `npm run dev:session -- status`
-first and use the shared server if it is running. If it is not running, report that
-and stop. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
+first, and also check for a human-started server with
+`ps -axo pid=,command= | grep '[v]ite'` (plain `npm run dev` has no session entry).
+Use the shared server if either check finds one. If neither does, report that and
+stop. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
 `CLAUDE.md`.
 Supabase credentials are optional for local development; without them the app runs
 unauthenticated and the physics engine still works.

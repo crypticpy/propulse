@@ -27,6 +27,7 @@ import {
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
   type PredictionQuantity,
+  PERMITTED_RELAY_KINDS,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
   RECEIVER_CLASSES,
@@ -34,6 +35,7 @@ import {
   SOURCE_MODES,
 } from "@/lib/propagation/contracts/enums";
 import {
+  canonicalCoordinates,
   finite,
   identifier,
   instant,
@@ -200,16 +202,19 @@ function isCoincident(
   return tolerance > 0 && angularSeparationRad(a, b) <= tolerance;
 }
 
-/** Same point on the sphere, with the antimeridian spelled either way. */
+/**
+ * Same point on the sphere under the shared canonical spelling: the
+ * antimeridian written either way, and either pole under any meridian.
+ */
 function sameCoordinates(
   a: { latitudeDeg: number; longitudeDeg: number },
   b: { latitudeDeg: number; longitudeDeg: number },
 ): boolean {
-  const foldLongitude = (value: number): number =>
-    value === 180 ? -180 : value === 0 ? 0 : value;
+  const left = canonicalCoordinates(a);
+  const right = canonicalCoordinates(b);
   return (
-    a.latitudeDeg === b.latitudeDeg &&
-    foldLongitude(a.longitudeDeg) === foldLongitude(b.longitudeDeg)
+    left.latitudeDeg === right.latitudeDeg &&
+    left.longitudeDeg === right.longitudeDeg
   );
 }
 
@@ -437,6 +442,18 @@ export const predictionRequestSchema = z
         ctx,
         ["relay"],
         `Geometry class ${value.mechanismPolicy.geometryClass} has no relay leg`,
+      );
+    }
+    if (
+      value.relay !== null &&
+      !PERMITTED_RELAY_KINDS[value.mechanismPolicy.geometryClass].includes(
+        value.relay.kind,
+      )
+    ) {
+      reject(
+        ctx,
+        ["relay", "kind"],
+        `Geometry class ${value.mechanismPolicy.geometryClass} does not admit a ${value.relay.kind} relay`,
       );
     }
     if (

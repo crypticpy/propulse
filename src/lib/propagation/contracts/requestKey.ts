@@ -20,7 +20,11 @@
  * model, nothing that one view could change under another.
  */
 import type { PredictionRequest } from "@/lib/propagation/contracts/request";
-import { instantMs, type Known } from "@/lib/propagation/contracts/validation";
+import {
+  canonicalCoordinates,
+  instantMs,
+  type Known,
+} from "@/lib/propagation/contracts/validation";
 
 type Canonical =
   string | number | boolean | null | Canonical[] | { [key: string]: Canonical };
@@ -65,23 +69,13 @@ function knownProjection<T extends Canonical>(
  * onto -180 so the antimeridian has one spelling. The wire schema still
  * accepts both; only this projection is normalized.
  */
-function canonicalLongitude(value: number): number {
-  const folded = value === 180 ? -180 : value;
-  return folded === 0 ? 0 : folded;
-}
-
-function canonicalLatitude(value: number): number {
-  return value === 0 ? 0 : value;
-}
-
 function stationProjection(
   station: PredictionRequest["tx"],
 ): Record<string, Canonical> {
   return {
     stationId: station.stationId,
     callsign: station.callsign,
-    latitudeDeg: canonicalLatitude(station.coordinates.latitudeDeg),
-    longitudeDeg: canonicalLongitude(station.coordinates.longitudeDeg),
+    ...canonicalCoordinates(station.coordinates),
     datum: station.coordinates.datum,
     precisionKind: station.coordinates.precision.kind,
     precisionHorizontalMeters: knownProjection(
@@ -122,8 +116,7 @@ function relayProjection(
   return {
     kind: relay.kind,
     relayId: relay.relayId,
-    latitudeDeg: canonicalLatitude(relay.coordinates.latitudeDeg),
-    longitudeDeg: canonicalLongitude(relay.coordinates.longitudeDeg),
+    ...canonicalCoordinates(relay.coordinates),
     datum: relay.coordinates.datum,
     precisionKind: relay.coordinates.precision.kind,
     precisionHorizontalMeters: knownProjection(

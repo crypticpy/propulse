@@ -534,6 +534,48 @@ describe("parseResult fails closed", () => {
     coverageProbability: 0.8,
   };
 
+  it("rejects a numeric interval on the non-scalar quantities (M17)", () => {
+    for (const quantity of ["circuit_support", "pass_geometry"] as const) {
+      const bad = candidate("fullHfCircuit");
+      const head = (bad.heads as Mutable[])[0];
+      head.quantity = quantity;
+      head.units = QUANTITY_UNITS[quantity];
+      if (quantity === "pass_geometry") {
+        (head.state as Mutable).value = {
+          aosAt: "2026-09-11T19:00:00Z",
+          losAt: "2026-09-11T19:10:00Z",
+          timingUncertaintySeconds: 2,
+          ephemerisAgeSeconds: 900,
+          horizonDeg: 5,
+        };
+      }
+      head.uncertainty = { ...SPREAD, low: 0.2, high: 0.8 };
+      expect(reasonsAt(bad, "heads[0].uncertainty.kind").join()).toMatch(
+        /no scalar to bracket/,
+      );
+    }
+  });
+
+  it("accepts the non-scalar quantities with uncertainty kind none (M17)", () => {
+    const good = candidate("fullHfCircuit");
+    const head = (good.heads as Mutable[])[0];
+    expect(head.quantity).toBe("circuit_support");
+    expect((head.uncertainty as Mutable).kind).toBe("none");
+    expect(parseResult(good).ok).toBe(true);
+
+    head.quantity = "pass_geometry";
+    head.units = QUANTITY_UNITS.pass_geometry;
+    (head.state as Mutable).value = {
+      aosAt: "2026-09-11T19:00:00Z",
+      losAt: "2026-09-11T19:10:00Z",
+      timingUncertaintySeconds: 2,
+      ephemerisAgeSeconds: 900,
+      horizonDeg: 5,
+    };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects an SNR interval that does not bracket the SNR (M17)", () => {
     const bad = candidate("fullHfCircuit");
     const head = headFor(bad, "snr2500");

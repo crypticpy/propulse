@@ -120,6 +120,33 @@ export const RELAY_REQUIRED_GEOMETRY_CLASSES: readonly GeometryClass[] = [
   "earth_moon_earth",
 ];
 
+/** The two relay identities a request can name (A21 orbital, A22 surveyed). */
+export type RelayKind = "orbital" | "fixed";
+
+/**
+ * Which relay identities each geometry class admits. Relay presence alone is
+ * not enough: a surveyed ground repeater is not a celestial target.
+ *
+ * - `earth_space` (A21): the far end is a spacecraft whose geometry comes from
+ *   an ephemeris, so only an orbital relay is admissible.
+ * - `earth_moon_earth` (A22): the Moon is an ephemeris-backed body on the same
+ *   footing as a spacecraft, so it too is declared as an orbital relay.
+ * - `two_leg_relay` (A21): either an orbital repeater or a fixed, surveyed one.
+ * - every direct class: no relay leg at all.
+ */
+export const PERMITTED_RELAY_KINDS: Record<
+  GeometryClass,
+  readonly RelayKind[]
+> = {
+  terrestrial_great_circle: [],
+  ground_wave: [],
+  bistatic_scatter: [],
+  waveguide_mode: [],
+  two_leg_relay: ["orbital", "fixed"],
+  earth_space: ["orbital"],
+  earth_moon_earth: ["orbital"],
+};
+
 /**
  * Antenna classes, the antenna half of A01's `antenna/receiver class` coverage
  * dimension. The contract names the dimension but publishes no enum, so the

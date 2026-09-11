@@ -164,3 +164,23 @@ export function reject(
 ): void {
   ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
 }
+
+/**
+ * The one canonical spelling of a coordinate, shared by the geometry checks in
+ * `request.ts` and the key projection in `requestKey.ts` so the two cannot
+ * drift. Three spellings collapse: -0 is 0, longitude 180 is written -180, and
+ * at either pole every meridian names the same point, so longitude folds to 0.
+ */
+export function canonicalCoordinates(coordinates: {
+  latitudeDeg: number;
+  longitudeDeg: number;
+}): { latitudeDeg: number; longitudeDeg: number } {
+  const latitudeDeg =
+    coordinates.latitudeDeg === 0 ? 0 : coordinates.latitudeDeg;
+  if (latitudeDeg === 90 || latitudeDeg === -90) {
+    return { latitudeDeg, longitudeDeg: 0 };
+  }
+  const folded =
+    coordinates.longitudeDeg === 180 ? -180 : coordinates.longitudeDeg;
+  return { latitudeDeg, longitudeDeg: folded === 0 ? 0 : folded };
+}

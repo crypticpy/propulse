@@ -335,6 +335,11 @@ function pointValue(
   return read === null ? null : read(payload as never);
 }
 
+/** Whether a quantity reports a scalar an interval could bracket at all. */
+function hasPointValue(quantity: PredictionQuantity): boolean {
+  return POINT_VALUES[quantity] !== null;
+}
+
 const PAYLOAD_SCHEMAS: Record<PredictionQuantity, z.ZodTypeAny> = {
   circuit_support: circuitSupportPayload,
   snr2500: snr2500Payload,
@@ -458,6 +463,18 @@ const predictionHead = z
         });
       }
       return z.NEVER;
+    }
+    if (value.uncertainty.kind !== "none" && !hasPointValue(value.quantity)) {
+      // M17 describes uncertainty around a reported value. circuit_support and
+      // pass_geometry report a set of per-mode or per-pass verdicts and no
+      // scalar, and the contract defines no per-mode interval for them, so a
+      // numeric interval here would be uninterpretable: they report kind
+      // "none".
+      reject(
+        ctx,
+        ["uncertainty", "kind"],
+        `A ${value.quantity} head reports no scalar to bracket, so it carries no uncertainty interval (M17)`,
+      );
     }
     if (value.uncertainty.kind !== "none") {
       const { low, high } = value.uncertainty;

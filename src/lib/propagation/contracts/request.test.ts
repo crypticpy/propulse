@@ -256,6 +256,52 @@ describe("parseRequest fails closed", () => {
     );
   });
 
+  it("treats two spellings of the same pole as coincident (M06)", () => {
+    const bad = candidate("hfShortPath");
+    // At +90 every meridian names the same point, so these are one station.
+    (bad.tx as Mutable).coordinates = {
+      ...((bad.tx as Mutable).coordinates as Mutable),
+      latitudeDeg: 90,
+      longitudeDeg: 0,
+    };
+    (bad.rx as Mutable).coordinates = {
+      ...((bad.rx as Mutable).coordinates as Mutable),
+      latitudeDeg: 90,
+      longitudeDeg: 120,
+    };
+    expect(reasonsAt(bad, "rx.coordinates").join()).toMatch(
+      /zero-distance circuit/,
+    );
+  });
+
+  it("rejects a fixed relay on an earth_space geometry (A21)", () => {
+    const bad = candidate("fixedRelay");
+    (bad.mechanismPolicy as Mutable).geometryClass = "earth_space";
+    expect(reasonsAt(bad, "relay.kind").join()).toMatch(
+      /earth_space does not admit a fixed relay/,
+    );
+  });
+
+  it("rejects a fixed relay on an earth_moon_earth geometry (A22)", () => {
+    const bad = candidate("fixedRelay");
+    (bad.mechanismPolicy as Mutable).geometryClass = "earth_moon_earth";
+    expect(reasonsAt(bad, "relay.kind").join()).toMatch(
+      /earth_moon_earth does not admit a fixed relay/,
+    );
+  });
+
+  it("accepts an orbital relay on an earth_space geometry (A21)", () => {
+    const good = candidate("satellitePass");
+    (good.mechanismPolicy as Mutable).geometryClass = "earth_space";
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a fixed relay on a two_leg_relay geometry (A21)", () => {
+    const outcome = parseRequest(candidate("fixedRelay"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects coincident endpoints with no explicit route azimuth (M06)", () => {
     const bad = candidate("hfShortPath");
     (bad.rx as Mutable).coordinates = structuredClone(

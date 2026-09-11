@@ -47,6 +47,18 @@ describe("requestKey identity", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
   });
 
+  it("gives two spellings of one pole the same key", () => {
+    const atPole = (longitudeDeg: number) =>
+      build((draft) => {
+        (draft.tx as Mutable).coordinates = {
+          ...((draft.tx as Mutable).coordinates as Mutable),
+          latitudeDeg: 90,
+          longitudeDeg,
+        };
+      });
+    expect(requestKey(atPole(0))).toBe(requestKey(atPole(137.5)));
+  });
+
   it("rejects sub-millisecond instants rather than aliasing them onto one key", () => {
     // Date.parse truncates to whole milliseconds, so the wire schema refuses
     // any precision the canonical key could not carry.

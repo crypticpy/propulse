@@ -53,6 +53,14 @@ const assetBytes: AssetByteSource = async () => {
   ) as ArrayBuffer;
 };
 
+/** The next representable double above `value`, for one-ulp probes. */
+function nextUp(value: number): number {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, value);
+  view.setBigUint64(0, view.getBigUint64(0) + 1n);
+  return view.getFloat64(0);
+}
+
 async function freshProvider(
   source: AssetByteSource = assetBytes,
 ): Promise<IonosphereProvider> {
@@ -378,6 +386,33 @@ describe("query canonicalisation", () => {
     expect(() => provider.state(query(undefined))).toThrow(
       IonosphereQueryError,
     );
+  });
+
+  it("rejects a solar index whose discriminant is not a boolean literal", () => {
+    // A truthy test on `known` reads {"known":"false"} out of untrusted JSON as
+    // a caller-supplied R12, and reads {"known":0} as an unknown index with a
+    // missing reason - the wrong field in the wrong error.
+    const query = (r12: unknown): IonosphereQuery =>
+      ({
+        coordinates: canonicalCoordinates(30, 60),
+        validAt: "2026-04-15T12:00:00Z",
+        r12,
+        mode: "reference",
+      }) as IonosphereQuery;
+    const fieldOf = (r12: unknown): string => {
+      try {
+        provider.state(query(r12));
+      } catch (error) {
+        if (error instanceof IonosphereQueryError) return error.field;
+        throw error;
+      }
+      return "accepted";
+    };
+    expect(fieldOf({ known: "false", value: 80 })).toBe("r12.known");
+    expect(fieldOf({ known: "true", value: 80 })).toBe("r12.known");
+    expect(fieldOf({ known: 0, reason: "none" })).toBe("r12.known");
+    expect(fieldOf({ known: 1, value: 80 })).toBe("r12.known");
+    expect(fieldOf({ value: 80 })).toBe("r12");
   });
 
   it("gives the same answer at every meridian at a pole", () => {
@@ -720,6 +755,44 @@ describe("determinism", () => {
     expect(await ionosphereStateDigest(louder)).not.toBe(
       await ionosphereStateDigest(loud),
     );
+  });
+
+  it("absorbs a one-ulp difference in every field it digests", async () => {
+    // The quantisation exists to survive a 1-ulp spread between engines, which
+    // it can only do while the grid it rounds to is coarser than binary64
+    // itself. `nmF2PerM3` is ~1e12, where adjacent doubles are ~1e-4 apart, so
+    // an absolute 1e-6 grid is four orders of magnitude too fine there and the
+    // spread it exists to absorb passes straight through.
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    const digest = await ionosphereStateDigest(state);
+    const nudged = nextUp(state.nmF2PerM3);
+    expect(nudged).not.toBe(state.nmF2PerM3);
+    expect(nudged - state.nmF2PerM3).toBeGreaterThan(1e-6);
+    expect(await ionosphereStateDigest({ ...state, nmF2PerM3: nudged })).toBe(
+      digest,
+    );
+  });
+
+  it("carries no field that another digested field already determines", () => {
+    // NmF2 is a pure function of foF2, so it can be dropped from the digest
+    // without weakening it; keeping it would only add a field whose magnitude
+    // no absolute quantisation can cover.
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    expect(state.nmF2PerM3).toBe(nmF2FromFoF2(state.foF2MHz));
+  });
+
+  it("separates two requested R12 values beyond the absolute grid", async () => {
+    // `requestedR12` is the caller's own number and is bounded by nothing but
+    // binary64. Dividing by 1e-6 overflows above ~1.8e302, so an absolute grid
+    // maps every such request to one symbol and a cache keyed by the digest
+    // would answer one request with another's state.
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    const withRequest = (requestedR12: number) =>
+      ionosphereStateDigest({
+        ...state,
+        solarIndex: { ...state.solarIndex, requestedR12 },
+      });
+    expect(await withRequest(1e303)).not.toBe(await withRequest(2e303));
   });
 
   it("covers the assumptions and the solar geometry, not only foF2", async () => {

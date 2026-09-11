@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "generated_at": "2026-09-11T14:53:07Z",
   "asset": {
     "path": "public/propagation/ionosphere/ccir-numerical-map-v1.bin",
     "served_at": "/propagation/ionosphere/ccir-numerical-map-v1.bin",
@@ -17,66 +18,79 @@
     "origin": "ITU-R CCIR numerical-map coefficients issued with the NeQuick G / ITU-R P.531 companion software",
     "mirror": "CS-SI/Orekit @ f0c1fdc852f3a2ae5af99c38b4743144b9281877 (Apache-2.0, files republished unmodified)",
     "captured_at": "2026-09-11T14:53:07Z",
+    "capture_note": "The oldest capture among the files below, each of which carries its own. The url is pinned to an immutable commit, so a capture older than generated_at is still the same bytes.",
     "files": [
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir11.asc",
         "sha256": "sha256:bbdc33cd8f77e9205a37986d3cbef5c4b25d3eeefbc169226ad7f03876d6f273",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir12.asc",
         "sha256": "sha256:886e7a2dc9060798c199322083346972378c80628d280cfef277f8c49a9dd1b1",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir13.asc",
         "sha256": "sha256:4c6373bb877d1d856841f5389842c1e9ad0459c4659e7f5fa69873fbf3a5190a",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir14.asc",
         "sha256": "sha256:883df4c94588ac50ae363817c864a70018b254e96914f6cc07a773e748708787",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir15.asc",
         "sha256": "sha256:b20387f6e60e491a1e0a53b810bbc1eff9255ad6d8d0cbbfdba848b192744957",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir16.asc",
         "sha256": "sha256:7467796cc28843e0257b014209315372988e6581ec11615e803e79611472fb4c",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir17.asc",
         "sha256": "sha256:d31f645c29f768118f1bbb14a0753a1e5dfd31dcb77ad7eb994869ce36764632",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir18.asc",
         "sha256": "sha256:a96f565b7f5f8a4ddcab709c90cf7fda2aae5797109e6d0ebfb6c4dd288f0fa6",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir19.asc",
         "sha256": "sha256:b8880bbdc8dc213ef269f364c3bfd1b1c755a9956ed431f59673f0e08d088f02",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir20.asc",
         "sha256": "sha256:738edd1791cbcf9a95e8cf48b9dbb8ae25e69444d90d5a8331cc2fa52a9a6cde",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir21.asc",
         "sha256": "sha256:de58612b467d32120c28fb0904fdfb4369ab37aa798d163cdbc57d01be4602b4",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       },
       {
         "url": "https://raw.githubusercontent.com/CS-SI/Orekit/f0c1fdc852f3a2ae5af99c38b4743144b9281877/src/main/resources/assets/org/orekit/nequick/ccir22.asc",
         "sha256": "sha256:df63975d3e1bda034582bb01659438d330b98a40632633a9197fa319aa2fc74a",
-        "bytes": 46443
+        "bytes": 46443,
+        "captured_at": "2026-09-11T14:53:07Z"
       }
     ],
     "not_interchangeable_with": "The IRI distribution's ccir%02d.asc diverges from this ITU set in months 7, 8, 9, 11 and 12 by up to 5.9e-2 MHz of foF2, 58x the G0 gate. P.533 parity requires the ITU set."
@@ -86,6 +100,7 @@
     "url": "https://www.sidc.be/SILSO/DATA/SN_ms_tot_V2.0.txt",
     "sha256": "sha256:bf521e3979780fb91614cf7191db63bb1323792f14c0240999b25a9149c81be4",
     "captured_at": "2026-09-11T14:53:07Z",
+    "capture_note": "SILSO revises its smoothed series monthly and serves it from a url with no version in it, so this source is refetched on every run and never read from the cache: captured_at always equals generated_at.",
     "scale_note": "SILSO v2.0 sunspot numbers are 1.43x the classic series the CCIR maps were built against; the provider divides by 1.43 and records the conversion in its assumptions rather than applying it silently.",
     "months": [
       {

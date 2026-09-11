@@ -104,17 +104,71 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def fetch(url: str, cache: Path) -> tuple[bytes, str]:
-    """Fetch with an on-disk cache so a re-run is reproducible offline."""
+def utc_now() -> str:
+    """The current instant, in the one format every timestamp here is written in."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+@dataclass(frozen=True)
+class Fetched:
+    """Bytes plus the moment they were actually read from the network."""
+
+    data: bytes
+    sha256: str
+    captured_at: str
+
+
+def fetch(url: str, cache: Path, *, mutable: bool = False) -> Fetched:
+    """Fetch with an on-disk cache that remembers *when* it fetched.
+
+    ``captured_at`` names one event: the read from the network. A cache that
+    stores only bytes cannot answer that question, so a re-run would stamp a
+    months-old payload with the current clock and the manifest would claim a
+    freshness nobody checked. Every payload therefore gets a receipt beside it
+    holding the url, the digest and the capture time, and only a receipt that
+    still matches the bytes is trusted; an entry written by an older run, or one
+    whose bytes have since changed, is treated as unknown and refetched rather
+    than silently restamped.
+
+    ``mutable=True`` is for a source that can change under its url (SILSO
+    revises its smoothed series every month). There is no cached answer for such
+    a source that is safe to reuse, so it is refetched every run and the
+    manifest's capture time is always this run's.
+    """
     cache.mkdir(parents=True, exist_ok=True)
-    target = cache / hashlib.sha256(url.encode()).hexdigest()[:16]
-    if target.exists():
+    key = hashlib.sha256(url.encode()).hexdigest()[:16]
+    target = cache / key
+    receipt_path = cache / f"{key}.json"
+    if not mutable and target.exists() and receipt_path.exists():
         data = target.read_bytes()
-    else:
-        with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310
-            data = response.read()
-        target.write_bytes(data)
-    return data, sha256_bytes(data)
+        digest = sha256_bytes(data)
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            receipt = {}
+        if (
+            receipt.get("url") == url
+            and receipt.get("sha256") == digest
+            and isinstance(receipt.get("captured_at"), str)
+            and receipt["captured_at"]
+        ):
+            return Fetched(data, digest, receipt["captured_at"])
+    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310
+        data = response.read()
+    digest = sha256_bytes(data)
+    captured_at = utc_now()
+    target.write_bytes(data)
+    receipt_path.write_text(
+        json.dumps({"url": url, "sha256": digest, "captured_at": captured_at}, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
+    return Fetched(data, digest, captured_at)
 
 
 def parse_ccir(text: str) -> tuple[list[float], list[float]]:
@@ -646,19 +700,29 @@ def main() -> int:
     parser.add_argument("--fixtures", action="store_true")
     args = parser.parse_args()
 
-    captured_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
-    )
+    # Two different events, two different timestamps: `generated_at` is when
+    # this run assembled the manifest, `captured_at` is when each source was
+    # read from the network, which may be an earlier run's cache.
+    generated_at = utc_now()
     sources = []
     months = []
     for month in range(1, 13):
         url = f"{OREKIT_BASE}/ccir{month + 10}.asc"
-        data, digest = fetch(url, args.cache)
-        sources.append({"url": url, "sha256": f"sha256:{digest}", "bytes": len(data)})
-        months.append(parse_ccir(data.decode("ascii")))
+        # Pinned to an immutable commit, so a cached copy is the same bytes
+        # forever and its original capture time remains the true one.
+        got = fetch(url, args.cache)
+        sources.append(
+            {
+                "url": url,
+                "sha256": f"sha256:{got.sha256}",
+                "bytes": len(got.data),
+                "captured_at": got.captured_at,
+            }
+        )
+        months.append(parse_ccir(got.data.decode("ascii")))
 
-    silso_raw, silso_digest = fetch(SILSO_URL, args.cache)
-    silso = parse_silso(silso_raw.decode("ascii", errors="replace"))
+    silso = fetch(SILSO_URL, args.cache, mutable=True)
+    silso_months = parse_silso(silso.data.decode("ascii", errors="replace"))
 
     asset = encode_asset(months)
     asset_digest = sha256_bytes(asset)
@@ -690,7 +754,7 @@ def main() -> int:
                 {
                     "schema_version": 1,
                     "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
-                    "generated_at": captured_at,
+                    "generated_at": generated_at,
                     "notes": (
                         "iturhfprop-dumppath rows come from the native RPT_DUMPPATH "
                         "report; their coordinates are the printed arc-second DMS, so "
@@ -709,6 +773,7 @@ def main() -> int:
 
     manifest = {
         "schema_version": 1,
+        "generated_at": generated_at,
         "asset": {
             "path": "public/propagation/ionosphere/ccir-numerical-map-v1.bin",
             "served_at": "/propagation/ionosphere/ccir-numerical-map-v1.bin",
@@ -732,7 +797,12 @@ def main() -> int:
                 "ITU-R P.531 companion software"
             ),
             "mirror": f"CS-SI/Orekit @ {OREKIT_COMMIT} (Apache-2.0, files republished unmodified)",
-            "captured_at": captured_at,
+            "captured_at": min(source["captured_at"] for source in sources),
+            "capture_note": (
+                "The oldest capture among the files below, each of which carries "
+                "its own. The url is pinned to an immutable commit, so a capture "
+                "older than generated_at is still the same bytes."
+            ),
             "files": sources,
             "not_interchangeable_with": (
                 "The IRI distribution's ccir%02d.asc diverges from this ITU set in "
@@ -743,14 +813,20 @@ def main() -> int:
         "solar_index_climatology": {
             "series": "SILSO 13-month smoothed total sunspot number, version 2.0",
             "url": SILSO_URL,
-            "sha256": f"sha256:{silso_digest}",
-            "captured_at": captured_at,
+            "sha256": f"sha256:{silso.sha256}",
+            "captured_at": silso.captured_at,
+            "capture_note": (
+                "SILSO revises its smoothed series monthly and serves it from a "
+                "url with no version in it, so this source is refetched on every "
+                "run and never read from the cache: captured_at always equals "
+                "generated_at."
+            ),
             "scale_note": (
                 "SILSO v2.0 sunspot numbers are 1.43x the classic series the CCIR "
                 "maps were built against; the provider divides by 1.43 and records "
                 "the conversion in its assumptions rather than applying it silently."
             ),
-            "months": silso,
+            "months": silso_months,
         },
         "verification": report,
         "oracle": {
@@ -812,6 +888,84 @@ class ReferenceBuildGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(RuntimeError, "absent"):
                 require_reference_build(Path(tmp) / "ITU-R-HF")
+
+
+class FetchCaptureTimeTests(unittest.TestCase):
+    """The cache must never let a stale payload claim a fresh capture.
+
+    ``captured_at`` names the moment bytes were read from the network, so it
+    can only come from the receipt written beside those bytes. Nothing here
+    shells out to git or touches the network: ``urllib.request.urlopen`` is
+    stubbed for every case.
+    """
+
+    @staticmethod
+    def _stub(payload: bytes, calls: list):
+        class Response:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *_):
+                return False
+
+            def read(self_inner):
+                return payload
+
+        def urlopen(url, timeout=None):  # noqa: ARG001
+            calls.append(url)
+            return Response()
+
+        return urlopen
+
+    def _fetch(self, url, cache, payload, calls, **kwargs):
+        from unittest import mock
+
+        with mock.patch.object(
+            urllib.request, "urlopen", self._stub(payload, calls)
+        ):
+            return fetch(url, cache, **kwargs)
+
+    def test_a_cached_payload_reports_the_time_it_was_fetched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache, calls = Path(tmp), []
+            first = self._fetch("https://example.test/a", cache, b"one", calls)
+            second = self._fetch("https://example.test/a", cache, b"two", calls)
+            self.assertEqual(calls, ["https://example.test/a"])
+            self.assertEqual(second.data, b"one")
+            self.assertEqual(second.captured_at, first.captured_at)
+
+    def test_a_cache_entry_without_a_receipt_is_refetched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache, calls = Path(tmp), []
+            self._fetch("https://example.test/b", cache, b"one", calls)
+            for receipt in cache.glob("*.json"):
+                receipt.unlink()
+            again = self._fetch("https://example.test/b", cache, b"two", calls)
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(again.data, b"two")
+
+    def test_a_receipt_that_does_not_match_the_bytes_is_refetched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache, calls = Path(tmp), []
+            self._fetch("https://example.test/c", cache, b"one", calls)
+            (receipt,) = list(cache.glob("*.json"))
+            record = json.loads(receipt.read_text(encoding="utf-8"))
+            record["sha256"] = sha256_bytes(b"tampered")
+            receipt.write_text(json.dumps(record), encoding="utf-8")
+            again = self._fetch("https://example.test/c", cache, b"two", calls)
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(again.data, b"two")
+
+    def test_a_mutable_source_is_refetched_even_with_a_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache, calls = Path(tmp), []
+            self._fetch("https://example.test/d", cache, b"one", calls, mutable=True)
+            again = self._fetch(
+                "https://example.test/d", cache, b"two", calls, mutable=True
+            )
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(again.data, b"two")
+            self.assertEqual(again.sha256, sha256_bytes(b"two"))
 
 
 if __name__ == "__main__":

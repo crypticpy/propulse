@@ -365,7 +365,16 @@ function resolveSolarIndex(query: IonosphereQuery): ResolvedSolarIndex {
       "must be a Known<number>: { known: true, value } or { known: false, reason }",
     );
   }
-  if (query.r12.known) {
+  const discriminant: unknown = (r12 as { known: unknown }).known;
+  if (discriminant !== true && discriminant !== false) {
+    throw new IonosphereQueryError(
+      "r12.known",
+      discriminant,
+      "the discriminant must be the literal true or false: a truthy test would " +
+        'read {"known":"false"} out of untrusted JSON as a supplied index',
+    );
+  }
+  if (query.r12.known === true) {
     const requested = query.r12.value;
     if (!Number.isFinite(requested) || requested < 0) {
       throw new IonosphereQueryError(
@@ -610,11 +619,29 @@ export async function createCcirIonosphereProvider(
   });
 }
 
-/** Precisions the determinism digest rounds to, chosen well inside model error. */
+/** Precision the determinism digest rounds to, chosen well inside model error. */
 const DIGEST_PRECISION = 1e-6;
 
+/**
+ * Above this magnitude the absolute grid stops being a quantisation.
+ *
+ * Rounding to 1e-6 only absorbs an engine's last-bit spread while 1e-6 is
+ * coarser than the spacing of the doubles themselves: `ulp(x)` passes 1e-6 at
+ * |x| = 2^52 * 1e-6 = 4.5e9, and `x / 1e-6` overflows to Infinity above
+ * ~1.8e302, which would map every larger value to a single symbol. Below the
+ * limit the grid is at least 4.5e3 ulps wide; at or above it the value is
+ * written exactly instead, which is sound because no field that ever reaches
+ * that magnitude comes from transcendental arithmetic - it is either the
+ * caller's own number or the result of correctly rounded IEEE-754 operations,
+ * identical in every conformant engine.
+ */
+const DIGEST_ABSOLUTE_LIMIT = 1e9;
+
 function quantise(value: number): string {
-  if (!Number.isFinite(value)) return "nan";
+  // NaN, +Infinity and -Infinity are distinct states of the model and must not
+  // collapse onto one another.
+  if (!Number.isFinite(value)) return String(value);
+  if (Math.abs(value) >= DIGEST_ABSOLUTE_LIMIT) return String(value);
   return (Math.round(value / DIGEST_PRECISION) * DIGEST_PRECISION).toFixed(6);
 }
 
@@ -637,10 +664,23 @@ function quantise(value: number): string {
  *
  * `Math.sin` and `Math.pow` are permitted a 1-ulp spread between engines, so
  * two correct implementations can return states that differ in the last bit.
- * Rounding to 1e-6 (MHz, or dimensionless) before digesting makes the identity
- * stable across engines while staying four orders of magnitude finer than the
- * model's own uncertainty. `JSON.stringify` of the field list, rather than a
- * join on a separator, keeps a string field from spelling a field boundary.
+ * Rounding to 1e-6 (MHz, degrees, hours, or dimensionless) before digesting
+ * makes the identity stable across engines while staying four orders of
+ * magnitude finer than the model's own uncertainty - but only where 1e-6 is
+ * coarser than the spacing of the doubles themselves, which is why `quantise`
+ * switches to the exact decimal above `DIGEST_ABSOLUTE_LIMIT`. Every digested
+ * number is either bounded well inside that limit (coordinates <= 180, foF2 and
+ * foE in MHz, M(3000)F2 ~3, the solar angles <= 360, the dip <= 90, the
+ * gyrofrequency ~1.5, R12 <= 160) or written exactly (`requestedR12`, which is
+ * the caller's own unbounded number).
+ *
+ * A field that another digested field already determines is left out rather
+ * than digested twice: `nmF2PerM3` is exactly `nmF2FromFoF2(foF2MHz)`, so it
+ * adds no identity and would only contribute a ~1e12 magnitude no absolute
+ * grid can quantise.
+ *
+ * `JSON.stringify` of the field list, rather than a join on a separator, keeps
+ * a string field from spelling a field boundary.
  */
 export async function ionosphereStateDigest(
   state: IonosphereState,
@@ -656,7 +696,9 @@ export async function ionosphereStateDigest(
     quantise(state.foF2MHz),
     quantise(state.m3000F2),
     quantise(state.foEMHz),
-    quantise(state.nmF2PerM3),
+    // `nmF2PerM3` is deliberately absent: it is exactly `nmF2FromFoF2(foF2MHz)`
+    // and so carries no information the digested foF2 does not already carry,
+    // while its ~1e12 magnitude is one no absolute grid can quantise.
     quantise(state.solarIndex.r12),
     quantise(state.solarIndex.requestedR12),
     state.solarIndex.clipped,
@@ -702,8 +744,9 @@ export async function ionosphereStateDigest(
  *
  * Regenerate the digest only when the coefficient asset, a declared precision,
  * or the set of fields the digest covers changes, and say which in the commit
- * message. It last changed when the digest was widened from the modelled
- * numbers to the whole emitted state.
+ * message. It last changed when `nmF2PerM3` - a pure function of the digested
+ * foF2, at a magnitude coarser than the 1e-6 grid - was dropped from the field
+ * list; the move is by design, not a change in any modelled number.
  */
 export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
   coordinates: canonicalCoordinates(30, 60),
@@ -713,7 +756,7 @@ export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
 });
 
 export const DETERMINISM_PROBE_DIGEST: ArtifactHash =
-  "sha256:5cde37633c7fbd8dbd312c5aa1bca8118051daf4e846b093250693a7bb2c90ea";
+  "sha256:cea2275a16de0b3c4fb3affeab162153378b8343c58ba15e08e90dd832f285c8";
 
 const registry = new Map<string, IonosphereProvider>();
 

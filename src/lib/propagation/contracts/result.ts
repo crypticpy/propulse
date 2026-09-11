@@ -15,6 +15,7 @@ import {
   FALLBACK_REASONS,
   HEIGHT_DATUMS,
   INTERVAL_KINDS,
+  INTERVAL_VALUED_QUANTITIES,
   isProtocolCoverage,
   MECHANISM_FAMILIES,
   POLARIZATIONS,
@@ -31,6 +32,7 @@ import {
   type PredictionDomain,
   type PredictionHorizon,
   type PredictionQuantity,
+  type QuantityUnit,
 } from "@/lib/propagation/contracts/enums";
 import {
   artifactHash,
@@ -453,6 +455,101 @@ export function hasPointValue(quantity: PredictionQuantity): boolean {
   return POINT_VALUES[quantity] !== null;
 }
 
+/**
+ * M17: the domain a reported value and its uncertainty interval live in, one
+ * entry per unit rather than per quantity. The domain is a property of the
+ * unit: every probability-valued head is bounded by [0, 1] and every count is
+ * bounded below by zero whatever event it counts, so a table keyed by unit
+ * cannot drift between two quantities that report the same kind of number.
+ * `null` is "no bound on that side", not "unchecked".
+ */
+interface ValueDomain {
+  min: number | null;
+  max: number | null;
+  /** How the bound reads in a rejection reason. */
+  text: string;
+}
+
+const UNIT_DOMAINS: Record<QuantityUnit, ValueDomain> = {
+  boolean: { min: null, max: null, text: "no numeric domain" },
+  dB: { min: null, max: null, text: "(-infinity, infinity)" },
+  dBuV_per_m: { min: null, max: null, text: "(-infinity, infinity)" },
+  Hz: { min: null, max: null, text: "(-infinity, infinity)" },
+  count: { min: 0, max: null, text: "[0, infinity)" },
+  probability: { min: 0, max: 1, text: "[0, 1]" },
+  seconds: { min: 0, max: null, text: "[0, infinity)" },
+};
+
+/**
+ * M02/M19: the window an interval-valued head answers, and how that window has
+ * to relate to the interval length the head echoes from the request.
+ *
+ * A detection bucket, an observation interval and a burst exposure window *are*
+ * the requested interval, so their length equals it exactly: a 900-second
+ * request answered with an hour-long bucket is a probability for a different
+ * event. A predicted pass is different in kind: the request names the window
+ * that was searched and the pass is the geometry found inside it, so the pass
+ * is required to fit within the window rather than to fill it (A21).
+ */
+interface IntervalWindow {
+  start: string;
+  end: string;
+  relation: "equals" | "within";
+  noun: string;
+}
+
+const INTERVAL_WINDOWS: Record<PredictionQuantity, IntervalWindow | null> = {
+  circuit_support: null,
+  snr2500: null,
+  conditional_decode: null,
+  completed_qso: null,
+  field_strength: null,
+  doppler: null,
+  network_detection: {
+    start: "bucketStartAt",
+    end: "bucketEndAt",
+    relation: "equals",
+    noun: "detection bucket",
+  },
+  observed_activity: {
+    start: "intervalStartAt",
+    end: "intervalEndAt",
+    relation: "equals",
+    noun: "observation interval",
+  },
+  usable_burst: {
+    start: "intervalStartAt",
+    end: "intervalEndAt",
+    relation: "equals",
+    noun: "burst exposure window",
+  },
+  pass_geometry: {
+    start: "aosAt",
+    end: "losAt",
+    relation: "within",
+    noun: "predicted pass",
+  },
+};
+
+/**
+ * `intervalSeconds` is seconds while the window ends are milliseconds, so an
+ * echo of 0.1 s must not fail on the binary representation of 100.000000001 ms.
+ */
+const INTERVAL_MATCH_TOLERANCE_SECONDS = 1e-6;
+
+/** The length of a head's own window, or null if its payload has none. */
+function windowSeconds(
+  quantity: PredictionQuantity,
+  payload: unknown,
+): number | null {
+  const window = INTERVAL_WINDOWS[quantity];
+  if (window === null) return null;
+  const fields = payload as Record<string, string>;
+  return (
+    (instantMs(fields[window.end]) - instantMs(fields[window.start])) / 1000
+  );
+}
+
 const PAYLOAD_SCHEMAS: Record<PredictionQuantity, z.ZodTypeAny> = {
   circuit_support: circuitSupportPayload,
   snr2500: snr2500Payload,
@@ -492,6 +589,7 @@ export interface PredictionHeadBase {
   domain: PredictionDomain;
   horizon: PredictionHorizon;
   mechanismFamily: MechanismFamily;
+  intervalSeconds: number | null;
   contextId: string;
   validAt: string;
   effectiveModelId: string;
@@ -537,6 +635,18 @@ const predictionHead = z
      */
     horizon: z.enum(PREDICTION_HORIZONS),
     mechanismFamily: z.enum(MECHANISM_FAMILIES),
+    /**
+     * M02/M19: the request interval this head answers, echoed into the result.
+     *
+     * Routing already matches `scope.intervalSeconds` against the interval
+     * lengths a capability head declares, but `requestKey` is an opaque digest:
+     * a parser holding only the result cannot recover the length that was asked
+     * for. The echo is the binding, and the rules below tie it to the head's own
+     * window, so a one-hour bucket can no longer be returned for a 900-second
+     * detection request. Null on an instantaneous quantity, which has no
+     * interval to answer.
+     */
+    intervalSeconds: finite.positive().nullable(),
     contextId: identifier,
     /**
      * The time this head is about. It equals the result's own `validAt`, which
@@ -585,6 +695,26 @@ const predictionHead = z
         `Quantity ${value.quantity} is measured in ${QUANTITY_UNITS[value.quantity]}`,
       );
     }
+    /**
+     * The echo is a statement about the request, not about a value, so it is
+     * required on an unavailable head too: a declared gap is a gap for the
+     * interval that was asked for.
+     */
+    const intervalValued = INTERVAL_VALUED_QUANTITIES.includes(value.quantity);
+    if (intervalValued && value.intervalSeconds === null) {
+      reject(
+        ctx,
+        ["intervalSeconds"],
+        `Quantity ${value.quantity} is defined over an interval and must echo the interval length it answers (M02, M19)`,
+      );
+    }
+    if (!intervalValued && value.intervalSeconds !== null) {
+      reject(
+        ctx,
+        ["intervalSeconds"],
+        `Quantity ${value.quantity} is sampled at an instant and answers no interval length (M02)`,
+      );
+    }
     if (
       value.state.availability !== "available" &&
       value.state.availability !== "experimental"
@@ -614,6 +744,27 @@ const predictionHead = z
       }
       return z.NEVER;
     }
+    const window = INTERVAL_WINDOWS[value.quantity];
+    const length = windowSeconds(value.quantity, payload.data);
+    if (window !== null && length !== null && value.intervalSeconds !== null) {
+      const echoed = value.intervalSeconds;
+      const short = length < echoed - INTERVAL_MATCH_TOLERANCE_SECONDS;
+      const long = length > echoed + INTERVAL_MATCH_TOLERANCE_SECONDS;
+      if (window.relation === "equals" && (short || long)) {
+        reject(
+          ctx,
+          ["state", "value", window.end],
+          `The ${window.noun} is ${length} s long and answers a request for ${echoed} s; an interval-valued head answers the interval it was asked for (M02, M19)`,
+        );
+      }
+      if (window.relation === "within" && long) {
+        reject(
+          ctx,
+          ["state", "value", window.end],
+          `The ${window.noun} is ${length} s long and does not fit in the ${echoed} s window it answers (A21, M02)`,
+        );
+      }
+    }
     if (value.uncertainty.kind !== "none" && !hasPointValue(value.quantity)) {
       // M17 describes uncertainty around a reported value. circuit_support and
       // pass_geometry report a set of per-mode or per-pass verdicts and no
@@ -628,16 +779,23 @@ const predictionHead = z
     }
     if (value.uncertainty.kind !== "none") {
       const { low, high } = value.uncertainty;
-      // A probability-valued head is bounded by construction, so its interval
-      // is bounded too.
-      if (QUANTITY_UNITS[value.quantity] === "probability") {
-        if (low < 0 || high > 1) {
-          reject(
-            ctx,
-            ["uncertainty", low < 0 ? "low" : "high"],
-            "A probability interval lies inside [0, 1]",
-          );
-        }
+      /**
+       * M17: an interval is quantiles of the reported value, so it lives in the
+       * same domain that value does. A probability below zero or a count of
+       * minus ten is not a bound on anything the head could have reported.
+       */
+      const units = QUANTITY_UNITS[value.quantity];
+      const domain = UNIT_DOMAINS[units];
+      if (
+        (domain.min !== null && low < domain.min) ||
+        (domain.max !== null && high > domain.max)
+      ) {
+        const belowMin = domain.min !== null && low < domain.min;
+        reject(
+          ctx,
+          ["uncertainty", belowMin ? "low" : "high"],
+          `A ${units} interval lies inside ${domain.text} (M17)`,
+        );
       }
       const point = pointValue(value.quantity, payload.data);
       if (point !== null && point === NO_POWER_DB) {

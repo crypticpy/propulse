@@ -5,6 +5,8 @@ import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cas
 import { parseCapability } from "@/lib/propagation/contracts/capability";
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
+  INTERVAL_VALUED_QUANTITIES,
+  PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
@@ -65,10 +67,43 @@ function issues(value: unknown): ContractIssue[] {
   return outcome.ok ? [] : outcome.issues;
 }
 
+/**
+ * Rejection reasons at a path without asserting that the draft failed, for a
+ * sweep whose two halves expect an acceptance and a rejection.
+ */
+function reasonsAtAnyOutcome(value: unknown, path: string): string[] {
+  const outcome = parseResult(value);
+  return outcome.ok
+    ? []
+    : outcome.issues
+        .filter((issue) => issue.path === path)
+        .map((issue) => issue.reason);
+}
+
 function reasonsAt(value: unknown, path: string): string[] {
   return issues(value)
     .filter((issue) => issue.path === path)
     .map((issue) => issue.reason);
+}
+
+/**
+ * The interval length a substituted head echoes: the length of its own window
+ * for the three quantities whose window is the requested interval, the pass
+ * length for `pass_geometry` (whose pass need only fit inside the window), and
+ * null for an instantaneous quantity.
+ */
+const WINDOW_FIELDS: Record<string, [string, string]> = {
+  network_detection: ["bucketStartAt", "bucketEndAt"],
+  observed_activity: ["intervalStartAt", "intervalEndAt"],
+  usable_burst: ["intervalStartAt", "intervalEndAt"],
+  pass_geometry: ["aosAt", "losAt"],
+};
+
+function echoFor(quantity: string, payload: Mutable): number | null {
+  const fields = WINDOW_FIELDS[quantity];
+  if (!fields) return null;
+  const at = (field: string) => Date.parse(payload[field] as string);
+  return (at(fields[1]) - at(fields[0])) / 1000;
 }
 
 /**
@@ -92,6 +127,9 @@ function scalarHeadCase(
   head.mechanismFamily = row.mechanismFamily;
   head.calibrationId = null;
   (head.state as Mutable).value = payload;
+  // An interval-valued head echoes the request interval it answers, and the
+  // fixtures answer exactly the window their own payload carries (M02, M19).
+  head.intervalSeconds = echoFor(quantity, payload);
   return { result, head };
 }
 
@@ -699,6 +737,9 @@ describe("parseResult fails closed", () => {
     head.domain = "qualified_ephemeris_horizon";
     head.horizon = "forecast_seconds";
     head.mechanismFamily = "satellite";
+    // A pass is an interval-valued quantity: the head echoes the window it was
+    // asked about, and the ten-minute pass fits inside it (M02, M19).
+    head.intervalSeconds = 900;
     (head.state as Mutable).value = {
       aosAt: "2026-09-11T19:00:00Z",
       losAt: "2026-09-11T19:10:00Z",
@@ -910,6 +951,7 @@ describe("parseResult fails closed", () => {
       domain: "versioned_event_population",
       horizon: "current",
       mechanismFamily: "event_head",
+      intervalSeconds: 3600,
       contextId: bad.contextId,
       validAt: bad.validAt,
       effectiveModelId: "propulse-physics-v1",
@@ -1226,6 +1268,8 @@ describe("parseResult fails closed", () => {
     (
       ((good.heads as Mutable[])[1].state as Mutable).value as Mutable
     ).intervalEndAt = "2026-09-11T18:00:00Z";
+    // Shortening the observation shortens the interval it answers with it.
+    (good.heads as Mutable[])[1].intervalSeconds = 1800;
     const outcome = parseResult(good);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
@@ -1392,5 +1436,172 @@ describe("parseResult fails closed", () => {
     expect(reasonsAt(bad, "heads[1].assumptions[1]").join()).toMatch(
       /declared twice; an assumption holds or it does not \(M11\)/,
     );
+  });
+
+  /**
+   * M02/M19: routing matches the request's `scope.intervalSeconds` against the
+   * interval lengths a capability head declares, and `requestKey` is an opaque
+   * digest, so the result carries the interval it answers. The sweep runs over
+   * `INTERVAL_VALUED_QUANTITIES` itself, which is the same list routing uses,
+   * so the echo rule and the routing dimension cannot drift apart.
+   */
+  it("requires the interval echo on exactly the interval-valued quantities (M02, M19)", () => {
+    for (const quantity of PREDICTION_QUANTITIES) {
+      const intervalValued = INTERVAL_VALUED_QUANTITIES.includes(quantity);
+      // An unavailable head declares no value, so this sweep exercises the echo
+      // rule alone: the echo is a statement about the request, not the answer.
+      const draft = (echo: number | null): Mutable => {
+        const value = candidate("missingInput");
+        const head = heads(value)[0];
+        head.quantity = quantity;
+        head.units = QUANTITY_UNITS[quantity];
+        head.uncertainty = { kind: "none" };
+        head.intervalSeconds = echo;
+        head.state = {
+          availability: "missing_input",
+          reason: "no_eligible_source",
+        };
+        return value;
+      };
+      expect(
+        reasonsAtAnyOutcome(draft(null), "heads[0].intervalSeconds").join(),
+      ).toMatch(
+        intervalValued ? /must echo the interval length it answers/ : /^$/,
+      );
+      expect(
+        reasonsAtAnyOutcome(draft(900), "heads[0].intervalSeconds").join(),
+      ).toMatch(
+        intervalValued ? /^$/ : /sampled at an instant and answers no interval/,
+      );
+      const outcome = parseResult(draft(intervalValued ? 900 : null));
+      expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    }
+  });
+
+  it("rejects a detection bucket that is not the interval it answers (M02, M19)", () => {
+    const bad = candidate("fullHfCircuit");
+    const detection = headFor(bad, "network_detection");
+    const served = headFor(bad, "snr2500");
+    detection.modelHash = served.modelHash;
+    detection.preprocessingHash = served.preprocessingHash;
+    detection.featureHash = served.featureHash;
+    // A 900-second request answered with an hour-long bucket is a probability
+    // for a different event, and nothing else in the result would catch it.
+    detection.intervalSeconds = 900;
+    detection.state = {
+      availability: "available",
+      value: {
+        probability: 0.3,
+        modelEventId: "model-event-2026-09-11T19",
+        exposureCellId: "cell-em12",
+        populationVersion: "pskreporter-population-2026-09",
+        bucketStartAt: "2026-09-11T19:00:00Z",
+        bucketEndAt: "2026-09-11T20:00:00Z",
+      },
+    };
+    expect(reasonsAt(bad, "heads[3].state.value.bucketEndAt").join()).toMatch(
+      /3600 s long and answers a request for 900 s/,
+    );
+
+    const good = structuredClone(bad);
+    (
+      (headFor(good, "network_detection").state as Mutable).value as Mutable
+    ).bucketEndAt = "2026-09-11T19:15:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a burst exposure window that is not the interval it answers (M02, M19)", () => {
+    const bad = scalarHeadCase(
+      "usable_burst",
+      "probability",
+      {
+        probability: 0.2,
+        criterionId: "msk144-decode-criterion-0.1.0",
+        intervalStartAt: "2026-09-11T19:00:00Z",
+        intervalEndAt: "2026-09-11T19:15:00Z",
+      },
+      BURST_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    bad.head.intervalSeconds = 600;
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.intervalEndAt").join(),
+    ).toMatch(/900 s long and answers a request for 600 s/);
+  });
+
+  it("rejects an observation interval that is not the interval it answers (M02, M19)", () => {
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 4,
+        intervalStartAt: "2026-09-11T17:00:00Z",
+        intervalEndAt: "2026-09-11T18:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    bad.head.intervalSeconds = 900;
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.intervalEndAt").join(),
+    ).toMatch(/3600 s long and answers a request for 900 s/);
+  });
+
+  it("rejects a predicted pass longer than the window it answers (A21, M02)", () => {
+    const bad = scalarHeadCase(
+      "pass_geometry",
+      "seconds",
+      {
+        aosAt: "2026-09-11T19:00:00Z",
+        losAt: "2026-09-11T19:10:00Z",
+        timingUncertaintySeconds: 2,
+        ephemerisAgeSeconds: 900,
+        horizonDeg: 5,
+      },
+      PASS_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    bad.head.intervalSeconds = 300;
+    expect(reasonsAt(bad.result, "heads[1].state.value.losAt").join()).toMatch(
+      /600 s long and does not fit in the 300 s window/,
+    );
+
+    // A pass shorter than the searched window is the normal case and stands:
+    // the window is what was asked about, the pass is what was found in it.
+    const good = structuredClone(bad.result);
+    (good.heads as Mutable[])[1].intervalSeconds = 900;
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a count interval whose low bound leaves the count domain (M17)", () => {
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 0,
+        intervalStartAt: "2026-09-11T17:00:00Z",
+        intervalEndAt: "2026-09-11T18:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
+    // Quantiles of a count are counts: minus ten reports is not a bound on
+    // anything the head could have observed.
+    (bad.head.uncertainty as Mutable) = { ...SPREAD, low: -10, high: 2 };
+    expect(reasonsAt(bad.result, "heads[1].uncertainty.low").join()).toMatch(
+      /A count interval lies inside \[0, infinity\) \(M17\)/,
+    );
+
+    const good = structuredClone(bad.result);
+    (good.heads as Mutable[])[1].uncertainty = {
+      ...SPREAD,
+      low: 0,
+      high: 2,
+    };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 });

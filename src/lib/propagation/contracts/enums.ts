@@ -33,7 +33,7 @@ export const PREDICTION_QUANTITIES = [
 export type PredictionQuantity = (typeof PREDICTION_QUANTITIES)[number];
 
 /** Units per quantity, exactly the `units` strings in protocol-v0.1.json. */
-export const QUANTITY_UNITS: Record<PredictionQuantity, string> = {
+export const QUANTITY_UNITS = {
   circuit_support: "boolean",
   snr2500: "dB",
   network_detection: "probability",
@@ -44,7 +44,14 @@ export const QUANTITY_UNITS: Record<PredictionQuantity, string> = {
   usable_burst: "probability",
   pass_geometry: "seconds",
   doppler: "Hz",
-};
+} as const satisfies Record<PredictionQuantity, string>;
+
+/**
+ * The unit strings a quantity can be measured in. The literal union exists so
+ * a table keyed by unit (the value domain an uncertainty interval must lie in,
+ * result.ts) is exhaustive by type rather than by a lookup that could miss.
+ */
+export type QuantityUnit = (typeof QUANTITY_UNITS)[PredictionQuantity];
 
 /** Data/location domains, exactly the `domain` values of `coverage_rows`. */
 export const PREDICTION_DOMAINS = [

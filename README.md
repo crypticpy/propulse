@@ -455,14 +455,11 @@ npm run dev
 ```
 
 The dev server serves the app at `http://localhost:5173` with hot module replacement.
-That plain `npm run dev` is for a human at the keyboard. Agents and scripted checks on a
-shared machine use the managed session instead: check `npm run dev:session -- status`
-first, then start an owned server with
-`npm run dev:session -- start --owner <slug> --task <description> --profile local`. Each
-session is claimed per worktree on a port from 5180 to 5199, runs in the foreground, and
-is never taken over or stopped by another agent; separate ports do not isolate source
-edits, so different code changes need separate worktrees. See
-`docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in `CLAUDE.md`.
+This machine runs exactly one dev server, on port 5173, owned by the human or the
+orchestrator session. Agents never start one; check `npm run dev:session -- status`
+first and use the shared server if it is running. If it is not running, report that
+and stop. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
+`CLAUDE.md`.
 Supabase credentials are optional for local development; without them the app runs
 unauthenticated and the physics engine still works.
 

@@ -422,7 +422,7 @@ npm run build
 npm run check:bundles
 npm run test:dev-session
 npm run test -- src/lib/hamclock src/stores/hamclockStore.test.ts src/stores/hamclockDisplayStore.test.ts src/stores/mapStore.hamclockBeauty.test.ts src/components/map/lib/flatMapLayout.test.ts src/components/map/lib/flatMufRaster.test.ts src/components/map/hamclock/HamClockSpotsSidebar.test.tsx
-npm run test:hamclock:browser -- http://127.0.0.1:5180
+npm run test:hamclock:browser -- http://127.0.0.1:5173
 ```
 
 The browser command requires this checkout's managed local-profile server at the

@@ -1,0 +1,443 @@
+{
+  "fullHfCircuit": {
+    "schemaVersion": "propagation-result-0.1.0",
+    "contextId": "ctx-hf-path-2026-09-11T18",
+    "requestKey": "fixture-request-key-hf-short-path",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T19:00:00Z",
+    "provenance": {
+      "requestedModelId": "propulse-physics-v1",
+      "requestedModelVersion": "1.0.0",
+      "effectiveModelId": "propulse-physics-v1",
+      "effectiveModelVersion": "1.0.0",
+      "policyVersion": "source-policy-0.1.0",
+      "fallbackReason": null
+    },
+    "evidence": {
+      "sources": [
+        {
+          "sourceId": "noaa-swpc-f107",
+          "sourceVersion": "2026-09-11T17:30Z",
+          "observedIntervalEndAt": "2026-09-11T17:00:00Z",
+          "publishedAt": "2026-09-11T17:30:00Z",
+          "capturedAt": "2026-09-11T17:34:00Z",
+          "ageSeconds": 3600.0,
+          "eligible": true,
+          "exclusionReason": null
+        },
+        {
+          "sourceId": "giro-didbase-foF2",
+          "sourceVersion": "unknown",
+          "observedIntervalEndAt": null,
+          "publishedAt": null,
+          "capturedAt": null,
+          "ageSeconds": null,
+          "eligible": false,
+          "exclusionReason": "source_not_authorized_by_n5_policy"
+        }
+      ]
+    },
+    "heads": [
+      {
+        "quantity": "circuit_support",
+        "units": "boolean",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "modes": [
+              {
+                "modeId": "2F2",
+                "mechanism": "regular_ef",
+                "support": "supported"
+              },
+              {
+                "modeId": "1E",
+                "mechanism": "regular_ef",
+                "support": "screened"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "native_reference_decile",
+          "intervalKind": "central",
+          "coverageProbability": 0.8,
+          "low": 3.2,
+          "high": 17.4
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "support": "supported",
+            "snr2500Db": 10.3,
+            "referenceBandwidthHz": 2500,
+            "noiseFloorDbm": -128.6,
+            "losses": [
+              {
+                "componentId": "basic_transmission_loss",
+                "valueDb": 122.4,
+                "referencePlane": "antenna_input_to_available_receive_power"
+              },
+              {
+                "componentId": "excess_absorption",
+                "valueDb": 3.1,
+                "referencePlane": "antenna_input_to_available_receive_power"
+              },
+              {
+                "componentId": "tx_feed_loss",
+                "valueDb": 1.2,
+                "referencePlane": "transmitter_output_to_antenna_input"
+              }
+            ],
+            "alreadyIncludedMechanisms": [
+              "itu_reference_cd172be_regular_modes"
+            ]
+          }
+        }
+      },
+      {
+        "quantity": "conditional_decode",
+        "units": "probability",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [
+          "threshold_uncalibrated_published_benchmark"
+        ],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "probability": null,
+            "marginDb": 6.1,
+            "decoderId": "wsjtx-ft8",
+            "decoderVersion": "2.7.0",
+            "observationSeconds": 15.0,
+            "criterionId": "single_decode_within_sequence",
+            "thresholdSnr2500Db": 4.2,
+            "referenceBandwidthHz": 2500
+          }
+        }
+      },
+      {
+        "quantity": "network_detection",
+        "units": "probability",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "missing_input",
+          "reason": "no_eligible_network_exposure_context"
+        }
+      },
+      {
+        "quantity": "completed_qso",
+        "units": "probability",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "unavailable",
+          "reason": "no_calibrated_attempt_outcome_population"
+        }
+      }
+    ]
+  },
+  "partialFallback": {
+    "schemaVersion": "propagation-result-0.1.0",
+    "contextId": "ctx-hf-path-2026-09-11T18",
+    "requestKey": "fixture-request-key-hf-short-path-partial",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T19:00:00Z",
+    "provenance": {
+      "requestedModelId": "n5-nowcast",
+      "requestedModelVersion": "2.0.0",
+      "effectiveModelId": "propulse-physics-v1",
+      "effectiveModelVersion": "1.0.0",
+      "policyVersion": "source-policy-0.1.0",
+      "fallbackReason": "requested_model_out_of_domain"
+    },
+    "evidence": {
+      "sources": [
+        {
+          "sourceId": "noaa-swpc-f107",
+          "sourceVersion": "2026-09-11T17:30Z",
+          "observedIntervalEndAt": "2026-09-11T17:00:00Z",
+          "publishedAt": "2026-09-11T17:30:00Z",
+          "capturedAt": "2026-09-11T17:34:00Z",
+          "ageSeconds": 3600.0,
+          "eligible": true,
+          "exclusionReason": null
+        },
+        {
+          "sourceId": "giro-didbase-foF2",
+          "sourceVersion": "unknown",
+          "observedIntervalEndAt": null,
+          "publishedAt": null,
+          "capturedAt": null,
+          "ageSeconds": null,
+          "eligible": false,
+          "exclusionReason": "source_not_authorized_by_n5_policy"
+        }
+      ]
+    },
+    "heads": [
+      {
+        "quantity": "circuit_support",
+        "units": "boolean",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "modes": [
+              {
+                "modeId": "2F2",
+                "mechanism": "regular_ef",
+                "support": "supported"
+              },
+              {
+                "modeId": "1E",
+                "mechanism": "regular_ef",
+                "support": "screened"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [
+          "above_basic_muf_loss_from_reference"
+        ],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "support": "above_basic_muf_with_loss",
+            "snr2500Db": -4.8,
+            "referenceBandwidthHz": 2500,
+            "noiseFloorDbm": -128.6,
+            "losses": [
+              {
+                "componentId": "basic_transmission_loss",
+                "valueDb": 122.4,
+                "referencePlane": "antenna_input_to_available_receive_power"
+              },
+              {
+                "componentId": "excess_absorption",
+                "valueDb": 3.1,
+                "referencePlane": "antenna_input_to_available_receive_power"
+              },
+              {
+                "componentId": "tx_feed_loss",
+                "valueDb": 1.2,
+                "referencePlane": "transmitter_output_to_antenna_input"
+              }
+            ],
+            "alreadyIncludedMechanisms": [
+              "itu_reference_cd172be_regular_modes"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "noPowerMode": {
+    "schemaVersion": "propagation-result-0.1.0",
+    "contextId": "ctx-hf-path-2026-09-11T18",
+    "requestKey": "fixture-request-key-hf-no-power-mode",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T19:00:00Z",
+    "provenance": {
+      "requestedModelId": "propulse-physics-v1",
+      "requestedModelVersion": "1.0.0",
+      "effectiveModelId": "propulse-physics-v1",
+      "effectiveModelVersion": "1.0.0",
+      "policyVersion": "source-policy-0.1.0",
+      "fallbackReason": null
+    },
+    "evidence": {
+      "sources": [
+        {
+          "sourceId": "noaa-swpc-f107",
+          "sourceVersion": "2026-09-11T17:30Z",
+          "observedIntervalEndAt": "2026-09-11T17:00:00Z",
+          "publishedAt": "2026-09-11T17:30:00Z",
+          "capturedAt": "2026-09-11T17:34:00Z",
+          "ageSeconds": 3600.0,
+          "eligible": true,
+          "exclusionReason": null
+        },
+        {
+          "sourceId": "giro-didbase-foF2",
+          "sourceVersion": "unknown",
+          "observedIntervalEndAt": null,
+          "publishedAt": null,
+          "capturedAt": null,
+          "ageSeconds": null,
+          "eligible": false,
+          "exclusionReason": "source_not_authorized_by_n5_policy"
+        }
+      ]
+    },
+    "heads": [
+      {
+        "quantity": "circuit_support",
+        "units": "boolean",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "modes": [
+              {
+                "modeId": "1F2",
+                "mechanism": "regular_ef",
+                "support": "geometrically_unsupported"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "available",
+          "value": {
+            "support": "geometrically_unsupported",
+            "snr2500Db": "-Infinity",
+            "referenceBandwidthHz": 2500,
+            "noiseFloorDbm": -128.6,
+            "losses": [],
+            "alreadyIncludedMechanisms": []
+          }
+        }
+      }
+    ]
+  },
+  "missingInput": {
+    "schemaVersion": "propagation-result-0.1.0",
+    "contextId": "ctx-hf-path-2026-09-11T18",
+    "requestKey": "fixture-request-key-hf-missing",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T19:00:00Z",
+    "provenance": {
+      "requestedModelId": null,
+      "requestedModelVersion": null,
+      "effectiveModelId": "propulse-physics-v1",
+      "effectiveModelVersion": "1.0.0",
+      "policyVersion": "source-policy-0.1.0",
+      "fallbackReason": "missing_required_input"
+    },
+    "evidence": {
+      "sources": []
+    },
+    "heads": [
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "contextId": "ctx-hf-path-2026-09-11T18",
+        "validAt": "2026-09-11T19:00:00Z",
+        "effectiveModelId": "propulse-physics-v1",
+        "effectiveModelVersion": "1.0.0",
+        "calibrationId": null,
+        "assumptions": [],
+        "fallbackReason": null,
+        "uncertainty": {
+          "kind": "none"
+        },
+        "state": {
+          "availability": "missing_input",
+          "reason": "no_eligible_ionospheric_state"
+        }
+      }
+    ]
+  }
+}

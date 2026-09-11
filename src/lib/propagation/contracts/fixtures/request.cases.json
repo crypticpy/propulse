@@ -1,0 +1,258 @@
+{
+  "hfShortPath": {
+    "schemaVersion": "propagation-request-0.1.0",
+    "contextId": "ctx-hf-path-2026-09-11T18",
+    "viewScopeId": "view-globe-primary",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T19:00:00Z",
+    "targetEvent": "snr2500",
+    "scope": {
+      "domain": "characterized_fixed_path",
+      "horizon": "forecast_1_24h",
+      "aggregation": "instantaneous",
+      "intervalSeconds": null
+    },
+    "frequencyHz": 14074000,
+    "bandKey": "20m",
+    "modeProfileId": "ft8-wsjtx-2.7.0-15s",
+    "route": {
+      "leg": "short",
+      "azimuthDeg": null
+    },
+    "mechanismPolicy": {
+      "family": "regular_ef",
+      "geometryClass": "terrestrial_great_circle"
+    },
+    "terrainProfileId": null,
+    "environmentPackId": "p372-residential-v17",
+    "stationScenarioId": "scenario-home-100w-yagi-v3",
+    "tx": {
+      "stationId": "station-home-k5xyz",
+      "callsign": "K5XYZ",
+      "coordinates": {
+        "latitudeDeg": 30.2672,
+        "longitudeDeg": -97.7431,
+        "datum": "wgs84",
+        "precision": {
+          "kind": "gnss",
+          "horizontalMeters": {
+            "state": "known",
+            "value": 5.0
+          },
+          "cellSizeDeg": null
+        }
+      },
+      "antenna": {
+        "patternId": {
+          "state": "known",
+          "value": "yagi-3el-14mhz-v1"
+        },
+        "gainDbi": {
+          "state": "known",
+          "value": 8.5
+        },
+        "heightMeters": {
+          "state": "known",
+          "value": 18.0
+        },
+        "heightDatum": "above_ground_level",
+        "polarization": "horizontal"
+      },
+      "deliveredPowerWatts": {
+        "state": "known",
+        "value": 100.0
+      },
+      "feedLossDb": {
+        "state": "known",
+        "value": 1.2
+      },
+      "noiseAssumptionId": {
+        "state": "known",
+        "value": "p372-residential-v17"
+      }
+    },
+    "rx": {
+      "stationId": "station-unknown-dx",
+      "callsign": "VK2ABC",
+      "coordinates": {
+        "latitudeDeg": -33.8688,
+        "longitudeDeg": 151.2093,
+        "datum": "wgs84",
+        "precision": {
+          "kind": "gnss",
+          "horizontalMeters": {
+            "state": "known",
+            "value": 5.0
+          },
+          "cellSizeDeg": null
+        }
+      },
+      "antenna": {
+        "patternId": {
+          "state": "unknown",
+          "reason": "dx_antenna_not_declared"
+        },
+        "gainDbi": {
+          "state": "unknown",
+          "reason": "dx_antenna_not_declared"
+        },
+        "heightMeters": {
+          "state": "known",
+          "value": 10.0
+        },
+        "heightDatum": "above_ground_level",
+        "polarization": "horizontal"
+      },
+      "deliveredPowerWatts": {
+        "state": "unknown",
+        "reason": "dx_power_not_declared"
+      },
+      "feedLossDb": {
+        "state": "known",
+        "value": 1.2
+      },
+      "noiseAssumptionId": {
+        "state": "known",
+        "value": "p372-residential-v17"
+      }
+    },
+    "relay": null,
+    "requestedModel": {
+      "policy": "named",
+      "modelId": "propulse-physics-v1",
+      "modelVersion": "1.0.0",
+      "policyVersion": "source-policy-0.1.0"
+    },
+    "sourceMode": "cached_live"
+  },
+  "satellitePass": {
+    "schemaVersion": "propagation-request-0.1.0",
+    "contextId": "ctx-sat-pass-2026-09-11T18",
+    "viewScopeId": "view-satellite-panel",
+    "issuedAt": "2026-09-11T18:00:00Z",
+    "validAt": "2026-09-11T18:12:30Z",
+    "targetEvent": "doppler",
+    "scope": {
+      "domain": "qualified_ephemeris_horizon",
+      "horizon": "forecast_seconds",
+      "aggregation": "interval",
+      "intervalSeconds": 1.0
+    },
+    "frequencyHz": 145950000,
+    "bandKey": "2m",
+    "modeProfileId": "fm-voice-12k5",
+    "route": {
+      "leg": "short",
+      "azimuthDeg": 112.5
+    },
+    "mechanismPolicy": {
+      "family": "satellite",
+      "geometryClass": "earth_space"
+    },
+    "terrainProfileId": null,
+    "environmentPackId": "p372-residential-v17",
+    "stationScenarioId": "scenario-portable-5w-arrow-v1",
+    "tx": {
+      "stationId": "station-home-k5xyz",
+      "callsign": "K5XYZ",
+      "coordinates": {
+        "latitudeDeg": 30.2672,
+        "longitudeDeg": -97.7431,
+        "datum": "wgs84",
+        "precision": {
+          "kind": "gnss",
+          "horizontalMeters": {
+            "state": "known",
+            "value": 5.0
+          },
+          "cellSizeDeg": null
+        }
+      },
+      "antenna": {
+        "patternId": {
+          "state": "known",
+          "value": "yagi-3el-14mhz-v1"
+        },
+        "gainDbi": {
+          "state": "known",
+          "value": 6.0
+        },
+        "heightMeters": {
+          "state": "known",
+          "value": 2.0
+        },
+        "heightDatum": "above_ground_level",
+        "polarization": "rhcp"
+      },
+      "deliveredPowerWatts": {
+        "state": "known",
+        "value": 5.0
+      },
+      "feedLossDb": {
+        "state": "known",
+        "value": 1.2
+      },
+      "noiseAssumptionId": {
+        "state": "known",
+        "value": "p372-residential-v17"
+      }
+    },
+    "rx": {
+      "stationId": "station-home-k5xyz",
+      "callsign": "K5XYZ",
+      "coordinates": {
+        "latitudeDeg": 30.2672,
+        "longitudeDeg": -97.7431,
+        "datum": "wgs84",
+        "precision": {
+          "kind": "gnss",
+          "horizontalMeters": {
+            "state": "known",
+            "value": 5.0
+          },
+          "cellSizeDeg": null
+        }
+      },
+      "antenna": {
+        "patternId": {
+          "state": "known",
+          "value": "yagi-3el-14mhz-v1"
+        },
+        "gainDbi": {
+          "state": "known",
+          "value": 6.0
+        },
+        "heightMeters": {
+          "state": "known",
+          "value": 2.0
+        },
+        "heightDatum": "above_ground_level",
+        "polarization": "rhcp"
+      },
+      "deliveredPowerWatts": {
+        "state": "known",
+        "value": 5.0
+      },
+      "feedLossDb": {
+        "state": "known",
+        "value": 1.2
+      },
+      "noiseAssumptionId": {
+        "state": "known",
+        "value": "p372-residential-v17"
+      }
+    },
+    "relay": {
+      "relayId": "so-50",
+      "ephemerisId": "celestrak-tle-2026-09-11",
+      "ephemerisEpoch": "2026-09-11T06:14:02Z"
+    },
+    "requestedModel": {
+      "policy": "physics_only",
+      "modelId": null,
+      "modelVersion": null,
+      "policyVersion": "source-policy-0.1.0"
+    },
+    "sourceMode": "cached_live"
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "hfPhysics": {
+    "schemaVersion": "propagation-capability-0.1.0",
+    "modelId": "propulse-physics-v1",
+    "modelVersion": "1.0.0",
+    "modelHash": null,
+    "preprocessingHash": null,
+    "sourcePolicyVersion": "source-policy-0.1.0",
+    "heads": [
+      {
+        "quantity": "circuit_support",
+        "units": "boolean",
+        "domain": "characterized_fixed_path",
+        "state": "implemented_unvalidated",
+        "horizons": [
+          "climatology",
+          "current",
+          "forecast_1_24h"
+        ],
+        "mechanismFamilies": [
+          "regular_ef"
+        ],
+        "geometryClasses": [
+          "terrestrial_great_circle"
+        ],
+        "frequencyRangeHz": {
+          "minHz": 2000000.0,
+          "maxHz": 30000000.0
+        },
+        "bandKeys": [],
+        "modeProfileIds": [
+          "ft8-wsjtx-2.7.0-15s"
+        ],
+        "requiredInputs": [
+          "station_pair",
+          "smoothed_solar_index",
+          "mode_profile"
+        ],
+        "optionalInputs": [],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "none",
+        "internalFallback": {
+          "kind": "none"
+        }
+      },
+      {
+        "quantity": "snr2500",
+        "units": "dB",
+        "domain": "characterized_fixed_path",
+        "state": "implemented_unvalidated",
+        "horizons": [
+          "climatology",
+          "current",
+          "forecast_1_24h"
+        ],
+        "mechanismFamilies": [
+          "regular_ef"
+        ],
+        "geometryClasses": [
+          "terrestrial_great_circle"
+        ],
+        "frequencyRangeHz": {
+          "minHz": 2000000.0,
+          "maxHz": 30000000.0
+        },
+        "bandKeys": [
+          "160m",
+          "80m",
+          "40m",
+          "20m",
+          "15m",
+          "10m",
+          "6m"
+        ],
+        "modeProfileIds": [
+          "ft8-wsjtx-2.7.0-15s"
+        ],
+        "requiredInputs": [
+          "station_pair",
+          "smoothed_solar_index",
+          "mode_profile",
+          "noise_assumption"
+        ],
+        "optionalInputs": [
+          "eligible_foF2_observations"
+        ],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "native_reference_decile",
+        "internalFallback": {
+          "kind": "none"
+        }
+      },
+      {
+        "quantity": "conditional_decode",
+        "units": "probability",
+        "domain": "characterized_fixed_path",
+        "state": "planned",
+        "horizons": [
+          "current",
+          "forecast_1_24h"
+        ],
+        "mechanismFamilies": [
+          "regular_ef"
+        ],
+        "geometryClasses": [
+          "terrestrial_great_circle"
+        ],
+        "frequencyRangeHz": {
+          "minHz": 2000000.0,
+          "maxHz": 30000000.0
+        },
+        "bandKeys": [],
+        "modeProfileIds": [
+          "ft8-wsjtx-2.7.0-15s"
+        ],
+        "requiredInputs": [
+          "snr2500",
+          "decoder_response_calibration"
+        ],
+        "optionalInputs": [],
+        "featureSchemaId": "physics-feature-schema-0.1.0",
+        "outputSchemaId": "propagation-result-0.1.0",
+        "calibrationId": null,
+        "uncertaintyKind": "model_spread",
+        "internalFallback": {
+          "kind": "model",
+          "modelId": "propulse-physics-v1-margin",
+          "modelVersion": "1.0.0"
+        }
+      }
+    ],
+    "corrections": [
+      {
+        "correctionId": "storm-prior-v1",
+        "stage": "approved_disturbance_prior",
+        "ownsQuantityId": "ionospheric_state_departure",
+        "mechanism": "geomagnetic_storm_prior",
+        "covarianceOwnership": "owns_total",
+        "assumptions": [
+          "kp_driver_only"
+        ],
+        "active": true,
+        "inactiveReason": null
+      },
+      {
+        "correctionId": "xray-absorption-v1",
+        "stage": "excess_absorption",
+        "ownsQuantityId": "total_xray_absorption_db",
+        "mechanism": "d_region_absorption",
+        "covarianceOwnership": "owns_total",
+        "assumptions": [
+          "goes_xrs_long_channel"
+        ],
+        "active": false,
+        "inactiveReason": "source_outside_age_limit"
+      }
+    ]
+  },
+  "noOp": {
+    "schemaVersion": "propagation-capability-0.1.0",
+    "modelId": "no-op-capability",
+    "modelVersion": "0.0.0",
+    "modelHash": null,
+    "preprocessingHash": null,
+    "sourcePolicyVersion": "source-policy-0.1.0",
+    "heads": [],
+    "corrections": []
+  }
+}

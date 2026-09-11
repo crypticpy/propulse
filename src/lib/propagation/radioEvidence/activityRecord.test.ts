@@ -30,7 +30,9 @@ const WINDOW_HOURS = [
   "2026-09-11T17:00:00.000Z",
 ];
 
-function readable(hours: readonly string[] = WINDOW_HOURS): ReadableBandHourRow[] {
+function readable(
+  hours: readonly string[] = WINDOW_HOURS,
+): ReadableBandHourRow[] {
   return hours.map((hour_utc) => ({ hour_utc }));
 }
 
@@ -127,11 +129,7 @@ describe("unknown-vs-closed", () => {
           return "unknown";
       }
     };
-    expect(states.map(label)).toEqual([
-      "heard open",
-      "no reports",
-      "unknown",
-    ]);
+    expect(states.map(label)).toEqual(["heard open", "no reports", "unknown"]);
     expect(states.join(" ")).not.toMatch(/closed|dead|shut/);
   });
 });
@@ -173,7 +171,9 @@ describe("age", () => {
   });
 
   it("labels a coverage age differently from a report age (test 11)", () => {
-    const heard = derive({ pairRows: [pairRow({ hour_utc: WINDOW_HOURS[5] })] });
+    const heard = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[5] })],
+    });
     const silent = derive({
       pairRows: [],
       coverageRows: [
@@ -211,7 +211,11 @@ describe("backfilled flag", () => {
   it("qualifies a wholly backfilled row and flags it (test 12)", () => {
     const record = derive({
       pairRows: [
-        pairRow({ hour_utc: WINDOW_HOURS[4], spot_count: 7, backfilled_count: 7 }),
+        pairRow({
+          hour_utc: WINDOW_HOURS[4],
+          spot_count: 7,
+          backfilled_count: 7,
+        }),
       ],
     });
 
@@ -227,7 +231,11 @@ describe("backfilled flag", () => {
   it("calls a partly backfilled set direct and still states the share", () => {
     const record = derive({
       pairRows: [
-        pairRow({ hour_utc: WINDOW_HOURS[4], spot_count: 8, backfilled_count: 2 }),
+        pairRow({
+          hour_utc: WINDOW_HOURS[4],
+          spot_count: 8,
+          backfilled_count: 2,
+        }),
       ],
     });
 
@@ -303,7 +311,11 @@ describe("mode filter", () => {
   it("counts all three classes by default", () => {
     const record = derive({
       pairRows: [
-        pairRow({ hour_utc: WINDOW_HOURS[2], mode_class: "phone", spot_count: 6 }),
+        pairRow({
+          hour_utc: WINDOW_HOURS[2],
+          mode_class: "phone",
+          spot_count: 6,
+        }),
       ],
     });
 
@@ -337,7 +349,9 @@ describe("qualification", () => {
   });
 
   it("states the window it answered", () => {
-    const record = derive({ pairRows: [pairRow({ hour_utc: WINDOW_HOURS[0] })] });
+    const record = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[0] })],
+    });
 
     expect(record.intervalSeconds).toBe(DEFAULT_OBSERVED_WINDOW_SECONDS);
     expect(record.windowStartAt).toBe("2026-09-11T12:00:00.000Z");

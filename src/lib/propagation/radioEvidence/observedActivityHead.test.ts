@@ -133,7 +133,9 @@ describe("contract structural", () => {
 
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
     expect(head.state.availability).toBe("available");
-    expect(head.state.availability === "available" && head.state.value.count).toBe(6);
+    expect(
+      head.state.availability === "available" && head.state.value.count,
+    ).toBe(6);
     expect(head.effectiveModelKind).toBe("observation_assisted");
     expect(head.calibrationId).toBeNull();
     expect(head.uncertainty).toEqual({ kind: "none" });
@@ -161,7 +163,9 @@ describe("contract structural", () => {
 
     expect(parseResult(resultWith(head, [evidenceSource])).ok).toBe(true);
     expect(head.state.availability).toBe("available");
-    expect(head.state.availability === "available" && head.state.value.count).toBe(0);
+    expect(
+      head.state.availability === "available" && head.state.value.count,
+    ).toBe(0);
   });
 
   it("anchors the interval on issuance and echoes its length (test 16)", () => {
@@ -210,15 +214,15 @@ describe("contract structural", () => {
     expect(unknown.state).toBe("unknown");
     expect(head.state.availability).toBe("missing_input");
     expect("value" in head.state).toBe(false);
-    expect(head.state.availability === "missing_input" && head.state.reason).toBe(
-      "no_receiver_coverage",
-    );
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("no_receiver_coverage");
     expect(head.uncertainty).toEqual({ kind: "none" });
     expect(parseResult(resultWith(head, [evidenceSource])).ok).toBe(true);
 
     // M11: an unavailable head carrying an interval is still rejected if it
     // pretends to an uncertainty it cannot have.
-    const faked = structuredClone(head) as Mutable;
+    const faked = structuredClone(head) as unknown as Mutable;
     faked.uncertainty = {
       kind: "model_spread",
       intervalKind: "central",
@@ -236,9 +240,9 @@ describe("contract structural", () => {
       IDENTITY,
     );
 
-    expect(head.state.availability === "missing_input" && head.state.reason).toBe(
-      "aggregate_hour_not_readable",
-    );
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("aggregate_hour_not_readable");
     // The census still names what was considered, and says why it was not
     // usable, rather than dropping the source silently (M02, M24).
     expect(evidenceSource.eligible).toBe(false);

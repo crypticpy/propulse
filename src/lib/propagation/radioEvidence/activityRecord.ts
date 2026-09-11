@@ -51,7 +51,8 @@ function qualifies(
   readable: ReadonlySet<string>,
   modes: ReadonlySet<ModeClass>,
 ): boolean {
-  if (row.spot_count < 1 || row.unique_tx < 1 || row.unique_rx < 1) return false;
+  if (row.spot_count < 1 || row.unique_tx < 1 || row.unique_rx < 1)
+    return false;
   if (!isModeClass(row.mode_class) || !modes.has(row.mode_class)) return false;
   return readable.has(normalizeHourStart(row.hour_utc));
 }

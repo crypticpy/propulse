@@ -195,7 +195,12 @@ describe("useObservedPathActivity", () => {
       },
     ]);
     readerMocks.queryPathCoverageHours.mockResolvedValue([
-      { hour_utc: HOURS[4], mode_class: "digital", tx_field: "FN", unique_rx: 3 },
+      {
+        hour_utc: HOURS[4],
+        mode_class: "digital",
+        tx_field: "FN",
+        unique_rx: 3,
+      },
     ]);
 
     const { result } = renderHook(

@@ -37,7 +37,9 @@ export const DEFAULT_OBSERVED_WINDOW_SECONDS = 6 * 3600;
 
 /** An hour key in one spelling; PostgREST may return either offset form. */
 export function normalizeHourStart(hourUtc: string): string {
-  return new Date(Math.floor(Date.parse(hourUtc) / HOUR_MS) * HOUR_MS).toISOString();
+  return new Date(
+    Math.floor(Date.parse(hourUtc) / HOUR_MS) * HOUR_MS,
+  ).toISOString();
 }
 
 /** The end of the aggregation hour that starts at `hourStart`. */

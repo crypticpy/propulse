@@ -62,13 +62,18 @@ afterEach(() => {
 describe("queryBandHourlyStats", () => {
   it("filters by band and hour_utc window, ordered oldest-first", async () => {
     const { builder, calls } = makeBuilder([
-      { data: [{ band: "20m", hour_utc: "2026-08-28T12:00:00Z" }], error: null },
+      {
+        data: [{ band: "20m", hour_utc: "2026-08-28T12:00:00Z" }],
+        error: null,
+      },
     ]);
     supabaseMocks.from.mockReturnValue(builder);
 
     const rows = await queryBandHourlyStats("20m", 24);
 
-    expect(supabaseMocks.from).toHaveBeenCalledWith("band_hourly_stats_readable");
+    expect(supabaseMocks.from).toHaveBeenCalledWith(
+      "band_hourly_stats_readable",
+    );
     expect(calls).toContainEqual(["eq", ["band", "20m"]]);
     expect(calls).toContainEqual([
       "gte",

@@ -19,9 +19,13 @@ jobs:
     name: pr-contract
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    # write (not read) on both: the review-cap step below adds the
+    # review-capped label and posts the stop-checklist comment once a PR
+    # crosses five bot review rounds (docs/AGENT-CONSTITUTION.md,
+    # "Review cap"); every other step in this job only reads.
     permissions:
-      issues: read
-      pull-requests: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Check PR body contract
         env:
@@ -136,12 +140,73 @@ jobs:
             exit 1
           fi
           echo "Design review approved for ${HEAD7}: ${APPROVED}"
+      - name: Cap bot review rounds at five
+        # Rule: docs/AGENT-CONSTITUTION.md, "Review cap". Counting and
+        # verdict-parsing logic lives in scripts/review-cap.mjs (node --test
+        # coverage in scripts/review-cap.test.mjs) so it can be unit tested;
+        # this step only wires it to the label/comment side effects, which
+        # need the job's issues:write and pull-requests:write above.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          SUMMARY=$(node scripts/review-cap.mjs "$REPO" "$PR" "$HEAD_SHA") && STATUS=0 || STATUS=$?
+          echo "$SUMMARY"
+          CAPPED=$(printf '%s\n' "$SUMMARY" | grep -oE 'capped=(true|false)' | head -1 | cut -d= -f2)
+          if [ "$CAPPED" = "true" ]; then
+            LABELS=$(gh api "repos/${REPO}/issues/${PR}/labels" --paginate --jq '.[].name') \
+              || { echo "::error::could not list labels; the review cap cannot be evaluated (re-run the check)"; exit 1; }
+            if ! printf '%s\n' "$LABELS" | grep -qx 'review-capped'; then
+              gh api -X POST "repos/${REPO}/issues/${PR}/labels" -f "labels[]=review-capped" >/dev/null \
+                || echo "::error::could not add the review-capped label"
+              EXISTING=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '.[].body') \
+                || { echo "::error::could not list PR comments; the review-cap comment cannot be evaluated (re-run the check)"; exit 1; }
+              if ! printf '%s' "$EXISTING" | grep -q '<!-- review-cap -->'; then
+                printf '%s\n' \
+                  '<!-- review-cap -->' \
+                  'This PR has reached five bot review rounds. Per `docs/AGENT-CONSTITUTION.md`' \
+                  '("Review cap"), the fix loop stops here until an architecture review answers:' \
+                  '' \
+                  '1. Is the thing we keep patching the right design? Name the family of' \
+                  '   findings the rounds share.' \
+                  '2. Would a different structure end the family (real parser instead of regex,' \
+                  '   library instead of hand-rolled, OS primitive instead of file convention)?' \
+                  '3. Decision: `ship` (merge now, file the residual edges as one follow-up' \
+                  '   issue) or `redesign` (close or rework the PR against a new plan).' \
+                  '' \
+                  'Post the decision as a PR comment in this exact shape, from the orchestrator' \
+                  'or the owner — never the fix agent:' \
+                  '' \
+                  '**architecture review**' \
+                  '- agent: <name>' \
+                  '- Reviewed: <head sha>' \
+                  'Verdict: ship (#<follow-up issue>)' \
+                  '' \
+                  'or' \
+                  '' \
+                  '**architecture review**' \
+                  '- agent: <name>' \
+                  '- Reviewed: <head sha>' \
+                  'Verdict: redesign (#<issue>)' \
+                  '' \
+                  'New bot threads opened after this comment are answered with the follow-up' \
+                  'issue number and resolved, not fixed.' \
+                  > /tmp/review-cap-comment.md
+                gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-comment.md >/dev/null \
+                  || echo "::error::could not post the review-cap stop checklist"
+              fi
+            fi
+          fi
+          exit "$STATUS"
   rerun-on-design-review-comment:
-    name: re-run pr-contract when a design-review comment changes
+    name: re-run pr-contract when a design-review or architecture-review comment changes
     # Only the accounts whose design-review comments the body job accepts
     # (REVIEWERS above) may trigger the rerun; any other commenter writing
     # `**design review**` would otherwise be able to re-run the required
-    # check at will (Codex, #896 round 15).
+    # check at will (Codex, #896 round 15). The same allow-list gates the
+    # `**architecture review**` comment the review-cap gate reads.
     if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(fromJSON('["crypticpy","propulse-bot[bot]"]'), github.event.comment.user.login)
     runs-on: ubuntu-latest
     permissions:
@@ -160,8 +225,8 @@ jobs:
           # keep its green (empty for created/deleted).
           PREVIOUS_BODY: ${{ github.event.changes.body.from }}
         run: |
-          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*design review\*\*'; then
-            echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
+          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*(design|architecture) review\*\*'; then
+            echo "Neither the current nor the previous comment body is a design review or an architecture review; nothing to re-run."
             exit 0
           fi
           # This job runs on the default branch, so its own failure is not a

@@ -39,6 +39,12 @@ import type {
   EquipmentDetailField,
   EquipmentDetailGroup,
 } from "@/components/shack/equipmentCardTypes";
+import {
+  buildInlineComponentPayload,
+  createDefaultInlineComponentForm,
+  inlineComponentFormFromComponent,
+  type ComponentForm,
+} from "./inlineComponentFormMapper";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,8 +65,14 @@ const CHOKE_MATERIALS = [
 const BALUN_RATIOS = [
   { value: "1:1", label: "1:1" },
   { value: "4:1", label: "4:1" },
+  { value: "6:1", label: "6:1" },
   { value: "9:1", label: "9:1" },
-  { value: "other", label: "Other" },
+] as const;
+
+const FERRITE_TYPES = [
+  { value: "snap_on", label: "Snap-On" },
+  { value: "toroid", label: "Toroid" },
+  { value: "bead", label: "Bead" },
 ] as const;
 
 const BALUN_TYPES = [
@@ -98,214 +110,6 @@ const TYPE_BADGE_HEX: Record<InlineComponentType, string> = {
   balun: "#F97316",
   ferrite: "#22C55E",
 };
-
-// ─── Form state ───────────────────────────────────────────────────────────────
-
-interface ComponentForm {
-  name: string;
-  componentType: InlineComponentType;
-  insertionLossDb: string;
-  notes: string;
-  // adapter / pigtail
-  fromConnector: ConnectorType;
-  toConnector: ConnectorType;
-  // pigtail
-  lengthInches: string;
-  // choke
-  chokeMaterial: "ferrite_core" | "air_wound" | "snap_on";
-  chokeTurns: string;
-  chokeImpedanceOhms: string;
-  chokeFrequencyRangeMHz: string;
-  // balun
-  balunRatio: "1:1" | "4:1" | "9:1" | "other";
-  balunType: "current" | "voltage";
-  balunPowerRatingWatts: string;
-  // ferrite
-  ferriteMaterial: string;
-  ferriteTurns: string;
-  ferriteImpedanceOhms: string;
-}
-
-function createDefaultForm(): ComponentForm {
-  return {
-    name: "",
-    componentType: "adapter",
-    insertionLossDb: "0.1",
-    notes: "",
-    fromConnector: "pl259",
-    toConnector: "n_type",
-    lengthInches: "12",
-    chokeMaterial: "ferrite_core",
-    chokeTurns: "6",
-    chokeImpedanceOhms: "",
-    chokeFrequencyRangeMHz: "1.8-30",
-    balunRatio: "1:1",
-    balunType: "current",
-    balunPowerRatingWatts: "",
-    ferriteMaterial: "Type 31",
-    ferriteTurns: "1",
-    ferriteImpedanceOhms: "",
-  };
-}
-
-function formFromComponent(c: InlineComponent): ComponentForm {
-  const base: ComponentForm = {
-    ...createDefaultForm(),
-    name: c.name,
-    componentType: c.componentType,
-    insertionLossDb: String(c.insertionLossDb),
-    notes: c.notes ?? "",
-  };
-
-  switch (c.componentType) {
-    case "adapter": {
-      const a = c as AdapterComponent;
-      base.fromConnector = a.connectorFrom;
-      base.toConnector = a.connectorTo;
-      break;
-    }
-    case "pigtail": {
-      const p = c as PigtailComponent;
-      base.fromConnector = p.connectorFrom;
-      base.toConnector = p.connectorTo;
-      base.lengthInches = String(p.lengthInches);
-      break;
-    }
-    case "choke": {
-      const ch = c as ChokeComponent;
-      base.chokeMaterial =
-        ch.chokeType === "common_mode"
-          ? "ferrite_core"
-          : ch.chokeType === "line_isolator"
-            ? "air_wound"
-            : "snap_on";
-      base.chokeTurns = ch.turns !== undefined ? String(ch.turns) : "";
-      base.chokeImpedanceOhms =
-        ch.impedance !== undefined ? String(ch.impedance) : "";
-      base.chokeFrequencyRangeMHz = ch.bands?.join(", ") ?? "";
-      break;
-    }
-    case "balun": {
-      const b = c as BalunComponent;
-      // Map ratio string to our select options
-      const ratioMap: Record<string, ComponentForm["balunRatio"]> = {
-        "1:1": "1:1",
-        "4:1": "4:1",
-        "9:1": "9:1",
-        "1:1_current": "1:1",
-        "4:1_current": "4:1",
-        "6:1": "other",
-      };
-      base.balunRatio = ratioMap[b.ratio] ?? "other";
-      // Determine balun type from ratio suffix
-      base.balunType = b.ratio.includes("current") ? "current" : "voltage";
-      base.balunPowerRatingWatts =
-        b.maxPowerWatts !== undefined ? String(b.maxPowerWatts) : "";
-      break;
-    }
-    case "ferrite": {
-      const f = c as FerriteComponent;
-      base.ferriteMaterial = f.material ?? "";
-      base.ferriteTurns = f.turns !== undefined ? String(f.turns) : "1";
-      base.ferriteImpedanceOhms =
-        f.impedanceOhms !== undefined ? String(f.impedanceOhms) : "";
-      break;
-    }
-  }
-
-  return base;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Distributed Omit for discriminated unions */
-type OmitFromUnion<T, K extends PropertyKey> = T extends unknown
-  ? Omit<T, K>
-  : never;
-
-/** Build the store-compatible payload from form state */
-function buildPayload(
-  form: ComponentForm,
-): OmitFromUnion<InlineComponent, "id" | "addedAt"> {
-  const base = {
-    name: form.name.trim(),
-    insertionLossDb: Number.parseFloat(form.insertionLossDb) || 0,
-    notes: form.notes.trim() || undefined,
-  };
-
-  switch (form.componentType) {
-    case "adapter":
-      return {
-        ...base,
-        componentType: "adapter" as const,
-        connectorFrom: form.fromConnector,
-        connectorTo: form.toConnector,
-      } as Omit<AdapterComponent, "id" | "addedAt">;
-    case "pigtail":
-      return {
-        ...base,
-        componentType: "pigtail" as const,
-        connectorFrom: form.fromConnector,
-        connectorTo: form.toConnector,
-        lengthInches: Number.parseFloat(form.lengthInches) || 0,
-      } as Omit<PigtailComponent, "id" | "addedAt">;
-    case "choke": {
-      const chokeTypeMap: Record<string, ChokeComponent["chokeType"]> = {
-        ferrite_core: "common_mode",
-        air_wound: "line_isolator",
-        snap_on: "feed_through",
-      };
-      return {
-        ...base,
-        componentType: "choke" as const,
-        chokeType: chokeTypeMap[form.chokeMaterial] ?? "common_mode",
-        impedance: form.chokeImpedanceOhms
-          ? Number.parseFloat(form.chokeImpedanceOhms)
-          : undefined,
-        turns: form.chokeTurns
-          ? Number.parseInt(form.chokeTurns, 10)
-          : undefined,
-        bands: form.chokeFrequencyRangeMHz.trim()
-          ? [form.chokeFrequencyRangeMHz.trim()]
-          : undefined,
-      } as Omit<ChokeComponent, "id" | "addedAt">;
-    }
-    case "balun": {
-      // Build ratio value compatible with BalunComponent type
-      const ratio = form.balunRatio === "other" ? "1:1" : form.balunRatio;
-      const isCurrent = form.balunType === "current";
-      const storeRatio =
-        isCurrent && (ratio === "1:1" || ratio === "4:1")
-          ? (`${ratio}_current` as BalunComponent["ratio"])
-          : (ratio as BalunComponent["ratio"]);
-
-      return {
-        ...base,
-        componentType: "balun" as const,
-        ratio: storeRatio,
-        maxPowerWatts: form.balunPowerRatingWatts
-          ? Number.parseFloat(form.balunPowerRatingWatts)
-          : undefined,
-      } as Omit<BalunComponent, "id" | "addedAt">;
-    }
-    case "ferrite":
-      return {
-        ...base,
-        componentType: "ferrite" as const,
-        ferriteType: "snap_on" as const,
-        material: (form.ferriteMaterial.trim() || undefined) as
-          | FerriteComponent["material"]
-          | undefined,
-        count: 1,
-        turns: form.ferriteTurns
-          ? Number.parseInt(form.ferriteTurns, 10)
-          : undefined,
-        impedanceOhms: form.ferriteImpedanceOhms
-          ? Number.parseFloat(form.ferriteImpedanceOhms)
-          : undefined,
-      } as Omit<FerriteComponent, "id" | "addedAt">;
-  }
-}
 
 // ─── Card helpers ─────────────────────────────────────────────────────────────
 
@@ -663,7 +467,9 @@ export function InlineComponentManager({
   const formId = useId();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<ComponentForm>(createDefaultForm);
+  const [form, setForm] = useState<ComponentForm>(
+    createDefaultInlineComponentForm,
+  );
   const [error, setError] = useState<string | null>(null);
   const [viewInlineId, setViewInlineId] = useState<string | null>(null);
 
@@ -687,14 +493,14 @@ export function InlineComponentManager({
       return;
     }
     setEditingId(null);
-    setForm(createDefaultForm());
+    setForm(createDefaultInlineComponentForm());
     setError(null);
     setModalOpen(true);
   };
 
   const openEdit = (c: InlineComponent) => {
     setEditingId(c.id);
-    setForm(formFromComponent(c));
+    setForm(inlineComponentFormFromComponent(c));
     setError(null);
     setModalOpen(true);
   };
@@ -773,7 +579,7 @@ export function InlineComponentManager({
       return;
     }
 
-    const payload = buildPayload(form);
+    const payload = buildInlineComponentPayload(form);
 
     if (editingId) {
       const res = updateInlineComponent(editingId, payload);
@@ -1187,6 +993,38 @@ export function InlineComponentManager({
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
+                    <SelectField
+                      label="Ferrite style"
+                      value={form.ferriteType}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          ferriteType: e.target
+                            .value as FerriteComponent["ferriteType"],
+                        }))
+                      }
+                    >
+                      {FERRITE_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div>
+                    <TextField
+                      label="Count"
+                      inputMode="numeric"
+                      value={form.ferriteCount}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, ferriteCount: e.target.value }))
+                      }
+                      placeholder="1"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
                     <TextField
                       label="Material"
                       value={form.ferriteMaterial}
@@ -1196,7 +1034,7 @@ export function InlineComponentManager({
                           ferriteMaterial: e.target.value,
                         }))
                       }
-                      placeholder="Type 31"
+                      placeholder="31"
                     />
                   </div>
                   <div>

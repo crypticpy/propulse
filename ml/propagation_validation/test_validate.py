@@ -121,6 +121,22 @@ class ProtocolTests(unittest.TestCase):
         accuracy["prerequisites"] = list(reversed(frozen))
         self.assertEqual(self.check()["consistency"], "PASS")
 
+    def test_measurement_and_replay_contracts_are_frozen(self):
+        for section, field, value, pattern in (
+                ("measurement", "population_status", "PASS", "BLOCKED"),
+                ("replay", "split_assignment", "PASS", "BLOCKED"),
+                ("replay", "isolation", "none", "frozen contract text"),
+                ("replay", "pairing", "BLOCKED: weakened", "frozen contract text"),
+                ("measurement", "censored_policy", "BLOCKED: relaxed", "frozen contract text")):
+            protocol = copy.deepcopy(self.protocol)
+            protocol[section][field] = value
+            with self.assertRaisesRegex(Invalid, pattern):
+                validate_bundle(protocol, self.manifest, self.schema)
+        protocol = copy.deepcopy(self.protocol)
+        protocol["replay"]["extra"] = "note"
+        with self.assertRaisesRegex(Invalid, "frozen contract text"):
+            validate_bundle(protocol, self.manifest, self.schema)
+
     def test_resampling_status_cannot_pass(self):
         for status in ("PASS", "validated", "blocked", "READY: pending", ""):
             self.protocol["resampling"]["status"] = status

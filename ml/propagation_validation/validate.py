@@ -24,6 +24,17 @@ GATES = {
     "G-FAMILY", "G-NUMERICS", "G-RUNTIME", "G-ACCURACY",
 }
 ACCURACY_PREREQUISITES = GATES - {"G-ACCURACY", "G-RUNTIME"}
+# Frozen prose sections of protocol 0.1.0 (sha256 of canonical JSON): any edit to the
+# measurement or replay contract is a new protocol revision, not a validator-passing change.
+FROZEN_SECTION_SHA256 = {
+    "measurement": "ea8bea66f1561e775115cf5504aaa8415f0729f9e2fd8314542ed23ec4df41de",
+    "replay": "774e3458a4f4fa2a11e54c471afd9e09d2cd2746dac05011f93cff6bd62e59bb",
+}
+
+
+def section_sha256(section):
+    return hashlib.sha256(json.dumps(section, sort_keys=True,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()
 EVENT_METRICS = {
     "circuit_support": "support_classification_error", "snr2500": "weighted_mae_db",
     "network_detection": "brier_and_log_loss", "observed_activity": "coverage_and_count_integrity",
@@ -222,6 +233,15 @@ def validate_protocol(protocol):
         require(isinstance(protocol.get(section), dict), f"missing {section}")
         for name in fields:
             nonempty(protocol[section].get(name), section + "." + name)
+    for name in ("population_status",):
+        require(isinstance(measurement.get(name), str) and measurement[name].startswith("BLOCKED"),
+                f"measurement.{name} must remain BLOCKED")
+    require(isinstance(protocol["replay"].get("split_assignment"), str) and
+            protocol["replay"]["split_assignment"].startswith("BLOCKED"),
+            "replay.split_assignment must remain BLOCKED")
+    for section, digest in FROZEN_SECTION_SHA256.items():
+        require(section_sha256(protocol[section]) == digest,
+                f"{section}: frozen contract text changed; bump the protocol revision")
     bootstrap = protocol["resampling"]
     require(bootstrap.get("applies_to_event") == "snr2500" and
             bootstrap.get("method_status") == "experimental_candidate", "resampling is an experimental SNR candidate")

@@ -404,23 +404,28 @@ export interface MapState {
    */
   targetSetAt: number | undefined;
   /**
-   * `nextLocalWriteSeq()` of the same write, and the *primary* ordering
-   * against another local stamp (#859 rounds 4 and 9). The counter is
-   * monotonic for the life of the window; `Date.now()` is not — an NTP step
-   * or a manual clock change can move it backwards, and then a later pick
-   * carries the smaller timestamp and loses to an earlier cursor.
+   * Where this target falls in the order *this window applied things*:
+   * `nextLocalWriteSeq()`, taken when the target was set here (#859 rounds
+   * 4, 9, 10 and 11). It is the *primary* ordering against another stamp
+   * from the same counter — `operatingStateStore`'s `stamps.target
+   * .appliedSeq` — because the counter is monotonic for the life of the
+   * window and `Date.now()` is not: an NTP step or a manual clock change
+   * moves the clock backwards, and then a later pick carries the smaller
+   * timestamp and loses to an earlier cursor.
    *
-   * It is a *Lamport* sequence (round 10), so it stays meaningful across the
-   * workspace channel: a synchronized target keeps the sequence the sending
-   * window minted, and the receiver observes it before applying, so nobody
-   * can later mint a number below a write they have acted on. Minting a
-   * fresh one on arrival would be a claim that this window wrote it — the
-   * guess round 9 removed — and clearing it, as round 9 did, put
-   * cross-window ordering back on the clock it was there to replace.
+   * A target arriving over the workspace channel takes its number *on
+   * arrival*, not the sender's. The number the sending window minted orders
+   * that window's history, not this one's, and the cursor it will be
+   * compared against here may have been written on a different device
+   * entirely; round 10 carried the sender's number and compared it anyway.
+   * Numbering the application is honest because the application really did
+   * happen here, and really did happen at that point in this window's
+   * history.
    *
-   * `undefined` therefore means only one thing: the value came from a bundle
-   * that does not send a sequence, so it cannot be ordered at all. The
-   * reader treats that as losing to anything it *can* order.
+   * `undefined` means the value cannot be ordered at all: no target has been
+   * set here, or one arrived from a bundle that sends no write time, whose
+   * freshness is unknown (round 9). The reader treats that as losing to
+   * anything it *can* order.
    */
   targetSeq: number | undefined;
 

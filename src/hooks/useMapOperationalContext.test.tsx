@@ -2,6 +2,7 @@ import { StrictMode, useEffect } from "react";
 import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useOperationalWorkspaceSync } from "./useMapOperationalContext";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useMapStore } from "@/stores/mapStore";
 
@@ -96,7 +97,6 @@ describe("map target synchronization", () => {
         state: {
           target: expect.objectContaining({ name: "W3ABC" }),
           targetSetAt: useMapStore.getState().targetSetAt,
-          targetSeq: useMapStore.getState().targetSeq,
         },
       }),
     );
@@ -107,9 +107,10 @@ describe("map target synchronization", () => {
     // #859 round 10, thread 1. Re-selecting an entry from `recentTargets`
     // hands `setTarget` the object already held, so only the stamp moves. A
     // publish predicate watching the target *reference* saw nothing, the
-    // other window kept a stale sequence, and its wall then let a cursor
-    // that was actually older win the remount. The predicate must observe
-    // every field that travels.
+    // other window never applied the re-selection, and its wall then let a
+    // cursor that was actually older win the remount. The predicate must
+    // observe every field the write moves — including `targetSeq`, which no
+    // longer travels but is the only field that always changes (round 11).
     vi.stubGlobal("BroadcastChannel", TestChannel);
     const view = render(<SyncOnly />);
     await act(async () => {
@@ -126,7 +127,10 @@ describe("map target synchronization", () => {
     });
     const mapPublishes = () =>
       channel.postMessage.mock.calls
-        .map(([message]) => message as { domain: string; state: { targetSeq?: number } })
+        .map(
+          ([message]) =>
+            message as { domain: string; state: { targetSetAt?: number } },
+        )
         .filter((message) => message.domain === "map");
     const before = mapPublishes().length;
     const firstSeq = useMapStore.getState().targetSeq;
@@ -144,8 +148,8 @@ describe("map target synchronization", () => {
 
     const mapMessages = mapPublishes();
     expect(mapMessages.length).toBe(before + 1);
-    expect(mapMessages[mapMessages.length - 1]?.state.targetSeq).toBe(
-      useMapStore.getState().targetSeq,
+    expect(mapMessages[mapMessages.length - 1]?.state.targetSetAt).toBe(
+      useMapStore.getState().targetSetAt,
     );
     view.unmount();
   });
@@ -164,6 +168,10 @@ describe("map target synchronization", () => {
       await Promise.resolve();
     });
     const [channel] = TestChannel.instances;
+    // Everything this window has numbered so far, so the assertion below is
+    // about a number minted on arrival rather than one that was already
+    // lying around.
+    const seqBefore = nextLocalWriteSeq();
 
     act(() => {
       channel.onmessage?.({
@@ -182,9 +190,14 @@ describe("map target synchronization", () => {
 
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
     expect(useMapStore.getState().targetSetAt).toBe(9_000);
-    // The sender's sequence numbers mean nothing here and this window did not
-    // write the target, so it takes no sequence of its own (#859 round 9).
-    expect(useMapStore.getState().targetSeq).toBeUndefined();
+    // The write time is the sender's; the *order* is this window's own. The
+    // sender's counter numbers the sender's history, so applying the
+    // snapshot takes a local number instead (#859 round 11) — and it must be
+    // above anything minted here before, or the wall cannot tell that this
+    // target arrived after the cursor it is about to be compared with.
+    const appliedSeq = useMapStore.getState().targetSeq;
+    expect(appliedSeq).toBeDefined();
+    expect(appliedSeq as number).toBeGreaterThan(seqBefore);
     view.unmount();
   });
 

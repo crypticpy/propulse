@@ -49,23 +49,27 @@ export const HAMCLOCK_WALL_WORKSPACE_ID = "hamclock-wall";
 /**
  * Does the shared operating cursor outrank this window's map target?
  *
- * Both stamps are local to this window, so the monotonic local sequence is
- * the honest ordering and the clock is the fallback (#859 round 9):
+ * Both numbers come from this window's own counter, minted at the moment it
+ * applied each side — the cursor in `mergePatch`, the target in `setTarget`
+ * or when a workspace snapshot was applied (#859 round 11). So the question
+ * they answer is exactly the question the remount asks: of the two things
+ * this window is holding, which did it take on second?
  *
- * The Lamport sequence decides whenever both sides have one (#859 round 10).
- * It is comparable no matter which window minted it — every window observes
- * a sequence before applying the write carrying it, so it can never mint one
- * below a write it has seen — and unlike `Date.now()` it cannot step
- * backwards. Equal sequences mean "cannot tell", which is a no-op, not a win
- * for the map.
+ * That is the only ordering available. `Date.now()` is too coarse for two
+ * events in one event-loop turn (round 4) and can step backwards (round 9),
+ * and the sequence the *writer* minted — round 10 — is a counter on another
+ * device, which says nothing about the order of events here: a phone that
+ * has never heard from this window numbers from its own zero, and no amount
+ * of observing the messages that do arrive makes an unseen writer's lower
+ * number mean "earlier".
  *
- * A side with no sequence is from a bundle that cannot order across windows,
- * so it loses to a side that can rather than being guessed at: that is the
- * round 9 rule (unknown loses to known) generalised from the timestamp to
- * the sequence. Only when *neither* side has one is there anything to guess,
- * and then it is the two local timestamps — `appliedAt`, when the cursor
- * landed here, against `targetSetAt`, both this window's clock, never the
- * wire `at`, which is the originating device's (round 3).
+ * A side with no number at all cannot be placed in this window's history, so
+ * it loses to a side that can rather than being guessed at: that is the
+ * round 9 rule (unknown loses to known). Only when *neither* side has one is
+ * there anything left to guess, and then it is the two local timestamps —
+ * `appliedAt`, when the cursor landed here, against `targetSetAt`, both this
+ * window's clock, never the wire `at`, which is the originating device's
+ * (round 3).
  */
 function cursorBeatsMapTarget(
   stamp: Pick<FieldStamp, "at" | "appliedAt" | "appliedSeq">,

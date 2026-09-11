@@ -748,14 +748,14 @@ describe("operatingStateStore", () => {
     expect(states.every((message) => message.kind === "state" && message.patch.band?.by)).toBe(
       true,
     );
-    // Same for the Lamport sequence (round 10): additive on v1, so the
-    // deployed parser above ignores it, but it has to actually be there or
-    // no peer can order this write against its own.
+    // And no write sequence, deliberately (round 11): this channel spans
+    // devices, and a counter minted here orders nothing on a phone. Every
+    // receiver numbers the write itself when it applies it.
     expect(
       states.every(
         (message) =>
           message.kind === "state" &&
-          Number.isFinite(message.patch.band?.seq ?? Number.NaN),
+          !("seq" in (message.patch.band as Record<string, unknown>)),
       ),
     ).toBe(true);
 

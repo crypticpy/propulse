@@ -194,19 +194,6 @@ export type CursorPatch = {
      * (#859 round 8).
      */
     by?: string;
-    /**
-     * The writer's Lamport sequence (`nextLocalWriteSeq()`), carried so a
-     * receiving window can order this write against its own without a clock
-     * (#859 round 10). Relayed unchanged, exactly like `by`: it identifies
-     * the write, not the hop.
-     *
-     * Optional and additive for the same reason `by` is — the deployed
-     * parser reads `value` and `at` and ignores the rest, and it drops a
-     * version it does not recognise outright, so the wire may only grow by
-     * optional fields (see `OPERATING_PROTOCOL_VERSION`). An entry without
-     * one is from a bundle that cannot order across windows at all.
-     */
-    seq?: number;
   };
 };
 
@@ -314,24 +301,24 @@ function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorFi
   // accepts it only on a strictly newer `at`, never on the equal-`at`
   // sender-id tie-break it would otherwise win with a write it never made.
   const by = asString(raw.by) ?? undefined;
-  // Same treatment: optional, never a reason to drop. A non-finite one is
-  // simply absent — `observeRemoteWriteSeq` would otherwise be handed a value
-  // that makes every later local write unorderable (#859 round 10).
-  const seq = asFiniteNumber(raw.seq) ?? undefined;
+  // No write sequence on the wire, deliberately (#859 round 11). This channel
+  // spans devices, and a counter minted on a phone says nothing about the
+  // order of writes on this machine; ordering is done by the receiver, from
+  // its own counter, at the moment it applies the entry.
   const value = raw.value;
   switch (field) {
     case "sessionId":
     case "band": {
       const parsed = asNullableString(value);
-      return parsed === undefined ? null : { value: parsed, at, by, seq };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "target": {
       const parsed = parseTarget(value);
-      return parsed === undefined ? null : { value: parsed, at, by, seq };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "contact": {
       const parsed = parseContact(value);
-      return parsed === undefined ? null : { value: parsed, at, by, seq };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
   }
 }

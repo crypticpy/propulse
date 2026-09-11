@@ -1,5 +1,5 @@
 import { hamClockProjectionContent } from "@/lib/hamclock/displayLayout";
-import { observeRemoteWriteSeq } from "@/lib/localWriteSequence";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
@@ -116,15 +116,16 @@ type WorkspaceSnapshot = {
    * that stamp on mount (#859) — a pop-out's fresh pick would then lose to an
    * older operating cursor.
    *
-   * `targetSeq` is the half that actually orders it (#859 round 10): a
-   * Lamport sequence is comparable between windows, and `targetSetAt` is not
-   * — a clock step makes a later pick look earlier. Round 9 cleared the
-   * sequence on the hop, which put cross-window ordering back on the clock
-   * alone; it is now carried and observed like any other Lamport stamp.
+   * `targetSeq` is deliberately *not* in the payload (#859 round 11). It
+   * numbers the sending window's own applications and means nothing here;
+   * round 10 sent it and compared it anyway. The receiver takes its own
+   * number when it applies this snapshot, which is the ordering it can
+   * honestly claim — `targetSetAt` still travels, as the sender's write time
+   * for display and for the last-resort clock comparison.
    */
   map: Pick<
     ReturnType<typeof useMapStore.getState>,
-    "target" | "targetSetAt" | "targetSeq"
+    "target" | "targetSetAt"
   >;
   dx: Pick<ReturnType<typeof useDXStore.getState>, "selectedSpot">;
   contest: Pick<
@@ -180,11 +181,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       selectedReport: operational.selectedReport,
     },
     qso: { form: qso.form, operatingMode: qso.operatingMode },
-    map: {
-      target: map.target,
-      targetSetAt: map.targetSetAt,
-      targetSeq: map.targetSeq,
-    },
+    map: { target: map.target, targetSetAt: map.targetSetAt },
     dx: { selectedSpot: dx.selectedSpot },
     contest: {
       activeSession: contest.activeSession,
@@ -274,13 +271,19 @@ export function useOperationalWorkspaceSync(): void {
         }
       }),
       useMapStore.subscribe((state, previous) => {
-        // Every field that travels, not just the object reference (#859
+        // Every field the write moves, not just the object reference (#859
         // round 10). Re-selecting the same entry from `recentTargets` hands
         // `setTarget` the very object already held, so the target reference
         // is unchanged and only the stamp moves — and that stamp is the whole
         // point of the map domain. Publishing on the reference alone left the
-        // other window on a stale sequence, which then lost the wall's
-        // remount comparison to a cursor that was actually older.
+        // other window on a stale stamp, which then lost the wall's remount
+        // comparison to a cursor that was actually older.
+        //
+        // `targetSeq` stays in the predicate although it no longer travels
+        // (round 11): it is the only field that always moves on a local
+        // write, since re-selecting the same object inside one millisecond
+        // leaves both the reference and `targetSetAt` untouched. It is the
+        // trigger, not the payload — the receiver numbers the write itself.
         if (
           state.target !== previous.target ||
           state.targetSetAt !== previous.targetSetAt ||
@@ -365,23 +368,27 @@ export function useOperationalWorkspaceSync(): void {
             // cursor that really is newer, the same family of bug as
             // crediting a relay with someone else's write.
             //
-            // Keeping the sender's `targetSeq` is what makes the two windows
-            // orderable at all (#859 round 10) — observed first, so this
-            // window can never mint a sequence below a write it has applied.
-            // A window on an older bundle sends no stamp, so the freshness is
-            // simply unknown and stays unknown: `undefined`, not this
-            // window's clock and not the stamp of the target it just
-            // replaced. `useHamClockWallOperatingState` gives an unstamped
-            // target the losing side against one it can order.
-            observeRemoteWriteSeq(map.targetSeq);
+            // The write *order* is the one thing this window may say for
+            // itself (#859 round 11). Both windows are on this machine, but
+            // the cursor it will be compared against may come from a phone,
+            // so the only counter that can order the two is the local one —
+            // and applying this snapshot is a local event with a place in it.
+            // Round 9 left it cleared, which put the comparison back on a
+            // clock that can step backwards; round 10 kept the sender's
+            // number, which is not comparable with anything minted here.
+            //
+            // Only when the sender stamped the target at all. A window on an
+            // older bundle answers the handshake with a target it has had up
+            // for hours and no write time; numbering that as if it had just
+            // been written is the same guess in a new place, and it is what
+            // let a stale pop-out outrank a cursor already applied here
+            // (round 9). Unknown freshness stays unknown, and the wall gives
+            // an unstamped target the losing side.
+            const stamped = Number.isFinite(map.targetSetAt);
             useMapStore.setState({
               target: map.target,
-              targetSetAt: Number.isFinite(map.targetSetAt)
-                ? map.targetSetAt
-                : undefined,
-              targetSeq: Number.isFinite(map.targetSeq)
-                ? map.targetSeq
-                : undefined,
+              targetSetAt: stamped ? map.targetSetAt : undefined,
+              targetSeq: stamped ? nextLocalWriteSeq() : undefined,
             });
             break;
           }

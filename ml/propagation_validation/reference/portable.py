@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import re
 import shutil
@@ -316,6 +317,40 @@ def asset_budget(source: Path) -> dict[str, Any]:
     }
 
 
+def parity_deltas(
+    golden_cases: list[dict[str, Any]], wasm_outputs: dict[str, dict[str, Any]]
+) -> tuple[dict[str, float], list[str]]:
+    """Per-column maximum |golden - ported| and the labels that differ.
+
+    A non-finite value on either side is an error, never a delta: NaN would
+    otherwise fall out of ``max(0.0, nan)`` as 0.0 and read as exact parity.
+    """
+    diffs: dict[str, float] = {}
+    mismatched_labels: list[str] = []
+    for entry in golden_cases:
+        case_id = entry["case_id"]
+        reference = entry["outputs"]
+        ported = wasm_outputs[case_id]
+        if set(reference) != set(ported):
+            raise PortableError(f"{case_id}: column sets differ")
+        for key, value in reference.items():
+            other = ported[key]
+            if isinstance(value, str) or isinstance(other, str):
+                if value != other:
+                    mismatched_labels.append(f"{case_id}.{key}")
+                continue
+            reference_number = float(value)
+            ported_number = float(other)
+            if not (math.isfinite(reference_number) and math.isfinite(ported_number)):
+                raise PortableError(
+                    f"{case_id}.{key}: non-finite value in parity comparison "
+                    f"(golden={value!r}, wasm={other!r})"
+                )
+            delta = abs(reference_number - ported_number)
+            diffs[key] = max(diffs.get(key, 0.0), delta)
+    return diffs, mismatched_labels
+
+
 def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
     source = build_dir / SOURCE_DIRNAME
     native = ReferenceBuild(source)
@@ -339,21 +374,7 @@ def prove(build_dir: Path, golden: dict[str, Any]) -> dict[str, Any]:
         )
     batch_seconds = time.monotonic() - started
 
-    diffs: dict[str, float] = {}
-    mismatched_labels: list[str] = []
-    for entry in golden["cases"]:
-        reference = entry["outputs"]
-        ported = wasm_outputs[entry["case_id"]]
-        if set(reference) != set(ported):
-            raise PortableError(f"{entry['case_id']}: column sets differ")
-        for key, value in reference.items():
-            other = ported[key]
-            if isinstance(value, str) or isinstance(other, str):
-                if value != other:
-                    mismatched_labels.append(f"{entry['case_id']}.{key}")
-                continue
-            delta = abs(float(value) - float(other))
-            diffs[key] = max(diffs.get(key, 0.0), delta)
+    diffs, mismatched_labels = parity_deltas(golden["cases"], wasm_outputs)
 
     single = golden["cases"][0]["case_id"]
     single_input = workdir / single / "circuit" / f"{single}.in"

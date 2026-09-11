@@ -295,19 +295,43 @@ class CleanCheckoutTests(unittest.TestCase):
     def test_modified_tracked_file_is_rejected(self):
         import subprocess
         import tempfile
-        from reference.build import require_clean_checkout
+        from reference.build import git_env, require_clean_checkout
 
+        # This runs under the pre-push hook, where git exports GIT_DIR. With it
+        # set, ``git init <path>`` ignores the path and re-initialises the
+        # developer's repository (core.bare=true bricked every worktree on
+        # 2026-09-11). Every git call here uses the scrubbed environment.
+        env = git_env()
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
             (repo / "COEFF.txt").write_text("1 2 3\n")
-            subprocess.run(["git", "-C", str(repo), "add", "COEFF.txt"], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "COEFF.txt"], check=True, env=env)
             subprocess.run(
                 ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
-                 "commit", "-q", "-m", "pin"], check=True)
+                 "commit", "-q", "-m", "pin"], check=True, env=env)
             require_clean_checkout(repo)  # clean: no error
             (repo / "build.o").write_bytes(b"\0")  # untracked build product is fine
             require_clean_checkout(repo)
             (repo / "COEFF.txt").write_text("1 2 4\n")
             with self.assertRaisesRegex(RuntimeError, "modified tracked files"):
                 require_clean_checkout(repo)
+
+
+class ParityDeltaTests(unittest.TestCase):
+    def test_non_finite_values_are_an_error_not_exact_parity(self):
+        from reference.portable import PortableError, parity_deltas
+
+        golden = [{"case_id": "c1", "outputs": {"snr_db": 12.5, "mode": "1F2"}}]
+        diffs, labels = parity_deltas(golden, {"c1": {"snr_db": 12.0, "mode": "1F2"}})
+        self.assertEqual((diffs, labels), ({"snr_db": 0.5}, []))
+        for bad in (math.nan, math.inf, -math.inf):
+            with self.assertRaisesRegex(PortableError, "non-finite"):
+                parity_deltas(golden, {"c1": {"snr_db": bad, "mode": "1F2"}})
+        with self.assertRaisesRegex(PortableError, "non-finite"):
+            parity_deltas(
+                [{"case_id": "c1", "outputs": {"snr_db": math.nan, "mode": "1F2"}}],
+                {"c1": {"snr_db": 12.0, "mode": "1F2"}},
+            )
+        _, labels = parity_deltas(golden, {"c1": {"snr_db": 12.5, "mode": "2F2"}})
+        self.assertEqual(labels, ["c1.mode"])

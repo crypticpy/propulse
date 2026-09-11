@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -78,8 +79,21 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def git_env() -> dict[str, str]:
+    """Environment for git subprocesses with the caller's GIT_* variables removed.
+
+    Git exports GIT_DIR (and friends) to hooks. With GIT_DIR set, ``git -C``
+    and even ``git init <path>`` operate on the ambient repository instead of
+    the path given, so a build run from a pre-push hook would clone into, and
+    then check the cleanliness of, the developer's own repository.
+    """
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
 def run(command: list[str], cwd: Path) -> str:
-    completed = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    completed = subprocess.run(
+        command, cwd=cwd, capture_output=True, text=True, env=git_env()
+    )
     if completed.returncode:
         raise RuntimeError(
             f"command failed ({completed.returncode}): {' '.join(command)}\n"
@@ -106,7 +120,7 @@ def ensure_clone(source: Path) -> None:
             source.parent,
         )
     actual = subprocess.check_output(
-        ["git", "-C", str(source), "rev-parse", "HEAD"], text=True
+        ["git", "-C", str(source), "rev-parse", "HEAD"], text=True, env=git_env()
     ).strip()
     if actual != COMMIT:
         raise RuntimeError(
@@ -125,6 +139,7 @@ def require_clean_checkout(source: Path) -> None:
     dirty = subprocess.check_output(
         ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
         text=True,
+        env=git_env(),
     ).strip()
     if dirty:
         raise RuntimeError(

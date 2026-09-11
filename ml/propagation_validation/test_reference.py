@@ -388,6 +388,29 @@ class CleanCheckoutTests(unittest.TestCase):
                 require_pinned_checkout(Path(tmp))
 
 
+class RequireCachingTests(unittest.TestCase):
+    def test_provenance_is_validated_once_per_instance_and_never_cached_on_failure(self):
+        from unittest import mock
+        import reference.runner as runner
+
+        build = ReferenceBuild(Path("/nonexistent/ITU-R-HF"))
+        with mock.patch.object(ReferenceBuild, "available", return_value=True), \
+                mock.patch.object(ReferenceBuild, "require_build_receipt"), \
+                mock.patch.object(runner, "require_pinned_checkout") as pinned:
+            pinned.side_effect = runner.ReferenceError("pinned commit mismatch")
+            with self.assertRaisesRegex(RuntimeError, "pinned commit mismatch"):
+                build.require()
+            with self.assertRaisesRegex(RuntimeError, "pinned commit mismatch"):
+                build.require()  # a failure is re-checked, not remembered
+            pinned.side_effect = None
+            build.require()
+            build.require()
+            build.require()
+            # two failing calls plus one successful one; the timed passes
+            # after that must not pay for git status and three hashes again
+            self.assertEqual(pinned.call_count, 3)
+
+
 class ParityDeltaTests(unittest.TestCase):
     def test_non_finite_values_are_an_error_not_exact_parity(self):
         from reference.portable import PortableError, parity_deltas

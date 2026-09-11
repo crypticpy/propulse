@@ -341,6 +341,7 @@ class ReferenceBuild:
         self.p533_library = self.source / "P533/Linux/libp533.so"
         self.p372_library = self.source / "P372/Linux/libp372.so"
         self.data_path = self.source / "P372/Data"
+        self._verified = False
 
     @classmethod
     def default(cls, build_dir: Path | None = None) -> "ReferenceBuild":
@@ -419,6 +420,13 @@ class ReferenceBuild:
         )
 
     def require(self) -> None:
+        """Validate provenance once per instance: pinned commit, clean tree,
+        artifacts matching the build receipt. Every pass calls this, so the
+        checks (git status plus three hashes) are cached after they succeed;
+        timed loops therefore measure the solver, not the validation, and a
+        checkout edited mid-process is caught by the next process."""
+        if self._verified:
+            return
         if not self.available():
             raise ReferenceError(
                 "pinned ITU-R HF build is absent; run "
@@ -426,6 +434,7 @@ class ReferenceBuild:
             )
         require_pinned_checkout(self.source)
         self.require_build_receipt()
+        self._verified = True
 
     def environment(self) -> dict[str, str]:
         env = dict(os.environ)

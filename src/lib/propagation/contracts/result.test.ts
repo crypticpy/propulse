@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json";
-import { findHead, parseResult } from "@/lib/propagation/contracts/result";
+import {
+  findHead,
+  parseResult,
+  payloadCarrierFields,
+  payloadFieldNames,
+  PAYLOAD_FREQUENCY_FIELDS,
+} from "@/lib/propagation/contracts/result";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import { parseCapability } from "@/lib/propagation/contracts/capability";
 import {
@@ -1793,5 +1799,33 @@ describe("parseResult fails closed", () => {
     coverage.exclusionReason = null;
     const outcome = parseResult(bad.result);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("classifies every frequency a payload can carry (M02, M11)", () => {
+    // The binder in capability.ts checks carrier fields against the request's
+    // frequency; a payload frequency nobody classified would be neither bound
+    // nor deliberately intrinsic, which is how the Doppler carrier escaped.
+    for (const quantity of PREDICTION_QUANTITIES) {
+      const classified = new Set(
+        PAYLOAD_FREQUENCY_FIELDS[quantity].map((entry) => entry.field),
+      );
+      const frequencyFields = payloadFieldNames(quantity).filter((field) =>
+        field.endsWith("Hz"),
+      );
+      for (const field of frequencyFields) {
+        expect(classified.has(field), `${quantity}.${field}`).toBe(true);
+      }
+      // And nothing is classified that the payload does not carry.
+      for (const entry of PAYLOAD_FREQUENCY_FIELDS[quantity]) {
+        expect(
+          payloadFieldNames(quantity).includes(entry.field),
+          `${quantity}.${entry.field}`,
+        ).toBe(true);
+        expect(entry.note, `note for ${quantity}.${entry.field}`).toMatch(/\w/);
+      }
+    }
+    // The one carrier the contract currently has.
+    expect(payloadCarrierFields("doppler")).toEqual(["transmittedFrequencyHz"]);
+    expect(payloadCarrierFields("snr2500")).toEqual([]);
   });
 });

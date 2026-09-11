@@ -1508,6 +1508,169 @@ describe("parseResultForRequest binds a result to its request", () => {
     ).toMatch(/carries no snr2500 head/);
   });
 
+  /**
+   * A relayed pair: the repeater request with the family left to the router,
+   * so only the relay the caller supplied says which family may answer. Both
+   * conditional_decode/configured_two_leg_path/current rows are frozen, one
+   * for `relay` and one for `satellite`, which is what makes the pairing
+   * checkable only against the relay kind.
+   */
+  function relayRequest(relayKind: "fixed" | "orbital"): Mutable {
+    const draft = structuredClone(
+      (requestCases as unknown as Record<string, Mutable>).fixedRelay,
+    ) as Mutable;
+    (draft.mechanismPolicy as Mutable).family = "auto";
+    if (relayKind === "orbital") {
+      draft.relay = {
+        kind: "orbital",
+        relayId: "sat-ao-91",
+        ephemerisId: "tle-ao-91-2026-09-11",
+        ephemerisEpoch: "2026-09-11T17:30:00Z",
+      };
+    }
+    return draft;
+  }
+
+  function relayResult(family: "relay" | "satellite"): Mutable {
+    const draft = structuredClone(
+      (resultCases as unknown as Record<string, Mutable>).fullHfCircuit,
+    ) as Mutable;
+    const contextId = (
+      (requestCases as unknown as Record<string, Mutable>).fixedRelay as Mutable
+    ).contextId as string;
+    const head = structuredClone((draft.heads as Mutable[])[2]) as Mutable;
+    head.domain = "configured_two_leg_path";
+    head.mechanismFamily = family;
+    head.contextId = contextId;
+    draft.contextId = contextId;
+    draft.heads = [head];
+    return draft;
+  }
+
+  it("rejects a satellite head answering a fixed relay (A21, A22)", async () => {
+    // The reviewer's case: geometry alone admits both families on a two-leg
+    // path, so without the relay kind a transponder model answers a request
+    // that named a ground repeater.
+    const reasons = (
+      await bind(relayResult("satellite"), relayRequest("fixed"))
+    ).map((issue) => issue.reason);
+    expect(reasons.join()).toMatch(
+      /Mechanism family satellite is not served by a relay of kind fixed/,
+    );
+  });
+
+  it("rejects a terrestrial relay head answering an orbital relay (A21, A22)", async () => {
+    const reasons = (
+      await bind(relayResult("relay"), relayRequest("orbital"))
+    ).map((issue) => issue.reason);
+    expect(reasons.join()).toMatch(
+      /Mechanism family relay is not served by a relay of kind orbital/,
+    );
+  });
+
+  it("accepts each family the supplied relay admits (A21, A22)", async () => {
+    expect(await bind(relayResult("relay"), relayRequest("fixed"))).toEqual([]);
+    expect(
+      await bind(relayResult("satellite"), relayRequest("orbital")),
+    ).toEqual([]);
+  });
+
+  /** The EME pair the reviewer named: a 145.95 MHz request for a Doppler shift. */
+  function dopplerRequest(): Mutable {
+    const draft = structuredClone(
+      (requestCases as unknown as Record<string, Mutable>).satellitePass,
+    ) as Mutable;
+    draft.targetEvent = "doppler";
+    draft.scope = {
+      domain: "qualified_lunar_station",
+      horizon: "forecast_seconds",
+      aggregation: "instantaneous",
+      intervalSeconds: null,
+    };
+    draft.mechanismPolicy = {
+      family: "eme",
+      geometryClass: "earth_moon_earth",
+    };
+    draft.relay = {
+      kind: "orbital",
+      relayId: "moon",
+      ephemerisId: "jpl-de440-2026-09-11",
+      ephemerisEpoch: "2026-09-11T00:00:00Z",
+    };
+    draft.requestedModel = {
+      policy: "named",
+      modelId: "propulse-physics-v1",
+      modelVersion: "1.0.0",
+      policyVersion: "source-policy-0.1.0",
+    };
+    return draft;
+  }
+
+  function dopplerResult(transmittedFrequencyHz: number): Mutable {
+    const draft = structuredClone(
+      (resultCases as unknown as Record<string, Mutable>).fullHfCircuit,
+    ) as Mutable;
+    const satellite = (requestCases as unknown as Record<string, Mutable>)
+      .satellitePass as Mutable;
+    const head = structuredClone((draft.heads as Mutable[])[2]) as Mutable;
+    head.quantity = "doppler";
+    head.units = "Hz";
+    head.domain = "qualified_lunar_station";
+    head.horizon = "forecast_seconds";
+    head.mechanismFamily = "eme";
+    head.assumptions = [];
+    head.uncertainty = { kind: "none" };
+    head.contextId = satellite.contextId;
+    head.validAt = satellite.validAt;
+    head.state = {
+      availability: "available",
+      value: {
+        dopplerHz: -318.4,
+        transmittedFrequencyHz,
+        signConvention: "positive_receding",
+      },
+    };
+    draft.contextId = satellite.contextId;
+    draft.validAt = satellite.validAt;
+    draft.heads = [head];
+    return draft;
+  }
+
+  it("rejects a doppler head computed on another carrier (M02, M11)", async () => {
+    // Doppler is proportional to the carrier, so a 432 MHz shift answers a
+    // different calculation than the 145.95 MHz one that was asked for, even
+    // though the digest, the protocol row and the band all check out.
+    const issues = await bind(dopplerResult(432000000), dopplerRequest());
+    expect(issues).toEqual([
+      {
+        path: "heads[0].state.value.transmittedFrequencyHz",
+        reason:
+          "A doppler head answers the requested carrier 145950000 Hz, not 432000000 Hz (M02, M11)",
+      },
+    ]);
+  });
+
+  it("accepts a doppler head computed on the requested carrier (M02, M11)", async () => {
+    expect(await bind(dopplerResult(145950000), dopplerRequest())).toEqual([]);
+  });
+
+  it("binds an unavailable target head to the request too (M11)", async () => {
+    // A declared gap is attributed to a request population: a gap copied from
+    // another horizon would be counted against the horizon that was asked for.
+    const result = boundResult((draft) => {
+      const head = (draft.heads as Mutable[]).find(
+        (candidate) => candidate.quantity === "snr2500",
+      ) as Mutable;
+      head.horizon = "current";
+      head.uncertainty = { kind: "none" };
+      head.state = { availability: "unavailable", reason: "no_solar_input" };
+    });
+    const reasons = (await bind(result)).map((issue) => issue.reason);
+    expect(reasons.join()).toMatch(
+      /answers the requested horizon forecast_1_24h, not current/,
+    );
+  });
+
   it("binds or documents an exemption for every routing dimension (M19)", () => {
     // The structural guarantee: a dimension added to routing later cannot be
     // left unchecked on the result side without someone writing down why.
@@ -1526,6 +1689,20 @@ describe("parseResultForRequest binds a result to its request", () => {
         expect(binding.exemption, `exemption for ${field}`).toMatch(/\w/);
       } else {
         expect(binding.exemption, `binding for ${field}`).toBeNull();
+      }
+    }
+    // Every row says whether it survives an unavailable target head, and a row
+    // that reads a value cannot: there is none to read.
+    for (const binding of RESULT_BINDINGS) {
+      expect(
+        typeof binding.onUnavailableTarget,
+        `${binding.field} declares onUnavailableTarget`,
+      ).toBe("boolean");
+      if (binding.check === null || binding.appliesTo === "served") {
+        expect(
+          binding.onUnavailableTarget,
+          `${binding.field} reads a value and cannot bind a gap`,
+        ).toBe(false);
       }
     }
   });

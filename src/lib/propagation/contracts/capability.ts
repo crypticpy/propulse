@@ -20,6 +20,7 @@ import {
   isProtocolCoverage,
   isProtocolGeometry,
   PERMITTED_GEOMETRY_CLASSES,
+  PERMITTED_RELAY_KINDS_BY_MECHANISM,
   permittedRelayKinds,
   protocolCoverageContainsHz,
   protocolRowServedByRange,
@@ -68,6 +69,7 @@ import {
 import {
   hasPointValue,
   parseResult,
+  payloadCarrierFields,
   RESULT_SCHEMA_VERSION,
   type PredictionHead,
   type PredictionResult,
@@ -1064,24 +1066,42 @@ export async function capabilityDigest(
  * a routing dimension has neither a binding nor a stated exemption.
  *
  * A dimension is bound either on the head that answers `targetEvent` (domain,
- * horizon, family, geometry, interval: the row the request asked for) or on
- * every value-bearing head (frequency: a companion head is still an answer
- * served at the requested frequency, and the protocol must define it there).
+ * horizon, family, geometry, relay kind, interval: the row the request asked
+ * for) or on every value-bearing head (the protocol row at the requested
+ * frequency and the payload carrier: a companion head is still an answer
+ * served at that frequency, and the protocol must define it there).
+ *
+ * Each row also declares whether it binds an unavailable target head. A
+ * declared gap is attributed to a request population, so domain, horizon,
+ * family, geometry, relay kind and interval are checked on an unsupported,
+ * missing-input or unavailable target head too; only the checks that read a
+ * value are skipped, because there is none to read.
  */
 type BindingField =
   | RoutingDimension["field"]
   | RangeRoutingDimension["field"]
   | "domain"
-  | "scatterBasis";
+  | "scatterBasis"
+  | "relayKinds"
+  | "payloadFrequency";
 
 interface ResultBinding {
   field: BindingField;
   /** "target" answers `targetEvent`; "served" is every value-bearing head. */
   appliesTo: "target" | "served";
+  /**
+   * Whether the dimension still binds when the target head is unsupported,
+   * missing an input or unavailable. A declared gap is attributed to a request
+   * population, so a gap copied from another route or another interval length
+   * is a misattribution even though it reports no value; only the checks that
+   * read a value (the protocol row at the requested frequency, the payload
+   * carrier) have nothing to read.
+   */
+  onUnavailableTarget: boolean;
   /** Why a result cannot carry this dimension at all, or null when bound. */
   exemption: string | null;
   /** The head field a violation is reported on. */
-  path: string;
+  path: string | ((head: PredictionHead) => string);
   /** The violation reason, or null when the head satisfies the request. */
   check:
     | ((head: PredictionHead, request: PredictionRequest) => string | null)
@@ -1091,6 +1111,7 @@ interface ResultBinding {
 export const RESULT_BINDINGS: readonly ResultBinding[] = [
   {
     field: "domain",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "domain",
@@ -1101,6 +1122,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "horizons",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "horizon",
@@ -1111,6 +1133,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "mechanismFamilies",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "mechanismFamily",
@@ -1124,6 +1147,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "geometryClasses",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "mechanismFamily",
@@ -1143,6 +1167,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "scatterBasis",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "mechanismFamily",
@@ -1155,7 +1180,34 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
     },
   },
   {
+    field: "relayKinds",
+    appliesTo: "target",
+    onUnavailableTarget: true,
+    exemption: null,
+    path: "mechanismFamily",
+    check: (head, request) => {
+      // A21/A22: the request side applies this to a named family, but a
+      // request that asked for "auto" leaves the router free, and geometry
+      // alone does not pin the family: two_leg_relay admits both a fixed
+      // ground repeater and a transponder, so a satellite head could answer a
+      // fixed relay and a terrestrial relay head an orbiting one. The relay
+      // the caller actually supplied decides which family may answer.
+      const permitted = PERMITTED_RELAY_KINDS_BY_MECHANISM[
+        head.mechanismFamily
+      ] as readonly string[];
+      if (request.relay === null) {
+        return permitted.length === 0
+          ? null
+          : `Mechanism family ${head.mechanismFamily} answers over a relay leg and the request carries none (A21, A22)`;
+      }
+      return permitted.includes(request.relay.kind)
+        ? null
+        : `Mechanism family ${head.mechanismFamily} is not served by a relay of kind ${request.relay.kind}; it admits ${permitted.length === 0 ? "no relay at all" : permitted.join(", ")} (A21, A22)`;
+    },
+  },
+  {
     field: "intervalSecondsRange",
+    onUnavailableTarget: true,
     appliesTo: "target",
     exemption: null,
     path: "intervalSeconds",
@@ -1166,6 +1218,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "frequencyRangeHz",
+    onUnavailableTarget: false,
     appliesTo: "served",
     exemption: null,
     path: "mechanismFamily",
@@ -1183,7 +1236,34 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
         : `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} at ${request.frequencyHz} Hz (M11)`,
   },
   {
+    field: "payloadFrequency",
+    appliesTo: "served",
+    onUnavailableTarget: false,
+    exemption: null,
+    path: (head) =>
+      payloadCarrierFields(head.quantity).length === 0
+        ? "state.value"
+        : `state.value.${payloadCarrierFields(head.quantity)[0]}`,
+    check: (head, request) => {
+      // M02/M11: a payload carrier is the frequency the calculation was
+      // performed at. Doppler is proportional to it, so a 432 MHz carrier
+      // answers a different calculation from the 145.95 MHz one requested
+      // even though the protocol row and the digest both check out.
+      if (!("value" in head.state)) return null;
+      const payload = head.state.value as Record<string, unknown>;
+      for (const field of payloadCarrierFields(head.quantity)) {
+        const carrier = payload[field];
+        if (typeof carrier !== "number" || carrier === request.frequencyHz) {
+          continue;
+        }
+        return `A ${head.quantity} head answers the requested carrier ${request.frequencyHz} Hz, not ${carrier} Hz (M02, M11)`;
+      }
+      return null;
+    },
+  },
+  {
     field: "modeProfileIds",
+    onUnavailableTarget: false,
     appliesTo: "served",
     exemption:
       "A head carries the mode ids it evaluated, not the profile that selected them; the profile enters the request key and the capability head declares it.",
@@ -1192,6 +1272,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "sourceModes",
+    onUnavailableTarget: false,
     appliesTo: "served",
     exemption:
       "A result records the sources it used, not the posture it was issued under; the as-issued evidence rules bound every posture alike.",
@@ -1200,6 +1281,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "antennaClasses",
+    onUnavailableTarget: false,
     appliesTo: "served",
     exemption:
       "A result carries no station description; the stations enter the request key and the context identity the result echoes.",
@@ -1208,6 +1290,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
   },
   {
     field: "receiverClasses",
+    onUnavailableTarget: false,
     appliesTo: "served",
     exemption:
       "A result carries no receive chain description; the receiver classes enter the request key and the context identity the result echoes.",
@@ -1290,13 +1373,21 @@ export async function bindResult(
     );
   }
   result.heads.forEach((head, index) => {
-    if (!SERVED_STATES.includes(head.state.availability)) return;
+    const isTarget = index === targetIndex;
+    const served = SERVED_STATES.includes(head.state.availability);
     for (const binding of RESULT_BINDINGS) {
       if (binding.check === null) continue;
-      if (binding.appliesTo === "target" && index !== targetIndex) continue;
+      if (binding.appliesTo === "target" && !isTarget) continue;
+      // An unavailable head answers no dimension of its own, but the head that
+      // answers `targetEvent` still carries the identity of the request the
+      // gap is attributed to: a gap copied from another route or interval is a
+      // misattribution. Only the checks that read a value are skipped.
+      if (!served && !(isTarget && binding.onUnavailableTarget)) continue;
       const reason = binding.check(head, request);
       if (reason === null) continue;
-      add(`heads[${index}].${binding.path}`, reason);
+      const path =
+        typeof binding.path === "string" ? binding.path : binding.path(head);
+      add(`heads[${index}].${path}`, reason);
     }
   });
   return issues;

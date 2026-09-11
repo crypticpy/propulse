@@ -575,6 +575,99 @@ const PAYLOAD_SCHEMAS: Record<PredictionQuantity, z.ZodTypeAny> = {
   doppler: dopplerPayload,
 };
 
+/**
+ * How each frequency-valued payload field relates to the request (M02, M11).
+ *
+ * A payload number named in hertz is either a *carrier* -- the frequency the
+ * calculation was performed at, which must be the frequency that was asked
+ * about -- or an *intrinsic* quantity of the reported event, which no request
+ * field expresses. Doppler shift is proportional to the carrier, so a result
+ * that reports the shift of a 432 MHz carrier answers a different calculation
+ * from the 145.95 MHz one that was requested, however well it parses; the
+ * binder in `capability.ts` checks every carrier field against
+ * `request.frequencyHz`.
+ *
+ * The table is exhaustive over quantities and `result.test.ts` fails if any
+ * payload field whose name ends in `Hz` is missing from it, so a payload
+ * frequency added later has to be classified before it can ship.
+ */
+export interface PayloadFrequencyField {
+  /** The payload field, as it is spelled in the schema. */
+  readonly field: string;
+  /** `carrier` binds to `request.frequencyHz`; `intrinsic` cannot. */
+  readonly disposition: "carrier" | "intrinsic";
+  /** Why, in the words of the quantity. */
+  readonly note: string;
+}
+
+export const PAYLOAD_FREQUENCY_FIELDS: Record<
+  PredictionQuantity,
+  readonly PayloadFrequencyField[]
+> = {
+  circuit_support: [],
+  snr2500: [
+    {
+      field: "referenceBandwidthHz",
+      disposition: "intrinsic",
+      note: "The 2500 Hz reference bandwidth SNR2500 is defined in, fixed by the contract and unrelated to the carrier.",
+    },
+  ],
+  network_detection: [],
+  observed_activity: [],
+  conditional_decode: [
+    {
+      field: "referenceBandwidthHz",
+      disposition: "intrinsic",
+      note: "The same fixed 2500 Hz reference bandwidth the decode threshold is quoted in.",
+    },
+  ],
+  completed_qso: [],
+  field_strength: [
+    {
+      field: "measurementBandwidthHz",
+      disposition: "intrinsic",
+      note: "The bandwidth the field strength was integrated over; a width, not the frequency the measurement sits at.",
+    },
+  ],
+  usable_burst: [],
+  pass_geometry: [],
+  doppler: [
+    {
+      field: "transmittedFrequencyHz",
+      disposition: "carrier",
+      note: "The carrier the shift is proportional to: it is the requested frequency or the head answers another calculation.",
+    },
+    {
+      field: "dopplerHz",
+      disposition: "intrinsic",
+      note: "The shift itself, the value of the head; bounded by the unit domain, not by the request.",
+    },
+  ],
+};
+
+/** The carrier fields of a quantity, in schema order (M02, M11). */
+export function payloadCarrierFields(
+  quantity: PredictionQuantity,
+): readonly string[] {
+  return PAYLOAD_FREQUENCY_FIELDS[quantity]
+    .filter((entry) => entry.disposition === "carrier")
+    .map((entry) => entry.field);
+}
+
+/**
+ * The field names of a quantity's payload schema, so a test can prove the
+ * frequency table above covers every frequency the payload can carry.
+ */
+export function payloadFieldNames(
+  quantity: PredictionQuantity,
+): readonly string[] {
+  let schema: z.ZodTypeAny = PAYLOAD_SCHEMAS[quantity];
+  while (schema instanceof z.ZodEffects) {
+    schema = schema._def.schema as z.ZodTypeAny;
+  }
+  return Object.keys((schema as z.ZodObject<z.ZodRawShape>).shape);
+}
+
 const UNAVAILABLE_STATES = AVAILABILITY_STATES.filter(
   (state) => state !== "available" && state !== "experimental",
 ) as unknown as ["unsupported", "missing_input", "unavailable"];

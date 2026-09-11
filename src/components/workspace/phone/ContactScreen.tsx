@@ -53,7 +53,7 @@ import {
   type DecisionReport,
   type DecisionTone,
 } from "@/lib/map/decision";
-import { toDecisionReportMode, toPhysicsMode } from "@/lib/station/stationPhysics";
+import { toPhysicsMode } from "@/lib/station/stationPhysics";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { formatBearing, formatDistance, getPathMetrics } from "@/lib/utils/path";
 import type { WorkspaceRegistration } from "@/lib/workspace/operatingChannel";
@@ -214,7 +214,7 @@ export function ContactScreen() {
         sfiFetchedAt: fluxUpdatedAt ? new Date(fluxUpdatedAt).toISOString() : null,
         kp: lastKp ? lastKp.kp_index : null,
         txPowerWatts,
-        mode: toDecisionReportMode(reportMode),
+        mode: reportMode,
         spots: visibleSpots,
         spotsObservedAt: clusterFeed.observedAt,
         spotsFetchedAt: clusterFeed.fetchedAt,

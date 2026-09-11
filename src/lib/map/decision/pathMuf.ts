@@ -5,6 +5,7 @@ import {
 } from "@/lib/utils/rayTrace";
 import { getDistance } from "@/lib/utils/path";
 import type { PathMufHop, PathMufSample } from "./types";
+import type { OperatingMode } from "@/types/signal";
 
 const EARTH_RADIUS_KM = 6371;
 const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM;
@@ -24,7 +25,7 @@ export interface SamplePathMufInput {
   /** When true, Kp was defaulted (not supplied by the caller). */
   kpAssumed?: boolean;
   txPowerWatts?: number;
-  mode?: "SSB" | "CW" | "FT8";
+  mode?: OperatingMode;
   pathMode?: "short" | "long";
   sfiObservedAt?: string | null;
   sfiFetchedAt?: string | null;

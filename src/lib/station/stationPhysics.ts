@@ -50,22 +50,6 @@ export function physicsArgsForPath(
   };
 }
 
-/**
- * Narrow a `PhysicsMode` down to the three-mode set the LUF/DecisionReport
- * pathway (`calculateLUF`, `src/lib/map/decision`) still accepts. That
- * pathway has its own SNR-threshold table (`MODE_SNR_THRESHOLDS` in
- * `src/lib/api/muf.ts`) independent of `MODE_PARAMETERS` in
- * `src/types/signal.ts` and does not model RTTY yet — out of scope for the
- * mode-preservation fix in stationPhysics/handoff/recommend (#948 follow-up
- * needed to widen it). RTTY (-8 dB target) maps to SSB (-6 dB, the closest
- * *stricter* neighbor) rather than CW (-12 dB) so the LUF/open-path verdict
- * stays conservative instead of showing an RTTY path open on CW's easier
- * threshold.
- */
-export function toDecisionReportMode(mode: PhysicsMode): "SSB" | "CW" | "FT8" {
-  return mode === "RTTY" ? "SSB" : mode;
-}
-
 export function nearestHamClockPower(watts: number): DiscreteStationPower {
   return HAMCLOCK_POWERS.reduce((best, step) =>
     Math.abs(step - watts) < Math.abs(best - watts) ? step : best,

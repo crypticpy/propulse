@@ -13,6 +13,10 @@ import { traceRayPath } from "@/lib/utils/rayTrace";
 import type { PathDescriptor } from "@/lib/views/spotContracts";
 import { buildPathPointSet } from "@/lib/spots/pathPoints";
 import { PathPointInspector } from "./PathPointInspector";
+import {
+  revealFullscreenPathAnalysis,
+  revealPropSpherePathAnalysis,
+} from "./openPathAnalysis";
 
 const DATE = new Date("2026-06-21T18:00:00Z");
 const NOW_MS = DATE.getTime();
@@ -116,5 +120,90 @@ describe("path analysis prop chain (#931)", () => {
       (screen.getByRole("button", { name: "Full path analysis" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+});
+
+describe("PropSphere host reveal (#1038 review)", () => {
+  function spies() {
+    return {
+      setActiveTab: vi.fn(),
+      setRightPanelExpanded: vi.fn(),
+      setRightPanelWidth: vi.fn(),
+      setRightPanelMode: vi.fn(),
+    };
+  }
+
+  it("selects the mobile Path tab in lite mode, where the Lite dock is hidden below lg", () => {
+    const s = spies();
+    revealPropSpherePathAnalysis({
+      isLiteMode: true,
+      rightPanelMode: "full",
+      rightPanelLastWidth: 320,
+      ...s,
+    });
+    // The bug: lite mode returned after setRightPanelExpanded, leaving the
+    // visible `lg:hidden` bottom panel on Bands/Recs/Spots.
+    expect(s.setActiveTab).toHaveBeenCalledWith("path");
+    expect(s.setRightPanelExpanded).toHaveBeenCalledWith(true);
+    // Lite mode has no desktop right column to restore.
+    expect(s.setRightPanelMode).not.toHaveBeenCalled();
+  });
+
+  it("selects the Path tab and expands the desktop column in non-lite mode", () => {
+    const s = spies();
+    revealPropSpherePathAnalysis({
+      isLiteMode: false,
+      rightPanelMode: "hidden",
+      rightPanelLastWidth: 360,
+      ...s,
+    });
+    expect(s.setActiveTab).toHaveBeenCalledWith("path");
+    expect(s.setRightPanelWidth).toHaveBeenCalledWith(360);
+    expect(s.setRightPanelMode).toHaveBeenCalledWith("full");
+  });
+
+  it("still selects the Path tab when the desktop column is already full", () => {
+    const s = spies();
+    revealPropSpherePathAnalysis({
+      isLiteMode: false,
+      rightPanelMode: "full",
+      rightPanelLastWidth: 320,
+      ...s,
+    });
+    expect(s.setActiveTab).toHaveBeenCalledWith("path");
+    expect(s.setRightPanelMode).not.toHaveBeenCalled();
+    expect(s.setRightPanelWidth).not.toHaveBeenCalled();
+  });
+});
+
+describe("FullscreenPropSphere host reveal (#1038 review)", () => {
+  it("leaves ambient mode so the revealed panel is not opacity-0", () => {
+    const setAmbientMode = vi.fn();
+    const toggleProPanelCollapse = vi.fn();
+    const bringToFront = vi.fn();
+    revealFullscreenPathAnalysis({
+      pathPanelCollapsed: true,
+      setAmbientMode,
+      toggleProPanelCollapse,
+      bringToFront,
+    });
+    expect(setAmbientMode).toHaveBeenCalledWith(false);
+    expect(toggleProPanelCollapse).toHaveBeenCalledWith("path-analysis");
+    expect(bringToFront).toHaveBeenCalledWith("path-analysis");
+  });
+
+  it("leaves ambient mode even when the panel is already uncollapsed", () => {
+    const setAmbientMode = vi.fn();
+    const toggleProPanelCollapse = vi.fn();
+    const bringToFront = vi.fn();
+    revealFullscreenPathAnalysis({
+      pathPanelCollapsed: false,
+      setAmbientMode,
+      toggleProPanelCollapse,
+      bringToFront,
+    });
+    expect(setAmbientMode).toHaveBeenCalledWith(false);
+    expect(toggleProPanelCollapse).not.toHaveBeenCalled();
+    expect(bringToFront).toHaveBeenCalledWith("path-analysis");
   });
 });

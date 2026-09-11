@@ -25,7 +25,7 @@ import type { RadioObservation, ViewScopedStoreHandle } from "@/lib/views/runtim
 import { defaultFilters } from "./modeSelection";
 import type {
   GroupingPreferences,
-  PathPreferences,
+  PathPreferencesPatch,
   PresetCustomization,
   SpotFilterPreferences,
   SpotsPreferencesController,
@@ -136,29 +136,29 @@ export function useSpotsPreferences(
   );
 
   const patchPaths = useCallback(
-    (patch: Partial<PathPreferences>) => {
+    (patch: PathPreferencesPatch) => {
       if (view.isDisposed()) return;
       const spots = currentSpots();
       const paths = spots.paths;
+      const { background: backgroundPatch, selected: selectedPatch, ...rest } =
+        patch;
       writeSpots({
         ...spots,
         paths: {
           ...paths,
-          ...patch,
-          ...(patch.background
-            ? { background: { ...paths.background, ...patch.background } }
-            : {}),
-          ...(patch.selected !== undefined
-            ? {
-                selected:
-                  patch.selected === null
-                    ? null
-                    : {
-                        ...(paths.selected ?? paths.background),
-                        ...patch.selected,
-                      },
-              }
-            : {}),
+          ...rest,
+          background: backgroundPatch
+            ? { ...paths.background, ...backgroundPatch }
+            : paths.background,
+          selected:
+            selectedPatch === undefined
+              ? paths.selected
+              : selectedPatch === null
+                ? null
+                : {
+                    ...(paths.selected ?? paths.background),
+                    ...selectedPatch,
+                  },
         },
       });
     },

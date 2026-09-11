@@ -723,6 +723,7 @@ export function predictSignalStrength(
   muf?: number,
   support: CircuitSupport = "supported",
   atmosphericOptions?: AtmosphericNoiseOptions,
+  excessLossDb: number = 0,
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
@@ -739,6 +740,12 @@ export function predictSignalStrength(
   if (terrainLossDb !== undefined) {
     pathLoss = pathLoss - groundReflectionLoss + terrainLossDb;
   }
+  // Empirical excess loss (the caller's Kp / low-SFI penalty) enters the
+  // budget here, before SNR, S-meter, class, confidence and bounds are
+  // derived, so every reported number comes from one penalised budget
+  // (Codex round 5, PR #1081). The itemised components stay as reported;
+  // pathLoss minus their sum is exactly this excess.
+  pathLoss += excessLossDb;
 
   // One noise plane for the SNR and the reported assumption (M09/M10)
   const noise = calculateReferenceNoise(

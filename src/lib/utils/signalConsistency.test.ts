@@ -679,6 +679,40 @@ describe("PROP-02 a penalty moves every number it should (Codex r2)", () => {
     expect(checked).toBeGreaterThan(0);
   });
 
+  it("derives confidence and its bounds from the penalised SNR", () => {
+    // calculateConfidence deducts 5 below a 10 dB margin and 10 below 5 dB.
+    // Before the fix the Kp penalty moved expectedSNR after the engine had
+    // already scored confidence from the calm SNR, so a storm reported the
+    // calm confidence beside a marginal SNR (Codex round 5, PR #1081). Here
+    // the 14 dB penalty must lower confidence on every band whose calm
+    // margin sits at or above 10 dB and whose storm margin falls below it.
+    const calm = atKp(2);
+    const storm = atKp(9);
+    const minSNR = MODE_PARAMETERS.SSB.minSNR;
+    let crossings = 0;
+    for (const band of calm) {
+      const stormBand = storm.find((b) => b.band === band.band)!;
+      const calmPred = band.signalPrediction;
+      const stormPred = stormBand.signalPrediction;
+      if (calmPred?.support !== "supported") continue;
+      if (stormPred?.support !== "supported") continue;
+      const calmMargin = calmPred.expectedSNR - minSNR;
+      const stormMargin = stormPred.expectedSNR - minSNR;
+      expect(stormPred.confidence, `${band.band}`).toBeLessThanOrEqual(
+        calmPred.confidence,
+      );
+      if (calmMargin >= 10 && stormMargin < 10 && calmPred.confidence > 20) {
+        crossings += 1;
+        expect(stormPred.confidence, `${band.band} crossed a margin step`).toBeLessThan(
+          calmPred.confidence,
+        );
+        // The bounds are not asserted narrower: Kp 9 legitimately widens the
+        // interval (+15 half-width), so only the centre must fall.
+      }
+    }
+    expect(crossings).toBeGreaterThan(0);
+  });
+
   it("classifies RTTY against the RTTY threshold, not SSB's", () => {
     // -4 dB in 2500 Hz: RTTY threshold -5 (margin +1, poor/usable), SSB
     // threshold +3 (margin -7, closed). getOptimalBand used to translate RTTY

@@ -10,7 +10,7 @@ import type {
   VHFCondition,
 } from "../../types/solar";
 import { getIonosphericParameters } from "./ionosphere";
-import { dBmToSUnits, getSignalClass, predictSignalStrength } from "./signal";
+import { getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
 import type { AtmosphericNoiseOptions } from "./noiseModel";
 import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
@@ -934,6 +934,19 @@ export function getEnhancedBandConditions(
     // Circuit support comes from the ray solver: a hop above its median basic
     // MUF is not reflected by this engine (no above-MUF loss model exists), so
     // the mode contributes no power (contract M07, PROP-02 #948).
+    // Kp and low-SFI penalties are excess propagation loss. They go into
+    // the engine's budget rather than being subtracted from its SNR after
+    // the fact, so SNR, S-meter, class, confidence and both bounds are all
+    // derived from the penalised signal (Codex rounds 2 and 5, PR #1081).
+    let excessLossDb = 0;
+    if (kp >= 3) {
+      excessLossDb += (kp - 2) * 2;
+    }
+    if (sfi < band.minSfi) {
+      const deficit = band.minSfi - sfi;
+      excessLossDb += Math.min(deficit * 0.3, 15);
+    }
+
     const signalPred = predictSignalStrength(
       frequencyMHz,
       distance,
@@ -949,6 +962,7 @@ export function getEnhancedBandConditions(
       pathMuf,
       rayResult.isPathViable ? "supported" : "above_basic_muf",
       receiverNoiseContext,
+      excessLossDb,
     );
 
     // Build notes array
@@ -1005,26 +1019,6 @@ export function getEnhancedBandConditions(
       notes.push(`High absorption (${Math.round(absorptionDb)} dB)`);
     }
 
-    // Use signal prediction SNR but apply Kp penalty
-    let adjustedSNR = signalPred.expectedSNR;
-    if (kp >= 3) {
-      const kpPenalty = (kp - 2) * 2;
-      adjustedSNR -= kpPenalty;
-    }
-
-    // Also check SFI requirements for high bands
-    if (sfi < band.minSfi) {
-      const deficit = band.minSfi - sfi;
-      const penalty = Math.min(deficit * 0.3, 15);
-      adjustedSNR -= penalty;
-    }
-
-    // Remember the total penalty so the uncertainty interval can be shifted
-    // by the same amount — the displayed center must sit inside its range.
-    // (For an unsupported mode expectedSNR is -Infinity and the shift is NaN;
-    // the bounds are pinned explicitly below, so the shift is never used.)
-    const snrShift = adjustedSNR - signalPred.expectedSNR;
-
     // One display transform for the centre and both bounds: whole-dB rounding
     // then the [-30, +30] display clamp. Both steps are monotone
     // non-decreasing, so low <= centre <= high survives them and the centre
@@ -1033,6 +1027,8 @@ export function getEnhancedBandConditions(
     // -Infinity (an unsupported mode) pins to the -30 floor.
     const toDisplaySNR = (snr: number): number =>
       Math.max(-30, Math.min(30, Math.round(snr)));
+
+    let adjustedSNR = signalPred.expectedSNR;
 
     // Status and signal class are derived from the number that is actually
     // returned and rendered, not from the pre-rounding value (Codex round 1:
@@ -1058,9 +1054,8 @@ export function getEnhancedBandConditions(
       }
     }
 
-    // Shift the uncertainty interval by the same Kp/SFI penalties applied to
-    // the centre estimate, then put all three through `toDisplaySNR`, so the
-    // displayed centre, range, status and class all come from one number and
+    // Put the centre and both bounds through `toDisplaySNR`, so the displayed
+    // centre, range, status and class all come from one number and
     // snrLow <= expectedSNR <= snrHigh holds by construction.
     //
     // An unsupported mode keeps the prediction exactly as the engine built it:
@@ -1078,28 +1073,11 @@ export function getEnhancedBandConditions(
         : { ...signalPred };
     if (signalPred.support === "supported") {
       if (displayPred.snrLow !== undefined) {
-        displayPred.snrLow = toDisplaySNR(displayPred.snrLow + snrShift);
+        displayPred.snrLow = toDisplaySNR(displayPred.snrLow);
       }
       if (displayPred.snrHigh !== undefined) {
-        displayPred.snrHigh = toDisplaySNR(displayPred.snrHigh + snrShift);
+        displayPred.snrHigh = toDisplaySNR(displayPred.snrHigh);
       }
-    }
-
-    // The Kp/SFI penalties are a propagation loss, so they move the received
-    // level too. Leaving `sUnit` at the pre-penalty value let a 14 dB Kp
-    // penalty drop the SNR by 14 dB while the S-meter beside it stayed two
-    // S-units stronger (Codex round 2, PR #1081). One shift, one pair of
-    // numbers that agree.
-    if (signalPred.support === "supported" && snrShift !== 0) {
-      // The penalty is excess propagation loss, so it lands on `pathLoss`
-      // first. That keeps both identities `predictSignalStrength` builds:
-      // rx = txDbm + gain - pathLoss, and SNR = rx - noiseFloor. The itemised
-      // free-space / absorption / ground components stay as the ray solver
-      // reported them, so they no longer sum to `pathLoss`; the difference is
-      // exactly this empirical Kp/SFI excess.
-      displayPred.pathLoss =
-        Math.round((signalPred.pathLoss - snrShift) * 10) / 10;
-      displayPred.sUnit = dBmToSUnits(signalPred.sUnit.dBm + snrShift);
     }
 
     // The S-meter reading shown next to the SNR must come from the same

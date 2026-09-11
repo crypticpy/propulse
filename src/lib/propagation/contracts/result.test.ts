@@ -594,6 +594,38 @@ describe("parseResult fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
+  it("rejects a finite decode margin against a no-power SNR (M07, M10)", () => {
+    const bad = candidate("fullHfCircuit");
+    (headFor(bad, "snr2500").state as Mutable).value = {
+      ...((headFor(bad, "snr2500").state as Mutable).value as Mutable),
+      support: "geometrically_unsupported",
+      snr2500Db: "-Infinity",
+    };
+    headFor(bad, "snr2500").uncertainty = { kind: "none" };
+    expect(reasonsAt(bad, "heads[2].state.value.marginDb").join()).toMatch(
+      /no-power SNR2500 leaves the decode margin undefined/,
+    );
+  });
+
+  it("accepts a null decode margin against a no-power SNR (M07, M10)", () => {
+    const good = candidate("fullHfCircuit");
+    (headFor(good, "snr2500").state as Mutable).value = {
+      ...((headFor(good, "snr2500").state as Mutable).value as Mutable),
+      support: "geometrically_unsupported",
+      snr2500Db: "-Infinity",
+    };
+    headFor(good, "snr2500").uncertainty = { kind: "none" };
+    const decode = headFor(good, "conditional_decode");
+    decode.calibrationId = "decode-cal-v1";
+    (decode.state as Mutable).value = {
+      ...((decode.state as Mutable).value as Mutable),
+      marginDb: null,
+      probability: 0.01,
+    };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("still accepts the no-power head, which carries no interval (M07)", () => {
     const outcome = parseResult(candidate("noPowerMode"));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);

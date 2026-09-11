@@ -696,6 +696,20 @@ function crossCheckDecodeMargin(
   }
   const margin = decode.state.value.marginDb;
   const snr2500Db = snr.state.value.snr2500Db;
+  if (snr2500Db === NO_POWER_DB) {
+    // M07: no power reaches the receiver, so there is no SNR to subtract a
+    // threshold from and M10's margin is undefined rather than merely large.
+    // The decode head reports a null margin (or stops being value-bearing,
+    // which is handled above); any finite number here is unsourced.
+    if (margin !== null) {
+      reject(
+        ctx,
+        ["heads", decodeIndex, "state", "value", "marginDb"],
+        "A no-power SNR2500 leaves the decode margin undefined (M07, M10)",
+      );
+    }
+    return;
+  }
   if (margin === null || !Number.isFinite(snr2500Db)) return;
   const expected = snr2500Db - decode.state.value.thresholdSnr2500Db;
   if (Math.abs(margin - expected) > DECODE_MARGIN_TOLERANCE_DB) {

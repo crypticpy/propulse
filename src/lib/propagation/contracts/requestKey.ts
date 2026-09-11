@@ -7,7 +7,8 @@
  * scientific field has to be added here deliberately.
  *
  * In the key: context, issue/valid time, target event and scope, frequency,
- * mode profile, route leg, mechanism/geometry policy, terrain and environment
+ * mode profile, route shape (leg and azimuth only where there is one great
+ * circle), mechanism/geometry policy, terrain and environment
  * pack, station scenario, both station records in TX then RX order (so a
  * reciprocal request has its own key), relay/ephemeris identity, requested
  * model policy/id/version and policy version, and source mode.
@@ -149,8 +150,14 @@ export function requestKeyProjection(
     scopeIntervalSeconds: request.scope.intervalSeconds,
     frequencyHz: request.frequencyHz,
     modeProfileId: request.modeProfileId,
-    routeLeg: request.route.leg,
-    routeAzimuthDeg: request.route.azimuthDeg,
+    route:
+      request.route.kind === "direct"
+        ? {
+            kind: "direct",
+            leg: request.route.leg,
+            azimuthDeg: request.route.azimuthDeg,
+          }
+        : { kind: "relayed" },
     mechanismFamily: request.mechanismPolicy.family,
     geometryClass: request.mechanismPolicy.geometryClass,
     terrainProfileId: request.terrainProfileId,

@@ -47,6 +47,18 @@ describe("requestKey identity", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
   });
 
+  it("gives two relayed requests that name no leg one key", () => {
+    // The leg used to be part of every request; on a relayed geometry there is
+    // no great circle to choose, so it is no longer in the shape or the key.
+    const satellite = buildCase("satellitePass");
+    const again = buildCase("satellitePass", (draft) => {
+      draft.viewScopeId = "view-other";
+    });
+    expect(requestKey(satellite)).toBe(requestKey(again));
+    expect(requestKey(satellite)).toContain('"kind":"relayed"');
+    expect(requestKey(satellite)).not.toContain('"leg"');
+  });
+
   it("gives two spellings of one pole the same key", () => {
     const atPole = (longitudeDeg: number) =>
       build((draft) => {

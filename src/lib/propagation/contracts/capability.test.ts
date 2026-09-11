@@ -486,6 +486,34 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
+  it("ignores both receive chains for pass_geometry (A21)", () => {
+    // A pass is mutual visibility of the relay, received by nobody, so a
+    // declaration that names neither station's receiver class still covers it.
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
+    head.quantity = "pass_geometry";
+    head.units = QUANTITY_UNITS.pass_geometry;
+    head.geometryClasses = ["earth_space"];
+    head.mechanismFamilies = ["relay"];
+    head.receiverClasses = ["external_noise_dominated"];
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    if (!outcome.ok) {
+      throw new Error(`must parse: ${JSON.stringify(outcome.issues)}`);
+    }
+    const passQuery = {
+      ...meteorQuery,
+      quantity: "pass_geometry",
+      geometryClass: "earth_space",
+      mechanismFamily: "relay",
+    } as const;
+    expect(capabilityCovers(outcome.value, passQuery)).toBe(true);
+    // The same declaration does not cover a quantity that is received.
+    expect(
+      capabilityCovers(outcome.value, { ...passQuery, quantity: "snr2500" }),
+    ).toBe(false);
+  });
+
   it("ignores the transmitting receive chain for a directed quantity", () => {
     // snr2500 is measured at one receiver (M08/M09), so the transmitting
     // station's own receive chain does not take part in coverage.

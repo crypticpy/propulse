@@ -384,11 +384,36 @@ describe("parseRequest fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
-  it("rejects a route azimuth on a relayed geometry (A21)", () => {
+  it("rejects a leg or an azimuth on a relayed route (A21)", () => {
+    for (const field of ["leg", "azimuthDeg"] as const) {
+      const bad = candidate("satellitePass");
+      (bad.route as Mutable)[field] = field === "leg" ? "short" : 45;
+      expect(
+        issues(bad)
+          .map((issue) => issue.reason)
+          .join(),
+      ).toMatch(/Unrecognized key/i);
+    }
+  });
+
+  it("rejects a direct route shape on a relayed geometry (A21)", () => {
     const bad = candidate("satellitePass");
-    (bad.route as Mutable).azimuthDeg = 45;
-    expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
-      /takes no route azimuth/,
+    bad.route = { kind: "direct", leg: "short", azimuthDeg: null };
+    expect(reasonsAt(bad, "route.kind").join()).toMatch(
+      /takes the relayed route shape/,
+    );
+  });
+
+  it("accepts a relayed request that declares no leg (A21)", () => {
+    const outcome = parseRequest(candidate("satellitePass"));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("still requires a leg on a direct geometry (M06)", () => {
+    const bad = candidate("hfShortPath");
+    bad.route = { kind: "relayed" };
+    expect(reasonsAt(bad, "route.kind").join()).toMatch(
+      /must declare its short or long leg/,
     );
   });
 

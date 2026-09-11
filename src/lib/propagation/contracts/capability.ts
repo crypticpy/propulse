@@ -13,7 +13,7 @@ import { z } from "zod";
 import {
   ANTENNA_CLASSES,
   CALIBRATION_REQUIRED_QUANTITIES,
-  DIRECTED_QUANTITIES,
+  RECEIVER_PARTICIPATION,
   type AntennaClass,
   CAPABILITY_SCHEMA_VERSION,
   CAPABILITY_INPUT_IDS,
@@ -331,6 +331,29 @@ export function parseCapability(
 }
 
 /**
+ * Whether the declaration covers the receive chains the quantity actually
+ * involves (A01 receiver class, gated by `RECEIVER_PARTICIPATION`). A quantity
+ * that involves no receive chain is not made incompatible by a declaration
+ * that stays silent about receiver classes.
+ */
+function receiverChainsCovered(
+  head: ModelCapability["heads"][number],
+  query: { txReceiverClass: ReceiverClass; rxReceiverClass: ReceiverClass },
+): boolean {
+  switch (RECEIVER_PARTICIPATION[head.quantity]) {
+    case "none":
+      return true;
+    case "rx":
+      return head.receiverClasses.includes(query.rxReceiverClass);
+    case "both":
+      return (
+        head.receiverClasses.includes(query.rxReceiverClass) &&
+        head.receiverClasses.includes(query.txReceiverClass)
+      );
+  }
+}
+
+/**
  * True when the capability can actually answer this exact request shape.
  *
  * Every dimension the head declares is checked, not just the frequency: the
@@ -359,7 +382,7 @@ export function capabilityCovers(
      * A01: the station populations this request actually belongs to. The
      * receiving station's chain is always checked; the transmitting station's
      * chain is checked only for a reciprocal quantity, because a directed
-     * quantity is measured at one receiver (see `DIRECTED_QUANTITIES`). Both
+     * quantity is measured at one receiver (see `RECEIVER_PARTICIPATION`). Both
      * antenna classes always apply, since the transmit antenna radiates.
      */
     txAntennaClass: AntennaClass;
@@ -387,9 +410,7 @@ export function capabilityCovers(
       head.modeProfileIds.includes(query.modeProfileId) &&
       head.antennaClasses.includes(query.txAntennaClass) &&
       head.antennaClasses.includes(query.rxAntennaClass) &&
-      head.receiverClasses.includes(query.rxReceiverClass) &&
-      (DIRECTED_QUANTITIES.includes(head.quantity) ||
-        head.receiverClasses.includes(query.txReceiverClass)) &&
+      receiverChainsCovered(head, query) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz &&
       head.requiredInputs.every((input) => available.has(input)),

@@ -220,34 +220,41 @@ export const CALIBRATION_REQUIRED_QUANTITIES: readonly PredictionQuantity[] = [
 ];
 
 /**
- * Directionality of each quantity, which decides whose receive chain takes
- * part in a capability's coverage.
+ * Which receive chains take part in a quantity's coverage. Antenna class is a
+ * separate dimension: the transmit antenna always radiates and the receive
+ * antenna always intercepts, so A01's antenna class is checked at both ends
+ * for every quantity, including `pass_geometry` (a pass is answered for a
+ * declared pair of stations, and the contract nowhere calls the geometry heads
+ * antenna-independent). Only the receive chain is directional.
  *
- * Directed: the quantity is a property of one receiving station, so only the
- * receiving chain participates. M08/M09 build the signal and noise budget at
- * the receiver's connector, and M10 turns that into a margin or a decode
- * probability; the network, activity and burst heads are likewise reports
- * gathered at receivers.
- *
- * Reciprocal: `completed_qso` is reciprocal because M18/M22 require both
- * directions to close before a contact completes. `circuit_support` is
- * reciprocal because M07 mode support is a property of the path's geometry and
- * ionisation rather than of either receive chain. `pass_geometry` is
- * reciprocal because A21 timing is mutual visibility of the relay from both
- * endpoints and involves no receive chain at all.
- *
- * The transmit antenna always radiates, so the antenna class is checked at
- * both ends for every quantity; only the receive chain is directional.
+ * - `"rx"`: the quantity is a property of one receiving station. M08/M09 build
+ *   the signal and noise budget at the receiver's connector and M10 turns that
+ *   into a margin or a decode probability; the network, activity and burst
+ *   heads are likewise reports gathered at receivers.
+ * - `"both"`: `completed_qso` needs both directions to close (M18/M22), and
+ *   `circuit_support` is a property of the path's geometry and ionisation
+ *   (M07) evaluated in both directions.
+ * - `"none"`: `pass_geometry` is mutual visibility of the relay from the two
+ *   endpoints (A21). No signal is received, so no receive chain participates
+ *   and a declaration need not name either receiver class.
  */
-export const DIRECTED_QUANTITIES: readonly PredictionQuantity[] = [
-  "snr2500",
-  "field_strength",
-  "doppler",
-  "conditional_decode",
-  "network_detection",
-  "observed_activity",
-  "usable_burst",
-];
+export type ReceiverParticipation = "none" | "rx" | "both";
+
+export const RECEIVER_PARTICIPATION: Record<
+  PredictionQuantity,
+  ReceiverParticipation
+> = {
+  pass_geometry: "none",
+  completed_qso: "both",
+  circuit_support: "both",
+  snr2500: "rx",
+  field_strength: "rx",
+  doppler: "rx",
+  conditional_decode: "rx",
+  network_detection: "rx",
+  observed_activity: "rx",
+  usable_burst: "rx",
+};
 
 /** M01 availability enum. "Missing is never zero" (M11). */
 export const AVAILABILITY_STATES = [

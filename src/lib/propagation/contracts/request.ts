@@ -373,19 +373,30 @@ export const predictionRequestSchema = z
     /** Derived label only; excluded from the request key. */
     bandKey: identifier.nullable(),
     modeProfileId: identifier,
-    route: z
-      .object({
-        leg: z.enum(ROUTE_LEGS),
-        /**
-         * M06: the departure tangent is derived uniquely from the endpoints
-         * and the leg, so an explicit azimuth is legal only where no tangent
-         * exists, that is for coincident or exactly antipodal endpoints. On
-         * any ordinary path this field must be null; a caller-supplied value
-         * would be a second, conflicting geometry.
-         */
-        azimuthDeg: finite.min(0).lt(360).nullable(),
-      })
-      .strict(),
+    /**
+     * The route is shaped by the geometry. A direct path is one great circle
+     * and the caller chooses the short or the long way round it. A relayed
+     * path (A21/A22) has no single great circle at all: its legs are fixed by
+     * the relay's position, so there is nothing to choose and nothing to
+     * declare, and the relayed shape carries neither field.
+     */
+    route: z.discriminatedUnion("kind", [
+      z
+        .object({
+          kind: z.literal("direct"),
+          leg: z.enum(ROUTE_LEGS),
+          /**
+           * M06: the departure tangent is derived uniquely from the endpoints
+           * and the leg, so an explicit azimuth is legal only where no tangent
+           * exists, that is for coincident or exactly antipodal endpoints. On
+           * any ordinary path this field must be null; a caller-supplied value
+           * would be a second, conflicting geometry.
+           */
+          azimuthDeg: finite.min(0).lt(360).nullable(),
+        })
+        .strict(),
+      z.object({ kind: z.literal("relayed") }).strict(),
+    ]),
     mechanismPolicy: z
       .object({
         family: z.union([z.enum(MECHANISM_FAMILIES), z.literal("auto")]),
@@ -484,15 +495,14 @@ export const predictionRequestSchema = z
     );
     if (relayed) {
       // A21: a relayed request has no single great-circle tangent to derive or
-      // to be told. Each leg's bearing comes from the relay identity, so a
-      // caller-supplied azimuth would describe a path the request does not
-      // have, and the coincident/antipodal rules below apply only to a direct
-      // great-circle path.
-      if (value.route.azimuthDeg !== null) {
+      // to be told. Each leg's bearing comes from the relay identity, so there
+      // is no leg to choose and no azimuth to declare, and the
+      // coincident/antipodal rules below apply only to a direct path.
+      if (value.route.kind !== "relayed") {
         reject(
           ctx,
-          ["route", "azimuthDeg"],
-          "A relayed geometry derives each leg's bearing from the relay; it takes no route azimuth (A21)",
+          ["route", "kind"],
+          `Geometry class ${value.mechanismPolicy.geometryClass} has no single great circle, so it takes the relayed route shape (A21)`,
         );
       }
       if (value.relay !== null && value.relay.kind === "fixed") {
@@ -530,14 +540,31 @@ export const predictionRequestSchema = z
         `Coincident endpoints are a zero-distance circuit, which geometry class ${value.mechanismPolicy.geometryClass} cannot answer (M06)`,
       );
     }
-    if (!relayed && degenerate && value.route.azimuthDeg === null) {
+    if (!relayed && value.route.kind !== "direct") {
+      reject(
+        ctx,
+        ["route", "kind"],
+        `Geometry class ${value.mechanismPolicy.geometryClass} is one great circle and must declare its short or long leg (M06)`,
+      );
+    }
+    if (
+      value.route.kind === "direct" &&
+      !relayed &&
+      degenerate &&
+      value.route.azimuthDeg === null
+    ) {
       reject(
         ctx,
         ["route", "azimuthDeg"],
         "Coincident or antipodal endpoints have no derived short or long tangent; an explicit route azimuth is required (M06)",
       );
     }
-    if (!relayed && !degenerate && value.route.azimuthDeg !== null) {
+    if (
+      value.route.kind === "direct" &&
+      !relayed &&
+      !degenerate &&
+      value.route.azimuthDeg !== null
+    ) {
       reject(
         ctx,
         ["route", "azimuthDeg"],

@@ -16,6 +16,7 @@
     "bandKey": "20m",
     "modeProfileId": "ft8-wsjtx-2.7.0-15s",
     "route": {
+      "kind": "direct",
       "leg": "short",
       "azimuthDeg": null
     },
@@ -146,8 +147,7 @@
     "bandKey": "2m",
     "modeProfileId": "fm-voice-12k5",
     "route": {
-      "leg": "short",
-      "azimuthDeg": null
+      "kind": "relayed"
     },
     "mechanismPolicy": {
       "family": "satellite",
@@ -281,8 +281,7 @@
     "bandKey": "2m",
     "modeProfileId": "fm-16k0-voice-v1",
     "route": {
-      "leg": "short",
-      "azimuthDeg": null
+      "kind": "relayed"
     },
     "mechanismPolicy": {
       "family": "relay",

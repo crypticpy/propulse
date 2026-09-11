@@ -179,11 +179,55 @@ describe("parseRequest fails closed", () => {
   });
 
   it("rejects an interval scope with no interval length (M02)", () => {
-    const bad = candidate("satellitePass");
+    const bad = candidate("hfShortPath");
+    bad.targetEvent = "observed_activity";
+    (bad.scope as Mutable).aggregation = "interval";
     (bad.scope as Mutable).intervalSeconds = null;
     expect(reasonsAt(bad, "scope.intervalSeconds").join()).toMatch(
       /must declare intervalSeconds/,
     );
+  });
+
+  it("rejects an interval-valued event carrying an instantaneous scope (M02)", () => {
+    const bad = candidate("hfShortPath");
+    bad.targetEvent = "observed_activity";
+    expect(reasonsAt(bad, "scope.aggregation").join()).toMatch(
+      /observed_activity is defined over an interval/,
+    );
+  });
+
+  it("rejects a burst event carrying an instantaneous scope (M02)", () => {
+    const bad = candidate("hfShortPath");
+    bad.targetEvent = "usable_burst";
+    expect(reasonsAt(bad, "scope.aggregation").join()).toMatch(
+      /usable_burst is defined over an interval/,
+    );
+  });
+
+  it("rejects an instant-valued event carrying an interval scope (M02)", () => {
+    const bad = candidate("hfShortPath");
+    (bad.scope as Mutable).aggregation = "interval";
+    (bad.scope as Mutable).intervalSeconds = 3600;
+    expect(reasonsAt(bad, "scope.aggregation").join()).toMatch(
+      /snr2500 is sampled at an instant/,
+    );
+  });
+
+  it("accepts an interval-valued event with a positive interval scope", () => {
+    const good = candidate("hfShortPath");
+    good.targetEvent = "usable_burst";
+    (good.scope as Mutable).aggregation = "interval";
+    (good.scope as Mutable).intervalSeconds = 900;
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a non-positive interval length", () => {
+    const bad = candidate("hfShortPath");
+    bad.targetEvent = "usable_burst";
+    (bad.scope as Mutable).aggregation = "interval";
+    (bad.scope as Mutable).intervalSeconds = 0;
+    expect(reasonsAt(bad, "scope.intervalSeconds").length).toBeGreaterThan(0);
   });
 
   it("rejects an instantaneous sample relabelled with an interval", () => {

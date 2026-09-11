@@ -299,6 +299,30 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("accepts a head whose valid time is the same instant in another offset", () => {
+    const spelled = candidate("fullHfCircuit");
+    // Same instant as the result's 19:00Z, written with a +01:00 offset.
+    headFor(spelled, "snr2500").validAt = "2026-09-11T20:00:00+01:00";
+    const outcome = parseResult(spelled);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a mixed requested model id and version", () => {
+    const bad = candidate("fullHfCircuit");
+    (bad.provenance as Mutable).requestedModelVersion = null;
+    expect(reasonsAt(bad, "provenance.requestedModelVersion").join()).toMatch(
+      /both an id and a version/,
+    );
+  });
+
+  it("rejects a requested model version with no requested model id", () => {
+    const bad = candidate("missingInput");
+    (bad.provenance as Mutable).requestedModelVersion = "1.0.0";
+    expect(reasonsAt(bad, "provenance.requestedModelVersion").join()).toMatch(
+      /both an id and a version/,
+    );
+  });
+
   it("rejects a head belonging to another context", () => {
     const bad = candidate("fullHfCircuit");
     headFor(bad, "snr2500").contextId = "ctx-other-view";

@@ -135,8 +135,8 @@
     "scope": {
       "domain": "qualified_ephemeris_horizon",
       "horizon": "forecast_seconds",
-      "aggregation": "interval",
-      "intervalSeconds": 1.0
+      "aggregation": "instantaneous",
+      "intervalSeconds": null
     },
     "frequencyHz": 145950000,
     "bandKey": "2m",

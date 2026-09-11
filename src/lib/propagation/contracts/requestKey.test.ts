@@ -32,6 +32,15 @@ describe("requestKey identity", () => {
     expect(requestKey(build())).toBe(requestKey(build()));
   });
 
+  it("keeps the key stable across two spellings of one instant", () => {
+    const zulu = build();
+    const offset = build((draft) => {
+      draft.validAt = "2026-09-11T20:00:00+01:00";
+    });
+    expect(zulu.validAt).toBe("2026-09-11T19:00:00Z");
+    expect(requestKey(offset)).toBe(requestKey(zulu));
+  });
+
   it("keeps the key stable when only view-owned fields differ", () => {
     const primary = build();
     const secondary = build((draft) => {

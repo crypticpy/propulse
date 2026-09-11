@@ -160,17 +160,22 @@ function coverageTupleKey(head: {
   modeProfileIds: readonly string[];
   frequencyRangeHz: { minHz: number; maxHz: number };
 }): string {
-  const list = (values: readonly string[]): string =>
-    [...values].sort().join("+");
-  return [
+  // Structural, not concatenated: any separator character is legal inside an
+  // identifier, so ["a","b"] must not collide with ["a+b"]. Sorting and
+  // deduplicating first makes the key depend on the set, not on the order or
+  // on repeats.
+  const set = (values: readonly string[]): string[] =>
+    [...new Set(values)].sort();
+  return JSON.stringify([
     head.quantity,
     head.domain,
-    list(head.horizons),
-    list(head.mechanismFamilies),
-    list(head.geometryClasses),
-    list(head.modeProfileIds),
-    `${head.frequencyRangeHz.minHz}-${head.frequencyRangeHz.maxHz}`,
-  ].join("|");
+    set(head.horizons),
+    set(head.mechanismFamilies),
+    set(head.geometryClasses),
+    set(head.modeProfileIds),
+    head.frequencyRangeHz.minHz,
+    head.frequencyRangeHz.maxHz,
+  ]);
 }
 
 export const modelCapabilitySchema = z

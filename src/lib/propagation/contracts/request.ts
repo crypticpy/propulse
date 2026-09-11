@@ -25,6 +25,7 @@ import {
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
+  type PredictionQuantity,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
   ROUTE_LEGS,
@@ -198,6 +199,29 @@ const relayIdentity = z
   })
   .strict();
 
+/**
+ * Which events are sampled at an instant and which are defined over an
+ * interval, per the protocol event definitions and M02.
+ *
+ * Instant-valued: `circuit_support`, `snr2500`, `field_strength`, `doppler`
+ * and `conditional_decode`. The 24-hour view evaluates
+ * `validAt[j] = issuedAt + j * 3600 s` as 24 labelled instantaneous samples,
+ * and a decode event's observation duration is a property of the declared mode
+ * profile carried in the payload, not an aggregation of the scope.
+ *
+ * Interval-valued: `network_detection` (the model's own hourly bucket, which
+ * M02 keeps as a separate interval-valued head), `observed_activity` (reports
+ * within an explicit time interval), `usable_burst` (at least one burst in an
+ * exposed interval) and `pass_geometry` (an AOS/LOS span). No instantaneous
+ * sample may be relabelled as one of these.
+ */
+export const INTERVAL_VALUED_QUANTITIES: readonly PredictionQuantity[] = [
+  "network_detection",
+  "observed_activity",
+  "usable_burst",
+  "pass_geometry",
+];
+
 const requestScope = z
   .object({
     domain: z.enum(PREDICTION_DOMAINS),
@@ -272,6 +296,23 @@ export const predictionRequestSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    const intervalValued = INTERVAL_VALUED_QUANTITIES.includes(
+      value.targetEvent,
+    );
+    if (intervalValued && value.scope.aggregation !== "interval") {
+      reject(
+        ctx,
+        ["scope", "aggregation"],
+        `Event ${value.targetEvent} is defined over an interval and needs an interval scope`,
+      );
+    }
+    if (!intervalValued && value.scope.aggregation !== "instantaneous") {
+      reject(
+        ctx,
+        ["scope", "aggregation"],
+        `Event ${value.targetEvent} is sampled at an instant and cannot carry an interval scope`,
+      );
+    }
     if (instantMs(value.validAt) < instantMs(value.issuedAt)) {
       reject(
         ctx,

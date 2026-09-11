@@ -491,6 +491,19 @@ const provenance = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    // A model preference is an id *and* a version; half of one is not a
+    // preference the service can honour or report a fallback against.
+    if (
+      (value.requestedModelId === null) !==
+      (value.requestedModelVersion === null)
+    ) {
+      reject(
+        ctx,
+        ["requestedModelVersion"],
+        "A requested model must carry both an id and a version, or neither",
+      );
+      return;
+    }
     if (value.requestedModelId === null) return;
     const same =
       value.requestedModelId === value.effectiveModelId &&
@@ -556,7 +569,7 @@ export const predictionResultSchema = z
         );
       }
       seen.add(head.quantity);
-      if (head.validAt !== value.validAt) {
+      if (instantMs(head.validAt) !== instantMs(value.validAt)) {
         reject(
           ctx,
           ["heads", index, "validAt"],

@@ -330,6 +330,27 @@ describe("parseCapability fails closed", () => {
     );
   });
 
+  it("does not confuse a two-entry list with one joined entry", () => {
+    const draft = candidate("hfPhysics");
+    const heads = draft.heads as Mutable[];
+    const twin = structuredClone(heads[1]);
+    heads[1].modeProfileIds = ["a", "b"];
+    twin.modeProfileIds = ["a+b"];
+    heads.push(twin);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("treats a repeated list entry and a reordered list as the same tuple", () => {
+    const draft = candidate("hfPhysics");
+    const heads = draft.heads as Mutable[];
+    const twin = structuredClone(heads[1]);
+    heads[1].modeProfileIds = ["a", "a", "b"];
+    twin.modeProfileIds = ["b", "a"];
+    heads.push(twin);
+    expect(reasonsAt(draft, "heads[3].quantity").join()).toMatch(/Duplicate/);
+  });
+
   it("rejects a head that repeats a complete coverage tuple", () => {
     const bad = candidate("hfPhysics");
     const heads = bad.heads as Mutable[];

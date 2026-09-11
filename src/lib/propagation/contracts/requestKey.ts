@@ -20,7 +20,7 @@
  * model, nothing that one view could change under another.
  */
 import type { PredictionRequest } from "@/lib/propagation/contracts/request";
-import type { Known } from "@/lib/propagation/contracts/validation";
+import { instantMs, type Known } from "@/lib/propagation/contracts/validation";
 
 type Canonical =
   string | number | boolean | null | Canonical[] | { [key: string]: Canonical };
@@ -92,8 +92,12 @@ export function requestKeyProjection(
   return {
     schemaVersion: request.schemaVersion,
     contextId: request.contextId,
-    issuedAt: request.issuedAt,
-    validAt: request.validAt,
+    // Instants enter the key as epoch milliseconds so that two spellings of
+    // one instant ("...T19:00:00Z" and "...T20:00:00+01:00") are one cache
+    // entry rather than two. Every timestamp comparison in this directory goes
+    // through the same parsed-instant treatment.
+    issuedAtMs: instantMs(request.issuedAt),
+    validAtMs: instantMs(request.validAt),
     targetEvent: request.targetEvent,
     scopeDomain: request.scope.domain,
     scopeHorizon: request.scope.horizon,
@@ -112,8 +116,8 @@ export function requestKeyProjection(
     rx: stationProjection(request.rx),
     relayId: request.relay === null ? null : request.relay.relayId,
     ephemerisId: request.relay === null ? null : request.relay.ephemerisId,
-    ephemerisEpoch:
-      request.relay === null ? null : request.relay.ephemerisEpoch,
+    ephemerisEpochMs:
+      request.relay === null ? null : instantMs(request.relay.ephemerisEpoch),
     modelPolicy: request.requestedModel.policy,
     modelId: request.requestedModel.modelId,
     modelVersion: request.requestedModel.modelVersion,

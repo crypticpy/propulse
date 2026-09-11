@@ -218,6 +218,8 @@ def validate_protocol(protocol):
     bootstrap = protocol["resampling"]
     require(bootstrap.get("applies_to_event") == "snr2500" and
             bootstrap.get("method_status") == "experimental_candidate", "resampling is an experimental SNR candidate")
+    require(isinstance(bootstrap.get("status"), str) and bootstrap["status"].startswith("BLOCKED"),
+            "resampling.status must remain BLOCKED in this revision")
     require(bootstrap.get("method") == "paired_connected_components_percentile_bootstrap" and
             bootstrap.get("draws") == 10000 and bootstrap.get("seed") == 947 and
             bootstrap.get("interval") == [0.025, 0.975], "resampling contract changed")

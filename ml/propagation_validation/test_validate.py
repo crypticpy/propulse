@@ -110,6 +110,12 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid, "experimental SNR"):
             self.check()
 
+    def test_resampling_status_cannot_pass(self):
+        for status in ("PASS", "validated", "blocked", "READY: pending", ""):
+            self.protocol["resampling"]["status"] = status
+            with self.assertRaisesRegex(Invalid, "BLOCKED|resampling.status"):
+                self.check()
+
     def test_weakened_numerical_tolerance_rejected(self):
         self.protocol["numerics"]["complex_normalized_residual"] = 0.1
         with self.assertRaisesRegex(Invalid, "frozen tolerance"):

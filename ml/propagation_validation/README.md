@@ -6,7 +6,9 @@ production solver, reads operational/holdout data, trains, writes activation
 files or establishes eligibility. **Exit 0 means consistency PASS; scientific
 qualification remains BLOCKED and validated coverage remains zero.**
 
-From the repository root, using Python 3.10 or newer and its standard library:
+From the repository root, using Python 3.10 or newer and its standard library
+(`npm run check:propagation-protocol` runs both commands and is part of
+`npm run verify`, so the pre-push gate fails when these regressions break):
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ml/propagation_validation -p 'test_*.py' -v

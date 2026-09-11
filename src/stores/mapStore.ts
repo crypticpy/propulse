@@ -1298,33 +1298,35 @@ function loadDockGroups(): DockGroup[] {
         const viewportWidth =
           typeof window !== "undefined" ? window.innerWidth : 1920;
         const maxWidth = Math.max(1, viewportWidth - 4);
-        return parsed.filter(
-          (group): group is DockGroup =>
-            group !== null &&
-            typeof group === "object" &&
-            typeof group.id === "string" &&
-            group.orientation === "vertical" &&
-            Array.isArray(group.panelIds) &&
-            group.panelIds.length >= 2 &&
-            group.panelIds.every(
-              (id: unknown) => typeof id === "string" && panelIds.has(id),
-            ) &&
-            typeof group.sharedX === "number" &&
-            Number.isFinite(group.sharedX) &&
-            typeof group.sharedWidth === "number" &&
-            Number.isFinite(group.sharedWidth) &&
-            group.sharedWidth > 0,
-        ).map((group) => {
-          const sharedWidth = Math.min(group.sharedWidth, maxWidth);
-          return {
-            ...group,
-            sharedX: Math.min(
-              Math.max(0, group.sharedX),
-              Math.max(0, viewportWidth - sharedWidth),
-            ),
-            sharedWidth,
-          };
-        });
+        return parsed
+          .filter(
+            (group): group is DockGroup =>
+              group !== null &&
+              typeof group === "object" &&
+              typeof group.id === "string" &&
+              group.orientation === "vertical" &&
+              Array.isArray(group.panelIds) &&
+              group.panelIds.length >= 2 &&
+              group.panelIds.every(
+                (id: unknown) => typeof id === "string" && panelIds.has(id),
+              ) &&
+              typeof group.sharedX === "number" &&
+              Number.isFinite(group.sharedX) &&
+              typeof group.sharedWidth === "number" &&
+              Number.isFinite(group.sharedWidth) &&
+              group.sharedWidth > 0,
+          )
+          .map((group) => {
+            const sharedWidth = Math.min(group.sharedWidth, maxWidth);
+            return {
+              ...group,
+              sharedX: Math.min(
+                Math.max(0, group.sharedX),
+                Math.max(0, viewportWidth - sharedWidth),
+              ),
+              sharedWidth,
+            };
+          });
       }
     }
   } catch {
@@ -1479,8 +1481,13 @@ const initialState = {
 
   spotFeedScope: "global" as const,
   spotAgeMinutes: (() => {
-    try { return normalizeMapSpotAge(Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30)); }
-    catch { return 30; }
+    try {
+      return normalizeMapSpotAge(
+        Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30),
+      );
+    } catch {
+      return 30;
+    }
   })(),
 
   // Grid label detail level (1=field, 2=square, 3=subsquare)
@@ -1898,11 +1905,14 @@ export const useMapStore = create<MapState>((set, get) => ({
     const leavingHamclock =
       state.layoutMode === "hamclock" && layoutMode !== "hamclock";
 
-    const observatoryExit = leavingHamclock ? {
-      observatoryMode: false,
-      observatoryPreviousState: null,
-      autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
-    } : {};
+    const observatoryExit = leavingHamclock
+      ? {
+          observatoryMode: false,
+          observatoryPreviousState: null,
+          autoRotate:
+            state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
+        }
+      : {};
 
     if (enteringHamclock) {
       const priorLayout: Exclude<LayoutMode, "hamclock"> =
@@ -2282,13 +2292,20 @@ export const useMapStore = create<MapState>((set, get) => ({
   },
 
   // Arc display density
-  setSpotFeedScope: (spotFeedScope) => set((state) => ({
-    spotFeedScope,
-    ...(spotFeedScope === "psk-station" ? { layers: { ...state.layers, spots: true } } : {}),
-  })),
+  setSpotFeedScope: (spotFeedScope) =>
+    set((state) => ({
+      spotFeedScope,
+      ...(spotFeedScope === "psk-station"
+        ? { layers: { ...state.layers, spots: true } }
+        : {}),
+    })),
   setSpotAgeMinutes: (minutes) => {
     const spotAgeMinutes = normalizeMapSpotAge(minutes);
-    try { localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes)); } catch { /* Storage may be unavailable. */ }
+    try {
+      localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes));
+    } catch {
+      /* Storage may be unavailable. */
+    }
     set({ spotAgeMinutes });
   },
 

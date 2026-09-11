@@ -47,7 +47,11 @@ afterEach(() => {
   vi.useRealTimers();
   TestChannel.instances = [];
   useMapOperationalStore.setState({ manualScope: null, workspaceOpen: false });
-  useMapStore.setState({ target: null, targetSetAt: 0 });
+  useMapStore.setState({
+    target: null,
+    targetSetAt: undefined,
+    targetSeq: undefined,
+  });
 });
 
 describe("operational workspace synchronization cleanup", () => {
@@ -454,6 +458,118 @@ describe("map target synchronization", () => {
     expect(channel.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ domain: "map", trigger: "handshake" }),
     );
+    view.unmount();
+  });
+
+  it("keeps a held target when a window that never picked one answers the handshake", async () => {
+    // #859 round 16. A window that has never selected a target snapshots the
+    // "no target has ever been set" sentinel, `targetSetAt: 0`. Counting that
+    // zero as a write let an empty peer's handshake reply install its
+    // unwritten `null` over a target this window was actually holding. Every
+    // spelling of "never written" — `undefined`, `0`, non-finite — is read
+    // the same way now.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "HELD" },
+      // Held from a legacy pop-out, so there is no stamp on this side either:
+      // the case where a zero on the other side used to look like the newer
+      // of the two.
+      targetSetAt: undefined,
+      targetSeq: undefined,
+    });
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "empty-window",
+          domain: "map",
+          revision: 1,
+          trigger: "handshake",
+          state: { target: null, targetSetAt: 0 },
+        },
+      } as MessageEvent);
+    });
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "HELD" });
+    // And nothing was numbered: a snapshot that never wrote cannot be the
+    // newest thing this window applied.
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
+    view.unmount();
+  });
+
+  it("installs a zero-stamped target without numbering it", async () => {
+    // The other half of the sentinel: a peer that *has* a target but sends
+    // the zero is a window on an older bundle, so its value still wins
+    // last-writer-wins (round 9) — it simply carries no write time and no
+    // application number, and the wall never promotes it over something it
+    // can order.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    useMapStore.setState({
+      target: null,
+      targetSetAt: undefined,
+      targetSeq: undefined,
+    });
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "legacy-window",
+          domain: "map",
+          revision: 1,
+          state: { target: { lat: 1, lon: 1, name: "OLD" }, targetSetAt: 0 },
+        },
+      } as MessageEvent);
+    });
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "OLD" });
+    expect(useMapStore.getState().targetSetAt).toBeUndefined();
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
+    view.unmount();
+  });
+
+  it("still takes a stamped clear from another window", async () => {
+    // Round 13 stands: a clear that carries a real write time is a write and
+    // wins on it. Only the unwritten zero is ignored.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "HELD" },
+      targetSetAt: 4_000,
+      targetSeq: undefined,
+    });
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "other-window",
+          domain: "map",
+          revision: 1,
+          trigger: "update",
+          state: { target: null, targetSetAt: 5_000 },
+        },
+      } as MessageEvent);
+    });
+
+    expect(useMapStore.getState().target).toBeNull();
+    expect(useMapStore.getState().targetSetAt).toBe(5_000);
+    expect(useMapStore.getState().targetSeq).toBeDefined();
     view.unmount();
   });
 

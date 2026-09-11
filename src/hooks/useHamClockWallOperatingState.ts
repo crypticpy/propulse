@@ -34,6 +34,7 @@
 
 import { useEffect } from "react";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
+import { writtenAt } from "@/lib/writeStamp";
 import type { OperatingTarget } from "@/lib/workspace/operatingChannel";
 import type { CanvasType } from "@/lib/workspace/types";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
@@ -78,14 +79,18 @@ function cursorBeatsMapTarget(
   >,
 ): boolean {
   // `at === 0` is "no cursor has ever been written", which loses to anything.
-  if (stamp.at === 0) return false;
+  if (writtenAt(stamp.at) === undefined) return false;
   if (stamp.appliedSeq !== undefined && map.targetSeq !== undefined) {
     return stamp.appliedSeq > map.targetSeq;
   }
   if (stamp.appliedSeq !== undefined) return true;
   if (map.targetSeq !== undefined) return false;
-  if (map.targetSetAt === undefined) return true;
-  return stamp.appliedAt > map.targetSetAt;
+  // `writtenAt` reads the `0` sentinel, an absent stamp and a non-finite one
+  // as the one thing they all mean — never written — so a window that has
+  // never picked a target cannot outrank a cursor (#859 round 16).
+  const mapAt = writtenAt(map.targetSetAt);
+  if (mapAt === undefined) return true;
+  return stamp.appliedAt > mapAt;
 }
 
 /**
@@ -193,7 +198,7 @@ export function useHamClockWallOperatingState(): void {
     // callsign-only pick from a screen with no location yet, not an
     // instruction to clear the map (and `setTarget(null)` would also reset
     // `isolateTargetPath`), so the map keeps what it has.
-    const explicitClear = initial === null && stamp.at !== 0;
+    const explicitClear = initial === null && writtenAt(stamp.at) !== undefined;
     if ((resolved || explicitClear) && cursorBeatsMapTarget(stamp, map)) {
       map.setTarget(resolved);
     }

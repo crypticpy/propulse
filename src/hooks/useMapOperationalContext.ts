@@ -1,5 +1,6 @@
 import { hamClockProjectionContent } from "@/lib/hamclock/displayLayout";
 import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
+import { writtenAt } from "@/lib/writeStamp";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
@@ -334,9 +335,12 @@ export function useOperationalWorkspaceSync(): void {
         // write, since re-selecting the same object inside one millisecond
         // leaves both the reference and `targetSetAt` untouched. It is the
         // trigger, not the payload — the receiver numbers the write itself.
+        // Read through `writtenAt` so the initial "never written" value and
+        // an explicit absence are one state, not two (#859 round 16): moving
+        // between them is not a write and never needs publishing on its own.
         if (
           state.target !== previous.target ||
-          state.targetSetAt !== previous.targetSetAt ||
+          writtenAt(state.targetSetAt) !== writtenAt(previous.targetSetAt) ||
           state.targetSeq !== previous.targetSeq
         ) {
           // A local write takes back the tie key; a remote one is applied
@@ -497,11 +501,20 @@ export function useOperationalWorkspaceSync(): void {
             // corrected clock, so it heals on the next write; a monotonic
             // cross-window counter would need one on the wire, which round 10
             // showed is the worse trade.
+            //
+            // Both sides are read through `writtenAt`, so the three spellings
+            // of "never written" — `undefined`, the `0` sentinel a window
+            // that has never picked a target still sends, and anything
+            // non-finite — mean the same thing here (#859 round 16). A peer
+            // that has never selected anything answered the handshake with
+            // `{ target: null, targetSetAt: 0 }`, and counting that zero as a
+            // write installed its unwritten null over a target this window
+            // was actually holding.
             const held = useMapStore.getState();
-            if (Number.isFinite(map.targetSetAt)) {
-              const senderAt = map.targetSetAt as number;
-              if (held.targetSetAt !== undefined) {
-                const heldAt = held.targetSetAt;
+            const senderAt = writtenAt(map.targetSetAt);
+            if (senderAt !== undefined) {
+              const heldAt = writtenAt(held.targetSetAt);
+              if (heldAt !== undefined) {
                 if (senderAt < heldAt) break;
                 if (senderAt === heldAt) {
                   // A *republished* value equal to the one held, at the stamp
@@ -543,7 +556,21 @@ export function useOperationalWorkspaceSync(): void {
               });
               break;
             }
-            // Unstamped: last-writer-wins on the value, as it has always
+            // Unstamped *and* empty is not a write at all: a window that has
+            // never picked a target, answering the handshake with the nothing
+            // it holds. There is no stamp to order it by and no value to
+            // install, so it is ignored rather than allowed to clear a target
+            // this window is holding (#859 round 16).
+            //
+            // The residual, stated: a peer on a bundle too old to stamp
+            // cannot propagate a *deliberate* clear either, because nothing
+            // on its snapshot distinguishes the two. Keeping a target is the
+            // recoverable mistake; destroying one is not. It heals as soon as
+            // that peer selects something, and disappears once both sides are
+            // upgraded, where a clear carries a stamp and wins on it
+            // (round 13).
+            if (map.target === null) break;
+            // Unstamped with a value: last-writer-wins, as it has always
             // been — there is no stamp to compare, and refusing it would
             // leave a legacy pop-out unable to move this window's target at
             // all. It carries no number either, so the wall never promotes

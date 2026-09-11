@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { getLedgerEntry } from "./ledger";
 import { ContextDeclarationError, ContextVariableError } from "./admission";
-import { buildTrajectory, ContextForecastError } from "./trajectory";
+import {
+  buildTrajectory,
+  ContextForecastError,
+  MAX_TRAJECTORY_HOURS,
+} from "./trajectory";
 import type { Selected, SourceRecord } from "./types";
 
 interface ForecastOptions {
@@ -119,6 +123,46 @@ function kpBins(issuedAt = "2026-09-11T11:00:00.000Z"): SourceRecord[] {
     }),
   ];
 }
+
+describe("the grid is no longer than anything declared can speak for", () => {
+  it("caps at the longest declared horizon in the ledger", () => {
+    // outlook_27day is the furthest any declared source sees, so a grid past
+    // it could only be filled by absent samples or by extrapolation.
+    expect(MAX_TRAJECTORY_HOURS).toBe(648);
+  });
+
+  it("refuses one hour past the cap", () => {
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: MAX_TRAJECTORY_HOURS + 1,
+        forecasts: {},
+        mode: "live",
+      }),
+    ).toThrow(ContextForecastError);
+  });
+
+  it("accepts a grid exactly at the cap", () => {
+    const { samples } = buildTrajectory({
+      issuedAt: ISSUED,
+      hours: MAX_TRAJECTORY_HOURS,
+      forecasts: {},
+      mode: "live",
+    });
+    expect(samples).toHaveLength(MAX_TRAJECTORY_HOURS);
+  });
+
+  it("refuses a fractional grid length", () => {
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 2.5,
+        forecasts: {},
+        mode: "live",
+      }),
+    ).toThrow(ContextForecastError);
+  });
+});
 
 describe("buildTrajectory: the grid (M14, #982 section 1)", () => {
   it("emits 24 instantaneous samples at issuedAt + j hours", () => {

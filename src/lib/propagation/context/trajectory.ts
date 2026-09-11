@@ -29,6 +29,7 @@ import {
 } from "@/lib/propagation/context/admission";
 import {
   getLedgerEntry,
+  SOURCE_LEDGER,
   type SourceLedgerEntry,
 } from "@/lib/propagation/context/ledger";
 import { preferredRecord } from "@/lib/propagation/context/selection";
@@ -60,6 +61,21 @@ export class ContextForecastError extends Error {
 
 export const GRID_STEP_SECONDS = 3600;
 export const DEFAULT_GRID_HOURS = 24;
+
+/**
+ * The longest grid any declared source can speak for: the furthest declared
+ * valid horizon in the ledger, which is the 27 day outlook.
+ *
+ * Past it every sample would be absent or an extrapolation nothing published,
+ * so a longer grid is refused rather than filled. Derived from the ledger, so
+ * a source with a longer horizon moves the cap and no constant goes stale.
+ */
+export const MAX_TRAJECTORY_HOURS =
+  Math.max(
+    ...Object.values(SOURCE_LEDGER).map(
+      (entry) => entry.validHorizonSeconds ?? 0,
+    ),
+  ) / GRID_STEP_SECONDS;
 
 export interface TrajectoryOptions {
   readonly issuedAt: Instant;
@@ -262,6 +278,12 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
     throw new ContextForecastError(
       "trajectory",
       `grid length ${String(hours)} is not a positive integer`,
+    );
+  }
+  if (hours > MAX_TRAJECTORY_HOURS) {
+    throw new ContextForecastError(
+      "trajectory",
+      `grid length ${String(hours)} h runs past the ${MAX_TRAJECTORY_HOURS} h furthest horizon any declared source states`,
     );
   }
 

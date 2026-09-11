@@ -227,9 +227,21 @@ export async function buildContextSnapshot(
 ): Promise<ContextSnapshot> {
   const { issuedAt, mode } = options;
 
+  // Take ownership of every record before anything is awaited. The digests are
+  // asynchronous, so a caller holding the same objects could otherwise mutate
+  // one while a promise is pending and have the snapshot pair a version taken
+  // over the old bytes with the new value. Everything below reads this copy,
+  // which is also what makes the frozen result immutable in fact rather than
+  // by convention: freezing the caller's own records instead would reach back
+  // out of this function and make an input immutable as a side effect.
+  const owned: ContextSnapshotOptions = {
+    ...options,
+    histories: structuredClone(options.histories),
+  };
+
   const selections = new Map<string, SourceCensus>();
   for (const sourceId of CENSUS_SOURCE_IDS) {
-    selections.set(sourceId, selectSource(sourceId, options));
+    selections.set(sourceId, selectSource(sourceId, owned));
   }
 
   const sources: Record<string, SnapshotEntry> = {};
@@ -346,7 +358,7 @@ export async function buildContextSnapshot(
 
   const trajectory = buildTrajectory({
     issuedAt,
-    hours: options.trajectoryHours ?? DEFAULT_GRID_HOURS,
+    hours: owned.trajectoryHours ?? DEFAULT_GRID_HOURS,
     // Every variable any declared source carries, so a driver whose only
     // product was excluded still appears on the grid saying absent and why,
     // rather than vanishing from it.
@@ -357,7 +369,7 @@ export async function buildContextSnapshot(
     observations,
     priors,
     mode,
-    requireVerifiedArchive: options.requireVerifiedArchive,
+    requireVerifiedArchive: owned.requireVerifiedArchive,
   });
 
   const assumptions = assumptionsFor(mode);
@@ -372,14 +384,8 @@ export async function buildContextSnapshot(
     assumptions,
   };
 
-  // The snapshot owns what it freezes. The census still points at the caller's
-  // own record objects, and freezing those would reach back out of this
-  // function and make a caller's input immutable as a side effect of asking a
-  // question. A structural copy is also what makes the snapshot immutable in
-  // fact rather than by convention: nothing a caller still holds a reference
-  // to can change what the digest was taken over.
   return deepFreeze({
-    ...structuredClone(census),
+    ...census,
     contextId: `ctx:sha256:${await sha256Hex(canonical(census))}`,
   }) as ContextSnapshot;
 }

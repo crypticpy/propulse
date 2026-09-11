@@ -59,6 +59,7 @@ export {
   ContextForecastError,
   DEFAULT_GRID_HOURS,
   GRID_STEP_SECONDS,
+  MAX_TRAJECTORY_HOURS,
   type Trajectory,
 } from "@/lib/propagation/context/trajectory";
 export {

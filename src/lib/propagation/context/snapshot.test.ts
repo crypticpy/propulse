@@ -527,6 +527,36 @@ describe("an offline pack still carries its predictions", () => {
 });
 
 describe("the snapshot owns its own copy of every record", () => {
+  it("pins the record it was handed, not the one it is handed later", async () => {
+    // The digests are awaited, so a caller mutating a record while the
+    // promise is pending must not be able to pair an old sourceVersion with a
+    // new value. The snapshot takes its copy before the first await.
+    const reference = await buildContextSnapshot({
+      issuedAt: ISSUED,
+      mode: "cached_live",
+      histories: historiesFrom(ROW),
+    });
+    const referenceEntry = reference.sources.kp;
+    expect(referenceEntry.state).toBe("selected");
+    if (referenceEntry.state !== "selected") return;
+
+    const histories = historiesFrom(ROW);
+    const pending = buildContextSnapshot({
+      issuedAt: ISSUED,
+      mode: "cached_live",
+      histories,
+    });
+    (histories.kp[0] as { value: number }).value = 9;
+    const built = await pending;
+
+    const entry = built.sources.kp;
+    expect(entry.state).toBe("selected");
+    if (entry.state !== "selected") return;
+    expect(entry.record.value).toBe(referenceEntry.record.value);
+    expect(entry.sourceVersion).toBe(referenceEntry.sourceVersion);
+    expect(built.contextId).toBe(reference.contextId);
+  });
+
   it("freezes its own copy and leaves the caller's records writable", async () => {
     const histories = historiesFrom(ROW);
     const kpRecord = histories.kp[0];

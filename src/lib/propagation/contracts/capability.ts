@@ -226,32 +226,6 @@ const capabilityHead = z
         `Band label ${band} lies outside this head's frequency range (A02)`,
       );
     });
-    // M07/M11: a decode probability is conditioned on a decoder and on the
-    // length of one attempt, and `MODE_PROFILE_REGISTRY` is the only place
-    // those are written down. A decode head declaring a profile the registry
-    // does not carry would be routed to by `capabilityCovers` and then have
-    // every served result refused by the binder, so the claim is refused where
-    // it is made instead.
-    if (value.quantity === "conditional_decode") {
-      value.modeProfileIds.forEach((profileId, index) => {
-        const entry = modeProfileEntry(profileId);
-        if (entry === null) {
-          reject(
-            ctx,
-            ["modeProfileIds", index],
-            `Mode profile ${profileId} is not registered, so a decode head cannot declare it (M07, M11)`,
-          );
-          return;
-        }
-        if (entry.decoderId === null) {
-          reject(
-            ctx,
-            ["modeProfileIds", index],
-            `Mode profile ${profileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
-          );
-        }
-      });
-    }
     const overlap = value.requiredInputs.filter((input) =>
       value.optionalInputs.includes(input),
     );
@@ -666,6 +640,36 @@ export const modelCapabilitySchema = z
           ["heads", index, "outputSchemaId"],
           `A routable head is answered by ${RESULT_SCHEMA_VERSION}, not ${head.outputSchemaId} (M19)`,
         );
+      }
+      if (head.quantity === "conditional_decode") {
+        // M07/M11: a decode probability is conditioned on a decoder and on the
+        // length of one attempt, and `MODE_PROFILE_REGISTRY` is the only place
+        // those are written down. A routable head declaring a profile the
+        // registry does not carry would be routed to by `capabilityCovers` and
+        // then have every served result refused by the binder, so the claim is
+        // refused where it is made. Like the output schema above, this sits in
+        // the routable branch: a planned or unsupported head may name a
+        // profile the registry has not taken up yet, which is the gap it is
+        // declaring.
+        head.modeProfileIds.forEach((profileId, profileIndex) => {
+          const entry = modeProfileEntry(profileId);
+          const path = ["heads", index, "modeProfileIds", profileIndex];
+          if (entry === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} is not registered, so a routable decode head cannot declare it (M07, M11)`,
+            );
+            return;
+          }
+          if (entry.decoderId === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
+            );
+          }
+        });
       }
       if (!hasPointValue(head.quantity) && head.uncertaintyKind !== "none") {
         // M17: these quantities report no scalar, so the result contract

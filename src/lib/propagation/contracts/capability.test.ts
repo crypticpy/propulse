@@ -1414,24 +1414,46 @@ describe("parseCapability fails closed", () => {
     }
   });
 
-  it("rejects a decode head declaring an unregistered mode profile (M07, M11)", () => {
+  /** A routable decode head on a frozen row, carrying `profileId`. */
+  function decodeHeadWithProfile(profileId: string): Mutable {
+    const draft = candidate("hfPhysics");
+    const { head } = protocolHead("conditional_decode");
+    head.modeProfileIds = [profileId];
+    (draft.heads as Mutable[]).push(head);
+    return draft;
+  }
+
+  it("rejects a routable decode head declaring an unregistered mode profile (M07, M11)", () => {
     // `capabilityCovers` would route a request naming this profile to the
     // head, and the binder would then refuse every result it served, because
     // nothing outside MODE_PROFILE_REGISTRY says what decoder the profile
     // uses or how long one attempt lasts.
-    const bad = candidate("hfPhysics");
-    (bad.heads as Mutable[])[2].modeProfileIds = ["msk144-wsjtx-2.7.0-15s"];
-    expect(reasonsAt(bad, "heads[2].modeProfileIds[0]").join()).toMatch(
-      /Mode profile msk144-wsjtx-2\.7\.0-15s is not registered, so a decode head cannot declare it \(M07, M11\)/,
+    const bad = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    expect(reasonsAt(bad, "heads[3].modeProfileIds[0]").join()).toMatch(
+      /Mode profile msk144-wsjtx-2\.7\.0-15s is not registered, so a routable decode head cannot declare it \(M07, M11\)/,
     );
   });
 
-  it("rejects a decode head declaring a profile with no decoder (M07, M11)", () => {
-    const bad = candidate("hfPhysics");
-    (bad.heads as Mutable[])[2].modeProfileIds = ["fm-voice-12k5"];
-    expect(reasonsAt(bad, "heads[2].modeProfileIds[0]").join()).toMatch(
+  it("rejects a routable decode head declaring a profile with no decoder (M07, M11)", () => {
+    const bad = decodeHeadWithProfile("fm-voice-12k5");
+    expect(reasonsAt(bad, "heads[3].modeProfileIds[0]").join()).toMatch(
       /Mode profile fm-voice-12k5 carries no decoder, so no decode probability is defined for it \(M07, M11\)/,
     );
+  });
+
+  it("lets a planned decode head name a profile the registry has not taken up (M07, M19)", () => {
+    // The same allowance the output schema and the unfrozen coverage rows
+    // already make: a head with no implementation is describing work, and the
+    // profile it names may be registered by the time it has one. Nothing can
+    // be routed to it in the meantime.
+    const planned = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    (planned.heads as Mutable[])[3].state = "planned";
+    const outcome = parseCapability(planned);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+
+    // The same head with an implementation is routable, and fails.
+    const routable = decodeHeadWithProfile("msk144-wsjtx-2.7.0-15s");
+    expect(reasonsAt(routable, "heads[3].modeProfileIds[0]")).toHaveLength(1);
   });
 
   it("allows only one head per coverage tuple, whatever its state", () => {

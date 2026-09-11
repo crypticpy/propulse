@@ -51,7 +51,7 @@ function SatelliteTrackEvictionBadge() {
     <button
       type="button"
       onClick={dismiss}
-      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-caution-amber/30 bg-caution-amber/20 px-2.5 py-0.5 text-xs font-semibold text-caution-amber transition-colors hover:bg-caution-amber/30"
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-caution-amber/30 bg-caution-amber/20 px-2.5 py-0.5 text-xs font-semibold text-su-text transition-colors hover:bg-caution-amber/30"
       aria-label={fullSentence}
       title={fullSentence}
     >

@@ -5,7 +5,7 @@
  * Persists to profileStore via visibilitySettings field.
  */
 
-import { useCallback, type KeyboardEvent } from "react";
+import { useCallback, useId, useRef, type KeyboardEvent } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProfileStore } from "@/stores/profileStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -40,6 +40,18 @@ function radioOptionLabel(sectionLabel: string, levelLabel: string): string {
   return `${sectionLabel}: ${levelLabel}`;
 }
 
+function radioKey(section: SectionKey, level: VisibilityLevel): string {
+  return `${section}:${level}`;
+}
+
+function radioDomId(
+  base: string,
+  section: SectionKey,
+  level: VisibilityLevel,
+): string {
+  return `${base}-${section}-${level}`;
+}
+
 function moveRadioSelection(
   current: VisibilityLevel,
   key: string,
@@ -65,13 +77,18 @@ export function VisibilitySettings() {
   const settings = useProfileStore((s) => s.visibilitySettings);
   const setVisibilitySettings = useProfileStore((s) => s.setVisibilitySettings);
   const requireAuth = useRequireAuth();
+  const idBase = useId();
+
+  // Roving tabindex only works if DOM focus rides along with the selection,
+  // otherwise focus is stranded on a button that just became tabIndex={-1}.
+  const radioRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const handleChange = useCallback(
-    (section: SectionKey, level: VisibilityLevel) => {
-      requireAuth(
-        () => setVisibilitySettings({ [section]: level }),
-        "Sign in to manage profile visibility",
-      );
+    (section: SectionKey, level: VisibilityLevel, onCommitted?: () => void) => {
+      requireAuth(() => {
+        setVisibilitySettings({ [section]: level });
+        onCommitted?.();
+      }, "Sign in to manage profile visibility");
     },
     [setVisibilitySettings, requireAuth],
   );
@@ -85,9 +102,24 @@ export function VisibilitySettings() {
       const next = moveRadioSelection(selected, event.key);
       if (!next || next === selected) return;
       event.preventDefault();
-      handleChange(section, next);
+      // Focus moves inside the commit callback: when `requireAuth` defers the
+      // change behind the sign-in modal nothing is selected yet, so focus must
+      // stay where the user left it rather than jump to an unchecked option.
+      handleChange(section, next, () => {
+        radioRefs.current.get(radioKey(section, next))?.focus();
+      });
     },
     [handleChange],
+  );
+
+  const registerRadio = useCallback(
+    (section: SectionKey, level: VisibilityLevel) =>
+      (element: HTMLButtonElement | null) => {
+        const key = radioKey(section, level);
+        if (element) radioRefs.current.set(key, element);
+        else radioRefs.current.delete(key);
+      },
+    [],
   );
 
   // ── Mobile: stacked cards ───────────────────────────────────────────
@@ -95,16 +127,16 @@ export function VisibilitySettings() {
   if (isMobile) {
     return (
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           Visibility Settings
         </h3>
 
         {SECTIONS.map((section) => (
           <div
             key={section.key}
-            className="bg-panel/30 border border-white/5 rounded-lg p-3 space-y-2"
+            className="bg-panel/30 border border-su-line/20 rounded-lg p-3 space-y-2"
           >
-            <span className="text-sm font-medium text-gray-300">
+            <span className="text-sm font-medium text-su-muted">
               {section.label}
             </span>
             <div
@@ -112,11 +144,7 @@ export function VisibilitySettings() {
               aria-label={radioGroupLabel(section.label)}
               className="flex gap-2"
               onKeyDown={(event) =>
-                handleRadioKeyDown(
-                  event,
-                  section.key,
-                  settings[section.key],
-                )
+                handleRadioKeyDown(event, section.key, settings[section.key])
               }
             >
               {LEVELS.map((level) => {
@@ -124,6 +152,7 @@ export function VisibilitySettings() {
                 return (
                   <button
                     key={level.value}
+                    ref={registerRadio(section.key, level.value)}
                     type="button"
                     role="radio"
                     aria-checked={selected}
@@ -133,7 +162,7 @@ export function VisibilitySettings() {
                     className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
                       selected
                         ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
-                        : "bg-white/5 text-gray-500 border border-white/10 hover:text-gray-300"
+                        : "bg-su-line/10 text-su-muted border border-su-line/40 hover:text-su-text"
                     }`}
                   >
                     <RadioDot active={selected} />
@@ -152,20 +181,20 @@ export function VisibilitySettings() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Visibility Settings
       </h3>
 
       <table className="w-full">
         <thead>
-          <tr className="border-b border-white/5">
-            <th className="text-left text-xs font-medium text-gray-500 pb-2 pr-4">
+          <tr className="border-b border-su-line/20">
+            <th className="text-left text-xs font-medium text-su-muted pb-2 pr-4">
               Section
             </th>
             {LEVELS.map((level) => (
               <th
                 key={level.value}
-                className="text-center text-xs font-medium text-gray-500 pb-2 px-4"
+                className="text-center text-xs font-medium text-su-muted pb-2 px-4"
               >
                 {level.label}
               </th>
@@ -176,32 +205,48 @@ export function VisibilitySettings() {
           {SECTIONS.map((section) => (
             <tr
               key={section.key}
-              role="radiogroup"
-              aria-label={radioGroupLabel(section.label)}
               onKeyDown={(event) =>
-                handleRadioKeyDown(
-                  event,
-                  section.key,
-                  settings[section.key],
-                )
+                handleRadioKeyDown(event, section.key, settings[section.key])
               }
-              className="border-b border-white/5 last:border-0"
+              className="border-b border-su-line/20 last:border-0"
             >
-              <td className="text-sm text-gray-300 py-3 pr-4">
+              {/*
+                The row keeps its native `row` role so the cells keep their
+                row/column header associations. The radio group owns the three
+                buttons by reference instead of replacing the row role.
+              */}
+              <th
+                scope="row"
+                // The sr-only radiogroup below lives in this cell, so pin the
+                // row header name to the section instead of letting the group
+                // label leak into the name computed from content.
+                aria-label={section.label}
+                className="text-left text-sm font-normal text-su-muted py-3 pr-4"
+              >
                 {section.label}
-              </td>
+                <span
+                  role="radiogroup"
+                  aria-label={radioGroupLabel(section.label)}
+                  aria-owns={LEVELS.map((level) =>
+                    radioDomId(idBase, section.key, level.value),
+                  ).join(" ")}
+                  className="sr-only"
+                />
+              </th>
               {LEVELS.map((level) => {
                 const selected = settings[section.key] === level.value;
                 return (
                   <td key={level.value} className="text-center py-3 px-4">
                     <button
+                      id={radioDomId(idBase, section.key, level.value)}
+                      ref={registerRadio(section.key, level.value)}
                       type="button"
                       role="radio"
                       aria-checked={selected}
                       aria-label={radioOptionLabel(section.label, level.label)}
                       tabIndex={selected ? 0 : -1}
                       onClick={() => handleChange(section.key, level.value)}
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-su-line/10 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
                     >
                       <RadioDot active={selected} large />
                     </button>
@@ -226,7 +271,7 @@ function RadioDot({ active, large }: { active: boolean; large?: boolean }) {
     <span
       aria-hidden="true"
       className={`inline-flex items-center justify-center rounded-full border-2 transition-colors ${size} ${
-        active ? "border-plasma-orange" : "border-gray-600"
+        active ? "border-plasma-orange" : "border-su-line"
       }`}
     >
       {active && <span className={`rounded-full bg-plasma-orange ${inner}`} />}

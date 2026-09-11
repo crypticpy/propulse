@@ -3717,13 +3717,19 @@ export function FlatMapView({
     useState<SatelliteTrackLabelColors>(() =>
       resolveSatelliteTrackLabelColors(),
     );
-  useEffect(
-    () =>
-      observeSatelliteTrackLabelColors(() =>
-        setSatelliteTrackColors(resolveSatelliteTrackLabelColors()),
-      ),
-    [],
-  );
+  // Only install the observer while a track is actually active -- with no
+  // tracked satellite, re-resolving on a theme change would still trigger a
+  // state update (and a FlatMapView re-render) for a color nothing on
+  // screen uses (#994 PR B round 4 Codex thread 1).
+  const hasSatelliteTracks = Object.keys(satelliteTracks).length > 0;
+  useEffect(() => {
+    if (!hasSatelliteTracks) return;
+    // Catch any theme change that happened while gated off above.
+    setSatelliteTrackColors(resolveSatelliteTrackLabelColors());
+    return observeSatelliteTrackLabelColors(() =>
+      setSatelliteTrackColors(resolveSatelliteTrackLabelColors()),
+    );
+  }, [hasSatelliteTracks]);
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.

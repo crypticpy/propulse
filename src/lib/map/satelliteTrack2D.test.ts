@@ -385,4 +385,43 @@ describe("observeSatelliteTrackLabelColors (#994 PR B round 3 Codex thread 1)", 
     dispose();
     document.body.removeChild(div);
   });
+
+  it("does NOT fire on a descendant style mutation (#994 PR B round 4 Codex thread 1 P1 perf regression)", async () => {
+    // Simulates FlatMapView's own pan/zoom `previewNavigation`, which
+    // writes `style.transform` on a descendant on every animation frame.
+    // A subtree-wide `style` filter (the round-3 fix) fired the callback on
+    // every such frame even with no orbit track active, defeating the
+    // retained-canvas navigation path. Reverting the split back to one
+    // `subtree: true` observer watching `style` makes this fail.
+    const div = document.createElement("div");
+    document.body.appendChild(div);
+
+    const callback = vi.fn();
+    const dispose = observeSatelliteTrackLabelColors(callback);
+
+    div.style.transform = "translate3d(10px, 0, 0)";
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(callback).not.toHaveBeenCalled();
+    dispose();
+    document.body.removeChild(div);
+  });
+
+  it("resolves the same object reference across consecutive calls when nothing changed (#994 PR B round 4 Codex thread 1 P1 perf regression)", () => {
+    document.documentElement.style.setProperty("--su-text", "#333333");
+    document.documentElement.style.setProperty("--su-panel", "#444444");
+
+    const first = resolveSatelliteTrackLabelColors();
+    const second = resolveSatelliteTrackLabelColors();
+    // Reverting the memoized-comparison fix (returning a fresh object every
+    // call) makes this fail: `second` would be `!==` `first` despite
+    // identical panel/text values, which propagates into React state and
+    // forces a needless re-render on every spurious notification.
+    expect(second).toBe(first);
+
+    document.documentElement.style.setProperty("--su-text", "#555555");
+    const third = resolveSatelliteTrackLabelColors();
+    expect(third).not.toBe(second);
+    expect(third.text).toBe("#555555");
+  });
 });

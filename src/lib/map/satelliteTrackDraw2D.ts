@@ -36,26 +36,48 @@ function themedElement(): Element {
   );
 }
 
+/** The last resolved colors, kept so `resolveSatelliteTrackLabelColors` can
+ * return the *same object reference* when nothing actually changed --
+ * otherwise every call (including spurious ones from an unrelated DOM
+ * mutation) allocates a fresh object, which propagates into React state and
+ * forces a re-render even though the colors are identical (#994 PR B round
+ * 4 Codex thread 1 P1 perf regression). */
+let lastResolvedColors: SatelliteTrackLabelColors | null = null;
+
 /**
  * Resolve the orbit-track time-marker label chip colors from the
  * `--su-panel` / `--su-text` design tokens (never a hardcoded near-white --
  * legibility standard) at call time, against the themed element rather than
- * `document.documentElement` -- see `themedElement` above.
+ * `document.documentElement` -- see `themedElement` above. Returns the
+ * previous return value's reference (not a fresh object) when both fields
+ * are unchanged, so callers that key a re-render off this value (React
+ * state, `useMemo` deps) see no change to react to.
  */
 export function resolveSatelliteTrackLabelColors(): SatelliteTrackLabelColors {
-  if (typeof document === "undefined") {
-    return {
-      panel: SAT_TRACK_LABEL_FALLBACK_PANEL,
-      text: SAT_TRACK_LABEL_FALLBACK_TEXT,
-    };
+  const next: SatelliteTrackLabelColors =
+    typeof document === "undefined"
+      ? {
+          panel: SAT_TRACK_LABEL_FALLBACK_PANEL,
+          text: SAT_TRACK_LABEL_FALLBACK_TEXT,
+        }
+      : (() => {
+          const root = getComputedStyle(themedElement());
+          const panel = root.getPropertyValue("--su-panel").trim();
+          const text = root.getPropertyValue("--su-text").trim();
+          return {
+            panel: panel || SAT_TRACK_LABEL_FALLBACK_PANEL,
+            text: text || SAT_TRACK_LABEL_FALLBACK_TEXT,
+          };
+        })();
+  if (
+    lastResolvedColors &&
+    lastResolvedColors.panel === next.panel &&
+    lastResolvedColors.text === next.text
+  ) {
+    return lastResolvedColors;
   }
-  const root = getComputedStyle(themedElement());
-  const panel = root.getPropertyValue("--su-panel").trim();
-  const text = root.getPropertyValue("--su-text").trim();
-  return {
-    panel: panel || SAT_TRACK_LABEL_FALLBACK_PANEL,
-    text: text || SAT_TRACK_LABEL_FALLBACK_TEXT,
-  };
+  lastResolvedColors = next;
+  return next;
 }
 
 /**
@@ -64,15 +86,29 @@ export function resolveSatelliteTrackLabelColors(): SatelliteTrackLabelColors {
  * `data-hamclock-theme`/`data-color-blind`, both set as plain attributes),
  * `--su-panel`/`--su-text` also change on the ordinary PropSphere page:
  * `applyThemeToDocument` writes them via `document.documentElement.style`
- * (`style.setProperty`) and toggles the `dark`/`light` class, neither of
- * which a `data-hamclock-theme`-only filter would ever see -- so a theme
+ * (`style.setProperty`) and toggles the `dark`/`light` class -- so a theme
  * switch outside a HamClock wall left the label chips on the old colors
  * until something else happened to re-resolve them (#994 PR B round 3
- * Codex thread 1). `subtree: true` is still needed for `data-hamclock-theme`
- * itself (`HamClockView.tsx` sets it on a div *inside* the view, not on
- * `<html>`); the tradeoff is that `style`/`class` changes anywhere in the
- * subtree also trigger a re-resolve, but `resolveSatelliteTrackLabelColors`
- * is cheap (a couple of `getComputedStyle` reads), so that's fine here.
+ * Codex thread 1).
+ *
+ * A single `subtree: true` observer watching `style`/`class`/
+ * `data-hamclock-theme` together (the round-3 fix) fired on *every*
+ * `style` mutation anywhere under `<html>` -- including `FlatMapView`'s own
+ * pan/zoom `previewNavigation`, which writes `style.transform` on a
+ * descendant element on every animation frame. That defeated the
+ * retained-canvas navigation path even with no orbit track active (#994 PR
+ * B round 4 Codex thread 1 P1 perf regression). Fixed by splitting into two
+ * scoped observers instead of widening `attributeFilter` on one:
+ *
+ * 1. `style`/`class` only ever change *on the root itself* here
+ *    (`applyThemeToDocument` writes `document.documentElement.style`/
+ *    `.classList` directly) -- no `subtree` needed, so descendant
+ *    `style`/`class` writes (pan/zoom transforms, anything else) are never
+ *    observed at all.
+ * 2. `data-hamclock-theme` is set on a div *inside* the view
+ *    (`HamClockView.tsx`), never on `<html>`, so that one still needs
+ *    `subtree: true` -- but scoped to just this attribute, which never
+ *    changes during navigation.
  */
 export function observeSatelliteTrackLabelColors(
   callback: () => void,
@@ -83,13 +119,22 @@ export function observeSatelliteTrackLabelColors(
   ) {
     return () => {};
   }
-  const observer = new MutationObserver(() => callback());
-  observer.observe(document.documentElement, {
+  const rootStyleObserver = new MutationObserver(() => callback());
+  rootStyleObserver.observe(document.documentElement, {
+    attributes: true,
+    subtree: false,
+    attributeFilter: ["style", "class"],
+  });
+  const themeAttrObserver = new MutationObserver(() => callback());
+  themeAttrObserver.observe(document.documentElement, {
     attributes: true,
     subtree: true,
-    attributeFilter: ["style", "class", "data-hamclock-theme"],
+    attributeFilter: ["data-hamclock-theme"],
   });
-  return () => observer.disconnect();
+  return () => {
+    rootStyleObserver.disconnect();
+    themeAttrObserver.disconnect();
+  };
 }
 
 export interface FlatSatelliteTrackEntry {

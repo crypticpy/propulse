@@ -43,7 +43,7 @@
 - Vitest is configured: `npm run test` (runs the station-postgres harness, then `vitest run`). Bridge tests: `npm run test:bridge`. Radio daemon tests: `npm run test:radio-daemon`.
 - The gate before pushing is `npm run verify`, which chains tracked-artifact, design-token, ML pre-registration/archive, production-boundary, and view-library type checks with lint, the full test suite, the build, and the bundle budget check.
 - Focused runs: `npx vitest run <path>`.
-- Browser verification follows `docs/guides/LOCAL-AGENT-TESTING.md`. Agents start dev servers only through `npm run dev:session` (check `status` first); plain `npm run dev` is reserved for the owner's manual use. See the shared-machine rules in `CLAUDE.md`.
+- Browser verification follows `docs/guides/LOCAL-AGENT-TESTING.md`. The Playwright `scripts/check-hamclock-display.mjs` harness was retired (#780); do not run it. Agents start dev servers only through `npm run dev:session` (check `status` first); plain `npm run dev` is reserved for the owner's manual use. See the shared-machine rules in `CLAUDE.md`.
 
 ## Commit & Pull Request Guidelines
 

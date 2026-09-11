@@ -35,6 +35,28 @@ function antipodalCase(): Mutable {
   return draft;
 }
 
+/**
+ * hfShortPath with the endpoints offset from exact antipodes by `offsetDeg`,
+ * each coordinate declaring `uncertaintyMeters` of horizontal uncertainty.
+ */
+function nearAntipodalCase(
+  offsetDeg: number,
+  uncertaintyMeters: number,
+): Mutable {
+  const draft = candidate("hfShortPath");
+  const tx = (draft.tx as Mutable).coordinates as Mutable;
+  const rx = (draft.rx as Mutable).coordinates as Mutable;
+  rx.latitudeDeg = -(tx.latitudeDeg as number);
+  rx.longitudeDeg = (tx.longitudeDeg as number) + 180 - offsetDeg;
+  for (const point of [tx, rx]) {
+    (point.precision as Mutable).horizontalMeters = {
+      state: "known",
+      value: uncertaintyMeters,
+    };
+  }
+  return draft;
+}
+
 describe("parseRequest fixtures", () => {
   it.each(Object.keys(cases))("round-trips the %s fixture", (name) => {
     const outcome = parseRequest(candidate(name));
@@ -419,6 +441,20 @@ describe("parseRequest fails closed", () => {
     (explicit.route as Mutable).azimuthDeg = 45;
     (explicit.route as Mutable).leg = null;
     const outcome = parseRequest(explicit);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects endpoints antipodal only within their declared uncertainty (M06)", () => {
+    const bad = nearAntipodalCase(0.5, 100000);
+    expect(reasonsAt(bad, "rx.coordinates").join()).toMatch(
+      /declared position uncertainty/,
+    );
+  });
+
+  it("accepts a near-antipodal path resolved by its declared precision (M06)", () => {
+    // The same half-degree offset, declared to one metre, is an ordinary path:
+    // it keeps its leg and derives its own tangent.
+    const outcome = parseRequest(nearAntipodalCase(0.5, 1));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 

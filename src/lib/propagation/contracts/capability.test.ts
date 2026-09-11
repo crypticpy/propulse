@@ -3,6 +3,8 @@ import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cas
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
   PREDICTION_QUANTITIES,
+  isProtocolCoverage,
+  PROTOCOL_COVERAGE_TUPLES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
 import {
@@ -54,13 +56,13 @@ const baseQuery = {
 } as const;
 
 /** The same quantity and domain as the fixture's SNR head, other physics. */
-const METEOR_SNR_HEAD = {
+const SECOND_SNR_HEAD = {
   quantity: "snr2500",
   units: "dB",
   domain: "characterized_fixed_path",
   state: "implemented_unvalidated",
   horizons: ["current"],
-  mechanismFamilies: ["meteor"],
+  mechanismFamilies: ["ground_sky_coherent"],
   geometryClasses: ["terrestrial_great_circle"],
   antennaClasses: ["modeled_pattern", "unspecified_scenario_range"],
   receiverClasses: ["modeled_noise_figure_chain", "unspecified_scenario_range"],
@@ -69,7 +71,7 @@ const METEOR_SNR_HEAD = {
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
   requiredInputs: ["station_pair", "mode_profile"],
   optionalInputs: [],
-  featureSchemaId: "meteor-feature-schema-0.1.0",
+  featureSchemaId: "vhf-feature-schema-0.1.0",
   featureHash:
     "sha256:0000000000000000000000000000000000000000000000000000000000000001",
   outputSchemaId: "propagation-result-0.1.0",
@@ -78,17 +80,37 @@ const METEOR_SNR_HEAD = {
   internalFallback: { kind: "none" },
 };
 
-const meteorQuery = {
+const secondQuery = {
   ...baseQuery,
   frequencyHz: 144140000,
-  mechanismFamily: "meteor",
+  mechanismFamily: "ground_sky_coherent",
   modeProfileId: "msk144-wsjtx-2.7.0-15s",
 } as const;
+
+/**
+ * A routable head for `quantity` on a tuple the frozen protocol actually
+ * defines, so a test about some other rule is not failed by the coverage gate.
+ */
+function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
+  const tuple = PROTOCOL_COVERAGE_TUPLES.find(
+    (candidateTuple) => candidateTuple.event === quantity,
+  );
+  if (tuple === undefined) {
+    throw new Error(`the protocol defines no ${quantity} row`);
+  }
+  const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
+  head.quantity = quantity;
+  head.units = QUANTITY_UNITS[quantity];
+  head.domain = tuple.domain;
+  head.horizons = [tuple.horizon];
+  head.mechanismFamilies = [tuple.mechanism];
+  return { head, tuple };
+}
 
 /** The fixture plus a second SNR head for a different mechanism family. */
 function twoMechanismCapability() {
   const draft = structuredClone(cases.hfPhysics) as Mutable;
-  (draft.heads as Mutable[]).push(structuredClone(METEOR_SNR_HEAD));
+  (draft.heads as Mutable[]).push(structuredClone(SECOND_SNR_HEAD));
   const outcome = parseCapability(draft);
   if (!outcome.ok) {
     throw new Error(
@@ -165,18 +187,18 @@ describe("parseCapability fixtures", () => {
     const capability = twoMechanismCapability();
     // Both heads are declared, and each answers only its own physics.
     expect(capabilityCovers(capability, baseQuery)).toBe(true);
-    expect(capabilityCovers(capability, meteorQuery)).toBe(true);
-    // The HF head does not acquire the meteor head's frequencies or family,
-    // and the meteor head does not acquire the HF head's.
+    expect(capabilityCovers(capability, secondQuery)).toBe(true);
+    // The regular_ef head does not acquire the second head's frequencies or
+    // family, and the second head does not acquire the first head's.
     expect(
       capabilityCovers(capability, {
         ...baseQuery,
-        mechanismFamily: "meteor",
+        mechanismFamily: "ground_sky_coherent",
       }),
     ).toBe(false);
     expect(
       capabilityCovers(capability, {
-        ...meteorQuery,
+        ...secondQuery,
         mechanismFamily: "regular_ef",
       }),
     ).toBe(false);
@@ -378,9 +400,7 @@ describe("parseCapability fails closed", () => {
 
   it("accepts a routable completed_qso head that names its calibration", () => {
     const good = candidate("hfPhysics");
-    const head = structuredClone((good.heads as Mutable[])[1]);
-    head.quantity = "completed_qso";
-    head.units = "probability";
+    const { head } = protocolHead("completed_qso");
     head.calibrationId = "qso-chain-calibration-0.1.0";
     head.state = "implemented_unvalidated";
     (good.heads as Mutable[]).push(head);
@@ -491,6 +511,39 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
+  it("rejects a routable head on a tuple the protocol never defines (M11)", () => {
+    const bad = candidate("hfPhysics");
+    const head = (bad.heads as Mutable[])[1];
+    head.quantity = "conditional_decode";
+    head.units = QUANTITY_UNITS.conditional_decode;
+    // conditional_decode exists only on mechanism_labeled_exposure and
+    // configured_two_leg_path, never on a characterized fixed path via
+    // regular_ef.
+    expect(reasonsAt(bad, "heads[1].mechanismFamilies").join()).toMatch(
+      /protocol defines no conditional_decode on characterized_fixed_path/,
+    );
+  });
+
+  it("accepts every routable head in the capability fixtures", () => {
+    for (const name of Object.keys(cases)) {
+      const outcome = parseCapability(candidate(name));
+      expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    }
+  });
+
+  it("lets a planned head describe a tuple the protocol has not frozen", () => {
+    const planned = parsed("hfPhysics").heads[2];
+    expect(planned.state).toBe("planned");
+    expect(
+      isProtocolCoverage({
+        event: planned.quantity,
+        domain: planned.domain,
+        horizon: planned.horizons[0],
+        mechanism: planned.mechanismFamilies[0],
+      }),
+    ).toBe(false);
+  });
+
   it("rejects a routable head that advertises another result schema (M19)", () => {
     const bad = candidate("hfPhysics");
     (bad.heads as Mutable[])[1].outputSchemaId = "propagation-result-0.2.0";
@@ -530,9 +583,7 @@ describe("parseCapability fails closed", () => {
   it("rejects an interval uncertainty kind on the non-scalar quantities (M17)", () => {
     for (const quantity of ["circuit_support", "pass_geometry"] as const) {
       const draft = structuredClone(cases.hfPhysics) as Mutable;
-      const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
-      head.quantity = quantity;
-      head.units = QUANTITY_UNITS[quantity];
+      const { head } = protocolHead(quantity);
       (draft.heads as Mutable[]).push(head);
       expect(reasonsAt(draft, "heads[3].uncertaintyKind").join()).toMatch(
         /no scalar to bracket/,
@@ -546,9 +597,7 @@ describe("parseCapability fails closed", () => {
     for (const quantity of PREDICTION_QUANTITIES) {
       if (hasPointValue(quantity)) continue;
       const draft = structuredClone(cases.hfPhysics) as Mutable;
-      const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
-      head.quantity = quantity;
-      head.units = QUANTITY_UNITS[quantity];
+      const { head } = protocolHead(quantity);
       head.uncertaintyKind = "model_spread";
       (draft.heads as Mutable[]).push(head);
       expect(reasonsAt(draft, "heads[3].uncertaintyKind").join()).toMatch(
@@ -561,11 +610,8 @@ describe("parseCapability fails closed", () => {
     // A pass is mutual visibility of the relay, received by nobody, so a
     // declaration that names neither station's receiver class still covers it.
     const draft = structuredClone(cases.hfPhysics) as Mutable;
-    const head = structuredClone(METEOR_SNR_HEAD) as Mutable;
-    head.quantity = "pass_geometry";
-    head.units = QUANTITY_UNITS.pass_geometry;
+    const { head, tuple } = protocolHead("pass_geometry");
     head.geometryClasses = ["earth_space"];
-    head.mechanismFamilies = ["relay"];
     head.receiverClasses = ["external_noise_dominated"];
     head.uncertaintyKind = "none";
     (draft.heads as Mutable[]).push(head);
@@ -574,10 +620,12 @@ describe("parseCapability fails closed", () => {
       throw new Error(`must parse: ${JSON.stringify(outcome.issues)}`);
     }
     const passQuery = {
-      ...meteorQuery,
+      ...secondQuery,
       quantity: "pass_geometry",
+      domain: tuple.domain,
+      horizon: tuple.horizon,
+      mechanismFamily: tuple.mechanism,
       geometryClass: "earth_space",
-      mechanismFamily: "relay",
     } as const;
     expect(capabilityCovers(outcome.value, passQuery)).toBe(true);
     // The same declaration does not cover a quantity that is received.
@@ -601,6 +649,10 @@ describe("parseCapability fails closed", () => {
     const reciprocal = {
       ...baseQuery,
       quantity: "circuit_support",
+      // The fixture's circuit_support head sits on the tuple the protocol
+      // actually defines for it.
+      horizon: "climatology",
+      mechanismFamily: "ground_sky_coherent",
     } as const;
     expect(capabilityCovers(parsed("hfPhysics"), reciprocal)).toBe(true);
     expect(

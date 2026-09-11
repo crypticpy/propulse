@@ -55,6 +55,40 @@ function scalarHeadCase(
   return { result, head };
 }
 
+/**
+ * fullHfCircuit with a no-power SNR head and a decode head reporting the given
+ * probability and no margin.
+ */
+function noPowerDecodeCase(probability: number | null): Mutable {
+  const draft = candidate("fullHfCircuit");
+  const snr = headFor(draft, "snr2500");
+  (snr.state as Mutable).value = {
+    ...((snr.state as Mutable).value as Mutable),
+    support: "geometrically_unsupported",
+    snr2500Db: "-Infinity",
+  };
+  snr.uncertainty = { kind: "none" };
+  const decode = headFor(draft, "conditional_decode");
+  if (probability === null) {
+    // A value-bearing decode head must report a margin or a probability, and
+    // the sentinel SNR forbids the margin, so "no number at all" is spelled as
+    // a typed unavailability rather than as two nulls.
+    decode.calibrationId = null;
+    decode.state = {
+      availability: "unsupported",
+      reason: "no_power_reaches_the_decoder",
+    };
+    return draft;
+  }
+  decode.calibrationId = "decode-cal-v1";
+  (decode.state as Mutable).value = {
+    ...((decode.state as Mutable).value as Mutable),
+    marginDb: null,
+    probability,
+  };
+  return draft;
+}
+
 describe("parseResult fixtures", () => {
   it.each(Object.keys(cases))("round-trips the %s fixture", (name) => {
     const outcome = parseResult(candidate(name));
@@ -620,9 +654,26 @@ describe("parseResult fails closed", () => {
     (decode.state as Mutable).value = {
       ...((decode.state as Mutable).value as Mutable),
       marginDb: null,
-      probability: 0.01,
+      probability: 0,
     };
     const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a decode probability above zero against a no-power SNR (M07, M10)", () => {
+    const bad = noPowerDecodeCase(0.4);
+    expect(reasonsAt(bad, "heads[2].state.value.probability").join()).toMatch(
+      /no decode probability above zero/,
+    );
+  });
+
+  it("accepts a decode probability of zero against a no-power SNR (M07, M10)", () => {
+    const outcome = parseResult(noPowerDecodeCase(0));
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts an unavailable decode head against a no-power SNR (M07, M10)", () => {
+    const outcome = parseResult(noPowerDecodeCase(null));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 

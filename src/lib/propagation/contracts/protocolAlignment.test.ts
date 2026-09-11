@@ -1,8 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import {
   ALIGNED_PROTOCOL_ID,
+  isProtocolCoverage,
+  PROTOCOL_COVERAGE_TUPLES,
+  protocolCoverageKey,
+  ROUTABLE_CAPABILITY_STATES,
   MECHANISM_FAMILIES,
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
@@ -82,6 +87,59 @@ describe("contracts agree with the frozen validation protocol", () => {
       expect(
         QUANTITY_UNITS[row.event as (typeof PREDICTION_QUANTITIES)[number]],
       ).toBe(row.units);
+    }
+  });
+});
+
+describe("the embedded coverage tuples match the frozen protocol", () => {
+  it("carries exactly the protocol's (event, domain, horizon, mechanism) rows", () => {
+    const fromProtocol = sorted(
+      protocol.coverage_rows.map((row) =>
+        [row.event, row.domain, row.horizon, row.mechanism].join("|"),
+      ),
+    );
+    expect(sorted(PROTOCOL_COVERAGE_TUPLES.map(protocolCoverageKey))).toEqual(
+      fromProtocol,
+    );
+  });
+
+  it("puts every routable fixture head on a protocol row", () => {
+    const fixtures = capabilityCases as unknown as Record<
+      string,
+      { heads: readonly Record<string, never>[] }
+    >;
+    for (const capability of Object.values(fixtures)) {
+      for (const head of capability.heads as unknown as {
+        state: string;
+        quantity: string;
+        domain: string;
+        horizons: string[];
+        mechanismFamilies: string[];
+      }[]) {
+        if (
+          !(ROUTABLE_CAPABILITY_STATES as readonly string[]).includes(
+            head.state,
+          )
+        ) {
+          continue;
+        }
+        for (const horizon of head.horizons) {
+          for (const mechanism of head.mechanismFamilies) {
+            expect({
+              event: head.quantity,
+              domain: head.domain,
+              horizon,
+              mechanism,
+              known: isProtocolCoverage({
+                event: head.quantity,
+                domain: head.domain,
+                horizon,
+                mechanism,
+              } as never),
+            }).toMatchObject({ known: true });
+          }
+        }
+      }
     }
   });
 });

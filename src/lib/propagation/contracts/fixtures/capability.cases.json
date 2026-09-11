@@ -12,8 +12,8 @@
         "units": "boolean",
         "domain": "characterized_fixed_path",
         "state": "implemented_unvalidated",
-        "horizons": ["climatology", "current", "forecast_1_24h"],
-        "mechanismFamilies": ["regular_ef"],
+        "horizons": ["climatology"],
+        "mechanismFamilies": ["ground_sky_coherent"],
         "geometryClasses": ["terrestrial_great_circle"],
         "frequencyRangeHz": {
           "minHz": 2000000.0,

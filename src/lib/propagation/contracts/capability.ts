@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
   ANTENNA_CLASSES,
   CALIBRATION_REQUIRED_QUANTITIES,
+  isProtocolCoverage,
   RECEIVER_PARTICIPATION,
   type AntennaClass,
   CAPABILITY_SCHEMA_VERSION,
@@ -288,6 +289,30 @@ export const modelCapabilitySchema = z
           ["heads", index, "calibrationId"],
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
         );
+      }
+      for (const horizon of head.horizons) {
+        for (const mechanism of head.mechanismFamilies) {
+          if (
+            isProtocolCoverage({
+              event: head.quantity,
+              domain: head.domain,
+              horizon,
+              mechanism,
+            })
+          ) {
+            continue;
+          }
+          // The frozen protocol defines which claims exist at all: each row
+          // carries its own metric, comparator and gates. A routable head
+          // outside those rows would be answering a question the validation
+          // protocol cannot score (M11/M19). A planned or unsupported head may
+          // describe work the protocol has not yet frozen.
+          reject(
+            ctx,
+            ["heads", index, "mechanismFamilies"],
+            `The protocol defines no ${head.quantity} on ${head.domain} at ${horizon} via ${mechanism}`,
+          );
+        }
       }
       if (head.outputSchemaId !== RESULT_SCHEMA_VERSION) {
         // A routable head is answered by `parseResult`, which accepts exactly

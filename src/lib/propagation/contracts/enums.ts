@@ -256,6 +256,227 @@ export const RECEIVER_PARTICIPATION: Record<
   usable_burst: "rx",
 };
 
+/**
+ * The (event, domain, horizon, mechanism) tuples the frozen validation
+ * protocol actually defines, de-duplicated from its `coverage_rows` (the band
+ * column is not part of the tuple: a capability declares a frequency range).
+ *
+ * A routable capability head must name a tuple that exists here, or it is
+ * promising a claim the protocol has no row, metric or gate for. The list is
+ * embedded rather than read from disk so the schema can enforce it in the
+ * browser with no fetch; `protocolAlignment.test.ts` fails if it ever drifts
+ * from ml/propagation_validation/protocol-v0.1.json.
+ */
+export interface ProtocolCoverageTuple {
+  event: PredictionQuantity;
+  domain: PredictionDomain;
+  horizon: PredictionHorizon;
+  mechanism: MechanismFamily;
+}
+
+export const PROTOCOL_COVERAGE_TUPLES: readonly ProtocolCoverageTuple[] = [
+  {
+    event: "circuit_support",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    event: "completed_qso",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    event: "conditional_decode",
+    domain: "configured_two_leg_path",
+    horizon: "current",
+    mechanism: "relay",
+  },
+  {
+    event: "conditional_decode",
+    domain: "configured_two_leg_path",
+    horizon: "current",
+    mechanism: "satellite",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "aurora",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "es",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "f2_daytime",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "climatology",
+    mechanism: "tep_evening",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "aurora",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "es",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "f2_daytime",
+  },
+  {
+    event: "conditional_decode",
+    domain: "mechanism_labeled_exposure",
+    horizon: "current",
+    mechanism: "tep_evening",
+  },
+  {
+    event: "doppler",
+    domain: "qualified_lunar_station",
+    horizon: "forecast_seconds",
+    mechanism: "eme",
+  },
+  {
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "groundwave",
+  },
+  {
+    event: "field_strength",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "waveguide",
+  },
+  {
+    event: "field_strength",
+    domain: "qualified_terrain_climate",
+    horizon: "climatology",
+    mechanism: "terrain_troposphere",
+  },
+  {
+    event: "network_detection",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    event: "observed_activity",
+    domain: "versioned_event_population",
+    horizon: "current",
+    mechanism: "event_head",
+  },
+  {
+    event: "pass_geometry",
+    domain: "qualified_ephemeris_horizon",
+    horizon: "forecast_seconds",
+    mechanism: "satellite",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "climatology",
+    mechanism: "regular_ef",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "current",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "current",
+    mechanism: "regular_ef",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "forecast_1_24h",
+    mechanism: "ground_sky_coherent",
+  },
+  {
+    event: "snr2500",
+    domain: "characterized_fixed_path",
+    horizon: "forecast_1_24h",
+    mechanism: "regular_ef",
+  },
+  {
+    event: "snr2500",
+    domain: "qualified_los_atmosphere",
+    horizon: "climatology",
+    mechanism: "atmospheric_los",
+  },
+  {
+    event: "snr2500",
+    domain: "qualified_lunar_station",
+    horizon: "forecast_seconds",
+    mechanism: "eme",
+  },
+  {
+    event: "snr2500",
+    domain: "qualified_terrain_profile",
+    horizon: "forecast_1_24h",
+    mechanism: "refractivity_pe",
+  },
+  {
+    event: "usable_burst",
+    domain: "known_exposure_interval",
+    horizon: "current",
+    mechanism: "aircraft_scatter",
+  },
+  {
+    event: "usable_burst",
+    domain: "known_exposure_interval",
+    horizon: "current",
+    mechanism: "meteor",
+  },
+  {
+    event: "usable_burst",
+    domain: "known_exposure_interval",
+    horizon: "current",
+    mechanism: "rain_scatter",
+  },
+];
+
+const PROTOCOL_COVERAGE_KEYS = new Set(
+  PROTOCOL_COVERAGE_TUPLES.map((tuple) => protocolCoverageKey(tuple)),
+);
+
+/** Stable text for one protocol coverage tuple; "|" occurs in no member. */
+export function protocolCoverageKey(tuple: ProtocolCoverageTuple): string {
+  return [tuple.event, tuple.domain, tuple.horizon, tuple.mechanism].join("|");
+}
+
+/** Whether the protocol defines this claim at all. */
+export function isProtocolCoverage(tuple: ProtocolCoverageTuple): boolean {
+  return PROTOCOL_COVERAGE_KEYS.has(protocolCoverageKey(tuple));
+}
+
 /** M01 availability enum. "Missing is never zero" (M11). */
 export const AVAILABILITY_STATES = [
   "available",

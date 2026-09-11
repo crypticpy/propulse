@@ -719,6 +719,16 @@ function crossCheckDecodeMargin(
         "A no-power SNR2500 leaves the decode margin undefined (M07, M10)",
       );
     }
+    // No power reaches the decoder, so the only decode probability the same
+    // model can report is zero, or none at all (M07, M10).
+    const probabilityValue = decode.state.value.probability;
+    if (probabilityValue !== null && probabilityValue !== 0) {
+      reject(
+        ctx,
+        ["heads", decodeIndex, "state", "value", "probability"],
+        "A no-power SNR2500 admits no decode probability above zero (M07, M10)",
+      );
+    }
     return;
   }
   if (margin === null || !Number.isFinite(snr2500Db)) return;

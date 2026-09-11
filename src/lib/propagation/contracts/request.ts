@@ -67,6 +67,8 @@ const EARTH_RADIUS_M = 6371000;
  * any position uncertainty. 1e-9 rad is about 6 mm on the surface.
  */
 const NUMERIC_GUARD_RAD = 1e-9;
+/** The same floating-point guard, in the degrees the wire declares. */
+const NUMERIC_GUARD_DEG = 1e-9;
 
 /** M06: theta = atan2(|u x v|, u . v), stable at both 0 and pi. */
 function angularSeparationRad(
@@ -186,11 +188,33 @@ function degeneracyToleranceRad(
 }
 
 /**
- * Exactly opposite points on the sphere, under the same declared-precision
- * tolerance as coincidence plus the floating-point guard, since the separation
- * of a true antipodal pair only evaluates to within rounding of pi.
+ * Exactly opposite points, decided on the declared coordinates rather than on
+ * a distance: the canonical latitudes are negatives and the canonical
+ * longitudes differ by half a turn. Only here is the short/long distinction
+ * meaningless, so only here may a request omit its leg.
+ *
+ * The floating-point guard covers the arithmetic of folding the longitudes,
+ * nothing else; declared position uncertainty deliberately plays no part.
  */
-function isAntipodal(
+function isExactlyAntipodal(
+  a: { latitudeDeg: number; longitudeDeg: number },
+  b: { latitudeDeg: number; longitudeDeg: number },
+): boolean {
+  const left = canonicalCoordinates(a);
+  const right = canonicalCoordinates(b);
+  if (left.latitudeDeg !== -right.latitudeDeg) return false;
+  const separation = Math.abs(left.longitudeDeg - right.longitudeDeg);
+  const halfTurn = Math.min(separation, 360 - separation);
+  return Math.abs(halfTurn - 180) <= NUMERIC_GUARD_DEG;
+}
+
+/**
+ * Opposite to within the summed declared position uncertainty, but not
+ * exactly. The two legs then differ by an amount the declared precision cannot
+ * resolve, so neither the short/long choice nor a derived tangent is decidable
+ * and the request is refused rather than answered on a guess (M06).
+ */
+function isAmbiguouslyAntipodal(
   a: {
     latitudeDeg: number;
     longitudeDeg: number;
@@ -202,6 +226,7 @@ function isAntipodal(
     precision: { horizontalMeters: Known<number> };
   },
 ): boolean {
+  if (isExactlyAntipodal(a, b)) return false;
   const tolerance = Math.max(degeneracyToleranceRad(a, b), NUMERIC_GUARD_RAD);
   return angularSeparationRad(a, b) >= Math.PI - tolerance;
 }
@@ -512,7 +537,14 @@ export const predictionRequestSchema = z
       );
     }
     const coincident = isCoincident(value.tx.coordinates, value.rx.coordinates);
-    const antipodal = isAntipodal(value.tx.coordinates, value.rx.coordinates);
+    const antipodal = isExactlyAntipodal(
+      value.tx.coordinates,
+      value.rx.coordinates,
+    );
+    const ambiguous = isAmbiguouslyAntipodal(
+      value.tx.coordinates,
+      value.rx.coordinates,
+    );
     const degenerate = coincident || antipodal;
     const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
       value.mechanismPolicy.geometryClass,
@@ -563,7 +595,10 @@ export const predictionRequestSchema = z
           }
           // M06: an antipodal leg has no unique tangent either, and the
           // relayed route shape carries no azimuth that could supply one.
-          if (isAntipodal(value.relay.coordinates, endpoint)) {
+          if (
+            isExactlyAntipodal(value.relay.coordinates, endpoint) ||
+            isAmbiguouslyAntipodal(value.relay.coordinates, endpoint)
+          ) {
             reject(
               ctx,
               ["relay", "coordinates"],
@@ -590,6 +625,13 @@ export const predictionRequestSchema = z
         ctx,
         ["route", "kind"],
         `Geometry class ${value.mechanismPolicy.geometryClass} is one great circle and must declare its short or long leg (M06)`,
+      );
+    }
+    if (ambiguous && !relayed) {
+      reject(
+        ctx,
+        ["rx", "coordinates"],
+        "These endpoints are antipodal to within their declared position uncertainty, which cannot resolve the short from the long route (M06)",
       );
     }
     if (value.route.kind === "direct" && !relayed) {

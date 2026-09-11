@@ -171,6 +171,22 @@
  * for decimal px text classes at this round: 0, so this too is matcher-proved
  * -- and the census now runs as an assertion of its own so a first decimal px
  * class cannot land unnoticed.
+ *
+ * #833 round 4 (review): two rules corrected rather than widened.
+ * `text-[0.75rem]` IS `text-xs` -- the same value, and it follows the text
+ * scale the same way -- so rem now compares strictly below the floor while
+ * the absolute units (px/pt) still flag the floor value itself, matching the
+ * inline guard that already clears `fontSize: "0.75rem"`. `em` keeps its
+ * `< 1` rule because it is parent-relative and no static conversion is
+ * honest; the three units are documented side by side at
+ * `isSubFloorRelative`. Second, only `clamp(` was rejected, so `calc(`,
+ * `min(`, `max(` and nested forms slipped through: any function-valued
+ * arbitrary `text-[...]` value is now the hatch, with an exact-token
+ * allowlist for the ones that are not font sizes at all. Census of `src/`
+ * for `text-[<fn>(`: 10 -- 7 `text-[clamp(` in
+ * `src/components/kiosk/WallClockDisplay.tsx` (the wall clock numerals,
+ * outside `FILES`) and 3 `text-[var(--hc-fg)]` colour tokens in the HamClock
+ * switch/chip files, which are in `FILES` and are allowlisted by exact token.
  */
 
 import { fileURLToPath } from "node:url";
@@ -392,9 +408,39 @@ function hasFloorPxSpelling(line: string): boolean {
  * grammar that only saw `0.6` would let the same 9.6px through. */
 const RELATIVE_SIZE_RE = /text-\[(\d*\.?\d+)(rem|em|pt)\]/g;
 
-/** `text-[clamp(...)]` can hide a sub-floor lower bound. Any clamp() text
- * class in `FILES` is a hatch; the audited set currently has none. */
-const CLAMP_SIZE_RE = /text-\[clamp\(/;
+/** Every arbitrary `text-[...]` value on a line, with its full class token so
+ * the allowlist below can be matched exactly. */
+const ARBITRARY_TEXT_RE = /text-\[([^\]]+)\]/g;
+
+/** A function call inside an arbitrary value. `clamp(` was the only one the
+ * guard rejected, so `text-[calc(0.75rem-2px)]`, `text-[min(0.7rem,2vw)]`,
+ * `text-[max(...)]` and nested forms such as `text-[clamp(calc(...),...)]`
+ * walked straight past it -- every one of them can resolve below the floor,
+ * and none of them can be evaluated statically (#833 review round 4). The
+ * rule is therefore a rejection of the whole shape, not a list of function
+ * names to chase. */
+const FUNCTION_VALUE_RE = /[A-Za-z-]+\(/;
+
+/**
+ * Exact class tokens that are function-valued but are NOT font sizes, so the
+ * floor has nothing to say about them. `text-[var(--hc-fg)]` is the HamClock
+ * foreground COLOR token on the three switch/chip files in `FILES`; Tailwind
+ * reads a bare `var()` arbitrary value on `text-` as a color.
+ *
+ * Matched on the whole token, never as a prefix: `text-[var(--hc-fg)]` must
+ * not clear a different custom property that happens to start the same way.
+ */
+const FUNCTION_TEXT_ALLOWLIST = new Set(["text-[var(--hc-fg)]"]);
+
+/** The un-allowlisted function-valued arbitrary text values on `line`. */
+function functionValuedTextValues(line: string): string[] {
+  return [...line.matchAll(ARBITRARY_TEXT_RE)]
+    .map((match) => `text-[${match[1]}]`)
+    .filter(
+      (token) =>
+        FUNCTION_VALUE_RE.test(token) && !FUNCTION_TEXT_ALLOWLIST.has(token),
+    );
+}
 
 const FLOOR_PX = 12;
 
@@ -405,16 +451,26 @@ function relativeToPx(value: number, unit: string): number {
 }
 
 /**
- * `em` in `font-size` is relative to the *parent's* computed font size, not
- * the root, so a static scanner cannot convert it to px at all: under a
- * `text-xs` parent, `text-[0.8em]` renders at 9.6px even though a 16px-base
- * conversion would call it 12.8px and pass. The rule this guard can actually
- * defend is the shrink itself -- any `em` value below 1 makes the text
- * smaller than whatever it is nested in, which is the hatch. `1em` is the
- * identity and anything above it grows, so neither is flagged.
+ * Why the three units compare differently (#833 review round 4):
+ *
+ * - `rem` is the scale-aware unit. `text-[0.75rem]` IS `text-xs`: 12px at the
+ *   default root and 16.5px at the xl text scale, following Settings -> Text
+ *   Size exactly like the utility class does. Only something SMALLER than the
+ *   floor is the hatch, so the comparison is strict. The inline guard already
+ *   takes the same position by clearing `fontSize: "0.75rem"`.
+ * - `pt` (like `px`) is absolute. `text-[9pt]` renders 12px at every text
+ *   scale, which is the floor spelled in a way that ignores the multiplier --
+ *   the same defect as `text-[12px]` -- so the floor value itself is flagged.
+ * - `em` is relative to the PARENT's computed size, not the root, so no
+ *   static px conversion is honest: under a `text-xs` parent `text-[0.8em]`
+ *   renders at 9.6px while a 16px-base conversion would call it 12.8px and
+ *   pass. The rule this guard can defend is the shrink itself, so any value
+ *   below `1em` is flagged regardless of what it works out to.
  */
+
 function isSubFloorRelative(value: number, unit: string): boolean {
   if (unit === "em") return value < 1;
+  if (unit === "rem") return relativeToPx(value, unit) < FLOOR_PX;
   return relativeToPx(value, unit) <= FLOOR_PX;
 }
 
@@ -423,7 +479,7 @@ function findFloorDodgeSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
-    if (hasFloorPxSpelling(line) || CLAMP_SIZE_RE.test(line)) {
+    if (hasFloorPxSpelling(line) || functionValuedTextValues(line).length > 0) {
       sites.push({ file, line: index + 1, text: line });
       return;
     }
@@ -468,16 +524,25 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
         isSubFloorRelative(Number(match[1]), match[2]),
       );
     expect(relativeHits("text-[0.6rem]").length).toBe(1);
-    expect(relativeHits("text-[0.75rem]").length).toBe(1);
+    // 0.75rem IS text-xs: the scale-aware floor, not a dodge of it
+    // (#833 review round 4). Strictly below it is the hatch.
+    expect(relativeHits("text-[0.75rem]").length).toBe(0);
+    expect(relativeHits("text-[0.749rem]").length).toBe(1);
+    expect(relativeHits("text-[0.76rem]").length).toBe(0);
     expect(relativeHits("text-[0.65em]").length).toBe(1);
     expect(relativeHits("text-[8pt]").length).toBe(1);
+    // pt is absolute: 9pt is 12px at EVERY text scale, the same defect as
+    // text-[12px], so the floor value itself is flagged.
     expect(relativeHits("text-[9pt]").length).toBe(1);
+    expect(relativeHits("text-[10pt]").length).toBe(0);
     expect(relativeHits("text-[1rem]").length).toBe(0);
     expect(relativeHits("text-xs").length).toBe(0);
     // Leading-decimal forms are valid CSS and must not read as clean.
     expect(relativeHits("text-[.6rem]").length).toBe(1);
     expect(relativeHits("text-[.5em]").length).toBe(1);
-    expect(relativeHits("text-[.75rem]").length).toBe(1);
+    // `.75rem` is the same value as `0.75rem`: the floor, not below it.
+    expect(relativeHits("text-[.75rem]").length).toBe(0);
+    expect(relativeHits("text-[.74rem]").length).toBe(1);
     expect(relativeHits("text-[.9rem]").length).toBe(0);
     // `em` is parent-relative: under a text-xs parent `0.8em` is 9.6px, so a
     // 16px-base conversion (12.8px) would wrongly clear it. Any shrink below
@@ -486,8 +551,49 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
     expect(relativeHits("text-[0.99em]").length).toBe(1);
     expect(relativeHits("text-[1em]").length).toBe(0);
     expect(relativeHits("text-[1.25em]").length).toBe(0);
-    expect(CLAMP_SIZE_RE.test("text-[clamp(0.5rem,2vw,1rem)]")).toBe(true);
-    expect(CLAMP_SIZE_RE.test("text-xs")).toBe(false);
+    // em stays parent-relative, so anything below 1em is the hatch even
+    // though 0.75rem at the same arithmetic is now allowed.
+    expect(relativeHits("text-[0.75em]").length).toBe(1);
+  });
+
+  it("rejects every function-valued arbitrary text size, not just clamp()", () => {
+    // Each of these can resolve below the floor and none can be evaluated
+    // statically (#833 review round 4).
+    expect(functionValuedTextValues("text-[clamp(0.5rem,2vw,1rem)]")).toEqual([
+      "text-[clamp(0.5rem,2vw,1rem)]",
+    ]);
+    expect(
+      functionValuedTextValues("text-[calc(0.75rem-2px)]").length,
+    ).toBe(1);
+    expect(functionValuedTextValues("text-[min(0.7rem,2vw)]").length).toBe(1);
+    expect(functionValuedTextValues("text-[max(0.6rem,1vw)]").length).toBe(1);
+    expect(
+      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]").length,
+    ).toBe(1);
+    expect(functionValuedTextValues("text-xs").length).toBe(0);
+    expect(functionValuedTextValues("text-[11px]").length).toBe(0);
+    expect(functionValuedTextValues("text-[0.9rem]").length).toBe(0);
+
+    // The allowlist is matched on the whole token, never as a prefix.
+    expect(
+      functionValuedTextValues("hover:text-[var(--hc-fg)]").length,
+    ).toBe(0);
+    expect(functionValuedTextValues("text-[var(--su-text)]").length).toBe(1);
+    expect(functionValuedTextValues("text-[var(--hc-fg-2)]").length).toBe(1);
+  });
+
+  it("every function-value allowlist entry still exists in FILES", () => {
+    // A stale entry would quietly widen the exemption; the audited files have
+    // to keep earning it.
+    for (const token of FUNCTION_TEXT_ALLOWLIST) {
+      const present = FILES.some((file) =>
+        readFileSync(resolve(REPO_ROOT, file), "utf8").includes(token),
+      );
+      expect(
+        present,
+        `${token}: no audited file spells it any more -- drop it from FUNCTION_TEXT_ALLOWLIST`,
+      ).toBe(true);
+    }
   });
 });
 

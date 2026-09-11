@@ -51,6 +51,7 @@
 - Branch names: `<type>/<epic-slug>-<task-slug>` (`type` is `feat`, `fix`, `docs`, `chore`, `refactor`, or `test`).
 - PRs follow `.github/PULL_REQUEST_TEMPLATE.md`: `Closes #N` or `Refs #N`, an `Agent:` line, a test plan (commands run + pages verified), and risks/follow-ups. At most 15 files, base `main`, merge `main` in before review, drain every review thread, and workers do not merge their own PRs — see the Pull requests section of `docs/AGENT-CONSTITUTION.md`.
 - Any design, and any PR that touches UI (anything a person sees; the path list is in the constitution), needs an `approved` **design review** comment from a Claude Fable session naming the current head SHA before merge; `pr-contract` checks the comment. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and Composer reviews do not count — see the Design and UI review section of `docs/AGENT-CONSTITUTION.md`.
+- After five bot review rounds on a PR, `.github/workflows/review-cap.yml` labels it `review-capped` and `pr-contract` blocks merge until an **architecture review** comment (`ship` or `redesign` verdict) names the current head; that review is posted by CI automation (`anthropics/claude-code-action@v1`), never by the fix agent, the orchestrator, or the owner — see the Review cap section of `docs/AGENT-CONSTITUTION.md`.
 
 ## Configuration & API Notes
 

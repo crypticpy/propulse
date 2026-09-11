@@ -5,13 +5,16 @@ import {
   parseResult,
   payloadCarrierFields,
   payloadFieldNames,
+  PAYLOAD_FIELD_OWNERSHIP,
   PAYLOAD_FREQUENCY_FIELDS,
+  profileOwnedFields,
 } from "@/lib/propagation/contracts/result";
 import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cases.json";
 import { parseCapability } from "@/lib/propagation/contracts/capability";
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
   INTERVAL_VALUED_QUANTITIES,
+  MODE_PROFILE_REGISTRY,
   PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
 } from "@/lib/propagation/contracts/enums";
@@ -1812,6 +1815,41 @@ describe("parseResult fails closed", () => {
     coverage.exclusionReason = null;
     const outcome = parseResult(bad.result);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("gives every payload field exactly one owner (M07, M11, M19)", () => {
+    // The structural guarantee behind the decode residual: a field nobody
+    // classified is a field a head may set freely while answering somebody
+    // else's question. The criterion escaped that way, so the question is now
+    // asked of every field of every quantity, once.
+    for (const quantity of PREDICTION_QUANTITIES) {
+      const owned = PAYLOAD_FIELD_OWNERSHIP[quantity];
+      const fields = payloadFieldNames(quantity);
+      expect(
+        owned.map((entry) => entry.field).sort(),
+        `${quantity} payload fields`,
+      ).toEqual([...fields].sort());
+      for (const entry of owned) {
+        expect(entry.note, `note for ${quantity}.${entry.field}`).toMatch(/\w/);
+      }
+    }
+  });
+
+  it("registers every profile-owned field it claims to pin (M07, M11)", () => {
+    // A profile-owned field is bound by equality against the registry, so the
+    // registry has to carry a value of that name for every profile that can
+    // be routed to. Naming the link here is what stops the table saying
+    // "profile" while the registry knows nothing about the field.
+    for (const quantity of PREDICTION_QUANTITIES) {
+      for (const field of profileOwnedFields(quantity)) {
+        for (const entry of MODE_PROFILE_REGISTRY) {
+          expect(
+            Object.prototype.hasOwnProperty.call(entry, field),
+            `${entry.profileId} registers ${field}`,
+          ).toBe(true);
+        }
+      }
+    }
   });
 
   it("classifies every frequency a payload can carry (M02, M11)", () => {

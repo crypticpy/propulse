@@ -1782,6 +1782,28 @@ describe("parseResultForRequest binds a result to its request", () => {
     );
   });
 
+  it("rejects a decode head scored against another criterion (M07, M11)", async () => {
+    // The cap-round residual: the decoder, its release and the attempt length
+    // were pinned while the success criterion was not, so a probability for
+    // "two decodes in the sequence" answered a request for the profile whose
+    // decode is a single one. The protocol conditions the event on the
+    // declared decoder meeting its criterion, so the criterion is the event.
+    const request = relayRequest("fixed");
+    const result = relayResult("relay");
+    ((result.heads as Mutable[])[0].state as Mutable).value = {
+      ...((((result.heads as Mutable[])[0] as Mutable).state as Mutable)
+        .value as Mutable),
+      criterionId: "two_decodes_within_sequence",
+    };
+    const issues = await bind(result, request);
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "heads[0].state.value.criterionId",
+    ]);
+    expect(issues.map((issue) => issue.reason).join()).toMatch(
+      /A decode on ft8-wsjtx-2\.7\.0-15s is single_decode_within_sequence, and this head reports two_decodes_within_sequence/,
+    );
+  });
+
   it("refuses a decode head on a profile that carries no decoder (M07, M11)", async () => {
     const request = relayRequest("fixed");
     request.modeProfileId = "fm-16k0-voice-v1";

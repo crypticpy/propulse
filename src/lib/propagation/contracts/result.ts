@@ -648,6 +648,312 @@ export const PAYLOAD_FREQUENCY_FIELDS: Record<
   ],
 };
 
+/**
+ * M07/M11/M19: who owns each field a payload carries.
+ *
+ * The decode residual that produced this table was not a missing comparison,
+ * it was a missing question: the binder pinned the decoder, its release and
+ * the attempt length, and nobody had asked what else on the payload the
+ * request or the mode profile already determines. A field with no owner is a
+ * field a head may set freely while answering somebody else's question, which
+ * is how the success criterion escaped.
+ *
+ * The table sits beside `PAYLOAD_FREQUENCY_FIELDS` rather than beside
+ * `MODE_PROFILE_REGISTRY` because it classifies the payload schemas in this
+ * module, and `payloadFieldNames` below derives its field list from them;
+ * `enums.ts` sits under this module in the import order and could not name
+ * them. The registry remains the one place a profile-owned value is written.
+ *
+ * The owners:
+ * - `profile`: `MODE_PROFILE_REGISTRY` carries the value and the binder
+ *   compares by equality. The registry entry field has the same name.
+ * - `calibration`: the artefact the head names in `calibrationId` owns the
+ *   value. Never frozen in the registry: a fitted number is not an identity.
+ * - `request`: another rule already pins it to the request (the carrier row,
+ *   the interval echo, the as-issued window rules).
+ * - `provenance`: bound against the result's own evidence rather than the
+ *   request.
+ * - `literal`: the schema pins the value outright.
+ * - `estimate`: the value the head exists to report, or a part of it.
+ * - `model`: the model's own declaration. Nothing in the request or the
+ *   registry names it, and the note says why that is safe.
+ */
+export type PayloadFieldOwner =
+  | "profile"
+  | "calibration"
+  | "request"
+  | "provenance"
+  | "literal"
+  | "estimate"
+  | "model";
+
+export interface PayloadFieldOwnership {
+  /** The payload field, as it is spelled in the schema. */
+  readonly field: string;
+  readonly owner: PayloadFieldOwner;
+  /** Why, in the words of the quantity. */
+  readonly note: string;
+}
+
+export const PAYLOAD_FIELD_OWNERSHIP: Record<
+  PredictionQuantity,
+  readonly PayloadFieldOwnership[]
+> = {
+  circuit_support: [
+    {
+      field: "modes",
+      owner: "estimate",
+      note: "The per-mode support states this head exists to report.",
+    },
+  ],
+  snr2500: [
+    {
+      field: "support",
+      owner: "estimate",
+      note: "The support state the SNR is reported under; part of the answer.",
+    },
+    {
+      field: "snr2500Db",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "referenceBandwidthHz",
+      owner: "literal",
+      note: "Pinned to 2500 Hz by the schema; SNR2500 is defined in it.",
+    },
+    {
+      field: "noiseFloorDbm",
+      owner: "estimate",
+      note: "The noise floor behind the ratio, reported with it.",
+    },
+    {
+      field: "noiseFloorReferencePlane",
+      owner: "model",
+      note: "Where the floor is quoted: a modelling convention the head declares and the request never names.",
+    },
+    {
+      field: "losses",
+      owner: "estimate",
+      note: "The itemised budget the value was built from.",
+    },
+    {
+      field: "alreadyIncludedMechanisms",
+      owner: "model",
+      note: "What the model folded in already, so a consumer does not add it twice. A declaration about this model, not about the request.",
+    },
+  ],
+  network_detection: [
+    {
+      field: "probability",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "modelEventId",
+      owner: "model",
+      note: "The model's own event identity.",
+    },
+    {
+      field: "exposureCellId",
+      owner: "model",
+      note: "The model's own exposure population. M01 forbids it naming a personal path, which parse checks; the request names no cell.",
+    },
+    {
+      field: "populationVersion",
+      owner: "model",
+      note: "The version of that population, published by the model side.",
+    },
+    {
+      field: "bucketStartAt",
+      owner: "request",
+      note: "The detection window; the interval echo binds its length to the requested interval.",
+    },
+    {
+      field: "bucketEndAt",
+      owner: "request",
+      note: "As above, and the only instant in a result allowed past issuedAt.",
+    },
+  ],
+  observed_activity: [
+    { field: "count", owner: "estimate", note: "The value of the head." },
+    {
+      field: "intervalStartAt",
+      owner: "request",
+      note: "The observed window; bound to the requested interval and required to be in the past as issued.",
+    },
+    {
+      field: "intervalEndAt",
+      owner: "request",
+      note: "As above.",
+    },
+    {
+      field: "sourceCoverageIds",
+      owner: "provenance",
+      note: "Bound against the result's own evidence: coverage must resolve to eligible provenance before it counts as observation.",
+    },
+  ],
+  conditional_decode: [
+    {
+      field: "probability",
+      owner: "estimate",
+      note: "The value of the head, null until a calibrated decoder response exists.",
+    },
+    {
+      field: "marginDb",
+      owner: "estimate",
+      note: "SNR2500 minus the threshold; the answer when there is no calibrated probability.",
+    },
+    {
+      field: "decoderId",
+      owner: "profile",
+      note: "The decoder the profile is defined by.",
+    },
+    {
+      field: "decoderVersion",
+      owner: "profile",
+      note: "The release of it; a decoder is not one algorithm across releases.",
+    },
+    {
+      field: "observationSeconds",
+      owner: "profile",
+      note: "The length of one attempt on the profile.",
+    },
+    {
+      field: "criterionId",
+      owner: "profile",
+      note: "What counts as a decode. The protocol conditions the event on the declared decoder meeting its criterion, so the criterion is part of the event.",
+    },
+    {
+      field: "thresholdSnr2500Db",
+      owner: "calibration",
+      note: "The level the criterion is met at: an output of fitting a decoder response, so the artefact in calibrationId owns it and the registry deliberately does not. A numeric probability already requires that identity (M10).",
+    },
+    {
+      field: "referenceBandwidthHz",
+      owner: "literal",
+      note: "Pinned to 2500 Hz by the schema; the threshold is quoted in it.",
+    },
+  ],
+  completed_qso: [
+    {
+      field: "probability",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "pActivity",
+      owner: "estimate",
+      note: "A conditional factor of it, checked to multiply out (M22).",
+    },
+    {
+      field: "pLinkGivenActivity",
+      owner: "estimate",
+      note: "As above.",
+    },
+    {
+      field: "pCompletionGivenLink",
+      owner: "estimate",
+      note: "As above.",
+    },
+    {
+      field: "attemptProtocolId",
+      owner: "model",
+      note: "The attempt protocol the chain was computed under. The request carries no attempt protocol to bind it to, and the quantity already requires a calibration identity.",
+    },
+  ],
+  field_strength: [
+    {
+      field: "fieldStrengthDbuvPerM",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "polarization",
+      owner: "model",
+      note: "The polarization the field is quoted for. The request describes antenna classes, not a polarization, so there is nothing to bind it to.",
+    },
+    {
+      field: "heightMeters",
+      owner: "model",
+      note: "The height the field is quoted at, with its datum below; a reporting convention, not a request term.",
+    },
+    { field: "heightDatum", owner: "model", note: "As above." },
+    {
+      field: "measurementBandwidthHz",
+      owner: "model",
+      note: "The width the strength was integrated over. Classified intrinsic by the frequency table as well: it is a width, not the carrier.",
+    },
+  ],
+  usable_burst: [
+    {
+      field: "probability",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "criterionId",
+      owner: "calibration",
+      note: "The registered burst criterion this head was scored against. The contracts register mode profiles, not burst criteria, so it is bound as an artefact identity and not by equality; a burst criterion registry is the open residual here.",
+    },
+    {
+      field: "intervalStartAt",
+      owner: "request",
+      note: "The exposed interval; bound to the requested interval and to the as-issued rules.",
+    },
+    { field: "intervalEndAt", owner: "request", note: "As above." },
+  ],
+  pass_geometry: [
+    {
+      field: "aosAt",
+      owner: "request",
+      note: "The pass window, which must fit inside the requested interval.",
+    },
+    { field: "losAt", owner: "request", note: "As above." },
+    {
+      field: "timingUncertaintySeconds",
+      owner: "estimate",
+      note: "The uncertainty on those instants; part of the answer.",
+    },
+    {
+      field: "ephemerisAgeSeconds",
+      owner: "model",
+      note: "How old the element set was when the pass was computed. The request names an ephemeris and its epoch, so this is the one model-owned field with a plausible binding; it is left unbound deliberately, because age at computation and age at validAt are different quantities and the contract says which nowhere.",
+    },
+    {
+      field: "horizonDeg",
+      owner: "model",
+      note: "The elevation mask the pass was computed to; the request carries no mask.",
+    },
+  ],
+  doppler: [
+    {
+      field: "dopplerHz",
+      owner: "estimate",
+      note: "The value of the head.",
+    },
+    {
+      field: "transmittedFrequencyHz",
+      owner: "request",
+      note: "The carrier the shift is proportional to; the carrier row binds it to the requested frequency.",
+    },
+    {
+      field: "signConvention",
+      owner: "model",
+      note: "Which sign means approaching. A reporting convention the head declares so the number can be read.",
+    },
+  ],
+};
+
+/** The fields of a quantity's payload that `MODE_PROFILE_REGISTRY` pins. */
+export function profileOwnedFields(
+  quantity: PredictionQuantity,
+): readonly string[] {
+  return PAYLOAD_FIELD_OWNERSHIP[quantity]
+    .filter((entry) => entry.owner === "profile")
+    .map((entry) => entry.field);
+}
+
 /** The carrier fields of a quantity, in schema order (M02, M11). */
 export function payloadCarrierFields(
   quantity: PredictionQuantity,

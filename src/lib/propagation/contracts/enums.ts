@@ -1476,6 +1476,16 @@ export interface ModeProfileEntry {
   readonly decoderVersion: string | null;
   /** The length of one decode attempt in seconds, null where there is none. */
   readonly observationSeconds: number | null;
+  /**
+   * What counts as a decode on this profile, null for a voice profile. The
+   * protocol conditions the event on the declared decoder and version meeting
+   * "its criterion within observation duration", so the criterion is part of
+   * the event and not of the calibration that scores it: two heads scoring
+   * different criteria are answering different questions however close their
+   * probabilities read. The threshold that criterion is met at is a
+   * calibration output and is deliberately not registered here.
+   */
+  readonly criterionId: string | null;
   readonly note: string;
 }
 
@@ -1485,20 +1495,23 @@ export const MODE_PROFILE_REGISTRY: readonly ModeProfileEntry[] = [
     decoderId: "wsjtx-ft8",
     decoderVersion: "2.7.0",
     observationSeconds: 15,
-    note: "FT8 as decoded by WSJT-X 2.7.0: one 15 s transmit/receive sequence per attempt.",
+    criterionId: "single_decode_within_sequence",
+    note: "FT8 as decoded by WSJT-X 2.7.0: one 15 s transmit/receive sequence per attempt. The criterion is the one the result fixture's FT8 decode head reports: a single decode within the sequence.",
   },
   {
     profileId: "ft4-wsjtx-2.7.0-7.5s",
     decoderId: "wsjtx-ft4",
     decoderVersion: "2.7.0",
     observationSeconds: 7.5,
-    note: "FT4 as decoded by WSJT-X 2.7.0: a 7.5 s sequence, which is a different event from FT8.",
+    criterionId: "single_decode_within_sequence",
+    note: "FT4 as decoded by WSJT-X 2.7.0: a 7.5 s sequence, which is a different event from FT8. Same criterion, scored within its own shorter sequence.",
   },
   {
     profileId: "fm-voice-12k5",
     decoderId: null,
     decoderVersion: null,
     observationSeconds: null,
+    criterionId: null,
     note: "Narrow FM voice. There is no decoder, so no decode probability is defined for it.",
   },
   {
@@ -1506,6 +1519,7 @@ export const MODE_PROFILE_REGISTRY: readonly ModeProfileEntry[] = [
     decoderId: null,
     decoderVersion: null,
     observationSeconds: null,
+    criterionId: null,
     note: "16 kHz FM voice through a repeater. As above: audible or not, never decoded.",
   },
 ];

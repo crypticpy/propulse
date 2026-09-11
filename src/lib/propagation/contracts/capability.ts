@@ -668,6 +668,14 @@ export const modelCapabilitySchema = z
               path,
               `Mode profile ${profileId} carries no decoder, so no decode probability is defined for it (M07, M11)`,
             );
+            return;
+          }
+          if (entry.criterionId === null) {
+            reject(
+              ctx,
+              path,
+              `Mode profile ${profileId} registers no decode criterion, so there is nothing a decode probability could be about (M07, M11)`,
+            );
           }
         });
       }
@@ -1442,6 +1450,7 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
         decoderId: string;
         decoderVersion: string;
         observationSeconds: number;
+        criterionId: string;
       };
       if (entry.decoderId === null) {
         return {
@@ -1462,6 +1471,22 @@ export const RESULT_BINDINGS: readonly ResultBinding[] = [
         return {
           path: "state.value.decoderVersion",
           reason: `Mode profile ${request.modeProfileId} is decoded by ${entry.decoderId} ${entry.decoderVersion}, and this head reports ${payload.decoderVersion} (M07, M11)`,
+        };
+      }
+      // The profile defines what counts as a decode, which is why the protocol
+      // conditions the event on the declared decoder meeting "its criterion
+      // within observation duration". Two heads scoring different criteria
+      // answer different questions, however close the probabilities read.
+      if (entry.criterionId === null) {
+        return {
+          path: "state.value.criterionId",
+          reason: `Mode profile ${request.modeProfileId} registers no decode criterion, so there is nothing a decode probability could be about (M07, M11)`,
+        };
+      }
+      if (payload.criterionId !== entry.criterionId) {
+        return {
+          path: "state.value.criterionId",
+          reason: `A decode on ${request.modeProfileId} is ${entry.criterionId}, and this head reports ${payload.criterionId} (M07, M11)`,
         };
       }
       if (payload.observationSeconds !== entry.observationSeconds) {

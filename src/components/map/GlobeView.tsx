@@ -243,8 +243,10 @@ interface GlobeViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** Hide the built-in radar scrubber (when host provides its own) */
   hideRadarScrubber?: boolean;
-  /** Hide the local size panel when the host docks it with other controls */
-  hideSizeSliders?: boolean;
+  /** Rows the host wants in the map's bottom-left corner. The view owns that
+   * corner and renders the one column there, so a host contributes rows
+   * instead of anchoring a second stack of its own (#930). */
+  cornerSlot?: ReactNode;
   /** Host override for the fallback's "Use flat map" action (defaults to switching the map store to flat) */
   onUseFlatMap?: () => void;
   /** Forwarded to `ClusterDetailPopover`/`SpotCollectionPopover` — true only
@@ -2064,7 +2066,7 @@ export function GlobeView({
   displayTime,
   onLocationClick,
   hideRadarScrubber,
-  hideSizeSliders = false,
+  cornerSlot,
   onUseFlatMap,
   isWallCanvas,
 }: GlobeViewProps) {
@@ -3072,7 +3074,19 @@ export function GlobeView({
         />
       )}
 
-      {!hideSizeSliders && <MapSizeSliders />}
+      {/* Bottom-left corner column. The view owns this corner: host rows
+          arrive as `cornerSlot` and stack above the shared size control, so
+          the control can never cover a row it does not know about and no row
+          can cover the control (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-col items-start gap-1">
+        {cornerSlot}
+        <div
+          className="relative"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <MapSizeSliders />
+        </div>
+      </div>
 
       {/* AddPinDialog modal */}
       <AddPinDialog

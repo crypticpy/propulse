@@ -28,7 +28,6 @@ import {
   MUFLegend,
   IonosphereLegend,
   LayerLegend,
-  MapSizeSliders,
   MapStatusChip,
   ActiveKitChip,
   RecommendationsPanel,
@@ -793,6 +792,71 @@ export function PropSphere() {
     ],
   );
 
+  // Rows PropSphere wants in the map's bottom-left corner. The map view owns
+  // that corner and renders the one column there, stacking these above its
+  // own row and the shared size control, so nothing in the corner can cover
+  // anything else (#930). Each row still carries its own tier: the sliders
+  // and the collapsible panels are operable and clear the overlay portal, the
+  // read-only legends stay under it.
+  const mapCornerSlot = (
+    <>
+      {isLiteMode && (
+        // `hidden lg:block` is not decoration: this row used to live inside
+        // the Lite HUD wrapper, which was `hidden lg:block`, so the panel has
+        // never appeared on phone or tablet where it would cover the compact
+        // map. Moving the row into the corner column kept the gate with it.
+        <div
+          className="relative hidden pointer-events-auto lg:block"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <div
+            className={`transition-all duration-300 ease-out ${
+              leftPanelExpanded ? "w-[300px]" : "w-auto"
+            }`}
+          >
+            <BandConditionsPanel
+              displayTime={displayTime}
+              className={
+                leftPanelExpanded
+                  ? "max-h-[350px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
+                  : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
+              }
+              collapsed={!leftPanelExpanded}
+              onToggleCollapse={() => setLeftPanelExpanded(!leftPanelExpanded)}
+            />
+          </div>
+        </div>
+      )}
+      {(hasLayerLegend ||
+        layers.muf ||
+        (layers.ionosphere && target && viewMode === "globe")) && (
+        <div className="relative flex flex-col items-start gap-1">
+          {/* LayerLegend collapses via a real button, so it is a control, not
+              a legend, and takes the control tier whole -- never a header
+              above the portal and a body below it (#930). */}
+          <div
+            className="relative flex flex-col items-start"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
+            <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+          </div>
+          {/* The remaining legends are read-only. */}
+          <div
+            className="relative flex flex-col items-start gap-1"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+          >
+            {layers.ionosphere && target && viewMode === "globe" && (
+              <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+            )}
+            {layers.muf && (
+              <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <BoundViewHost slot={familySlot}>
     <BoundSelectionClear clearRef={clearBoundSelectionRef} />
@@ -1165,50 +1229,6 @@ export function PropSphere() {
                 <ContestRatePanel />
               </div>
 
-              {/* Legends (bottom of map). The ionosphere legend describes the
-                  ray-path bounce markers, which only exist on the globe with a
-                  target set. LayerLegend covers every enabled colored marker
-                  layer (spots, satellites, beacons, etc). */}
-              {/* The column itself takes no z-index, so each child resolves
-                  on the MAP_PAGE_CHROME_Z scale directly: the size sliders are
-                  operable controls and sit above the overlay portal, the
-                  legends read below it (#930). */}
-              <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-col items-start gap-1">
-                <div
-                  className="relative"
-                  style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
-                >
-                  <MapSizeSliders inline />
-                </div>
-                {(hasLayerLegend ||
-                  layers.muf ||
-                  (layers.ionosphere && target && viewMode === "globe")) && (
-                  <div className="relative flex flex-col items-start gap-1">
-                    {/* LayerLegend collapses via a real button, so it is a
-                        control, not a legend, and takes the control tier
-                        whole -- never a header above the portal and a body
-                        below it (#930). */}
-                    <div
-                      className="relative flex flex-col items-start"
-                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
-                    >
-                      <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                    </div>
-                    {/* The remaining legends are read-only. */}
-                    <div
-                      className="relative flex flex-col items-start gap-1"
-                      style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
-                    >
-                      {layers.ionosphere && target && viewMode === "globe" && (
-                        <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                      )}
-                      {layers.muf && (
-                        <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Map View - relative container for floating panels */}
               <div
@@ -1226,7 +1246,7 @@ export function PropSphere() {
                     <GlobeView
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
-                      hideSizeSliders
+                      cornerSlot={mapCornerSlot}
                     />
                   )}
                   {viewMode === "flat" && (
@@ -1234,14 +1254,14 @@ export function PropSphere() {
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
                       fillContainer
-                      hideSizeSliders
+                      cornerSlot={mapCornerSlot}
                     />
                   )}
                   {viewMode === "azimuthal" && (
                     <AzimuthalView
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
-                      hideSizeSliders
+                      cornerSlot={mapCornerSlot}
                     />
                   )}
                 </Suspense>
@@ -1461,27 +1481,6 @@ export function PropSphere() {
                       </div>
                     </div>
 
-                    {/* ─── BOTTOM LEFT: Band Conditions Summary ─── */}
-                    <div className="absolute bottom-3 left-3 pointer-events-auto">
-                      <div
-                        className={`transition-all duration-300 ease-out ${
-                          leftPanelExpanded ? "w-[300px]" : "w-auto"
-                        }`}
-                      >
-                        <BandConditionsPanel
-                          displayTime={displayTime}
-                          className={
-                            leftPanelExpanded
-                              ? "max-h-[350px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
-                              : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
-                          }
-                          collapsed={!leftPanelExpanded}
-                          onToggleCollapse={() =>
-                            setLeftPanelExpanded(!leftPanelExpanded)
-                          }
-                        />
-                      </div>
-                    </div>
 
                   </div>
                 )}

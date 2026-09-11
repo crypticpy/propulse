@@ -26,7 +26,16 @@ export type Instant = string;
  * offset is required rather than assumed.
  */
 const INSTANT_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+/** Days in a month, Gregorian, with the real leap year rule. */
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    return leap ? 29 : 28;
+  }
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
 
 export const CONTEXT_SCHEMA_VERSION = 1 as const;
 
@@ -274,9 +283,38 @@ export class ContextTimeError extends Error {
   }
 }
 
-/** Milliseconds since epoch, or a thrown error. Never NaN, never local time. */
+/**
+ * Milliseconds since epoch, or a thrown error. Never NaN, never local time.
+ *
+ * The calendar fields are checked before the string is parsed. `Date.parse`
+ * silently rolls 2026-02-31 forward to 3 March, which would turn a malformed
+ * stamp into a confident wrong instant and make every ordering downstream
+ * quietly wrong; a date that does not exist is rejected instead.
+ */
 export function instantMs(value: Instant, field = "instant"): number {
-  if (typeof value !== "string" || !INSTANT_PATTERN.test(value)) {
+  if (typeof value !== "string") throw new ContextTimeError(field, value);
+  const parts = INSTANT_PATTERN.exec(value);
+  if (parts === null) throw new ContextTimeError(field, value);
+  const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] =
+    parts.map((part) => (part === undefined ? undefined : Number(part))) as (
+      number | undefined
+    )[];
+  if (
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    hour === undefined ||
+    minute === undefined ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth(year, month) ||
+    hour > 23 ||
+    minute > 59 ||
+    (second !== undefined && second > 59) ||
+    (offsetHour !== undefined && offsetHour > 23) ||
+    (offsetMinute !== undefined && offsetMinute > 59)
+  ) {
     throw new ContextTimeError(field, value);
   }
   const at = Date.parse(value);

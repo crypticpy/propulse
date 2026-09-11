@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getLedgerEntry } from "./ledger";
+import { ContextDeclarationError, ContextVariableError } from "./admission";
 import { buildTrajectory, ContextForecastError } from "./trajectory";
 import type { Selected, SourceRecord } from "./types";
 
@@ -20,6 +21,16 @@ interface ForecastOptions {
 
 function forecast(options: ForecastOptions): SourceRecord {
   const capturedAt = options.capturedAt ?? options.issuedAt;
+  // A fixture may not claim a better archive than its source can prove, so the
+  // ledger decides both the class and the publication that goes with it.
+  const archiveClass = getLedgerEntry(options.sourceId).archiveClass;
+  const publication =
+    archiveClass === "verified_as_issued"
+      ? ({ kind: "declared", publishedAt: options.issuedAt } as const)
+      : ({
+          kind: "bounded_by_capture",
+          publishedAt: options.issuedAt,
+        } as const);
   return {
     sourceId: options.sourceId,
     variable: options.variable,
@@ -28,14 +39,14 @@ function forecast(options: ForecastOptions): SourceRecord {
     stamps: {
       observedIntervalStartAt: null,
       observedIntervalEndAt: options.issuedAt,
-      publication: { kind: "declared", publishedAt: options.issuedAt },
+      publication,
       capturedAt,
       forecastIssuedAt: options.issuedAt,
       validFrom: options.validFrom,
       validTo: options.validTo,
       intervalSeconds: options.intervalSeconds,
       revision: options.revision ?? `${options.validFrom}/${options.issuedAt}`,
-      archiveClass: "verified_as_issued",
+      archiveClass,
     },
     origin: "network",
     activity: "not_reported",
@@ -345,7 +356,7 @@ describe("buildTrajectory: only forecasts already issued (M14)", () => {
         forecasts: { kp: [broken] },
         mode: "live",
       }),
-    ).toThrow(ContextForecastError);
+    ).toThrow(ContextDeclarationError);
   });
 
   it("excludes every network forecast in offline mode", () => {
@@ -547,7 +558,7 @@ describe("a forecast history is bound to the variable it is filed under", () => 
     ).toThrow(ContextForecastError);
   });
 
-  it("drops a record whose source never declared that variable", () => {
+  it("refuses a record whose source never declared that variable", () => {
     const undeclared = forecast({
       sourceId: "kp_forecast",
       variable: "planetary_a",
@@ -557,15 +568,14 @@ describe("a forecast history is bound to the variable it is filed under", () => 
       validTo: "2026-09-11T15:00:00.000Z",
       intervalSeconds: 10800,
     });
-    const { samples } = buildTrajectory({
-      issuedAt: ISSUED,
-      hours: 2,
-      forecasts: { planetary_a: [undeclared] },
-      mode: "live",
-    });
-    for (const sample of samples) {
-      expect(sample.drivers.planetary_a.origin).toBe("absent");
-    }
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 2,
+        forecasts: { planetary_a: [undeclared] },
+        mode: "live",
+      }),
+    ).toThrow(ContextVariableError);
   });
 
   it("still places a correctly filed record", () => {
@@ -609,32 +619,32 @@ describe("a bundled prior is bound to its key and to a bundled product", () => {
     ).toThrow(ContextForecastError);
   });
 
-  it("drops a prior carrying a variable its own source never declared", () => {
-    const { samples } = buildTrajectory({
-      issuedAt: ISSUED,
-      hours: 1,
-      forecasts: {},
-      priors: { invented: { ...bundled(), variable: "invented" } },
-      mode: "offline",
-    });
-    expect(samples[0].drivers.invented.origin).toBe("absent");
-    expect(samples[0].drivers.invented).not.toHaveProperty("value");
+  it("refuses a prior carrying a variable its own source never declared", () => {
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 1,
+        forecasts: {},
+        priors: { invented: { ...bundled(), variable: "invented" } },
+        mode: "offline",
+      }),
+    ).toThrow(ContextVariableError);
   });
 
   it("refuses a prior from a source the ledger does not call bundled", () => {
     // kp_forecast is a forecast product. Reading one of its bins as a
     // climatology would label a prediction as a standing prior.
-    const { samples } = buildTrajectory({
-      issuedAt: ISSUED,
-      hours: 1,
-      forecasts: {},
-      priors: {
-        kp: { ...bundled(), sourceId: "kp_forecast", variable: "kp" },
-      },
-      mode: "offline",
-    });
-    expect(samples[0].drivers.kp.origin).toBe("absent");
-    expect(samples[0].drivers.kp).not.toHaveProperty("value");
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 1,
+        forecasts: {},
+        priors: {
+          kp: { ...bundled(), sourceId: "kp_forecast", variable: "kp" },
+        },
+        mode: "offline",
+      }),
+    ).toThrow(ContextDeclarationError);
   });
 });
 
@@ -651,16 +661,14 @@ describe("only a forecast product may drive a forecast sample", () => {
       validTo: "2026-09-11T15:00:00.000Z",
       intervalSeconds: 10800,
     });
-    const { samples } = buildTrajectory({
-      issuedAt: ISSUED,
-      hours: 2,
-      forecasts: { kp: [dressedUp] },
-      mode: "live",
-    });
-    for (const sample of samples) {
-      expect(sample.drivers.kp.origin).toBe("absent");
-      expect(sample.drivers.kp).not.toHaveProperty("value");
-    }
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 2,
+        forecasts: { kp: [dressedUp] },
+        mode: "live",
+      }),
+    ).toThrow(ContextDeclarationError);
   });
 
   it("picks the same bin however equally issued forecasts are listed", () => {
@@ -715,5 +723,56 @@ describe("only a forecast product may drive a forecast sample", () => {
     for (const sample of samples) {
       expect(sample.drivers.planetary_a?.origin).toBe("absent");
     }
+  });
+});
+
+describe("every input passes the same admission gate", () => {
+  it("refuses an observation filed under another driver at horizon zero", () => {
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 1,
+        forecasts: {},
+        observations: { kp: observation("f107", 150, ISSUED) },
+        mode: "live",
+      }),
+    ).toThrow(ContextForecastError);
+  });
+
+  it("refuses a forecast record standing in as the issue time observation", () => {
+    const predicted: Selected = {
+      state: "selected",
+      ageSeconds: 0,
+      record: kpBins(ISSUED)[0],
+    };
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 1,
+        forecasts: {},
+        observations: { kp: predicted },
+        mode: "live",
+      }),
+    ).toThrow(ContextDeclarationError);
+  });
+
+  it("refuses a bin valid beyond the horizon its source declares", () => {
+    const distant = forecast({
+      sourceId: "kp_forecast",
+      variable: "kp",
+      value: 5,
+      issuedAt: "2026-09-11T11:00:00.000Z",
+      validFrom: "2026-09-15T12:00:00.000Z",
+      validTo: "2026-09-15T15:00:00.000Z",
+      intervalSeconds: 10800,
+    });
+    expect(() =>
+      buildTrajectory({
+        issuedAt: ISSUED,
+        hours: 2,
+        forecasts: { kp: [distant] },
+        mode: "live",
+      }),
+    ).toThrow(ContextDeclarationError);
   });
 });

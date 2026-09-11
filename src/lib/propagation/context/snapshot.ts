@@ -23,8 +23,8 @@ import {
   LEDGER_VERSION,
   SOURCE_LEDGER,
 } from "@/lib/propagation/context/ledger";
+import { admitRecord } from "@/lib/propagation/context/admission";
 import {
-  ContextVariableError,
   eligibleAsOf,
   inactiveBarrierAsOf,
   preferredRecord,
@@ -181,14 +181,9 @@ function selectSource(
 ): SourceCensus {
   const entry = getLedgerEntry(sourceId);
   const history = options.histories[sourceId] ?? [];
-  for (const record of history) {
-    if (
-      record.sourceId !== sourceId ||
-      !entry.variables.includes(record.variable)
-    ) {
-      throw new ContextVariableError(record.sourceId, record.variable);
-    }
-  }
+  // The public boundary: every record of every history is checked against the
+  // entry that declares it before anything reads one.
+  for (const record of history) admitRecord(entry, record);
   const barrier = inactiveBarrierAsOf(history, { issuedAt: options.issuedAt });
 
   const outcomes: Record<string, Selected> = {};

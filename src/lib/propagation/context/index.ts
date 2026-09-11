@@ -29,8 +29,15 @@ export {
   type SourceLedgerEntry,
 } from "@/lib/propagation/context/ledger";
 export {
+  admitRecord,
+  ContextDeclarationError,
   ContextStampError,
   ContextVariableError,
+  type Admitted,
+  type AdmittedForecast,
+  type AdmissionOptions,
+} from "@/lib/propagation/context/admission";
+export {
   eligibleAsOf,
   inactiveBarrierAsOf,
   selectAsOf,

@@ -24,8 +24,12 @@
  *    implemented here.
  */
 import {
+  admitRecord,
+  type Admitted,
+} from "@/lib/propagation/context/admission";
+import {
   getLedgerEntry,
-  type SourceKind,
+  type SourceLedgerEntry,
 } from "@/lib/propagation/context/ledger";
 import { preferredRecord } from "@/lib/propagation/context/selection";
 import {
@@ -94,30 +98,25 @@ interface PlacedForecast {
 }
 
 /**
- * Whether this record may stand for `variable` as a product of kind `kind`.
- *
- * One rule for every branch that consumes a record. A variable the record's own
- * source never declared is dropped (M11 already says it cannot be selected); a
- * declared record filed under the wrong driver is a caller bug and throws,
- * because dropping it would leave the driver mysteriously empty; and a product
- * of the wrong kind is refused, so an observation cannot be relabelled a
- * prediction and a prediction cannot be relabelled a climatology (M14).
+ * Which driver an input was filed under is this module's own bookkeeping, so a
+ * record filed under the wrong one is a caller bug reported here. Everything
+ * else an input must satisfy is the same question the whole leaf asks, so it
+ * goes to `admitRecord` and is not answered a second time: an undeclared
+ * variable, a product of the wrong kind for the role, a claimed archive its
+ * source cannot prove, a bin beyond the declared horizon (M11, M14).
  */
-function bindsAs(
-  record: SourceRecord,
-  variable: string,
-  kind: SourceKind,
-  role: string,
-): boolean {
-  const entry = getLedgerEntry(record.sourceId);
-  if (!entry.variables.includes(record.variable)) return false;
+function filedAs(record: SourceRecord, variable: string, label: string): void {
   if (record.variable !== variable) {
     throw new ContextForecastError(
       record.sourceId,
-      `carries "${record.variable}" but was filed as the ${role} for "${variable}"`,
+      `carries "${record.variable}" but was filed as the ${label} for "${variable}"`,
     );
   }
-  return entry.kind === kind;
+}
+
+/** The ledger entry every admission is judged against. */
+function entryOf(record: SourceRecord): SourceLedgerEntry {
+  return getLedgerEntry(record.sourceId);
 }
 
 /**
@@ -138,41 +137,34 @@ function eligibleForecasts(
     // The outlook carries f107, kp and planetary_a under one issue time, so a
     // misfiled record would emit a flux number as Kp; an observation source
     // wearing forecast stamps would emit a measurement as a prediction.
-    if (!bindsAs(record, variable, "forecast", "driver")) continue;
-    const { stamps } = record;
-    if (stamps.forecastIssuedAt === null) {
-      throw new ContextForecastError(record.sourceId, "no forecast issue time");
-    }
-    if (stamps.validFrom === null || stamps.validTo === null) {
-      throw new ContextForecastError(record.sourceId, "no valid interval");
-    }
-    const validFromMs = instantMs(stamps.validFrom, "validFrom");
-    const validToMs = instantMs(stamps.validTo, "validTo");
-    if (validToMs <= validFromMs) {
-      throw new ContextForecastError(
-        record.sourceId,
-        "valid interval ends before it opens",
-      );
-    }
+    filedAs(record, variable, "driver");
+    const admitted = admitRecord(entryOf(record), record, {
+      role: "forecast",
+    });
     if (options.mode === "offline" && record.origin !== "bundled") continue;
     if (!Number.isFinite(record.value)) continue;
     if (
       options.requireVerifiedArchive === true &&
-      stamps.archiveClass !== "verified_as_issued"
+      record.stamps.archiveClass !== "verified_as_issued"
     ) {
       continue;
     }
-    const issuedMs = instantMs(stamps.forecastIssuedAt, "forecastIssuedAt");
-    const publishedMs = instantMs(
-      stamps.publication.publishedAt,
-      "publishedAt",
-    );
-    const capturedMs = instantMs(stamps.capturedAt, "capturedAt");
     // M14: driven only by forecasts actually issued at the prediction's issue
     // time, and only by ones this service already held.
-    if (issuedMs > issued || publishedMs > issued || capturedMs > issued)
+    if (
+      admitted.forecastIssuedMs > issued ||
+      admitted.publishedMs > issued ||
+      admitted.capturedMs > issued
+    ) {
       continue;
-    placed.push({ record, validFromMs, validToMs, issuedMs, capturedMs });
+    }
+    placed.push({
+      record,
+      validFromMs: admitted.validity.fromMs,
+      validToMs: admitted.validity.toMs,
+      issuedMs: admitted.forecastIssuedMs,
+      capturedMs: admitted.capturedMs,
+    });
   }
   return placed;
 }
@@ -222,19 +214,6 @@ function bucketKey(bucket: BucketWindow): string {
 }
 
 /**
- * Whether this record may stand as the prior for `variable`.
- *
- * The same rule the forecast histories pass: a record filed under a driver its
- * own source never declared is dropped, and a declared record filed under the
- * wrong driver is a caller bug rather than an absent sample. A prior is also a
- * standing bundled product by definition, so a forecast bin read as one would
- * label a prediction as climatology (M11, M14).
- */
-function priorBinds(prior: SourceRecord, variable: string): boolean {
-  return bindsAs(prior, variable, "bundled", "prior");
-}
-
-/**
  * Whether a bundled prior was available at `issuedAt` and describes `at`.
  *
  * A climatology is still a dated product. One bundled after the issue instant
@@ -244,6 +223,7 @@ function priorBinds(prior: SourceRecord, variable: string): boolean {
  */
 function priorAppliesAt(
   prior: SourceRecord,
+  admitted: Admitted,
   options: TrajectoryOptions,
   issued: number,
   at: number,
@@ -256,22 +236,18 @@ function priorAppliesAt(
   ) {
     return false;
   }
-  const { stamps } = prior;
-  if (instantMs(stamps.publication.publishedAt, "publishedAt") > issued)
-    return false;
-  if (instantMs(stamps.capturedAt, "capturedAt") > issued) return false;
+  if (admitted.publishedMs > issued) return false;
+  if (admitted.capturedMs > issued) return false;
   if (
-    stamps.forecastIssuedAt !== null &&
-    instantMs(stamps.forecastIssuedAt, "forecastIssuedAt") > issued
+    admitted.forecastIssuedMs !== null &&
+    admitted.forecastIssuedMs > issued
   ) {
     return false;
   }
   // No stated validity means a value with no expiry, which is what a plain
   // climatology is. A stated one is honoured exactly.
-  if (stamps.validFrom === null || stamps.validTo === null) return true;
-  const from = instantMs(stamps.validFrom, "validFrom");
-  const to = instantMs(stamps.validTo, "validTo");
-  return at >= from && at < to;
+  if (admitted.validity === null) return true;
+  return at >= admitted.validity.fromMs && at < admitted.validity.toMs;
 }
 
 export function buildTrajectory(options: TrajectoryOptions): Trajectory {
@@ -291,11 +267,29 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
     ...Object.keys(options.priors ?? {}),
   ]);
 
-  // Priors are bound to their driver before the grid is walked, so a caller
-  // bug is reported whether or not a forecast happens to cover every sample.
-  const priorByVariable = new Map<string, SourceRecord>();
+  // Every input is admitted before the grid is walked, so a caller bug is
+  // reported whether or not a forecast happens to cover every sample, and the
+  // observation a sample reads is checked once rather than never.
+  const observationByVariable = new Map<string, SourceRecord>();
+  for (const [variable, outcome] of Object.entries(
+    options.observations ?? {},
+  )) {
+    if (outcome.state !== "selected") continue;
+    filedAs(outcome.record, variable, "observation");
+    admitRecord(entryOf(outcome.record), outcome.record, {
+      role: "observation",
+    });
+    observationByVariable.set(variable, outcome.record);
+  }
+
+  const priorByVariable = new Map<
+    string,
+    { readonly record: SourceRecord; readonly admitted: Admitted }
+  >();
   for (const [variable, prior] of Object.entries(options.priors ?? {})) {
-    if (priorBinds(prior, variable)) priorByVariable.set(variable, prior);
+    filedAs(prior, variable, "prior");
+    const admitted = admitRecord(entryOf(prior), prior, { role: "bundled" });
+    priorByVariable.set(variable, { record: prior, admitted });
   }
 
   const placedByVariable = new Map<string, PlacedForecast[]>();
@@ -320,19 +314,15 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
     const drivers: Record<string, DriverValue> = {};
 
     for (const variable of variables) {
-      const observed = options.observations?.[variable];
+      const observed = observationByVariable.get(variable);
       // M14: at the issue instant the observation is the state. One sample
       // later it is not, and nothing here extends it.
-      if (
-        index === 0 &&
-        observed !== undefined &&
-        observed.state === "selected"
-      ) {
+      if (index === 0 && observed !== undefined) {
         drivers[variable] = {
           origin: "observed_at_issue",
-          value: observed.record.value,
-          stamps: observed.record.stamps,
-          sourceId: observed.record.sourceId,
+          value: observed.value,
+          stamps: observed.stamps,
+          sourceId: observed.sourceId,
         };
         continue;
       }
@@ -368,12 +358,15 @@ export function buildTrajectory(options: TrajectoryOptions): Trajectory {
       }
 
       const prior = priorByVariable.get(variable);
-      if (prior !== undefined && priorAppliesAt(prior, options, issued, at)) {
+      if (
+        prior !== undefined &&
+        priorAppliesAt(prior.record, prior.admitted, options, issued, at)
+      ) {
         drivers[variable] = {
           origin: "climatological_prior",
-          value: prior.value,
-          stamps: prior.stamps,
-          sourceId: prior.sourceId,
+          value: prior.record.value,
+          stamps: prior.record.stamps,
+          sourceId: prior.record.sourceId,
         };
         continue;
       }

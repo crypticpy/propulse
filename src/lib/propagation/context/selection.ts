@@ -15,6 +15,7 @@
  * generated from that oracle. #951 forbids changing the Python, and nothing
  * here does.
  */
+import { admitRecord } from "@/lib/propagation/context/admission";
 import type { SourceLedgerEntry } from "@/lib/propagation/context/ledger";
 import {
   ageSecondsAt,
@@ -26,43 +27,6 @@ import {
   type SourceMode,
   type SourceRecord,
 } from "@/lib/propagation/context/types";
-
-/**
- * A record whose stamps describe a history that could not have happened.
- *
- * Observed, then published, then captured is the causal order a real product
- * goes through. A capture that precedes its own publication, or a publication
- * that precedes the end of the interval it reports, is a producer bug, not an
- * eligibility outcome: answering from it would reconstruct a provenance that
- * never existed (M02, M24). It is therefore thrown at the boundary rather than
- * quietly excluded, where a caller would read it as an ordinary outage.
- */
-export class ContextStampError extends Error {
-  override readonly name = "ContextStampError";
-
-  constructor(
-    readonly sourceId: string,
-    readonly detail: string,
-  ) {
-    super(
-      `record from "${sourceId}" describes an impossible history: ${detail}`,
-    );
-  }
-}
-
-/** A record carrying a variable its ledger entry never declared (M11). */
-export class ContextVariableError extends Error {
-  override readonly name = "ContextVariableError";
-
-  constructor(
-    readonly sourceId: string,
-    readonly variable: string,
-  ) {
-    super(
-      `source "${sourceId}" does not declare the variable "${variable}"; an undeclared variable cannot be selected (M11)`,
-    );
-  }
-}
 
 export interface SelectOptions {
   readonly issuedAt: Instant;
@@ -81,40 +45,6 @@ export interface SelectOptions {
    * which is the honest answer rather than a silent downgrade.
    */
   readonly requireVerifiedArchive?: boolean;
-}
-
-function assertCausalStamps(record: SourceRecord): void {
-  const observed = instantMs(
-    record.stamps.observedIntervalEndAt,
-    "observedIntervalEndAt",
-  );
-  const published = instantMs(
-    record.stamps.publication.publishedAt,
-    "publishedAt",
-  );
-  const captured = instantMs(record.stamps.capturedAt, "capturedAt");
-  if (published < observed) {
-    throw new ContextStampError(
-      record.sourceId,
-      "published before the interval it reports had closed",
-    );
-  }
-  if (captured < published) {
-    throw new ContextStampError(
-      record.sourceId,
-      "captured before it was published",
-    );
-  }
-  const start = record.stamps.observedIntervalStartAt;
-  if (
-    start !== null &&
-    instantMs(start, "observedIntervalStartAt") > observed
-  ) {
-    throw new ContextStampError(
-      record.sourceId,
-      "observation interval ends before it starts",
-    );
-  }
 }
 
 function eligibleInMode(record: SourceRecord, mode: SourceMode): boolean {
@@ -208,28 +138,6 @@ function compareRecords(left: SourceRecord, right: SourceRecord): number {
 type ExclusionOf = Extract<Selected, { state: "excluded" }>["reason"];
 
 /**
- * Validate one record against its ledger entry and return its observed instant.
- *
- * A record filed under another source, or carrying a variable its source never
- * declared, is a caller bug rather than an eligibility outcome (M11), and one
- * whose stamps describe an impossible history is rejected here too, so every
- * later test reads stamps that could have existed.
- */
-function admit(record: SourceRecord, options: SelectOptions): number {
-  if (
-    record.sourceId !== options.entry.sourceId ||
-    !options.entry.variables.includes(record.variable)
-  ) {
-    throw new ContextVariableError(record.sourceId, record.variable);
-  }
-  assertCausalStamps(record);
-  return instantMs(
-    record.stamps.observedIntervalEndAt,
-    "observedIntervalEndAt",
-  );
-}
-
-/**
  * Why this record was not usable at `issuedAt`, or `null` if it was.
  *
  * Order matters. Each test answers a different question, and the first one a
@@ -294,7 +202,7 @@ export function eligibleAsOf(
   const barrierAt = barrier === null ? null : instantMs(barrier, "barrier");
   const eligible: SourceRecord[] = [];
   for (const record of history) {
-    admit(record, options);
+    admitRecord(options.entry, record);
     if (exclusionFor(record, options, issued, barrierAt) === null) {
       eligible.push(record);
     }
@@ -322,7 +230,7 @@ export function selectAsOf(
   let excluded: { reason: ExclusionOf; record: SourceRecord } | null = null;
 
   for (const record of history) {
-    admit(record, options);
+    admitRecord(options.entry, record);
     latest = latest === null ? record : preferredRecord(record, latest);
 
     const failure = exclusionFor(record, options, issued, barrierAt);

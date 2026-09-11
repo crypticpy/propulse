@@ -9,18 +9,29 @@ import { describe, it, expect } from "vitest";
 import {
   calculateM3000F2,
   calculateDLayerAbsorption,
+  calculateZenithAngle,
+  getAbsorptionAtLocation,
+  modifiedDipAngle,
   estimateFoF2,
   calculateF0F2,
   sfiToR12,
   obliqueIncidenceAngle,
+  solarNoonZenithAngle,
 } from "./ionosphere";
-import { evaluateHopQuality, hopElevationAngle, calculateMUF } from "./rayTrace";
+import {
+  evaluateHopQuality,
+  hopElevationAngle,
+  calculateMUF,
+} from "./rayTrace";
+import { hopGeometry } from "@/lib/propagation/geometry/hop";
+import { dRegionAbsorption } from "@/lib/propagation/absorption/dRegion";
 import {
   isSignalDecodable,
   calculateExpectedSNR,
   MODE_PARAMETERS,
 } from "./signal";
 import { getManMadeNoise } from "./noiseModel";
+import { getGeomagneticLatitude } from "./geomagnetic";
 
 // Equinox so solar declination ~= 0; a 40N reflection point sits at the
 // central meridian (lon 0), so UTC 12:00 is local noon and UTC 00:00 midnight.
@@ -103,9 +114,12 @@ describe("item 3 - shared foF2 estimator (CCIR/URSI magnitudes)", () => {
 });
 
 describe("item 4/12 - D-layer absorption", () => {
-  it("7 MHz noon near-vertical absorbs ~10-20 dB", () => {
+  it("7 MHz noon near-vertical absorbs a few dB, not a tuned 10-20", () => {
+    // PROP-03 #949. The bound moved because the model did: equation (21)'s
+    // absorption term now exists, so the magnitude is set by ATnoon and the
+    // penetration factor rather than by a bare coefficient of 677.
     const abs7 = calculateDLayerAbsorption(7, 20, 120);
-    expect(abs7).toBeGreaterThan(8);
+    expect(abs7).toBeGreaterThan(5);
     expect(abs7).toBeLessThan(20);
   });
   it("21 MHz absorbs much less than 7 MHz at the same conditions", () => {
@@ -119,9 +133,154 @@ describe("item 4/12 - D-layer absorption", () => {
     const oblique = calculateDLayerAbsorption(10, 20, 120, 6);
     expect(oblique).toBeGreaterThan(vertical * 2);
   });
-  it("no absorption at night", () => {
-    expect(calculateDLayerAbsorption(7, 120, 120)).toBe(0);
+  it("keeps a small night-time residue instead of switching off at 98 deg", () => {
+    // The replaced model ramped absorption to exactly zero between 90 and 98
+    // degrees of solar zenith angle and returned 0 beyond. ITU-R P.533-14 does
+    // not: it clips the zenith angle at 102 degrees and floors F(chi) at 0.02,
+    // which leaves a small residue. A D region that vanishes at a hard
+    // threshold is a discontinuity no measurement supports.
+    const night = calculateDLayerAbsorption(7, 120, 120);
+    const noon = calculateDLayerAbsorption(7, 20, 120);
+    expect(night).toBeGreaterThan(0);
+    expect(night).toBeLessThan(noon / 5);
+
+    // ...and the old 98 degree cliff is gone. The 0.12 dB step that remains
+    // is not this model's: `calculateF0E` still switches its own E layer off
+    // at exactly 98 degrees, which moves the penetration factor. That belongs
+    // to the climatology leaf (#953), not to equation (20).
+    const before = calculateDLayerAbsorption(7, 97.9, 120);
+    const after = calculateDLayerAbsorption(7, 98.1, 120);
+    expect(Math.abs(after - before)).toBeLessThan(0.2);
   });
+
+  it("reproduces the P.533-14 reference magnitude on the audit circuit", () => {
+    // 40 N, March, local noon, one 3000 km hop at hr = 300 km, 14 MHz,
+    // SSN 100, foE 3.4 MHz. Measured from the pinned reference build:
+    // Li = 14.3536 dB. The replaced expression gave 17.118 dB here, and gave
+    // it for structurally wrong reasons: no absorption term, the obliquity
+    // secant at 90 km instead of 110 km, and 1 + 0.003 R12 for the activity
+    // factor.
+    const geometry = hopGeometry({
+      groundDistanceKm: 3000,
+      hopCount: 1,
+      mirrorHeightKm: 300,
+    });
+    if (geometry.kind !== "supported") throw new Error("expected a hop");
+    const crossing = {
+      latitudeDeg: 40,
+      monthIndex: 2,
+      modifiedDipDeg: 55,
+      foEMHz: 3.4,
+      zenithAngleDeg: 16.5,
+      zenithNoonAngleDeg: 16.5,
+    };
+    const li = dRegionAbsorption({
+      crossings: [crossing, crossing],
+      hopCount: 1,
+      frequencyMHz: 14,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn: 100,
+    }).absorptionDb;
+    expect(Math.abs(10 * Math.log10(li / 14.3536))).toBeLessThan(0.25);
+  });
+
+  it("attenuates away from local noon instead of copying the noon angle", () => {
+    // PR #1106 round 1, Codex P1. The positionless entry points used to
+    // default the noon zenith angle to the current one, which makes
+    // F(chi)/F(chi_noon) identically 1 and deletes the diurnal term of
+    // equation (21): every hour absorbed like local noon. The declared
+    // crossing is 45 N in March, an equinox month, so its noon angle is
+    // |45 - 0| = 45 degrees and the ratio is a real number at every other
+    // hour.
+    const noon = calculateDLayerAbsorption(7, 45, 150);
+    const midAfternoon = calculateDLayerAbsorption(7, 70, 150);
+    const evening = calculateDLayerAbsorption(7, 85, 150);
+    expect(midAfternoon).toBeLessThan(noon);
+    expect(evening).toBeLessThan(midAfternoon);
+    expect(noon).toBeCloseTo(9.3587, 3);
+    expect(midAfternoon).toBeCloseTo(5.4664, 3);
+
+    // A caller that holds the instant gets the honest declination rather
+    // than the equinox stand-in.
+    const solstice = new Date(Date.UTC(2026, 5, 21, 12, 0, 0));
+    const derived = calculateDLayerAbsorption(7, 40, 150, 90, {
+      latitudeDeg: 60,
+      date: solstice,
+    });
+    const declared = calculateDLayerAbsorption(7, 40, 150, 90, {
+      latitudeDeg: 60,
+      zenithNoonAngleDeg: solarNoonZenithAngle(60, solstice),
+    });
+    expect(derived).toBe(declared);
+    expect(solarNoonZenithAngle(60, solstice)).toBeLessThan(60);
+  });
+
+  it("uses the position and season it was given, not the stand-in crossing", () => {
+    // Two crossings with the same instantaneous solar zenith angle and
+    // nothing else in common: 10 degrees north at the June solstice and 40
+    // degrees north at the December one. Equation (21) is a function of
+    // latitude, season, modified dip and the crossing's own local-noon angle,
+    // so these cannot absorb the same amount. The helper holds all four and
+    // used to throw them away, calling the adapter with a frequency and a
+    // zenith angle only, which pinned every location to the declared 45
+    // degrees north, March, dip 60 stand-in.
+    const tropicalJune = new Date("2026-06-21T16:51:09Z");
+    const temperateDecember = new Date("2026-12-21T14:05:05Z");
+    expect(calculateZenithAngle(10, 0, tropicalJune)).toBeCloseTo(70, 3);
+    expect(calculateZenithAngle(40, 0, temperateDecember)).toBeCloseTo(70, 3);
+
+    const tropical = getAbsorptionAtLocation(10, 0, tropicalJune, 7, 150);
+    const temperate = getAbsorptionAtLocation(40, 0, temperateDecember, 7, 150);
+    expect(tropical).not.toBeCloseTo(temperate, 3);
+
+    // And each one is the adapter called with that crossing's own context,
+    // not a number this test invented.
+    expect(tropical).toBe(
+      calculateDLayerAbsorption(
+        7,
+        calculateZenithAngle(10, 0, tropicalJune),
+        150,
+        90,
+        {
+          latitudeDeg: 10,
+          monthIndex: tropicalJune.getUTCMonth(),
+          modifiedDipDeg: modifiedDipAngle(10, 0),
+          date: tropicalJune,
+        },
+      ),
+    );
+  });
+
+  it("no longer clamps absorption at 50 dB", () => {
+    // 1.8 MHz at local noon is genuinely opaque. Saturating it at 50 dB made
+    // every deeply absorbed circuit look identical.
+    expect(calculateDLayerAbsorption(1.8, 10, 200, 5)).toBeGreaterThan(50);
+  });
+  it("takes the tangent of the inclination, not the inclination itself", () => {
+    // The modified dip is atan(tan(I) / sqrt(cos(latitude))). The reference
+    // harness supplies the diurnal exponent with dip = tan(moddip) at latitude
+    // zero, where the modified dip reduces to atan(dip), which fixes the
+    // convention. Passing I itself as the numerator produced 52.8 degrees at
+    // 45 degrees geomagnetic latitude where 67.2 is correct, and selected the
+    // wrong exponent everywhere but the geomagnetic equator and the poles.
+    const gm = getGeomagneticLatitude(45, -158);
+    expect(gm).toBeCloseTo(45, 1);
+    expect(modifiedDipAngle(45, -158)).toBeCloseTo(67.2, 1);
+
+    // On the geographic equator sqrt(cos(latitude)) is 1, so the modified dip
+    // is the dipole inclination itself. This is the harness's own case.
+    const equatorial =
+      (Math.atan(2 * Math.tan((2.7723144829971615 * Math.PI) / 180)) * 180) /
+      Math.PI;
+    expect(modifiedDipAngle(0, 0)).toBeCloseTo(equatorial, 9);
+
+    // The ends are unmoved: the geomagnetic equator is zero and the pole is 90.
+    expect(getGeomagneticLatitude(-2.8, 0)).toBeCloseTo(0, 1);
+    expect(modifiedDipAngle(-2.8, 0)).toBeLessThan(0.05);
+    expect(getGeomagneticLatitude(80.5, -72)).toBeCloseTo(89.8, 1);
+    expect(modifiedDipAngle(80.5, -72)).toBeCloseTo(90, 1);
+  });
+
   it("sfiToR12 inverts the canonical SFI = 63.7 + 0.728*R12 relation", () => {
     expect(sfiToR12(63.7)).toBeCloseTo(0, 5);
     expect(sfiToR12(120)).toBeCloseTo((120 - 63.7) / 0.728, 5);

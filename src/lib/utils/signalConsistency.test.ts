@@ -25,6 +25,8 @@ import {
   getBestTimeWindows,
   getOptimalBand,
 } from "./recommendations";
+import { getMidpoint } from "./path";
+import { getIonosphericParameters } from "./ionosphere";
 import type { OperatingMode } from "../../types/signal";
 
 // Audit case: 40N 0E -> 41N 0E (111 km, one near-vertical hop), equinox noon.
@@ -553,10 +555,10 @@ describe("PROP-02 the displayed centre is the classified centre", () => {
           // must track the noise floor to within the dBm rounding error
           // (Codex round 7, PR #1081: `sUnit`/`noise` must stay consistent
           // with `expectedSNR` on the same, un-overwritten prediction).
-          expect(
-            p.sUnit.dBm - p.noise.noiseFloorDbm,
-            where,
-          ).toBeCloseTo(p.expectedSNR, 0);
+          expect(p.sUnit.dBm - p.noise.noiseFloorDbm, where).toBeCloseTo(
+            p.expectedSNR,
+            0,
+          );
         }
       }
     }
@@ -762,9 +764,10 @@ describe("PROP-02 a penalty moves every number it should (Codex r2)", () => {
       );
       if (calmMargin >= 10 && stormMargin < 10 && calmPred.confidence > 20) {
         crossings += 1;
-        expect(stormPred.confidence, `${band.band} crossed a margin step`).toBeLessThan(
-          calmPred.confidence,
-        );
+        expect(
+          stormPred.confidence,
+          `${band.band} crossed a margin step`,
+        ).toBeLessThan(calmPred.confidence);
         // The bounds are not asserted narrower: Kp 9 legitimately widens the
         // interval (+15 half-width), so only the centre must fall.
       }
@@ -893,7 +896,9 @@ describe("PR #1081 round 6: RTTY keeps its own SNR threshold through the mode ad
     expect(getSignalClass(snrDb, "CW")).toBe("weak");
     expect(getSignalClass(snrDb, "FT8")).toBe("moderate");
     expect(getSignalClass(snrDb, "RTTY")).not.toBe(getSignalClass(snrDb, "CW"));
-    expect(getSignalClass(snrDb, "RTTY")).not.toBe(getSignalClass(snrDb, "FT8"));
+    expect(getSignalClass(snrDb, "RTTY")).not.toBe(
+      getSignalClass(snrDb, "FT8"),
+    );
   });
 
   it("stationPhysics.toPhysicsMode('RTTY') feeds this engine RTTY's own threshold, not CW's or FT8's", async () => {
@@ -903,5 +908,87 @@ describe("PR #1081 round 6: RTTY keeps its own SNR threshold through the mode ad
     expect(viaAdapter).toBe(getSignalClass(snrDb, "RTTY"));
     expect(viaAdapter).not.toBe(getSignalClass(snrDb, "CW"));
     expect(viaAdapter).not.toBe(getSignalClass(snrDb, "FT8"));
+  });
+});
+
+describe("PROP-03 (#949): the ionospheric sample sits on the great circle", () => {
+  // The engine used to read its ionospheric parameters at the arithmetic mean
+  // of the two coordinate pairs. A mean is not a midpoint: it is wrong by
+  // thousands of kilometres on any circuit that straddles the date line, and
+  // wrong by the whole hemisphere on this one. Tokyo to Seattle has its true
+  // spherical midpoint at (53.43 N, 177.39 W) in the Aleutians; the mean of
+  // the pairs is (41.65 N, 8.70 E), in the Mediterranean. At 12:00 UTC the
+  // Aleutian midpoint is in darkness (solar zenith 126.8 degrees) while the
+  // Mediterranean point is in full daylight, so the two disagree about the
+  // single fact the day/night notes are derived from.
+  const TOKYO = { lat: 35.7, lon: 139.7 };
+  const SEATTLE = { lat: 47.6, lon: -122.3 };
+  const NOON_UTC = new Date(Date.UTC(2026, 2, 20, 12, 0, 0));
+
+  function dateLineConditions() {
+    return getEnhancedBandConditions(
+      TOKYO.lat,
+      TOKYO.lon,
+      SEATTLE.lat,
+      SEATTLE.lon,
+      2,
+      150,
+      NOON_UTC,
+      100,
+      "FT8",
+      0,
+      "rural",
+    );
+  }
+
+  it("puts the midpoint on the arc, not between the coordinate pairs", () => {
+    const midpoint = getMidpoint(
+      TOKYO.lat,
+      TOKYO.lon,
+      SEATTLE.lat,
+      SEATTLE.lon,
+    );
+    expect(midpoint.lat).toBeCloseTo(53.4312, 3);
+    expect(midpoint.lon).toBeCloseTo(-177.3867, 3);
+
+    // The mean of the pairs, for the record. Nothing rounds it to the arc.
+    const meanLat = (TOKYO.lat + SEATTLE.lat) / 2;
+    const meanLon = (TOKYO.lon + SEATTLE.lon) / 2;
+    expect(meanLat).toBeCloseTo(41.65, 6);
+    expect(meanLon).toBeCloseTo(8.7, 6);
+    expect(Math.abs(midpoint.lon - meanLon)).toBeGreaterThan(180 - 5);
+  });
+
+  it("the two candidate midpoints disagree about day and night", () => {
+    const midpoint = getMidpoint(
+      TOKYO.lat,
+      TOKYO.lon,
+      SEATTLE.lat,
+      SEATTLE.lon,
+    );
+    const onArc = getIonosphericParameters(
+      midpoint.lat,
+      midpoint.lon,
+      NOON_UTC,
+      150,
+    );
+    const atMean = getIonosphericParameters(41.65, 8.7, NOON_UTC, 150);
+    expect(onArc.isDaytime).toBe(false);
+    expect(onArc.zenithAngle).toBeGreaterThan(90);
+    expect(atMean.isDaytime).toBe(true);
+  });
+
+  it("reports the arc midpoint's darkness on the daylight bands", () => {
+    const conditions = dateLineConditions();
+    for (const band of ["30m", "20m", "17m", "15m", "12m", "10m"]) {
+      const row = conditions.find((entry) => entry.band === band);
+      expect(row, `no row for ${band}`).toBeDefined();
+      expect(row!.notes).toContain("Night path");
+    }
+    // The mean-midpoint engine saw daylight, so it emitted the opposite note
+    // on the low bands instead. Neither is present now.
+    expect(conditions.map((entry) => entry.notes).join(" ")).not.toContain(
+      "D-layer absorption",
+    );
   });
 });

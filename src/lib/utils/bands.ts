@@ -19,6 +19,7 @@ import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
 import { getEsSeasonalProbability } from "./sporadicE";
 import { getGeomagneticCondition } from "./solarConversions";
 import { getSubsolarPoint } from "./sun";
+import { resolveRoute, routeMidpoint } from "@/lib/propagation/geometry/route";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -871,9 +872,22 @@ export function getEnhancedBandConditions(
     targetLon,
   );
 
-  // Calculate path midpoint for ionospheric calculations
-  const midLat = (homeLat + targetLat) / 2;
-  const midLon = (homeLon + targetLon) / 2;
+  // Path midpoint for the ionospheric sample. This is the *spherical*
+  // midpoint of the great circle, not the arithmetic mean of the two
+  // coordinate pairs. The mean is not a midpoint: for Tokyo to Honolulu it
+  // lands in the Atlantic off Morocco, 13 347 km from the real midpoint, and
+  // every ionospheric parameter read there describes the wrong hemisphere
+  // (PROP-03 #949, contract M06).
+  const midpointRoute = resolveRoute(
+    { latitudeDeg: homeLat, longitudeDeg: homeLon },
+    { latitudeDeg: targetLat, longitudeDeg: targetLon },
+  );
+  const midpoint =
+    midpointRoute.kind === "resolved"
+      ? routeMidpoint(midpointRoute)
+      : { latitudeDeg: homeLat, longitudeDeg: homeLon };
+  const midLat = midpoint.latitudeDeg;
+  const midLon = midpoint.longitudeDeg;
 
   // Get ionospheric parameters at path midpoint
   const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
@@ -947,9 +961,18 @@ export function getEnhancedBandConditions(
       excessLossDb += Math.min(deficit * 0.3, 15);
     }
 
+    // Free-space spreading is taken over the virtual slant range of ITU-R
+    // P.533-14 equation (19), the distance the wave actually travels, not the
+    // ground range under it. On a short circuit the two differ by more than
+    // 15 dB (PROP-03 #949, contract M15).
+    const spreadingDistanceKm =
+      rayResult.virtualSlantRangeKm > 0
+        ? rayResult.virtualSlantRangeKm
+        : distance;
+
     const signalPred = predictSignalStrength(
       frequencyMHz,
-      distance,
+      spreadingDistanceKm,
       hops,
       absorptionDb,
       txPowerWatts,
@@ -1299,8 +1322,14 @@ export function displaySnrRange(
   prediction: Pick<SignalPrediction, "snrLow" | "snrHigh"> | undefined,
 ): { low: number | undefined; high: number | undefined } {
   return {
-    low: prediction?.snrLow === undefined ? undefined : toDisplaySNR(prediction.snrLow),
-    high: prediction?.snrHigh === undefined ? undefined : toDisplaySNR(prediction.snrHigh),
+    low:
+      prediction?.snrLow === undefined
+        ? undefined
+        : toDisplaySNR(prediction.snrLow),
+    high:
+      prediction?.snrHigh === undefined
+        ? undefined
+        : toDisplaySNR(prediction.snrHigh),
   };
 }
 

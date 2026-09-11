@@ -152,17 +152,51 @@ export function maximumHopGroundDistanceKm(mirrorHeightKm: number): number {
 }
 
 /**
+ * Take-off elevation of a single hop of the given ground length, radians.
+ *
+ * The one place this angle is computed, so the hop-count chooser and the
+ * geometry solver decide a mode exists on the same arithmetic rather than on
+ * two expressions that agree everywhere except on the boundary.
+ */
+function elevationAngleRadFor(
+  hopGroundDistanceKm: number,
+  mirrorHeightKm: number,
+): number {
+  const halfHopAngleRad = hopGroundDistanceKm / (2 * EARTH_RADIUS_KM);
+  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + mirrorHeightKm);
+  return Math.atan2(
+    Math.cos(halfHopAngleRad) - ratio,
+    Math.sin(halfHopAngleRad),
+  );
+}
+
+/**
  * Fewest hops that keep the elevation angle above the horizon.
  *
  * Returned so a caller can choose a mode honestly instead of clamping one that
  * does not exist. The result is a count, not a claim that the mode propagates.
+ *
+ * The grazing limit is exclusive: a hop of exactly `maxHop` leaves at an
+ * elevation of exactly zero, which `solve` rejects, so `ceil` returned a count
+ * that does not exist whenever the distance was an exact multiple of the
+ * limit. The count is therefore raised until the elevation angle is positive,
+ * and it is the same expression `solve` evaluates, so the two can never
+ * disagree about whether the mode they name exists. Comparing the quotient
+ * against `maxHop` instead is not equivalent: a hop a hair inside the limit
+ * can still round to a non-positive elevation.
  */
 export function minimumHopCount(
   groundDistanceKm: number,
   mirrorHeightKm: number,
 ): number {
   const maxHop = maximumHopGroundDistanceKm(mirrorHeightKm);
-  return Math.max(1, Math.ceil(groundDistanceKm / maxHop));
+  let hopCount = Math.max(1, Math.ceil(groundDistanceKm / maxHop));
+  while (
+    !(elevationAngleRadFor(groundDistanceKm / hopCount, mirrorHeightKm) > 0)
+  ) {
+    hopCount += 1;
+  }
+  return hopCount;
 }
 
 /** Angle of incidence at height `h` for a ray of elevation `delta`. */
@@ -182,10 +216,9 @@ function solve(inputs: HopGeometryInputs): HopGeometry {
 
   const hopGroundDistanceKm = groundDistanceKm / hopCount;
   const halfHopAngleRad = hopGroundDistanceKm / (2 * EARTH_RADIUS_KM);
-  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + mirrorHeightKm);
-  const elevationAngleRad = Math.atan2(
-    Math.cos(halfHopAngleRad) - ratio,
-    Math.sin(halfHopAngleRad),
+  const elevationAngleRad = elevationAngleRadFor(
+    hopGroundDistanceKm,
+    mirrorHeightKm,
   );
 
   if (!(elevationAngleRad > 0)) {

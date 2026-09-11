@@ -121,6 +121,61 @@ describe("modes that do not exist (R7)", () => {
     expect(geometry.elevationAngleRad).toBeGreaterThan(0);
   });
 
+  it("names a count that exists at an exact multiple of the maximum hop", () => {
+    // `ceil` is right everywhere except on the boundary. At exactly k maximum
+    // hops it returns k, whose per-hop distance is the grazing limit itself:
+    // the elevation angle is exactly zero, `solve` rejects the mode, and the
+    // engine reported no path while its own detail string recommended the
+    // count that had just failed.
+    const maximum = maximumHopGroundDistanceKm(300);
+    for (const multiple of [1, 2, 3, 5]) {
+      const distance = multiple * maximum;
+      const hops = minimumHopCount(distance, 300);
+      // One more hop than the quotient: the quotient itself is the grazing
+      // ray. It is never more than one more, so the count stays minimal.
+      expect(hops).toBe(multiple + 1);
+      const geometry = hopGeometry({
+        groundDistanceKm: distance,
+        hopCount: hops,
+        mirrorHeightKm: 300,
+      });
+      expect(geometry.kind).toBe("supported");
+      if (geometry.kind !== "supported") {
+        throw new Error("unreachable");
+      }
+      expect(geometry.elevationAngleRad).toBeGreaterThan(0);
+      expect(geometry.hopGroundDistanceKm).toBeLessThan(maximum);
+    }
+  });
+
+  it("still names the smallest working count just under and just over", () => {
+    const maximum = maximumHopGroundDistanceKm(300);
+    const justUnder = minimumHopCount(3 * maximum - 1, 300);
+    const justOver = minimumHopCount(3 * maximum + 1, 300);
+    expect(justUnder).toBe(3);
+    expect(justOver).toBe(4);
+    for (const [distance, hops] of [
+      [3 * maximum - 1, justUnder],
+      [3 * maximum + 1, justOver],
+    ] as const) {
+      const geometry = hopGeometry({
+        groundDistanceKm: distance,
+        hopCount: hops,
+        mirrorHeightKm: 300,
+      });
+      expect(geometry.kind).toBe("supported");
+    }
+    // One fewer hop than it names does not exist, so the count is minimal and
+    // not merely safe.
+    expect(
+      hopGeometry({
+        groundDistanceKm: 3 * maximum - 1,
+        hopCount: justUnder - 1,
+        mirrorHeightKm: 300,
+      }).kind,
+    ).toBe("unsupported");
+  });
+
   it("puts the grazing ray exactly at the maximum hop length", () => {
     const maximum = maximumHopGroundDistanceKm(300);
     const justInside = supported(maximum - 1, 1, 300);

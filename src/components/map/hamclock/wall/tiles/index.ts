@@ -54,7 +54,6 @@ export type TileId =
   | "reliability"
   | "muf"
   | "alerts"
-  | "rim"
   | "emcomm"
   | "sdrScope"
   | "wsjtx"
@@ -62,7 +61,8 @@ export type TileId =
   | "recentContacts"
   | "dxTarget"
   | "contests"
-  | "dxpeditions";
+  | "dxpeditions"
+  | "rim";
 
 export interface WallTile {
   title: string;
@@ -90,7 +90,6 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   reliability: { title: "24h reliability", Component: ReliabilityTile },
   muf: { title: "MUF", Component: MufTile },
   alerts: { title: "Weather alerts", Component: AlertsTile },
-  rim: { title: "Radio impact", Component: RimTile },
   emcomm: { title: "Emcomm", Component: EmcommTile },
   wsjtx: { title: "WSJT-X", Component: WsjtxTile },
   sdrScope: { title: "Band scope", Component: SdrScopeTile },
@@ -103,4 +102,5 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   dxTarget: { title: "DX target", Component: DxTargetTile },
   contests: { title: "Contests", Component: ContestsTile },
   dxpeditions: { title: "DXpeditions", Component: DxpeditionsTile },
+  rim: { title: "Radio impact", Component: RimTile },
 };

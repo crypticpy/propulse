@@ -31,10 +31,12 @@ export function resolveE2EPort(): number {
  * reuse a listener that answers /__propulse_dev_session with either a
  * different worktree's root (a same-port server from another checkout
  * would otherwise let this branch's tests run silently against different
- * source code) or a profile other than "local" (both Playwright commands
- * request --profile local for the AuthGate bypass; a `connected` or
- * `manual` shared server would pass the root check and then fail every
- * test at AuthGate instead).
+ * source code) or the wrong profile: both Playwright commands request
+ * --profile local for the AuthGate bypass, except when PROPULSE_E2E_GUEST=1
+ * enables tests/home/guest.spec.ts (see the test.skip guard there), which
+ * needs a `connected`-profile server for its disposable configured auth —
+ * a `local` or `manual` shared server would otherwise pass the root check
+ * and then fail every test at AuthGate instead of naming the real cause.
  */
 export default async function globalSetup(): Promise<void> {
   const port = resolveE2EPort();
@@ -61,5 +63,12 @@ export default async function globalSetup(): Promise<void> {
     profile?: string;
   };
   const thisRoot = await realpath(process.cwd());
-  assertSharedServerIdentity(identity, { root: thisRoot });
+  const guestMode = process.env.PROPULSE_E2E_GUEST === "1";
+  assertSharedServerIdentity(identity, {
+    root: thisRoot,
+    profile: guestMode ? "connected" : "local",
+    reason: guestMode
+      ? "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server"
+      : "both Playwright commands request --profile local for the AuthGate bypass",
+  });
 }

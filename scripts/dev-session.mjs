@@ -137,21 +137,25 @@ export async function portAvailable(port) {
 // Shared by tests/support/sharedServer.ts's globalSetup: the identity a
 // browser suite fetched from /__propulse_dev_session must both belong to
 // this worktree AND be running the profile that suite requires (Playwright
-// requests --profile local so AuthGate is bypassed; a `connected` or
-// `manual` session would otherwise pass the root check and still fail every
-// test downstream at AuthGate). Throws with a message naming the found and
-// required profile, or the found and expected root, on mismatch.
+// requests --profile local so AuthGate is bypassed, except when
+// PROPULSE_E2E_GUEST=1 enables tests/home/guest.spec.ts, which needs a
+// `connected`-profile server for its disposable configured auth; a
+// mismatched session would otherwise pass the root check and still fail
+// every test downstream at AuthGate instead of naming the real cause).
+// Throws with a message naming the found and required profile (plus the
+// caller-supplied reason, when given), or the found and expected root, on
+// mismatch.
 export function assertSharedServerIdentity(
   identity,
-  { root, profile = "local" } = {},
+  { root, profile = "local", reason } = {},
 ) {
   if (identity?.profile !== profile) {
     throw new Error(
       `The shared dev server is running profile "${identity?.profile ?? "unknown"}" ` +
         `(owner=${identity?.owner ?? "unknown"}, url=${identity?.url ?? "unknown"}); ` +
-        `this suite requires profile "${profile}". Ask the server's owner or ` +
-        "the orchestrator to restart it with the required profile — never " +
-        "start a second server to work around this.",
+        `this suite requires profile "${profile}"${reason ? ` (${reason})` : ""}. ` +
+        "Ask the server's owner or the orchestrator to restart it with the " +
+        "required profile — never start a second server to work around this.",
     );
   }
   if (identity?.root !== root) {

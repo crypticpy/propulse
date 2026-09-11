@@ -8,7 +8,6 @@ Process — how work is claimed, branched, reviewed, merged, and marked done —
 
 ```bash
 npm run dev              # Vite dev server at http://localhost:5173 (owner, manual use; agents use dev:session)
-# One dev server per machine (port 5173). Agents never start one; use the shared server the orchestrator names.
 npm run build            # tsc -b && vite build (typecheck + bundle)
 npm run lint             # eslint . --max-warnings 0 (zero tolerance)
 npm run check:bundles    # Enforce bundle size budgets
@@ -28,7 +27,7 @@ Vitest is the test runner (`npm run test`; focused runs via `npx vitest run <pat
 ## Shared-machine rules (several agents run here at once)
 
 - Tests: use `npm test` (`vitest run`). Never `vitest` watch mode in an agent session. The config caps workers at 4; set `VITEST_MAX_WORKERS` only when the machine has nothing else running.
-- Dev servers: one per machine, at `http://localhost:5173`, owned by the human or the orchestrator. Run `npm run dev:session -- status` first and use the shared server if it's running; if it isn't, report that and stop — agents never start one (`npm run dev`, `dev:session start`, `vite`, `vite preview`, or a Playwright `webServer`). `dev:session start` itself refuses when any server is already listening.
+- Dev servers: run `npm run dev:session status` first. Reuse a live session for your owner/task; start a new one only if none fits, and stop it (Ctrl-C) when your check is done. Plain `npm run dev` is for the owner's manual use only; agents never start it (it does not register ownership).
 - One `npm run verify` at a time per machine: check `pgrep -fl "[v]itest"` and `pgrep -fl "[t]sc -b"` before starting (the bracket keeps the probe from matching its own shell); wait if another run is in progress.
 - Prefer Vercel preview deployments over local servers for visual checks (owner rule, 2026-08-30).
 

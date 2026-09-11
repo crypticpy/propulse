@@ -400,6 +400,55 @@ test("assertSharedServerIdentity refuses a mismatched root even with the right p
   );
 });
 
+// Round 10 P2 (fL9m): tests/support/sharedServer.ts's globalSetup translates
+// PROPULSE_E2E_GUEST=1 into a required "connected" profile (guest.spec.ts
+// needs disposable configured auth, not the local AuthGate bypass) and
+// passes a `reason` naming guest mode so a mismatch doesn't just say
+// "local" — a bare default-profile assert here would reject a correctly
+// configured connected server the moment guest mode was on.
+test("assertSharedServerIdentity accepts a connected profile when guest mode requires it", () => {
+  assert.doesNotThrow(() =>
+    assertSharedServerIdentity(
+      { root: "/repo/checkout", profile: "connected" },
+      {
+        root: "/repo/checkout",
+        profile: "connected",
+        reason: "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server",
+      },
+    ),
+  );
+});
+
+test("assertSharedServerIdentity refuses a local profile when guest mode requires connected, naming guest mode", () => {
+  assert.throws(
+    () =>
+      assertSharedServerIdentity(
+        { root: "/repo/checkout", profile: "local" },
+        {
+          root: "/repo/checkout",
+          profile: "connected",
+          reason: "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server",
+        },
+      ),
+    /"local".*"connected".*PROPULSE_E2E_GUEST=1/s,
+  );
+});
+
+test("assertSharedServerIdentity refuses a connected profile when the suite isn't in guest mode", () => {
+  assert.throws(
+    () =>
+      assertSharedServerIdentity(
+        { root: "/repo/checkout", profile: "connected" },
+        {
+          root: "/repo/checkout",
+          profile: "local",
+          reason: "both Playwright commands request --profile local for the AuthGate bypass",
+        },
+      ),
+    /"connected".*"local".*AuthGate bypass/s,
+  );
+});
+
 // Codex P2 (825t..., then 9zKC): claimants racing to reclaim the same
 // dead-pid claim must never let more than one win it. The reclaim decision
 // (stale? unlink, then create) is a critical section serialized per port by

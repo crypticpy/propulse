@@ -469,7 +469,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       {activeSource === "default" && bandModeHistory.length === 0 && (
         <button
           onClick={() => setIsModalOpen(true)}
-          className="w-full rounded-lg bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left animate-pulse cursor-pointer"
+          className="w-full rounded-lg bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <svg

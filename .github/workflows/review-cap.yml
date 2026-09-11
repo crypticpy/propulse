@@ -28,18 +28,25 @@ jobs:
     # GITHUB_TOKEN on every trigger, so every trigger is gated on write
     # access before anything downstream (labelling, the architect's
     # gh/GraphQL calls) can run. `pull_request` additionally excludes forks
-    # outright — the PR head is never executed here. `user.type == 'Bot'` is
-    # also admitted for reviews/comments: the fifth Codex review (author
-    # chatgpt-codex-connector[bot]) is what is supposed to trigger `count`
-    # and `post-cap-resolver`, but its `author_association` is never
-    # OWNER/MEMBER/COLLABORATOR, so without this it can never fire (finding 3
-    # of PR #1067's second review). This is safe to admit: a bot-authored event
-    # still never causes any PR-head code to execute — `count` and
+    # outright — the PR head is never executed here. An explicit bot-login
+    # allow-list (mirror of REVIEW_BOT_LOGINS in scripts/review-cap.mjs:
+    # chatgpt-codex-connector[bot], sourcery-ai[bot]) is also admitted for
+    # reviews/comments: the fifth Codex review is what is supposed to
+    # trigger `count` and `post-cap-resolver`, but its `author_association`
+    # is never OWNER/MEMBER/COLLABORATOR, so without this it can never fire
+    # (finding 3 of PR #1067's second review). A bare `user.type == 'Bot'`
+    # previously admitted ANY installed GitHub App here, and neither this
+    # event nor `issue_comment` carries a same-repo test the way `pull_request`
+    # does, so a bot comment on a fork PR could start the secret-bearing
+    # `architect` job over fork-authored content (finding 3 of PR #1067's
+    # third review) — the `architect` job below additionally requires
+    # `same_repo` for defence in depth. A bot-authored trigger still never
+    # causes any PR-head code to execute here — `count` and
     # `post-cap-resolver` only ever check out the trusted default branch.
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'pull_request_review' && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || github.event.review.user.type == 'Bot')) ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) || github.event.comment.user.type == 'Bot'))
+      (github.event_name == 'pull_request_review' && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || contains(fromJSON('["chatgpt-codex-connector[bot]","sourcery-ai[bot]"]'), github.event.review.user.login))) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) || contains(fromJSON('["chatgpt-codex-connector[bot]","sourcery-ai[bot]"]'), github.event.comment.user.login)))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -48,6 +55,7 @@ jobs:
     outputs:
       pr: ${{ steps.resolve.outputs.pr }}
       head_sha: ${{ steps.resolve.outputs.head_sha }}
+      same_repo: ${{ steps.resolve.outputs.same_repo }}
       rounds: ${{ steps.status.outputs.rounds }}
       capped: ${{ steps.status.outputs.capped }}
       reviewed: ${{ steps.status.outputs.reviewed }}
@@ -62,15 +70,19 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           if [ "$EVENT_NAME" = "issue_comment" ]; then
             PR="$ISSUE_NUMBER"
-            HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
+            PR_JSON=$(gh api "repos/${REPO}/pulls/${PR}" --jq '{sha: .head.sha, repo: (.head.repo.full_name // "")}') \
               || { echo "::error::could not resolve the PR head for #${PR}"; exit 1; }
+            HEAD_SHA=$(printf '%s' "$PR_JSON" | jq -r '.sha')
+            HEAD_REPO=$(printf '%s' "$PR_JSON" | jq -r '.repo')
           else
             PR="$PR_NUMBER"
             HEAD_SHA="$PR_HEAD_SHA"
+            HEAD_REPO="$PR_HEAD_REPO"
           fi
           if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
             echo "::error::resolved PR number '${PR}' is not numeric"
@@ -78,6 +90,14 @@ jobs:
           fi
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          # Feeds the `architect` job's fork gate below: a deleted fork's
+          # head.repo is null, which resolves to an empty string here and so
+          # never equals $REPO — same_repo defaults closed, not open.
+          if [ "$HEAD_REPO" = "$REPO" ]; then
+            echo "same_repo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "same_repo=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Check out the default branch to run the trusted review-cap script
         # A PR must never be able to grade its own review cap: this checks
         # out main, not the PR head, so a PR editing scripts/review-cap.mjs
@@ -182,7 +202,12 @@ jobs:
     # — a custom `if` without a status function already requires every listed
     # `needs` job to have succeeded, so `label` is deliberately not listed.
     needs: count
-    if: needs.count.outputs.capped == 'true' && needs.count.outputs.reviewed != 'true'
+    # `same_repo` (computed by `count` above) is the defence in depth against
+    # a bot comment on a fork PR reaching this secret-bearing job: even if
+    # the trigger-level allow-list in `count`'s `if:` were ever widened again,
+    # a fork PR still cannot start `architect` (finding 3 of PR #1067's third
+    # review).
+    if: needs.count.outputs.capped == 'true' && needs.count.outputs.reviewed != 'true' && needs.count.outputs.same_repo == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -230,14 +255,25 @@ jobs:
           fi
           echo "::error::ANTHROPIC_API_KEY is not set; the architecture review cannot run."
           exit 1
+      - name: Check out the default branch to run the trusted review-cap script
+        # Same reasoning as pr-contract.yml and the `count`/`post-cap-resolver`
+        # jobs above: the thread and prior-issue lookups below run
+        # scripts/review-cap.mjs, so they must come from the default branch,
+        # never the PR head (this job's `pr-head/` checkout above is
+        # read-only content for the model, not a source of trusted code).
+        if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: base
       - name: Pre-compute review context
         # Everything Claude needs that must be trustworthy (which threads are
         # still open, which issue to reuse, the exact head to name) is
-        # computed here in plain shell, not derived by the model, and handed
-        # to it as read-only files. Claude never holds a tool capable of
-        # mutating the repo (finding 5 of PR #1067's review) — only a scoped
-        # `Write` to a single output file, validated below before any side
-        # effect is taken from it.
+        # computed here in plain shell/scripts/review-cap.mjs, not derived by
+        # the model, and handed to it as read-only files. Claude never holds
+        # a tool capable of mutating the repo (finding 5 of PR #1067's
+        # review) — only a scoped `Write` to a single output file, validated
+        # below before any side effect is taken from it.
         id: precompute
         if: steps.key.outputs.present == 'true'
         env:
@@ -248,53 +284,33 @@ jobs:
         run: |
           HEAD7=$(printf '%s' "$HEAD_SHA" | cut -c1-7)
           echo "head7=$HEAD7" >> "$GITHUB_OUTPUT"
-          OWNER="${REPO%%/*}"
-          NAME="${REPO##*/}"
-          THREADS_JSON=$(gh api graphql -f query='
-              query($owner:String!, $name:String!, $pr:Int!) {
-                repository(owner:$owner, name:$name) {
-                  pullRequest(number:$pr) {
-                    reviewThreads(first:100) {
-                      nodes {
-                        id
-                        isResolved
-                        comments(first:20) {
-                          nodes { author { login __typename } authorAssociation body }
-                        }
-                      }
-                    }
-                  }
-                }
-              }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR") \
-            || { echo "::error::could not list review threads"; exit 1; }
           mkdir -p review-cap-input
-          # Skip every human-started thread, of any author_association: this
-          # file is what a human review is, and CI does not get to reply to
-          # it or resolve it, only to bot-started findings (finding 10 of PR
-          # #1067's review; finding 8 of PR #1067's second review tightened
-          # this from "write-access human" to "any human" — an outside
-          # contributor's blocking comment must not be auto-resolved either).
-          printf '%s' "$THREADS_JSON" | jq '
-              [.data.repository.pullRequest.reviewThreads.nodes[]
-                | select(.isResolved == false)
-                | select(.comments.nodes[0].author.__typename != "User")
-                | {id, firstComment: .comments.nodes[0].body}
-              ]' > review-cap-input/unresolved-threads.json \
-            || { echo "::error::could not filter review threads"; exit 1; }
+          # `threads` (base/scripts/review-cap.mjs) paginates reviewThreads
+          # itself (finding 8 of PR #1067's third review: `first:100` with no
+          # `pageInfo` handling silently dropped anything past the first 100)
+          # and applies the exact-`"Bot"` filter (finding 2: a `!= "User"`
+          # filter wrongly admitted a deleted account, a Mannequin, or an
+          # Organization). `.all` carries every thread, resolved or not, with
+          # every comment, so the architecture review can judge the finding
+          # family across all rounds, not just what remains open (finding 9).
+          THREADS_RESULT=$(node base/scripts/review-cap.mjs threads "$REPO" "$PR") \
+            || { echo "::error::could not list review threads"; exit 1; }
+          printf '%s' "$THREADS_RESULT" | jq '.unresolvedBot' > review-cap-input/unresolved-threads.json
+          printf '%s' "$THREADS_RESULT" | jq '.all' > review-cap-input/all-threads.json
           # Reuse the follow-up issue from the most recent prior
           # architecture-review comment on this PR (any head) instead of
           # filing a new one on every push (finding 6 of PR #1067's review).
-          # Last verdict line wins, matching evaluateReviewCap's own
-          # last-match-wins resolution. Author-filtered the same way
-          # scripts/review-cap.mjs's ALLOWED_REVIEWERS gates a valid
-          # architecture review — without it, anyone could plant a
-          # look-alike "**architecture review**...Verdict: ship (#N)"
-          # comment and hijack which issue the real automation reuses
-          # (finding 5 of PR #1067's second review).
-          PRIOR_BODY=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
-              --jq '[.[] | select(.user.login == "github-actions[bot]" or .user.login == "propulse-bot[bot]" or .user.login == "crypticpy") | select(.body | test("\\*\\*architecture review\\*\\*")) | .body] | last') \
-            || { echo "::error::could not list PR comments for the prior architecture review"; exit 1; }
-          PRIOR_ISSUE=$(printf '%s' "$PRIOR_BODY" | grep -Eo 'Verdict:[[:space:]]*(ship|redesign)[[:space:]]*\(#[0-9]+\)' | tail -1 | grep -Eo '[0-9]+' || true)
+          # `prior-issue` runs every candidate comment through the SAME
+          # trusted parser (parseArchitectureReview) and author allow-list
+          # (ALLOWED_REVIEWERS) the merge gate itself uses, rather than a
+          # jq/grep substring match a forged "**architecture review**...
+          # Verdict: ship (#N)" comment could satisfy without being a real
+          # one (finding 5 of PR #1067's second review; finding 6 of PR
+          # #1067's third review tightened the lookup to reuse that exact
+          # parser instead of a look-alike-vulnerable grep).
+          PRIOR_RESULT=$(node base/scripts/review-cap.mjs prior-issue "$REPO" "$PR") \
+            || { echo "::error::could not resolve the prior architecture-review issue"; exit 1; }
+          PRIOR_ISSUE=$(printf '%s' "$PRIOR_RESULT" | jq -r '.issue // empty')
           printf '%s' "${PRIOR_ISSUE:-}" > review-cap-input/prior-issue.txt
           echo "prior_issue=${PRIOR_ISSUE:-}" >> "$GITHUB_OUTPUT"
       - name: Run the architecture review
@@ -338,11 +354,15 @@ jobs:
             you compute yourself.
 
             `review-cap-input/unresolved-threads.json` (read it with `Read`) lists every
-            currently-unresolved bot review thread, each with its first comment. Every
-            comment in every thread, resolved or not, across all rounds, is evidence for
-            your decision — read the full `gh pr view --json title,body,files` and `gh pr
-            diff` output too, not just the open threads in isolation. Read the flagged
-            files under `pr-head/` as needed to judge the design, not just the diff hunks.
+            currently-unresolved bot-started review thread, each with its first comment —
+            this is what a `ship` verdict resolves. `review-cap-input/all-threads.json`
+            lists every thread from every round, resolved or not, with every comment in it
+            (author login and body) — read this, not just the unresolved list, to judge the
+            finding family across all rounds; it is your only way to see resolved threads,
+            since your allowed tools cannot query review threads themselves. Also read the
+            full `gh pr view --json title,body,files` and `gh pr diff` output, and the
+            flagged files under `pr-head/` as needed to judge the design, not just the diff
+            hunks.
 
             ## 1. Name the finding family
 
@@ -437,10 +457,21 @@ jobs:
           REPO: ${{ github.repository }}
           PRIOR_ISSUE: ${{ steps.precompute.outputs.prior_issue }}
           TITLE: ${{ steps.validate.outputs.title }}
+          HEAD7: ${{ steps.precompute.outputs.head7 }}
         run: |
           if [ -n "$PRIOR_ISSUE" ]; then
             echo "Reusing prior follow-up issue #${PRIOR_ISSUE}."
             echo "issue=$PRIOR_ISSUE" >> "$GITHUB_OUTPUT"
+            # The freshly validated title/body from this run is model output
+            # for THIS head; discarding it on reuse meant the reused issue
+            # never recorded what a later push's residual edges actually were
+            # (finding 7 of PR #1067's third review). Appended as a comment,
+            # not a body PATCH, so two concurrent runs reusing the same issue
+            # cannot race each other's read-modify-write.
+            { printf '## Update for %s\n\n' "$HEAD7"; cat /tmp/review-cap-issue-body.md; } \
+              > /tmp/review-cap-issue-update.md
+            gh api -X POST "repos/${REPO}/issues/${PRIOR_ISSUE}/comments" -F body=@/tmp/review-cap-issue-update.md >/dev/null \
+              || echo "::error::could not append the update for ${HEAD7} to issue #${PRIOR_ISSUE}"
           else
             ISSUE_URL=$(gh api -X POST "repos/${REPO}/issues" \
                 -f title="$TITLE" -F body=@/tmp/review-cap-issue-body.md --jq '.number') \
@@ -472,8 +503,14 @@ jobs:
         # would otherwise stay stuck on its pre-verdict result forever
         # (finding 2 of PR #1067's second review). pr-contract reads comments live,
         # so re-running its latest run for this head re-evaluates the verdict
-        # just posted. Best-effort: a failure here just means the PR needs a
-        # manual re-run, not that the verdict failed to post.
+        # just posted. A run that is still executing may already have fetched
+        # the comments, so it cannot be trusted to see this change: wait for
+        # it to finish (same retry helper and wait-then-rerun loop as
+        # pr-contract.yml's own `rerun-on-design-review-comment` job), then
+        # re-run it — POSTing `/rerun` while the run is in progress returns
+        # 403, which this used to swallow as a warning, leaving the required
+        # check red after a ship verdict (finding 1 of PR #1067's third
+        # review). A final failure here is now a hard error, not a warning.
         if: steps.key.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -481,15 +518,34 @@ jobs:
           PR: ${{ needs.count.outputs.pr }}
           HEAD_SHA: ${{ needs.count.outputs.head_sha }}
         run: |
-          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
+          api() {
+            local label=$1 n out; shift
+            for n in 1 2 3 4 5; do
+              if out=$(gh api "$@"); then printf '%s' "$out"; return 0; fi
+              echo "::warning::${label} failed (attempt ${n}/5)" >&2; sleep $((n * 10))
+            done
+            return 1
+          }
+          RUN_ID=$(api "pr-contract run lookup" "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
               --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == ${PR}))] | first | .id // empty") \
-            || { echo "::warning::could not look up the latest pr-contract run for ${HEAD_SHA}"; exit 0; }
+            || { echo "::error::could not look up the latest pr-contract run for ${HEAD_SHA} after 5 attempts"; exit 1; }
           if [ -z "$RUN_ID" ]; then
             echo "No pr-contract run found for ${HEAD_SHA} yet; the next push or comment evaluates the verdict."
             exit 0
           fi
-          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
-            || echo "::warning::could not re-run pr-contract run ${RUN_ID} for ${HEAD_SHA}"
+          for _ in $(seq 1 60); do
+            STATUS=$(api "run status lookup" "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status') \
+              || { echo "::error::could not read run ${RUN_ID} after 5 attempts"; exit 1; }
+            [ "$STATUS" = "completed" ] && break
+            sleep 10
+          done
+          if [ "$STATUS" != "completed" ]; then
+            echo "::error::pr-contract run ${RUN_ID} still ${STATUS} after 10 minutes; re-run it manually"
+            exit 1
+          fi
+          api "pr-contract rerun" -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
+            || { echo "::error::could not re-run pr-contract run ${RUN_ID} for ${HEAD_SHA} after 5 attempts"; exit 1; }
+          echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"
       - name: Apply the verdict
         if: steps.key.outputs.present == 'true'
         env:
@@ -571,49 +627,51 @@ jobs:
             echo "No shipped follow-up for this head; nothing to resolve."
             exit 0
           fi
-          OWNER="${REPO%%/*}"
-          NAME="${REPO##*/}"
-          # Only bot-started threads: any human's genuine blocking comment on
-          # a capped, shipped PR, regardless of author_association, must not
-          # be auto-dismissed by CI (finding 10 of PR #1067's review; finding
-          # 8 of PR #1067's second review tightened this from "write-access
-          # human" to "any human").
-          THREADS=$(gh api graphql -f query='
-              query($owner:String!, $name:String!, $pr:Int!) {
-                repository(owner:$owner, name:$name) {
-                  pullRequest(number:$pr) {
-                    reviewThreads(first:100) {
-                      nodes {
-                        id
-                        isResolved
-                        comments(first:1) { nodes { author { login __typename } authorAssociation } }
-                      }
-                    }
-                  }
-                }
-              }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
-              --jq '[.data.repository.pullRequest.reviewThreads.nodes[]
-                | select(.isResolved == false)
-                | select(.comments.nodes[0].author.__typename != "User")
-                | .id] | .[]') \
+          # `threads` paginates (finding 8 of PR #1067's third review) and
+          # applies the same exact-`"Bot"` filter as the architect job's
+          # precompute step: any human's genuine blocking comment on a
+          # capped, shipped PR, regardless of author_association or whether
+          # the account is deleted/migrated/an org, must not be
+          # auto-dismissed by CI (finding 10 of PR #1067's review; finding 8
+          # of PR #1067's second review tightened this from "write-access
+          # human" to "any human"; finding 2 of PR #1067's third review fixed
+          # the `!= "User"` filter to admit only an exact `"Bot"` match).
+          THREADS_RESULT=$(node scripts/review-cap.mjs threads "$REPO" "$PR") \
             || { echo "::error::could not list review threads"; exit 1; }
+          THREADS=$(printf '%s' "$THREADS_RESULT" | jq -r '.unresolvedBot[].id')
           if [ -z "$THREADS" ]; then
             echo "No unresolved bot-started threads."
             exit 0
           fi
+          api() {
+            local label=$1 n out; shift
+            for n in 1 2 3; do
+              if out=$(gh api "$@"); then printf '%s' "$out"; return 0; fi
+              echo "::warning::${label} failed (attempt ${n}/3)" >&2; sleep $((n * 5))
+            done
+            return 1
+          }
           MESSAGE="Review cap reached at round ${ROUNDS} (#1054); tracked in #${ISSUE}."
+          FAILED=0
           while IFS= read -r THREAD_ID; do
             [ -n "$THREAD_ID" ] || continue
-            gh api graphql -f query='
+            api "reply to thread ${THREAD_ID}" graphql -f query='
                 mutation($id:ID!, $body:String!) {
                   addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id, body:$body}) {
                     comment { id }
                   }
                 }' -F id="$THREAD_ID" -F body="$MESSAGE" >/dev/null \
-              || { echo "::error::could not reply to thread ${THREAD_ID}"; continue; }
-            gh api graphql -f query='
+              || { echo "::error::could not reply to thread ${THREAD_ID} after 3 attempts"; FAILED=1; continue; }
+            api "resolve thread ${THREAD_ID}" graphql -f query='
                 mutation($id:ID!) {
                   resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } }
                 }' -F id="$THREAD_ID" >/dev/null \
-              || echo "::error::could not resolve thread ${THREAD_ID}"
+              || { echo "::error::could not resolve thread ${THREAD_ID} after 3 attempts"; FAILED=1; }
           done <<< "$THREADS"
+          # Accumulate failures instead of swallowing them per-thread: a
+          # thread this job fails to drain must not be reported as a clean
+          # run (finding 10 of PR #1067's third review).
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::one or more post-cap threads could not be resolved; see errors above"
+            exit 1
+          fi

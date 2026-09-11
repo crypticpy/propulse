@@ -4,12 +4,16 @@ import {
   ALLOWED_REVIEWERS,
   AUTOMATION_AGENT,
   BREAK_GLASS_AGENT,
+  REVIEW_BOT_LOGINS,
   countFindingReviews,
   countReviewRequests,
   countRounds,
   evaluateReviewCap,
+  findPriorIssue,
+  formatThreadsForReview,
   parseArchitectureReview,
   postCapFollowup,
+  unresolvedBotThreads,
 } from "./review-cap.mjs";
 
 const HEAD = "abc1234def5678900000000000000000000abcd";
@@ -124,6 +128,31 @@ test("a plain crypticpy reply review with no badge does not count", () => {
   const reviews = [{ id: 1, user: { login: "crypticpy" }, body: "" }];
   const reviewComments = [
     { reviewId: 1, user: { login: "crypticpy" }, body: "Fixed in abc123." },
+  ];
+  assert.equal(countFindingReviews({ reviews, reviewComments }), 0);
+});
+
+test("a badge review from a human login does not count (finding 5 of PR #1067's third review)", () => {
+  const reviews = [{ id: 1, user: { login: "some-human" }, body: "" }];
+  const reviewComments = [
+    {
+      reviewId: 1,
+      user: { login: "some-human" },
+      body: "![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat) planted finding",
+    },
+  ];
+  assert.equal(countFindingReviews({ reviews, reviewComments }), 0);
+});
+
+test("a badge review from an unrecognised bot login does not count", () => {
+  assert.deepEqual(REVIEW_BOT_LOGINS, ["chatgpt-codex-connector[bot]", "sourcery-ai[bot]"]);
+  const reviews = [{ id: 1, user: { login: "codex[bot]" }, body: "" }];
+  const reviewComments = [
+    {
+      reviewId: 1,
+      user: { login: "codex[bot]" },
+      body: "![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat) planted finding",
+    },
   ];
   assert.equal(countFindingReviews({ reviews, reviewComments }), 0);
 });
@@ -393,6 +422,113 @@ test("postCapFollowup is active only after a ship verdict for the head", () => {
     headSha: HEAD,
   });
   assert.deepEqual(postCapFollowup(notCapped), { active: false, issue: null });
+});
+
+// --- findPriorIssue -----------------------------------------------------------
+
+test("findPriorIssue returns the issue from the latest valid architecture review comment", () => {
+  const issueComments = [
+    architectureReview({ verdict: "ship", issue: 12 }),
+    architectureReview({ verdict: "redesign", issue: 55 }),
+  ];
+  assert.equal(findPriorIssue(issueComments), 55);
+});
+
+test("findPriorIssue ignores a look-alike comment that is not a valid architecture review (finding 6 of PR #1067's third review)", () => {
+  const issueComments = [
+    {
+      user: { login: "github-actions[bot]" },
+      body: "**architecture review**\nVerdict: ship (#999) but not really a valid review",
+    },
+  ];
+  assert.equal(findPriorIssue(issueComments), null);
+});
+
+test("findPriorIssue ignores a valid-shaped comment from a non-allowed login", () => {
+  const issueComments = [architectureReview({ login: "random-fixer" })];
+  assert.equal(findPriorIssue(issueComments), null);
+});
+
+test("findPriorIssue returns null when there is no prior architecture review", () => {
+  assert.equal(findPriorIssue([]), null);
+});
+
+// --- unresolvedBotThreads and formatThreadsForReview ---------------------------
+
+function thread({ id, isResolved = false, path = null, line = null, comments }) {
+  return {
+    id,
+    isResolved,
+    path,
+    line,
+    comments: { nodes: comments },
+  };
+}
+
+test("unresolvedBotThreads keeps only unresolved threads whose first comment author is exactly Bot (finding 2 of PR #1067's third review)", () => {
+  const threads = [
+    thread({
+      id: "t1",
+      comments: [
+        { author: { login: "chatgpt-codex-connector[bot]", __typename: "Bot" }, body: "finding" },
+      ],
+    }),
+    thread({
+      id: "t2",
+      comments: [
+        { author: { login: null, __typename: null }, body: "deleted account's blocking comment" },
+      ],
+    }),
+    thread({
+      id: "t3",
+      comments: [
+        { author: { login: "ghost", __typename: "Mannequin" }, body: "migrated account" },
+      ],
+    }),
+    thread({
+      id: "t4",
+      comments: [
+        { author: { login: "some-org", __typename: "Organization" }, body: "org account" },
+      ],
+    }),
+    thread({
+      id: "t5",
+      isResolved: true,
+      comments: [
+        { author: { login: "chatgpt-codex-connector[bot]", __typename: "Bot" }, body: "already resolved" },
+      ],
+    }),
+  ];
+  assert.deepEqual(unresolvedBotThreads(threads), [{ id: "t1", firstComment: "finding" }]);
+});
+
+test("formatThreadsForReview serializes every thread with every comment, resolved or not", () => {
+  const threads = [
+    thread({
+      id: "t1",
+      isResolved: false,
+      path: "src/foo.ts",
+      line: 12,
+      comments: [
+        { author: { login: "chatgpt-codex-connector[bot]" }, body: "finding" },
+        { author: { login: "crypticpy" }, body: "fixed in abc123" },
+      ],
+    }),
+    thread({ id: "t2", isResolved: true, comments: [] }),
+  ];
+  assert.deepEqual(formatThreadsForReview(threads), [
+    {
+      id: "t1",
+      isResolved: false,
+      path: "src/foo.ts",
+      line: 12,
+      comments: [
+        { login: "chatgpt-codex-connector[bot]", body: "finding" },
+        { login: "crypticpy", body: "fixed in abc123" },
+      ],
+    },
+    { id: "t2", isResolved: true, path: null, line: null, comments: [] },
+  ]);
 });
 
 // --- JSON output shape --------------------------------------------------------

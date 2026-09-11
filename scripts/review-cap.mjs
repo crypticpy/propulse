@@ -20,11 +20,24 @@ import { fileURLToPath } from "node:url";
 const REVIEW_REQUEST = /^@codex review\b/i;
 const SOURCERY_LOGIN = /^sourcery-ai\[bot\]$/i;
 // A Codex review is identified by this badge on at least one of its inline
-// comments, whatever login posts it. Empirically (verified live against
-// #874 and #894) Codex posts as `chatgpt-codex-connector[bot]`, not "under
-// the linked user's login" as issue #1054 originally assumed; the
-// badge-based match is login-agnostic so that discrepancy does not matter.
+// comments. Empirically (verified live against #874 and #894) Codex posts as
+// `chatgpt-codex-connector[bot]`, not "under the linked user's login" as
+// issue #1054 originally assumed.
 const BADGE = /img\.shields\.io\/badge\/P[0-3]\b/i;
+
+/**
+ * The only logins whose reviews count toward the cap, and (mirrored as a
+ * workflow-level login allow-list, since a workflow `if:` cannot import this
+ * file) the only bot logins `review-cap.yml` admits from `pull_request_review`
+ * and `issue_comment` triggers. Restricting `countFindingReviews` to this set
+ * closes a hole where any login could plant a badge- or Sourcery-shaped
+ * comment to force the cap and its secret-bearing architecture review
+ * (finding 5 of PR #1067's third review).
+ */
+export const REVIEW_BOT_LOGINS = ["chatgpt-codex-connector[bot]", "sourcery-ai[bot]"];
+const REVIEW_BOT_LOGIN_SET = new Set(
+  REVIEW_BOT_LOGINS.map((login) => login.toLowerCase()),
+);
 const HEADING = /\*\*architecture review\*\*/i;
 const AGENT_LINE = /^-\s*agent:\s*(.+?)\s*$/im;
 const REVIEWED_LINE = /^-\s*Reviewed:\s*([0-9a-f]{7,40})\b/im;
@@ -58,13 +71,15 @@ export function countReviewRequests(issueComments, allowedRequesters = REQUEST_L
 }
 
 /**
- * Distinct PR reviews that left inline findings: a Codex review is
- * identified by the `img.shields.io/badge/P[0-3]` badge (P0-P3, the full
- * severity set Codex posts — a P0-only review was previously invisible to
- * the cap) on at least one of its inline comments (whatever login posts
- * it); a Sourcery review is
- * identified by the `sourcery-ai[bot]` login with at least one inline
- * comment (a budget-exhausted refusal has none).
+ * Distinct PR reviews that left inline findings, counted only when the
+ * review's own login is a recognised review bot (`REVIEW_BOT_LOGINS`) — a
+ * human (or any other account) planting the same badge or Sourcery-shaped
+ * comment must not be able to force the cap (finding 5 of PR #1067's third
+ * review). A Codex review is identified by the `img.shields.io/badge/P[0-3]`
+ * badge (P0-P3, the full severity set Codex posts — a P0-only review was
+ * previously invisible to the cap) on at least one of its inline comments; a
+ * Sourcery review is identified by the `sourcery-ai[bot]` login with at
+ * least one inline comment (a budget-exhausted refusal has none).
  */
 export function countFindingReviews({ reviews, reviewComments }) {
   const commentsByReview = new Map();
@@ -77,8 +92,9 @@ export function countFindingReviews({ reviews, reviewComments }) {
   }
   const findingIds = new Set();
   for (const review of reviews) {
+    const login = (review.user?.login ?? "").toLowerCase();
+    if (!REVIEW_BOT_LOGIN_SET.has(login)) continue;
     const ownComments = commentsByReview.get(review.id) ?? [];
-    const login = review.user?.login ?? "";
     if (ownComments.some((comment) => BADGE.test(comment.body ?? ""))) {
       findingIds.add(review.id);
     } else if (SOURCERY_LOGIN.test(login) && ownComments.length > 0) {
@@ -200,6 +216,66 @@ export function postCapFollowup(evaluation) {
   return { active, issue: active ? evaluation.issue : null };
 }
 
+/**
+ * The issue number from the latest comment accepted by the SAME trusted
+ * parser (`parseArchitectureReview`) and author allow-list the merge gate
+ * uses, ignoring the head check. Used to decide whether the architecture
+ * review reuses a prior follow-up issue instead of filing a new one on every
+ * push. A comment with the right heading and an issue-number-shaped
+ * substring but not a real architecture review (wrong agent line, missing
+ * `Reviewed:` line, non-allowed author) is rejected exactly as
+ * `evaluateReviewCap` would reject it as evidence for `ok` — a look-alike
+ * comment can no longer hijack which issue is reused (finding 6 of PR
+ * #1067's third review).
+ */
+export function findPriorIssue(issueComments, allowedReviewers = ALLOWED_REVIEWERS) {
+  const allowSet = new Set(allowedReviewers.map((login) => login.toLowerCase()));
+  let issue = null;
+  for (const comment of issueComments) {
+    const login = (comment.user?.login ?? "").toLowerCase();
+    if (!allowSet.has(login)) continue;
+    const parsed = parseArchitectureReview(comment.body);
+    if (!parsed) continue;
+    issue = parsed.issue;
+    // No `break`: same last-match-wins resolution as evaluateReviewCap.
+  }
+  return issue;
+}
+
+/**
+ * Unresolved threads whose first comment's author `__typename` is exactly
+ * `"Bot"` — the only threads review-cap automation may reply to and resolve
+ * without human review. `__typename` is `null` for a deleted account,
+ * `"Mannequin"` for a migrated one, and `"Organization"` for an org account;
+ * only an exact `"Bot"` match qualifies, so a deleted human's blocking
+ * thread is never auto-resolved (finding 2 of PR #1067's third review: a
+ * `!= "User"` filter wrongly matched all three of those).
+ */
+export function unresolvedBotThreads(threads) {
+  return threads
+    .filter((thread) => thread.isResolved === false)
+    .filter((thread) => thread.comments?.nodes?.[0]?.author?.__typename === "Bot")
+    .map((thread) => ({ id: thread.id, firstComment: thread.comments.nodes[0].body }));
+}
+
+/**
+ * Every thread, resolved or not, with every comment — the architecture
+ * review must judge the finding family across all rounds, not just the
+ * threads still open (finding 9 of PR #1067's third review).
+ */
+export function formatThreadsForReview(threads) {
+  return threads.map((thread) => ({
+    id: thread.id,
+    isResolved: thread.isResolved,
+    path: thread.path ?? null,
+    line: thread.line ?? null,
+    comments: (thread.comments?.nodes ?? []).map((comment) => ({
+      login: comment.author?.login ?? null,
+      body: comment.body ?? "",
+    })),
+  }));
+}
+
 function ghJsonLines(args) {
   const result = spawnSync("gh", args, { encoding: "utf8" });
   if (result.error) throw result.error;
@@ -254,12 +330,101 @@ function fetchAll(repo, pr) {
   };
 }
 
+const REVIEW_THREADS_QUERY = `
+  query($owner: String!, $name: String!, $pr: Int!, $cursor: String) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100, after: $cursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            isResolved
+            path
+            line
+            comments(first: 50) {
+              nodes { author { login __typename } body }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
+function fetchReviewThreadsPage(repo, pr, cursor) {
+  const [owner, name] = repo.split("/");
+  const args = [
+    "api",
+    "graphql",
+    "-f",
+    `query=${REVIEW_THREADS_QUERY}`,
+    "-F",
+    `owner=${owner}`,
+    "-F",
+    `name=${name}`,
+    "-F",
+    `pr=${pr}`,
+  ];
+  if (cursor) {
+    args.push("-F", `cursor=${cursor}`);
+  }
+  const result = spawnSync("gh", args, { encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);
+  }
+  return JSON.parse(result.stdout).data.repository.pullRequest.reviewThreads;
+}
+
+/**
+ * Every review thread on the PR, paginated (finding 8 of PR #1067's third
+ * review: `reviewThreads(first:100)` with no `pageInfo` handling silently
+ * dropped anything past the first 100 threads).
+ */
+function fetchAllReviewThreads(repo, pr) {
+  const threads = [];
+  let cursor = null;
+  for (;;) {
+    const page = fetchReviewThreadsPage(repo, pr, cursor);
+    threads.push(...page.nodes);
+    if (!page.pageInfo.hasNextPage) break;
+    cursor = page.pageInfo.endCursor;
+  }
+  return threads;
+}
+
 async function main() {
   const args = process.argv.slice(2);
-  const subcommand =
-    args[0] === "status" || args[0] === "resolve-post-cap"
-      ? args.shift()
-      : "status";
+  const knownSubcommands = ["status", "resolve-post-cap", "prior-issue", "threads"];
+  const subcommand = knownSubcommands.includes(args[0]) ? args.shift() : "status";
+
+  if (subcommand === "threads") {
+    const [repo, pr] = args;
+    if (!repo || !pr) {
+      console.error("Usage: node scripts/review-cap.mjs threads <owner/repo> <pr>");
+      process.exitCode = 1;
+      return;
+    }
+    const threads = fetchAllReviewThreads(repo, pr);
+    console.log(
+      JSON.stringify({
+        unresolvedBot: unresolvedBotThreads(threads),
+        all: formatThreadsForReview(threads),
+      }),
+    );
+    return;
+  }
+
+  if (subcommand === "prior-issue") {
+    const [repo, pr] = args;
+    if (!repo || !pr) {
+      console.error("Usage: node scripts/review-cap.mjs prior-issue <owner/repo> <pr>");
+      process.exitCode = 1;
+      return;
+    }
+    console.log(JSON.stringify({ issue: findPriorIssue(fetchIssueComments(repo, pr)) }));
+    return;
+  }
+
   const [repo, pr, headSha] = args;
   if (!repo || !pr || !headSha) {
     console.error(

@@ -32,10 +32,14 @@ jobs:
         # The review-cap gate below runs scripts/review-cap.mjs from this
         # checkout; it must be the base ref, never the PR head, or a PR could
         # neutralise its own gate by editing the script (docs/AGENT-CONSTITUTION.md,
-        # "Review cap").
+        # "Review cap"). Checked out by branch name (`base.ref`), not the
+        # recorded `base.sha`: a long-open PR's stored base sha can predate a
+        # script fix merged to the base branch since the PR opened, silently
+        # passing stale code through the bootstrap guard below (finding 4 of
+        # PR #1067's third review).
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.ref }}
       - name: Run review-cap unit tests
         # The script above is load-bearing for a required check; give it CI
         # coverage on every pr-contract run now that this job has a checkout.

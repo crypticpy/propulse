@@ -170,39 +170,60 @@ whether the design is right (PR #874 reached round 44, #894 round 13, each
 round a legitimate finding on a hand-rolled scanner or a process-table
 parser). After **five bot review rounds** on one PR — `max(requests, findings
 - 1)`, where `requests` is `@codex review` comments from a write-access
-allow-list (`crypticpy`, `propulse-bot[bot]`) and `findings` is distinct bot
-reviews that left inline findings; the `- 1` excludes Codex's automatic
-review-on-open, which precedes any request and is not a round the fix loop
-caused (counted by `scripts/review-cap.mjs`) — the fix loop stops: no fix
-agent is dispatched to chase another individual finding.
+allow-list (`crypticpy`, `propulse-bot[bot]`) and `findings` is distinct
+reviews, from a recognised review bot login only (`REVIEW_BOT_LOGINS` in
+`scripts/review-cap.mjs`: `chatgpt-codex-connector[bot]`, `sourcery-ai[bot]`
+— any other login's badge- or Sourcery-shaped comment does not count), that
+left inline findings; the `- 1` excludes Codex's automatic review-on-open,
+which precedes any request and is not a round the fix loop caused (counted by
+`scripts/review-cap.mjs`) — the fix loop stops: no fix agent is dispatched to
+chase another individual finding.
 
 No human is in this loop. `.github/workflows/review-cap.yml` runs
 `anthropics/claude-code-action@v1` (pinned to a commit sha, like every action
 this repo runs from a third party) as CI automation that reads the diff, the
 files under a read-only checkout of the PR head, and every review thread
-across all rounds, then names the finding family and decides `ship` or
-`redesign`. The model itself never holds a write tool: it can only write one
-JSON output file, which plain shell steps validate before doing anything —
-filing or reusing the follow-up issue, posting the **architecture review**
-comment, applying the verdict. On `ship`, the residual edges are filed as one
-follow-up issue (reused across pushes rather than refiled) and every open
-bot-started thread is resolved with a pointer to it; on `redesign`, an issue
-with the redesign plan is filed and the PR is labeled `needs-redesign`. New
-bot threads opened after the cap are answered by that same automation (a
-`post-cap-resolver` job triggered on new reviews), not by a fix agent and not
-by a person — any human-started thread, whatever its `author_association`, is
-left alone in both places, only bot-started threads are auto-resolved.
+across all rounds (`scripts/review-cap.mjs`'s `threads` subcommand, paginated,
+serializes every thread with every comment into a trusted input file — the
+model's allowed tools cannot query review threads themselves), then names the
+finding family and decides `ship` or `redesign`. The model itself never holds
+a write tool: it can only write one JSON output file, which plain shell steps
+validate before doing anything — filing or reusing the follow-up issue,
+posting the **architecture review** comment, applying the verdict. On `ship`,
+the residual edges are filed as one follow-up issue; reuse across pushes,
+rather than refiling on every push, is decided by `scripts/review-cap.mjs`'s
+`prior-issue` subcommand running the same trusted `parseArchitectureReview`
+parser and author allow-list the merge gate itself uses, not a text match a
+forged comment could hijack, and a reused issue gets a `## Update for <head>`
+comment recording that push's residual edges rather than discarding them.
+Every open bot-started thread is then resolved with a pointer to the issue;
+on `redesign`, an issue with the redesign plan is filed and the PR is labeled
+`needs-redesign`. New bot threads opened after the cap are answered by that
+same automation (a `post-cap-resolver` job triggered on new reviews), not by
+a fix agent and not by a person — any human-started thread, whatever its
+`author_association` and even from a deleted, migrated, or organization
+account, is left alone in both places; only a thread whose first comment's
+author is exactly `"Bot"` is auto-resolved.
 
 Every trigger (`pull_request` synchronize, `pull_request_review` submitted,
 `issue_comment` created) is author-gated before anything runs: `pull_request`
 requires the head repo to be this repo (no fork PRs), the other two require
-`author_association` in `OWNER`/`MEMBER`/`COLLABORATOR` **or** the actor being
-a bot (`user.type == 'Bot'`, needed so the fifth Codex review itself, whose
-association is never OWNER/MEMBER/COLLABORATOR, can trigger `count`) — a
-bot-authored trigger still never causes any PR-head code to run. The gate itself runs
-`scripts/review-cap.mjs` from a checkout of the **default branch**, never the
-PR head, in both `.github/workflows/review-cap.yml` and `pr-contract.yml` — a
-PR editing the script cannot change what grades it.
+`author_association` in `OWNER`/`MEMBER`/`COLLABORATOR` **or** the actor's
+login being one of the recognised review bots (`REVIEW_BOT_LOGINS` in
+`scripts/review-cap.mjs`, mirrored as a login allow-list in the workflow —
+not a bare `user.type == 'Bot'` check, which would admit any installed
+GitHub App, including one commenting on a fork PR), needed so the fifth
+Codex review itself, whose association is never OWNER/MEMBER/COLLABORATOR,
+can trigger `count`. A bot-authored trigger still never causes any PR-head
+code to run, and the `architect` job additionally requires the resolved PR
+head repo to equal this repo before it starts — a fork PR can never reach the
+secret-bearing architecture-review step, however it is triggered. The gate
+itself runs `scripts/review-cap.mjs` from a checkout of the **default
+branch**, never the PR head, in both `.github/workflows/review-cap.yml` and
+`pr-contract.yml` — a PR editing the script cannot change what grades it —
+and `pr-contract` checks that out by branch **name** (`base.ref`), not the
+recorded `base.sha`, so a long-open PR cannot carry a stale base checkout
+past a script fix merged since it opened.
 
 - **How it is recorded**: one `**architecture review**` PR comment with an
   `- agent:` line, `- Reviewed: <head sha>`, and a bare `Verdict: ship (#N)`

@@ -353,6 +353,33 @@ export const modelCapabilitySchema = z
         );
       }
       if (!ROUTABLE_CAPABILITY_STATES.includes(head.state)) return;
+      for (const dimension of ROUTING_DIMENSIONS) {
+        if (!dimension.gates(head)) continue;
+        if (dimension.values(head).length > 0) continue;
+        // M19: routing matches this dimension by membership, so an empty list
+        // matches no request at all. A head that declares one is advertised as
+        // an active capability while being silently routed past, which shows up
+        // downstream as an unexplained fallback rather than as a declared gap.
+        // A planned or unsupported head may leave it empty: that is the gap.
+        reject(
+          ctx,
+          ["heads", index, dimension.field],
+          `A routable head declares at least one ${dimension.field}; an empty list matches no request (M19)`,
+        );
+      }
+      // M19: two routable heads that could both answer one request leave the
+      // artefact, uncertainty kind and fallback behaviour of that answer
+      // undetermined, because routing has no tie-break between them.
+      for (let other = 0; other < index; other += 1) {
+        const earlier = value.heads[other];
+        if (!ROUTABLE_CAPABILITY_STATES.includes(earlier.state)) continue;
+        if (!headsOverlap(earlier, head)) continue;
+        reject(
+          ctx,
+          ["heads", index, "frequencyRangeHz"],
+          `Routable heads ${other} and ${index} both answer one request: same ${head.quantity} on ${head.domain}, overlapping frequency ranges and a shared value on every routing dimension (M19)`,
+        );
+      }
       // M19: a head that names a feature schema is served by a feature
       // pipeline, and that artefact is pinned like the model itself. A head
       // with no feature pipeline leaves both null.
@@ -546,6 +573,163 @@ export const modelCapabilitySchema = z
 export type ModelCapability = z.infer<typeof modelCapabilitySchema>;
 export type ModelCapabilityHead = ModelCapability["heads"][number];
 
+/** Exactly the request shape routing matches a head against (M19). */
+export interface CapabilityQuery {
+  quantity: ModelCapabilityHead["quantity"];
+  domain: ModelCapabilityHead["domain"];
+  horizon: ModelCapabilityHead["horizons"][number];
+  frequencyHz: number;
+  geometryClass: ModelCapabilityHead["geometryClasses"][number];
+  mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
+  modeProfileId: string;
+  /**
+   * A01: the station populations this request actually belongs to. The
+   * receiving station's chain is always checked; the transmitting station's
+   * chain is checked only for a reciprocal quantity, because a directed
+   * quantity is measured at one receiver (see `RECEIVER_PARTICIPATION`). Both
+   * antenna classes always apply, since the transmit antenna radiates.
+   */
+  txAntennaClass: AntennaClass;
+  rxAntennaClass: AntennaClass;
+  txReceiverClass: ReceiverClass;
+  rxReceiverClass: ReceiverClass;
+  /** M11/M19: the routing/source policy version the request was issued under. */
+  policyVersion: string;
+  /** The source posture the request was issued under (M11). */
+  sourceMode: SourceMode;
+  /** The input identifiers the request actually carries (M11/M19). */
+  availableInputs: readonly CapabilityInputId[];
+}
+
+/**
+ * One membership dimension of routing: a list the head declares and the query
+ * values that must appear in it.
+ *
+ * This table is the single definition of "what routing matches on". It is read
+ * by `capabilityCovers`, by the rule that a routable head must declare every
+ * dimension it will be matched on, and by the rule that two routable heads may
+ * not both answer one request. Three rules written by hand would drift apart;
+ * one table cannot.
+ */
+interface RoutingDimension {
+  /** The head field, used for the issue path and the message. */
+  field:
+    | "horizons"
+    | "mechanismFamilies"
+    | "geometryClasses"
+    | "modeProfileIds"
+    | "sourceModes"
+    | "antennaClasses"
+    | "receiverClasses";
+  /** The populations the head declares on this dimension. */
+  values: (head: ModelCapabilityHead) => readonly string[];
+  /** Whether this dimension gates this head's quantity at all. */
+  gates: (head: ModelCapabilityHead) => boolean;
+  /** The query values that must all be declared; read only when it gates. */
+  required: (query: CapabilityQuery) => readonly string[];
+}
+
+export const ROUTING_DIMENSIONS: readonly RoutingDimension[] = [
+  {
+    field: "horizons",
+    values: (head) => head.horizons,
+    gates: () => true,
+    required: (query) => [query.horizon],
+  },
+  {
+    field: "mechanismFamilies",
+    values: (head) => head.mechanismFamilies,
+    gates: () => true,
+    required: (query) => [query.mechanismFamily],
+  },
+  {
+    field: "geometryClasses",
+    values: (head) => head.geometryClasses,
+    gates: () => true,
+    required: (query) => [query.geometryClass],
+  },
+  {
+    field: "modeProfileIds",
+    values: (head) => head.modeProfileIds,
+    gates: () => true,
+    required: (query) => [query.modeProfileId],
+  },
+  {
+    field: "sourceModes",
+    values: (head) => head.sourceModes,
+    gates: () => true,
+    required: (query) => [query.sourceMode],
+  },
+  {
+    field: "antennaClasses",
+    values: (head) => head.antennaClasses,
+    // The transmit antenna radiates and the receive antenna intercepts for
+    // every quantity, so both ends always gate (A01).
+    gates: () => true,
+    required: (query) => [query.txAntennaClass, query.rxAntennaClass],
+  },
+  {
+    field: "receiverClasses",
+    values: (head) => head.receiverClasses,
+    // A01/A21: a quantity with no receive chain (pass_geometry) declares no
+    // receiver population, and is not made incompatible by that silence.
+    gates: (head) => RECEIVER_PARTICIPATION[head.quantity] !== "none",
+    required: (query) => [query.rxReceiverClass, query.txReceiverClass],
+  },
+];
+
+/** The query values a dimension demands of this head, or none when it is silent. */
+function dimensionDemands(
+  dimension: RoutingDimension,
+  head: ModelCapabilityHead,
+  query: CapabilityQuery,
+): readonly string[] {
+  if (!dimension.gates(head)) return [];
+  if (
+    dimension.field === "receiverClasses" &&
+    RECEIVER_PARTICIPATION[head.quantity] === "rx"
+  ) {
+    // A directed quantity is measured at one receiver, so only the receiving
+    // station's chain takes part (M08/M09).
+    return [query.rxReceiverClass];
+  }
+  return dimension.required(query);
+}
+
+/** Whether two declared populations could both answer one request. */
+function intersects(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return left.some((value) => right.includes(value));
+}
+
+/**
+ * Whether two routable heads could both be selected for one request: they
+ * answer the same quantity on the same domain, every dimension routing matches
+ * on has a value in common, and their frequency ranges overlap. Routing has no
+ * tie-break, so such a pair leaves the artefact, uncertainty kind and fallback
+ * behaviour of an answer undetermined (M19).
+ */
+function headsOverlap(
+  left: ModelCapabilityHead,
+  right: ModelCapabilityHead,
+): boolean {
+  if (left.quantity !== right.quantity || left.domain !== right.domain) {
+    return false;
+  }
+  if (
+    left.frequencyRangeHz.minHz > right.frequencyRangeHz.maxHz ||
+    right.frequencyRangeHz.minHz > left.frequencyRangeHz.maxHz
+  ) {
+    return false;
+  }
+  return ROUTING_DIMENSIONS.every((dimension) => {
+    if (!dimension.gates(left) && !dimension.gates(right)) return true;
+    return intersects(dimension.values(left), dimension.values(right));
+  });
+}
+
 /** Parse an untrusted capability. Fails closed; never throws on data. */
 export function parseCapability(
   candidate: unknown,
@@ -554,37 +738,15 @@ export function parseCapability(
 }
 
 /**
- * Whether the declaration covers the receive chains the quantity actually
- * involves (A01 receiver class, gated by `RECEIVER_PARTICIPATION`). A quantity
- * that involves no receive chain is not made incompatible by a declaration
- * that stays silent about receiver classes.
- */
-function receiverChainsCovered(
-  head: ModelCapability["heads"][number],
-  query: { txReceiverClass: ReceiverClass; rxReceiverClass: ReceiverClass },
-): boolean {
-  switch (RECEIVER_PARTICIPATION[head.quantity]) {
-    case "none":
-      return true;
-    case "rx":
-      return head.receiverClasses.includes(query.rxReceiverClass);
-    case "both":
-      return (
-        head.receiverClasses.includes(query.rxReceiverClass) &&
-        head.receiverClasses.includes(query.txReceiverClass)
-      );
-  }
-}
-
-/**
  * True when the capability can actually answer this exact request shape.
  *
  * Every dimension the head declares is checked, not just the frequency: the
- * head has to be in a routable state, and it has to declare the requested
- * mechanism family, mode profile, and antenna and receiver class at both ends, and the capability has to be declared under the request's own source
- * policy version. A head that lists no mode profiles covers
- * nothing, because an empty declaration is a gap rather than a wildcard. A
- * no-op capability declares no heads and therefore answers nothing.
+ * head has to be in a routable state, every membership dimension in
+ * `ROUTING_DIMENSIONS` has to contain the request's own value, and the
+ * capability has to be declared under the request's own source policy version.
+ * A head that lists no mode profiles covers nothing, because an empty
+ * declaration is a gap rather than a wildcard. A no-op capability declares no
+ * heads and therefore answers nothing.
  *
  * `mechanismFamily` is the family the router already resolved; the request's
  * own "auto" is resolved before this call. Every input the head declares as
@@ -593,32 +755,7 @@ function receiverChainsCovered(
  */
 export function capabilityCovers(
   capability: ModelCapability,
-  query: {
-    quantity: ModelCapabilityHead["quantity"];
-    domain: ModelCapabilityHead["domain"];
-    horizon: ModelCapabilityHead["horizons"][number];
-    frequencyHz: number;
-    geometryClass: ModelCapabilityHead["geometryClasses"][number];
-    mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
-    modeProfileId: string;
-    /**
-     * A01: the station populations this request actually belongs to. The
-     * receiving station's chain is always checked; the transmitting station's
-     * chain is checked only for a reciprocal quantity, because a directed
-     * quantity is measured at one receiver (see `RECEIVER_PARTICIPATION`). Both
-     * antenna classes always apply, since the transmit antenna radiates.
-     */
-    txAntennaClass: AntennaClass;
-    rxAntennaClass: AntennaClass;
-    txReceiverClass: ReceiverClass;
-    rxReceiverClass: ReceiverClass;
-    /** M11/M19: the routing/source policy version the request was issued under. */
-    policyVersion: string;
-    /** The source posture the request was issued under (M11). */
-    sourceMode: SourceMode;
-    /** The input identifiers the request actually carries (M11/M19). */
-    availableInputs: readonly CapabilityInputId[];
-  },
+  query: CapabilityQuery,
 ): boolean {
   const available = new Set<CapabilityInputId>(query.availableInputs);
   // A capability declared under another source policy version is a different
@@ -629,14 +766,11 @@ export function capabilityCovers(
       ROUTABLE_CAPABILITY_STATES.includes(head.state) &&
       head.quantity === query.quantity &&
       head.domain === query.domain &&
-      head.horizons.includes(query.horizon) &&
-      head.geometryClasses.includes(query.geometryClass) &&
-      head.mechanismFamilies.includes(query.mechanismFamily) &&
-      head.modeProfileIds.includes(query.modeProfileId) &&
-      head.sourceModes.includes(query.sourceMode) &&
-      head.antennaClasses.includes(query.txAntennaClass) &&
-      head.antennaClasses.includes(query.rxAntennaClass) &&
-      receiverChainsCovered(head, query) &&
+      ROUTING_DIMENSIONS.every((dimension) =>
+        dimensionDemands(dimension, head, query).every((value) =>
+          dimension.values(head).includes(value),
+        ),
+      ) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz &&
       // A declared range can span a gap between the constituents of a grouped

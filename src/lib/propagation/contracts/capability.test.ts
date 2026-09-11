@@ -21,6 +21,7 @@ import {
   capabilityCovers,
   capabilityDigest,
   parseCapability,
+  ROUTING_DIMENSIONS,
 } from "@/lib/propagation/contracts/capability";
 import type { ContractIssue } from "@/lib/propagation/contracts/validation";
 
@@ -169,6 +170,40 @@ function twoMechanismCapability() {
   }
   return outcome.value;
 }
+
+/**
+ * The fixture plus two extra routable SNR heads on the given ranges, alike on
+ * every routing dimension unless `tweak` moves the second one off one. The
+ * heads sit on the deferred-band lunar row, whose coverage is the head's own
+ * declared range (M11), so a range the test chooses is never refused by the
+ * coverage gate and only the overlap rule is under test.
+ */
+function overlapDraft(
+  first: { minHz: number; maxHz: number },
+  second: { minHz: number; maxHz: number },
+  tweak?: (head: Mutable) => void,
+): Mutable {
+  const draft = structuredClone(cases.hfPhysics) as Mutable;
+  const left = protocolHead(
+    "snr2500",
+    (tuple) => tuple.band === "qualified_family_bands",
+  ).head;
+  const right = structuredClone(left) as Mutable;
+  left.frequencyRangeHz = first;
+  right.frequencyRangeHz = second;
+  tweak?.(right);
+  (draft.heads as Mutable[]).push(left, right);
+  return draft;
+}
+
+/**
+ * The routing dimensions a non-routable gap declaration may leave empty.
+ * `horizons`, `mechanismFamilies`, `geometryClasses`, `antennaClasses` and
+ * `sourceModes` carry `.min(1)` in the schema, and a received quantity must
+ * name its receiver classes at every state (A01), so only the mode profile
+ * list is silent-able, and only off the routable states.
+ */
+const SCHEMA_OPTIONAL_DIMENSIONS: readonly string[] = ["modeProfileIds"];
 
 function issues(value: unknown): ContractIssue[] {
   const outcome = parseCapability(value);
@@ -1105,6 +1140,64 @@ describe("parseCapability fails closed", () => {
     twin.modeProfileIds = ["b", "a"];
     heads.push(twin);
     expect(reasonsAt(draft, "heads[3].quantity").join()).toMatch(/Duplicate/);
+  });
+
+  it("rejects two routable heads whose frequency ranges overlap (M19)", () => {
+    // 1.8-2.1 MHz and 1.7-2.0 MHz are not byte-identical, so the two heads have
+    // distinct tuple keys, yet both answer a 1.85 MHz request with no tie-break.
+    const bad = overlapDraft(
+      { minHz: 1800000, maxHz: 2100000 },
+      { minHz: 1700000, maxHz: 2000000 },
+    );
+    expect(reasonsAt(bad, "heads[4].frequencyRangeHz").join()).toMatch(
+      /both answer one request/,
+    );
+  });
+
+  it("accepts two routable heads whose frequency ranges are disjoint (M19)", () => {
+    const good = overlapDraft(
+      { minHz: 1700000, maxHz: 1799999 },
+      { minHz: 1800000, maxHz: 2000000 },
+    );
+    const outcome = parseCapability(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts one range on two mode profiles, which routing tells apart (M19)", () => {
+    const good = overlapDraft(
+      { minHz: 1800000, maxHz: 2000000 },
+      { minHz: 1800000, maxHz: 2000000 },
+      (head) => {
+        head.modeProfileIds = ["ft4-wsjtx-2.7.0-7.5s"];
+      },
+    );
+    const outcome = parseCapability(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("a routable head declares every dimension capabilityCovers matches on", () => {
+    for (const dimension of ROUTING_DIMENSIONS) {
+      const bad = candidate("hfPhysics");
+      const head = structuredClone(SECOND_SNR_HEAD) as Mutable;
+      head.bandKeys = [];
+      head[dimension.field] = [];
+      (bad.heads as Mutable[]).push(head);
+      expect(reasonsAt(bad, `heads[3].${dimension.field}`).join()).toMatch(
+        /declares at least one/,
+      );
+
+      // The same silence is how a gap is declared, so it stays legal off the
+      // routable states -- for the two lists the schema itself leaves open.
+      if (!SCHEMA_OPTIONAL_DIMENSIONS.includes(dimension.field)) continue;
+      const good = candidate("hfPhysics");
+      const planned = structuredClone(head) as Mutable;
+      planned.state = "planned";
+      planned.featureHash = null;
+      planned.featureSchemaId = null;
+      (good.heads as Mutable[]).push(planned);
+      const outcome = parseCapability(good);
+      expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    }
   });
 
   it("allows only one head per coverage tuple, whatever its state", () => {

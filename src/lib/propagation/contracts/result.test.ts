@@ -29,6 +29,16 @@ const GROUNDWAVE_ROW = {
   horizon: "climatology",
   mechanismFamily: "groundwave",
 };
+const BURST_ROW = {
+  domain: "known_exposure_interval",
+  horizon: "current",
+  mechanismFamily: "meteor",
+};
+const PASS_ROW = {
+  domain: "qualified_ephemeris_horizon",
+  horizon: "forecast_seconds",
+  mechanismFamily: "satellite",
+};
 const LUNAR_ROW = {
   domain: "qualified_lunar_station",
   horizon: "forecast_seconds",
@@ -1151,6 +1161,118 @@ describe("parseResult fails closed", () => {
     expect(reasonsAt(sameModel, "heads[1].state.value.support").join()).toMatch(
       /circuit-support head reports supported, screened for mechanism ground_sky_coherent/,
     );
+  });
+
+  it("rejects an observed interval that ends after issuance (M02)", () => {
+    // The fixture is issued at 18:00Z; an observation running to 19:00Z would
+    // be reporting reports that did not exist when the result was issued.
+    const bad = scalarHeadCase(
+      "observed_activity",
+      "count",
+      {
+        count: 4,
+        intervalStartAt: "2026-09-11T17:30:00Z",
+        intervalEndAt: "2026-09-11T19:00:00Z",
+        sourceCoverageIds: ["pskreporter-2026-09-11"],
+      },
+      EVENT_ROW,
+    );
+    (bad.head.uncertainty as Mutable) = { kind: "none" };
+    expect(
+      reasonsAt(bad.result, "heads[1].state.value.intervalEndAt").join(),
+    ).toMatch(/ends no later than issuedAt/);
+
+    const good = structuredClone(bad.result);
+    (
+      ((good.heads as Mutable[])[1].state as Mutable).value as Mutable
+    ).intervalEndAt = "2026-09-11T18:00:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a detection bucket that follows issuance (M02)", () => {
+    // The bucket is the forecast horizon itself, not something observed.
+    const good = candidate("fullHfCircuit");
+    const detection = headFor(good, "network_detection");
+    const served = headFor(good, "snr2500");
+    detection.modelHash = served.modelHash;
+    detection.preprocessingHash = served.preprocessingHash;
+    detection.featureHash = served.featureHash;
+    detection.state = {
+      availability: "available",
+      value: {
+        probability: 0.3,
+        modelEventId: "model-event-2026-09-11T19",
+        exposureCellId: "cell-em12",
+        populationVersion: "pskreporter-population-2026-09",
+        bucketStartAt: "2026-09-11T19:00:00Z",
+        bucketEndAt: "2026-09-11T20:00:00Z",
+      },
+    };
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a burst exposure window that follows issuance (M02)", () => {
+    const good = scalarHeadCase(
+      "usable_burst",
+      "probability",
+      {
+        probability: 0.2,
+        criterionId: "msk144-decode-criterion-0.1.0",
+        intervalStartAt: "2026-09-11T19:00:00Z",
+        intervalEndAt: "2026-09-11T19:15:00Z",
+      },
+      BURST_ROW,
+    );
+    (good.head.uncertainty as Mutable) = { kind: "none" };
+    const outcome = parseResult(good.result);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts a predicted pass that follows issuance (M02, A21)", () => {
+    const good = scalarHeadCase(
+      "pass_geometry",
+      "seconds",
+      {
+        aosAt: "2026-09-11T19:00:00Z",
+        losAt: "2026-09-11T19:10:00Z",
+        timingUncertaintySeconds: 2,
+        ephemerisAgeSeconds: 900,
+        horizonDeg: 5,
+      },
+      PASS_ROW,
+    );
+    (good.head.uncertainty as Mutable) = { kind: "none" };
+    const outcome = parseResult(good.result);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("accepts an excluded source captured after issuance (M02, M24)", () => {
+    // An excluded entry is a census of what was considered: recording that a
+    // later revision exists and was not substituted is the point of M24.
+    const good = candidate("fullHfCircuit");
+    const sources = (good.evidence as Mutable).sources as Mutable[];
+    const excluded = sources.find((source) => source.eligible === false);
+    if (!excluded) throw new Error("fixture must carry an excluded source");
+    excluded.capturedAt = "2026-09-11T19:30:00Z";
+    excluded.publishedAt = "2026-09-11T19:30:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+
+    // The same stamp on an eligible source is still refused.
+    const bad = candidate("fullHfCircuit");
+    const eligible = ((bad.evidence as Mutable).sources as Mutable[]).find(
+      (source) => source.eligible === true,
+    );
+    if (!eligible) throw new Error("fixture must carry an eligible source");
+    eligible.capturedAt = "2026-09-11T19:30:00Z";
+    expect(
+      issues(bad)
+        .filter((issue) => issue.path.endsWith("capturedAt"))
+        .map((issue) => issue.reason)
+        .join(),
+    ).toMatch(/no later than issuedAt/);
   });
 
   it("rejects an eligible source whose version is not a pinned digest (M24)", () => {

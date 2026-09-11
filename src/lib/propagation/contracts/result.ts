@@ -218,6 +218,11 @@ const networkDetectionPayload = z
     modelEventId: identifier,
     exposureCellId: identifier,
     populationVersion: identifier,
+    /**
+     * The window the detection probability is about. This is the one class of
+     * instant in a result that may run past `issuedAt`: it is the forecast
+     * horizon itself, not something the model claims to have observed (M02).
+     */
     bucketStartAt: instant,
     bucketEndAt: instant,
   })
@@ -281,6 +286,11 @@ const completedQsoPayload = z
 const observedActivityPayload = z
   .object({
     count: z.number().int().nonnegative(),
+    /**
+     * The interval actually observed. Both ends are in the past as issued: the
+     * result-level rule rejects an end after `issuedAt`, and the start precedes
+     * the end, so neither can carry a report the result did not have (M02).
+     */
     intervalStartAt: instant,
     intervalEndAt: instant,
     /** Absent reports are not evidence, so coverage must be declared. */
@@ -327,6 +337,11 @@ const usableBurstPayload = z
   .object({
     probability,
     criterionId: identifier,
+    /**
+     * The exposure window the burst probability is conditioned on. Like the
+     * detection bucket this is a forecast horizon and may follow `issuedAt`;
+     * the head is a statement about that window, not a report from it (M02).
+     */
     intervalStartAt: instant,
     intervalEndAt: instant,
   })
@@ -343,6 +358,12 @@ const usableBurstPayload = z
 
 const passGeometryPayload = z
   .object({
+    /**
+     * The predicted pass. A pass that had already ended at `issuedAt` would be
+     * of no use to anyone, so these instants are expected to follow it: they
+     * are the forecast, propagated from an ephemeris whose own age is reported
+     * beside them (A21, M02).
+     */
     aosAt: instant,
     losAt: instant,
     timingUncertaintySeconds: finite.nonnegative(),
@@ -517,6 +538,12 @@ const predictionHead = z
     horizon: z.enum(PREDICTION_HORIZONS),
     mechanismFamily: z.enum(MECHANISM_FAMILIES),
     contextId: identifier,
+    /**
+     * The time this head is about. It equals the result's own `validAt`, which
+     * is at or after `issuedAt`: a prediction is for now or for later, so this
+     * instant is the one field on a head that is meant to follow issuance
+     * (M02).
+     */
     validAt: instant,
     effectiveModelId: identifier,
     effectiveModelVersion: identifier,
@@ -687,6 +714,14 @@ const evidenceSource = z
   .object({
     sourceId: identifier,
     sourceVersion: identifier,
+    /**
+     * The availability history of this source. On an eligible source all three
+     * are required to be no later than `issuedAt` (the result-level rule): a
+     * product observed, published or captured after issuance could not have
+     * been used. An excluded entry is a census of what was considered and may
+     * carry a later stamp, which is exactly how "a revised product exists and
+     * was not substituted for the issued context" is recorded (M02, M24).
+     */
     observedIntervalEndAt: instant.nullable(),
     publishedAt: instant.nullable(),
     capturedAt: instant.nullable(),
@@ -1101,6 +1136,23 @@ export const predictionResultSchema = z
           ctx,
           ["heads", index, "mechanismFamily"],
           `The protocol defines no ${head.quantity} on ${head.domain} at ${head.horizon} via ${head.mechanismFamily} (M11)`,
+        );
+      }
+      if (
+        head.quantity === "observed_activity" &&
+        availability !== undefined &&
+        VALUE_BEARING_STATES.includes(availability) &&
+        "value" in head.state &&
+        instantMs(head.state.value.intervalEndAt) > issued
+      ) {
+        // M02: an observation the result reports is an observation it had when
+        // it was issued. An interval running past `issuedAt` folds reports that
+        // did not exist yet into the answer, and a historical evaluation that
+        // replayed it would be scoring the model against its own future.
+        reject(
+          ctx,
+          ["heads", index, "state", "value", "intervalEndAt"],
+          "An observed interval ends no later than issuedAt; a later end is data the result could not have had (M02)",
         );
       }
       const servedByAnotherModel =

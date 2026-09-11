@@ -965,6 +965,46 @@ test("isViteExecutableCommand identifies the real Node entry script, not any vit
   }
 });
 
+// PR #894 round 13 P2: both detectors used to tokenize the whole command on
+// whitespace and treat the very next token as the entire entry path, so a
+// real checkout containing a space (e.g. a macOS "/tmp/My Project/...")
+// silently truncated the entry at "/tmp/My" — a real foreign vite or
+// dev-session process under such a path was missed entirely. Red on
+// 284a74fb; matchEntryAcrossSpaces fixes it by extending the candidate
+// across additional tokens as long as each next token still looks like a
+// continuation of the same path.
+test("isViteExecutableCommand and isDevSessionStartCommand match entries under a spaced checkout path", () => {
+  assert.ok(
+    isViteExecutableCommand(
+      "node /tmp/My Project/node_modules/vite/bin/vite.js --port 5180",
+    ),
+    "expected match: spaced path to vite/bin/vite.js",
+  );
+  assert.ok(
+    isViteExecutableCommand(
+      "node /tmp/My Project/node_modules/.bin/vite --port 5180",
+    ),
+    "expected match: spaced path to the vite bin shim",
+  );
+  assert.ok(
+    isDevSessionStartCommand(
+      "node /tmp/My Project/scripts/dev-session.mjs start --owner agent",
+    ),
+    "expected match: spaced path to dev-session.mjs start",
+  );
+  // Control: an unrelated script under the same spaced checkout must not be
+  // swept up by either detector.
+  const unrelated = "node /tmp/My Project/server.js";
+  assert.ok(
+    !isViteExecutableCommand(unrelated),
+    "expected no match: unrelated spaced-path script (vite)",
+  );
+  assert.ok(
+    !isDevSessionStartCommand(unrelated),
+    "expected no match: unrelated spaced-path script (dev-session)",
+  );
+});
+
 test("filterViteProcessLines matches only real vite invocations, not files or tools that merely mention vite", () => {
   const lines = [
     "100 vim vite.config.ts",

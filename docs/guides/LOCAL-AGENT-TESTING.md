@@ -53,24 +53,36 @@ Agents must not set it.
 
 ### Recovering from a stuck or stale claim
 
-`npm run dev:session -- start` auto-recovers a claim file whose owning
-process has actually died (a crashed or `kill -9`'d session): it detects the
-dead pid, removes that one registry file, and retries once. You do not need
-to intervene for that case.
+`npm run dev:session -- start` already auto-recovers a claim file whose
+owning process has actually died (a crashed or `kill -9`'d session): inside
+the same locked, atomic reclaim path every `start` uses (a temp-dir rename
+plus a pid-liveness check, never a bare `rm`), it detects the dead pid,
+removes that one registry file, and retries once. Just retry `start` — you
+do not need to intervene, and there is no separate command to reclaim a
+claim; `start` is that command.
 
-If `start` still fails after the automatic retry, its error message names the
-exact registry file(s) it checked. Before touching anything:
+If `start` still fails after its own automatic retry, its error message
+names the exact registry file(s) it checked. Before doing anything else:
 
 ```sh
 npm run dev:session -- status          # lists every managed claim + its processState
-ps -p <pid-from-the-claim>             # confirm the owning process is actually gone
+ps -p <pid-from-the-claim>             # check whether the owning process is actually gone
 ```
 
-Only if the owning process is confirmed dead and the automatic retry still
-didn't clear it, delete that **exact** file yourself — never delete the whole
-registry directory, and never do this while another session might legitimately
-be starting up (a claim file mid-write is expected to look "stale" for a
-moment). The registry directory itself is printed by `status`.
+**Never delete a claim file yourself**, no matter what `status`/`ps` show. A
+claim that `start`'s own automatic recovery didn't already clear is not
+provably safe to remove by hand: `ps -p` can't distinguish "genuinely dead"
+from "alive under a different OS account" the way `start`'s own pid check
+does, and a manual check-then-delete is an unlocked race — a claim replaced
+by a new, legitimate session between your check and your `rm` would be
+deleted out from under its new owner. Stop and report it to the
+owner/orchestrator instead, with:
+
+- the claim file's path (printed by `status`)
+- its full contents (`owner`, `task`, `pid`, `startedAt`, etc.)
+- the result of the `ps -p` check above
+
+Only the owner/orchestrator decides whether and how to clear it.
 
 ## One server, many worktrees
 

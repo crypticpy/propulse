@@ -749,9 +749,11 @@ const NODE_NO_SCRIPT_OPTIONS = new Set(["-e", "--eval", "-p"]);
 // misclassified as a Vite server. Only the actual Node entry script (the
 // first token that isn't a runtime option) determines what Node will run;
 // everything after it is the script's own argv and is never inspected.
-// Returns null when there is no entry script at all (`-e`/`--eval`/`-p`, or
-// the option list runs out without finding one).
-function findNodeEntryScript(tokens) {
+// Returns the *index* (not the token itself — see matchEntryAcrossSpaces
+// below, which needs the index to keep extending across a spaced path) of
+// the first entry token, or null when there is no entry script at all
+// (`-e`/`--eval`/`-p`, or the option list runs out without finding one).
+function findNodeEntryIndex(tokens) {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     if (NODE_NO_SCRIPT_OPTIONS.has(token)) return null;
@@ -760,9 +762,41 @@ function findNodeEntryScript(tokens) {
       continue;
     }
     if (token.startsWith("-")) continue;
-    return token;
+    return i;
   }
   return null;
+}
+
+// PR #894 round 13 P2: `command` is one whitespace-joined string per `ps`
+// line, so a checkout path with a space in it (e.g. a real
+// "/tmp/My Project/node_modules/vite/bin/vite.js") is indistinguishable,
+// by whitespace alone, from two separate shell arguments. Treating
+// `tokens[startIndex]` as the *entire* entry path silently truncated it at
+// the first internal space, so a real Vite/dev-session entry under such a
+// path never matched. This instead walks forward from `tokens[startIndex]`,
+// rejoining consecutive tokens with a single space, and tests the growing
+// candidate against `isMatch` after each token — but only while the *next*
+// token does not itself look like a fresh argument (a path starting with
+// "/", or a flag starting with "-"). That is what actually distinguishes a
+// path with an internal space (its continuation is a plain word, e.g. "My"
+// then "Project/...") from `node watcher.js /tmp/vite`, where the
+// vite-looking text is a wholly separate, later argument that must not be
+// absorbed into the entry — so that round 9 fixture still doesn't match.
+// Returns the index of the first token after the matched entry, or null if
+// no such prefix ever matches.
+function matchEntryAcrossSpaces(tokens, startIndex, isMatch) {
+  if (startIndex >= tokens.length) return null;
+  let candidate = tokens[startIndex];
+  let end = startIndex + 1;
+  for (;;) {
+    if (isMatch(candidate)) return end;
+    const next = tokens[end];
+    if (next === undefined || next.startsWith("/") || next.startsWith("-")) {
+      return null;
+    }
+    candidate += ` ${next}`;
+    end++;
+  }
 }
 
 // Matches only actual Vite invocations, never a command that merely mentions
@@ -771,17 +805,21 @@ function findNodeEntryScript(tokens) {
 // Recognized forms: a path segment ending in `/vite` or `/vite.js` (covers
 // `node_modules/.bin/vite` and `vite/bin/vite.js`), a bare `vite` or
 // `vite preview` as the first token, `node [options] <path>/vite[.js] ...`
-// (options skipped via findNodeEntryScript, never scanned for a vite-ish
-// path), and `npm exec vite` / `npx vite`.
+// (options skipped via findNodeEntryIndex, then the path itself matched via
+// matchEntryAcrossSpaces so a checkout path containing a space still
+// resolves to its real entry script instead of being cut off mid-path), and
+// `npm exec vite` / `npx vite`.
 export function isViteExecutableCommand(command) {
   const tokens = command.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return false;
-  const isVitePath = (token) => /(^|\/)vite(\.js)?$/.test(token);
+  const isVitePath = (candidate) => /(^|\/)vite(\.js)?$/.test(candidate);
   if (tokens[0] === "node" || /\/node$/.test(tokens[0])) {
-    const entry = findNodeEntryScript(tokens.slice(1));
-    return entry !== null && isVitePath(entry);
+    const argTokens = tokens.slice(1);
+    const startIndex = findNodeEntryIndex(argTokens);
+    if (startIndex === null) return false;
+    return matchEntryAcrossSpaces(argTokens, startIndex, isVitePath) !== null;
   }
-  if (isVitePath(tokens[0])) return true;
+  if (matchEntryAcrossSpaces(tokens, 0, isVitePath) !== null) return true;
   if (tokens[0] === "npm" && tokens[1] === "exec" && tokens[2] === "vite") {
     return true;
   }
@@ -801,19 +839,21 @@ export function isViteExecutableCommand(command) {
 export function isDevSessionStartCommand(command) {
   const tokens = command.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return false;
-  const isDevSessionScript = (token) => /(^|\/)dev-session\.mjs$/.test(token);
-  let rest;
+  const isDevSessionScript = (candidate) =>
+    /(^|\/)dev-session\.mjs$/.test(candidate);
   if (tokens[0] === "node" || /\/node$/.test(tokens[0])) {
     const argTokens = tokens.slice(1);
-    const entry = findNodeEntryScript(argTokens);
-    if (entry === null || !isDevSessionScript(entry)) return false;
-    rest = argTokens.slice(argTokens.indexOf(entry) + 1);
-  } else if (isDevSessionScript(tokens[0])) {
-    rest = tokens.slice(1);
-  } else {
-    return false;
+    const startIndex = findNodeEntryIndex(argTokens);
+    if (startIndex === null) return false;
+    const restIndex = matchEntryAcrossSpaces(
+      argTokens,
+      startIndex,
+      isDevSessionScript,
+    );
+    return restIndex !== null && argTokens[restIndex] === "start";
   }
-  return rest[0] === "start";
+  const restIndex = matchEntryAcrossSpaces(tokens, 0, isDevSessionScript);
+  return restIndex !== null && tokens[restIndex] === "start";
 }
 
 // Pure filter over `ps -axo pid=,command=` output (full command line on both

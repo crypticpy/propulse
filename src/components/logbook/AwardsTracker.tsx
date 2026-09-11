@@ -1,6 +1,9 @@
 /**
  * AwardsTracker - DXCC/WAS/WAZ progress display
  * Shows progress toward common amateur radio awards
+ *
+ * Not mounted. Owner decision on #798: keep as intended future work.
+ * Completing this surface is tracked by #979.
  */
 
 import { useMemo } from "react";

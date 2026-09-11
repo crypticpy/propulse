@@ -296,10 +296,6 @@ export interface SettingsState {
    */
   globeHiResTextures: boolean;
 
-  // ─── Workspace (persisted) ─────────────────────────────────────────────────
-
-  /** Formerly gated `/workspace` (#656). Nothing reads it since #855 made the route live; kept only so no persist migration is needed. */
-  workspaceEnabled: boolean;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -465,7 +461,6 @@ const defaultSettings: SettingsState = {
   tileMaxCacheMB: 512,
   tileFadeEnabled: true,
   globeHiResTextures: false,
-  workspaceEnabled: false,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -705,7 +700,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 38,
+      version: 39,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1076,9 +1071,11 @@ export const useSettingsStore = create<SettingsStore>()(
             state.catHamlibPort = 4532;
           }
         }
-        if (version < 38) {
-          // Add the workspace shell flag (#656). Default off.
-          if (state.workspaceEnabled === undefined) state.workspaceEnabled = false;
+        if (version < 39) {
+          // `/workspace` is unconditional since #857; drop the dead flag (#877).
+          delete (state as Record<string, unknown>)[
+            ["workspace", "Enabled"].join("")
+          ];
         }
         return state as unknown as SettingsState & SettingsStore;
       },

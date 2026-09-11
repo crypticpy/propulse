@@ -1,10 +1,11 @@
 /**
  * Logbook Components - Barrel Export
+ *
+ * QSLManager and AwardsTracker are kept unmounted on purpose (#798 owner
+ * decision 2026-09-10). Completing those surfaces is tracked by #979.
  */
 
 export { QSOEntryForm, type QSOEntryFormProps } from "./QSOEntryForm";
-export { QSOTable, type QSOTableProps } from "./QSOTable";
 export { CallsignLookup, type CallsignLookupProps } from "./CallsignLookup";
-export { LogUploadModal, type LogUploadModalProps } from "./LogUploadModal";
 export { AwardsTracker, type AwardsTrackerProps } from "./AwardsTracker";
 export { QSLManager, type QSLManagerProps } from "./QSLManager";

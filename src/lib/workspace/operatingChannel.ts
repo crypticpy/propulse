@@ -29,7 +29,24 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { CanvasType } from "@/lib/workspace/types";
 
-/** Bumped only for a breaking wire change; mismatched versions are dropped. */
+/**
+ * Bumped only for a breaking wire change; mismatched versions are dropped.
+ *
+ * Read this before ever bumping it. The gate below is a strict equality, and
+ * every bundle already deployed has the same one — including the tab a user
+ * left open across the deploy, which a PWA can keep alive for days. So a bump
+ * is not one-sided: the moment this bundle emits a version the old parser has
+ * never heard of, the old tab drops *everything* it sends, and the two screens
+ * go silently blind to each other until a reload. Compatibility has to hold in
+ * both directions and only one of them can still be changed.
+ *
+ * The wire therefore grows by *optional* fields instead (`by` on a patch
+ * entry, #859 rounds 5-7): an older parser reads only the keys it knows and
+ * ignores the rest, so both sides keep working and the new side compensates
+ * for what the old one cannot express — see `mergePatch`'s treatment of an
+ * entry with no author. A real bump needs the receiving side to have shipped
+ * a range check *first*, a release earlier than the change that relies on it.
+ */
 export const OPERATING_PROTOCOL_VERSION = 1;
 
 /**
@@ -43,11 +60,21 @@ export const OPERATING_PROTOCOL_VERSION = 1;
  */
 const COMMAND_MAX_AGE_MS = 30_000;
 
-/** `BroadcastChannel` name for same-browser screens. Versioned with the protocol. */
+/**
+ * `BroadcastChannel` name for same-browser screens. Versioned with the
+ * protocol — and renaming it has the same one-sided cost as bumping the
+ * version, since a tab left open across the deploy keeps posting to the old
+ * name and hears nothing on the new one.
+ */
 export const OPERATING_CHANNEL_NAME = "propulse-operating-state-v1";
 
 /** Cursor fields that merge independently — last writer wins *per field*, not per message. */
-export const CURSOR_FIELDS = ["sessionId", "band", "target", "contact"] as const;
+export const CURSOR_FIELDS = [
+  "sessionId",
+  "band",
+  "target",
+  "contact",
+] as const;
 
 export type CursorField = (typeof CURSOR_FIELDS)[number];
 
@@ -115,7 +142,31 @@ export interface WorkspaceRegistration {
  */
 export type OperatingCommand =
   | { type: "flipPage"; workspaceId: string; pageIndex: number }
-  | { type: "selectSpot"; spot: SpotRef }
+  /**
+   * One logical selection carries one stamp (#859 round 17).
+   *
+   * Tapping a spot publishes twice: the cursor's `target` as a state patch,
+   * and this command for the screens that act on a selection. Both describe
+   * the *same* write, so they must carry the same `at` — the stamp
+   * `writeField` minted for the patch. Stamping the command with the
+   * envelope's `sentAt` instead made it a second, later write of the same
+   * value: the receiver's replay guard needs equal stamps to recognise a
+   * re-delivery, so the command was applied as a fresh cursor write, took a
+   * newer `appliedSeq`, and on remount overwrote a map target the operator
+   * had picked locally in between (the two pipes deliver at different
+   * delays). It also orders two selections made inside one millisecond,
+   * which `sentAt` — a plain `Date.now()` — cannot: `nextStamp` is
+   * monotonic, so the second selection's patch stamp is strictly higher.
+   *
+   * Optional, because a screen on an older bundle sends the command without
+   * it; the receiver then falls back to `sentAt`, which is what it always
+   * did. Additive, so `OPERATING_PROTOCOL_VERSION` is unchanged — an older
+   * parser reads past the extra key.
+   *
+   * No author field: a command is never relayed, so the envelope's
+   * `senderId` *is* the author, the same value `writeField` wrote into `by`.
+   */
+  | { type: "selectSpot"; spot: SpotRef; at?: number }
   | { type: "setView"; workspaceId: string; viewId: string }
   /**
    * #660 / PR #694 review: the phone acts as a remote for whichever screen
@@ -136,7 +187,13 @@ export type OperatingCommand =
    * `parseCommand` below, exactly like any other malformed message — no
    * whole-channel version bump is needed to make that safe.
    */
-  | { type: "tune"; deviceId: string; workspaceId: string; frequencyKHz: number; mode: string | null }
+  | {
+      type: "tune";
+      deviceId: string;
+      workspaceId: string;
+      frequencyKHz: number;
+      mode: string | null;
+    }
   /**
    * PR #694 review: TUNE was fire-and-forget. The screen that handled (or
    * refused) a `tune` reports back so the requesting phone can show an
@@ -146,11 +203,39 @@ export type OperatingCommand =
    * the phone can match this result to the attempt it is currently showing
    * feedback for.
    */
-  | { type: "tuneResult"; deviceId: string; workspaceId: string; ok: boolean; reason: string | null };
+  | {
+      type: "tuneResult";
+      deviceId: string;
+      workspaceId: string;
+      ok: boolean;
+      reason: string | null;
+    };
 
 /** One field's proposed value plus the stamp that resolves the race. */
 export type CursorPatch = {
-  [K in CursorField]?: { value: WorkflowCursor[K]; at: number };
+  [K in CursorField]?: {
+    value: WorkflowCursor[K];
+    at: number;
+    /**
+     * The screen that wrote the field. A `hello` reply relays another
+     * screen's write verbatim, so it must name the original author or the
+     * relay looks like a new write from the relaying peer and re-enters the
+     * last-writer-wins race (#859 round 5). This bundle sends it whenever it
+     * knows the author — which is every write of its own, and every relay of
+     * a write that arrived with one.
+     *
+     * Optional because a bundle older than that round cannot send it and is
+     * still a supported peer — additive is the only way this wire can grow,
+     * since the deployed parser drops a version it does not recognise
+     * outright (see `OPERATING_PROTOCOL_VERSION`). An entry without it is
+     * authorless, which `mergePatch` accepts only on a strictly newer `at`.
+     * Relaying such a write leaves it off again rather than guessing: a
+     * guessed author is indistinguishable downstream from a first-hand claim,
+     * and would win a tie-break for a screen that never wrote anything
+     * (#859 round 8).
+     */
+    by?: string;
+  };
 };
 
 interface Envelope {
@@ -207,7 +292,9 @@ function asFiniteNumber(value: unknown): number | null {
 
 function asNullableNumber(value: unknown): number | null | undefined {
   if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function parseTarget(value: unknown): OperatingTarget | null | undefined {
@@ -218,7 +305,8 @@ function parseTarget(value: unknown): OperatingTarget | null | undefined {
   const lat = asNullableNumber(value.lat);
   const lon = asNullableNumber(value.lon);
   const spotId = asNullableString(value.spotId);
-  if (callsign === null || grid === undefined || lat === undefined) return undefined;
+  if (callsign === null || grid === undefined || lat === undefined)
+    return undefined;
   if (lon === undefined || spotId === undefined) return undefined;
   return { callsign, grid, lat, lon, spotId };
 }
@@ -241,29 +329,44 @@ function parseSpotRef(value: unknown): SpotRef | null {
   const mode = asNullableString(value.mode);
   const grid = asNullableString(value.grid);
   if (callsign === null || id === undefined || band === undefined) return null;
-  if (frequency === undefined || mode === undefined || grid === undefined) return null;
+  if (frequency === undefined || mode === undefined || grid === undefined)
+    return null;
   return { id, callsign, band, frequency, mode, grid };
 }
 
 /** One `{ value, at }` entry, validated against the field it claims to set. */
-function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorField] | null {
+function parsePatchEntry(
+  field: CursorField,
+  raw: unknown,
+): CursorPatch[CursorField] | null {
   if (!isRecord(raw)) return null;
   const at = asFiniteNumber(raw.at);
   if (at === null) return null;
+  // Optional, and never a reason to drop an entry: a bundle older than #859
+  // round 5 cannot say who wrote a field, and it is still a supported peer.
+  // An entry with no author is *authorless*, not malformed — the sender may
+  // be relaying someone else's write, so `operatingStateStore`'s `mergePatch`
+  // accepts it only on a strictly newer `at`, never on the equal-`at`
+  // sender-id tie-break it would otherwise win with a write it never made.
+  const by = asString(raw.by) ?? undefined;
+  // No write sequence on the wire, deliberately (#859 round 11). This channel
+  // spans devices, and a counter minted on a phone says nothing about the
+  // order of writes on this machine; ordering is done by the receiver, from
+  // its own counter, at the moment it applies the entry.
   const value = raw.value;
   switch (field) {
     case "sessionId":
     case "band": {
       const parsed = asNullableString(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "target": {
       const parsed = parseTarget(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "contact": {
       const parsed = parseContact(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
   }
 }
@@ -297,7 +400,11 @@ function parseCommand(raw: unknown): OperatingCommand | null {
     }
     case "selectSpot": {
       const spot = parseSpotRef(raw.spot);
-      return spot === null ? null : { type: "selectSpot", spot };
+      if (spot === null) return null;
+      const at = asFiniteNumber(raw.at);
+      return at === null
+        ? { type: "selectSpot", spot }
+        : { type: "selectSpot", spot, at };
     }
     case "setView": {
       const workspaceId = asString(raw.workspaceId);
@@ -320,7 +427,13 @@ function parseCommand(raw: unknown): OperatingCommand | null {
       const workspaceId = asString(raw.workspaceId);
       const ok = typeof raw.ok === "boolean" ? raw.ok : null;
       const reason = parseTuneResultReason(raw.reason);
-      if (deviceId === null || workspaceId === null || ok === null || reason === undefined) return null;
+      if (
+        deviceId === null ||
+        workspaceId === null ||
+        ok === null ||
+        reason === undefined
+      )
+        return null;
       return { type: "tuneResult", deviceId, workspaceId, ok, reason };
     }
     default:
@@ -334,16 +447,30 @@ function parseTuneResultReason(value: unknown): string | null | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-const CANVAS_TYPES: readonly CanvasType[] = ["phone", "tablet", "workstation", "wall"];
+const CANVAS_TYPES: readonly CanvasType[] = [
+  "phone",
+  "tablet",
+  "workstation",
+  "wall",
+];
 
-function parseRegistration(raw: unknown, senderId: string): WorkspaceRegistration | null {
+function parseRegistration(
+  raw: unknown,
+  senderId: string,
+): WorkspaceRegistration | null {
   if (!isRecord(raw)) return null;
   const workspaceId = asString(raw.workspaceId);
   const label = asString(raw.label);
   const canvasType = CANVAS_TYPES.find((c) => c === raw.canvasType);
   const lastSeen = asFiniteNumber(raw.lastSeen);
   const capabilities = isRecord(raw.capabilities) ? raw.capabilities : null;
-  if (workspaceId === null || label === null || !canvasType || lastSeen === null) return null;
+  if (
+    workspaceId === null ||
+    label === null ||
+    !canvasType ||
+    lastSeen === null
+  )
+    return null;
   if (!capabilities) return null;
   if (typeof capabilities.canTune !== "boolean") return null;
   if (typeof capabilities.canCommand !== "boolean") return null;
@@ -354,7 +481,10 @@ function parseRegistration(raw: unknown, senderId: string): WorkspaceRegistratio
     workspaceId,
     canvasType,
     label,
-    capabilities: { canTune: capabilities.canTune, canCommand: capabilities.canCommand },
+    capabilities: {
+      canTune: capabilities.canTune,
+      canCommand: capabilities.canCommand,
+    },
     lastSeen,
   };
 }
@@ -379,15 +509,21 @@ export function parseOperatingMessage(raw: unknown): OperatingMessage | null {
     case "command": {
       if (Date.now() - sentAt > COMMAND_MAX_AGE_MS) return null;
       const command = parseCommand(raw.command);
-      return command === null ? null : { ...envelope, kind: "command", command };
+      return command === null
+        ? null
+        : { ...envelope, kind: "command", command };
     }
     case "register": {
       const registration = parseRegistration(raw.registration, senderId);
-      return registration === null ? null : { ...envelope, kind: "register", registration };
+      return registration === null
+        ? null
+        : { ...envelope, kind: "register", registration };
     }
     case "unregister": {
       const workspaceId = asString(raw.workspaceId);
-      return workspaceId === null ? null : { ...envelope, kind: "unregister", workspaceId };
+      return workspaceId === null
+        ? null
+        : { ...envelope, kind: "unregister", workspaceId };
     }
     case "hello":
       return { ...envelope, kind: "hello" };
@@ -517,7 +653,9 @@ export interface AccountTransportOptions {
  * transport) whenever the gating condition changes, so a later sign-in or
  * migration apply is picked up without this function retrying on its own.
  */
-export function createAccountTransport(options: AccountTransportOptions): OperatingTransport {
+export function createAccountTransport(
+  options: AccountTransportOptions,
+): OperatingTransport {
   const { accountId, client } = options;
   const name = `account:${accountId}`;
   /** CHANNEL_ERROR retry backoff, in ms, before giving up (owner review, #698 fix round). */
@@ -559,9 +697,12 @@ export function createAccountTransport(options: AccountTransportOptions): Operat
     clearRetryTimer();
     if (!loggedError) {
       loggedError = true;
-      console.error("[operatingChannel] account transport subscribe failed; closing", {
-        accountId,
-      });
+      console.error(
+        "[operatingChannel] account transport subscribe failed; closing",
+        {
+          accountId,
+        },
+      );
     }
     closed = true;
     safeUnsubscribe();
@@ -621,7 +762,11 @@ export function createAccountTransport(options: AccountTransportOptions): Operat
       if (closed || !subscribed) return;
       try {
         Promise.resolve(
-          channel.send({ type: "broadcast", event: "operating", payload: message }),
+          channel.send({
+            type: "broadcast",
+            event: "operating",
+            payload: message,
+          }),
         ).catch(() => {});
       } catch {
         // A closed channel or a transient send failure: best effort, same
@@ -669,7 +814,9 @@ export function createCompositeTransport(
  * one `createMemoryBus()` sees the others' posts, exactly like real tabs —
  * including their own, which the store filters on `senderId`.
  */
-export function createMemoryBus(): { connect: (name?: string) => OperatingTransport } {
+export function createMemoryBus(): {
+  connect: (name?: string) => OperatingTransport;
+} {
   const listeners = new Set<OperatingListener>();
 
   return {

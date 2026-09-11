@@ -150,6 +150,16 @@
  * the matcher tests below. #925 already walks `src/components/map` for
  * 12/13px classes; this round still asserts `text-[12px]` over `FILES`
  * because that list includes `src/components/dx/` files #925 does not.
+ *
+ * #833 round 2 (review): two more spellings of the same hatch. `em` is
+ * relative to the parent's computed size, so no static px conversion is
+ * honest -- the guard now flags any `em` value below 1 instead of pretending
+ * a 16px base. And the numeric grammar now accepts a leading decimal point
+ * (`text-[.6rem]`, `fontSize: .5`), which the previous `\d+(\.\d+)?` form
+ * could not match at all. Re-census of the 44 audited files and of `src/` as
+ * a whole: 0 leading-decimal text classes, 0 `em` text classes, 0 inline
+ * leading-decimal `fontSize` values, so both fixes are matcher-proved rather
+ * than site-proved.
  */
 
 import { fileURLToPath } from "node:url";
@@ -254,7 +264,7 @@ const SIZE_RE = /text-\[(\d+)px\]/g;
  * rem/em/pt values at or below 12px, and `text-[clamp(` in the audited set.
  */
 const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?(?![\w%.])/g;
+  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface SubFloorSite {
   file: string;
@@ -316,6 +326,10 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
     expect(sizesIn("fontSize: 12,")).toEqual([12]);
     expect(sizesIn(`fontSize: "0.75rem",`)).toEqual([]);
     expect(sizesIn(`fontSize: "1rem",`)).toEqual([]);
+    // Leading-decimal px, the same grammar hole Codex found in the class
+    // matcher: `fontSize: .5` is valid JS and renders at 0.5px.
+    expect(sizesIn("fontSize: .5,")).toEqual([0.5]);
+    expect(sizesIn(`fontSize: ".5px",`)).toEqual([0.5]);
   });
 
   it("every allowlist entry still matches a real sub-floor site in the audited files", () => {
@@ -341,11 +355,15 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
  * this token. */
 const FLOOR_PX_RE = /text-\[12px\]/;
 
-/** rem/em/pt arbitrary sizes. 1rem/em = 16px; 1pt = 4/3 px. Values at or
+/** rem/em/pt arbitrary sizes. 1rem = 16px; 1pt = 4/3 px. Values at or
  * below 12px are the same dodge as `text-[11px]`, just in a unit
  * `SIZE_RE` cannot see. Larger rem (e.g. `text-[1rem]`) is above the floor
- * and is not this hatch. */
-const RELATIVE_SIZE_RE = /text-\[(\d+(?:\.\d+)?)(rem|em|pt)\]/g;
+ * and is not this hatch.
+ *
+ * The numeric part accepts a leading decimal point (`text-[.6rem]`) as well
+ * as the zero-prefixed form: both are valid CSS and render identically, so a
+ * grammar that only saw `0.6` would let the same 9.6px through. */
+const RELATIVE_SIZE_RE = /text-\[(\d*\.?\d+)(rem|em|pt)\]/g;
 
 /** `text-[clamp(...)]` can hide a sub-floor lower bound. Any clamp() text
  * class in `FILES` is a hatch; the audited set currently has none. */
@@ -354,12 +372,22 @@ const CLAMP_SIZE_RE = /text-\[clamp\(/;
 const FLOOR_PX = 12;
 
 function relativeToPx(value: number, unit: string): number {
-  if (unit === "rem" || unit === "em") return value * 16;
+  if (unit === "rem") return value * 16;
   if (unit === "pt") return (value * 4) / 3;
   return Number.POSITIVE_INFINITY;
 }
 
+/**
+ * `em` in `font-size` is relative to the *parent's* computed font size, not
+ * the root, so a static scanner cannot convert it to px at all: under a
+ * `text-xs` parent, `text-[0.8em]` renders at 9.6px even though a 16px-base
+ * conversion would call it 12.8px and pass. The rule this guard can actually
+ * defend is the shrink itself -- any `em` value below 1 makes the text
+ * smaller than whatever it is nested in, which is the hatch. `1em` is the
+ * identity and anything above it grows, so neither is flagged.
+ */
 function isSubFloorRelative(value: number, unit: string): boolean {
+  if (unit === "em") return value < 1;
   return relativeToPx(value, unit) <= FLOOR_PX;
 }
 
@@ -413,6 +441,18 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
     expect(relativeHits("text-[9pt]").length).toBe(1);
     expect(relativeHits("text-[1rem]").length).toBe(0);
     expect(relativeHits("text-xs").length).toBe(0);
+    // Leading-decimal forms are valid CSS and must not read as clean.
+    expect(relativeHits("text-[.6rem]").length).toBe(1);
+    expect(relativeHits("text-[.5em]").length).toBe(1);
+    expect(relativeHits("text-[.75rem]").length).toBe(1);
+    expect(relativeHits("text-[.9rem]").length).toBe(0);
+    // `em` is parent-relative: under a text-xs parent `0.8em` is 9.6px, so a
+    // 16px-base conversion (12.8px) would wrongly clear it. Any shrink below
+    // 1em is the hatch; 1em and larger are not.
+    expect(relativeHits("text-[0.8em]").length).toBe(1);
+    expect(relativeHits("text-[0.99em]").length).toBe(1);
+    expect(relativeHits("text-[1em]").length).toBe(0);
+    expect(relativeHits("text-[1.25em]").length).toBe(0);
     expect(CLAMP_SIZE_RE.test("text-[clamp(0.5rem,2vw,1rem)]")).toBe(true);
     expect(CLAMP_SIZE_RE.test("text-xs")).toBe(false);
   });

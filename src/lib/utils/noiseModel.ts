@@ -23,6 +23,19 @@
 
 export type NoiseEnvironment = "city" | "residential" | "rural" | "quiet_rural";
 
+/**
+ * Where a resolved noise environment came from (contract M09/M11, #982):
+ * "specified" = the caller stated it; "assumed" = the caller omitted it and
+ * the declared default policy filled it in. Missing is never silently zero or
+ * a second, uncited noise model.
+ */
+export type NoiseEnvironmentSource = "specified" | "assumed";
+
+export interface ResolvedNoiseEnvironment {
+  environment: NoiseEnvironment;
+  source: NoiseEnvironmentSource;
+}
+
 export type NoiseLevel = "very_high" | "high" | "moderate" | "low" | "very_low";
 
 export interface NoiseAssessment {
@@ -56,6 +69,31 @@ const MAN_MADE_COEFFICIENTS: Record<
   rural: { c: 67.2, d: 27.7 },
   quiet_rural: { c: 53.6, d: 28.6 },
 };
+
+/**
+ * Declared default receiver-noise policy (PROP-02, #948).
+ *
+ * One P.372 category is used whenever a caller omits the environment, so an
+ * omitted input and the explicit default produce the same SNR. "residential"
+ * is the application's declared station default (settingsStore.ts
+ * `noiseEnvironment`) and the ITU-R P.372-16 Table 1 residential category.
+ * The previous omitted-input path used an uncited flat 15 dB and disagreed
+ * with every explicit environment by ~47 dB at 14 MHz (#945 audit).
+ */
+export const DEFAULT_NOISE_ENVIRONMENT: NoiseEnvironment = "residential";
+
+/**
+ * Resolve an optional caller environment through the single default policy.
+ * The `source` field keeps an assumed default distinguishable from a stated
+ * value (contract M11: missing is never treated as a measurement).
+ */
+export function resolveNoiseEnvironment(
+  environment?: NoiseEnvironment,
+): ResolvedNoiseEnvironment {
+  return environment
+    ? { environment, source: "specified" }
+    : { environment: DEFAULT_NOISE_ENVIRONMENT, source: "assumed" };
+}
 
 const MIN_FREQUENCY_MHZ = 1.0;
 const MAX_FREQUENCY_MHZ = 55.0;

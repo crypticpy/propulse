@@ -28,6 +28,36 @@ export type SignalClass = "strong" | "moderate" | "weak" | "marginal" | "none";
 export type OperatingMode = "SSB" | "CW" | "FT8" | "RTTY";
 
 /**
+ * Whether the ordinary skywave mode behind a prediction is supported.
+ *
+ * Mathematical contract M07 (#982): a supported mode may be weak but still
+ * contributes power; an unsupported mode contributes no power. This engine's
+ * only support test today is frequency <= median basic MUF at every hop. A hop
+ * above its basic MUF would need the explicit above-MUF loss of ITU-R P.533-14
+ * section 5.3 to contribute; that loss model is not implemented, so the mode
+ * is excluded rather than given a fabricated received power.
+ */
+export type CircuitSupport = "supported" | "above_basic_muf";
+
+/**
+ * The receiver-noise assumption a prediction was made with (contract M09/M10).
+ * `source` keeps an assumed default distinguishable from a caller-specified
+ * environment; the noise floor is always in the 2500 Hz reference bandwidth.
+ */
+export interface NoiseAssumption {
+  /** ITU-R P.372 man-made noise category used for the external noise factor */
+  environment: "city" | "residential" | "rural" | "quiet_rural";
+  /** "specified" when the caller supplied the environment, "assumed" when it did not */
+  source: "specified" | "assumed";
+  /** External noise factor Fa in dB above kT0B (ITU-R P.372) */
+  fa_dB: number;
+  /** Noise power in dBm in `referenceBandwidthHz` */
+  noiseFloorDbm: number;
+  /** Reference bandwidth for SNR and noise floor (always 2500 Hz) */
+  referenceBandwidthHz: number;
+}
+
+/**
  * Complete signal prediction for a propagation path
  * Combines all loss factors and provides expected receive conditions
  */
@@ -58,6 +88,14 @@ export interface SignalPrediction {
   snrHigh?: number;
   /** Operating mode used for this prediction */
   mode: OperatingMode;
+  /**
+   * Circuit support (contract M07). When not "supported" the mode contributes
+   * no power: expectedSNR, snrLow and snrHigh are -Infinity, sUnit is S0 and
+   * signalClass is "none".
+   */
+  support: CircuitSupport;
+  /** Receiver-noise assumption behind expectedSNR (contract M09/M10) */
+  noise: NoiseAssumption;
 }
 
 /**

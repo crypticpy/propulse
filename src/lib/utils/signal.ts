@@ -15,8 +15,10 @@ import type {
   SignalPrediction,
   OperatingMode,
   ModeParameters,
+  CircuitSupport,
+  NoiseAssumption,
 } from "../../types/signal";
-import { getExternalNoiseFigure } from "./noiseModel";
+import { getExternalNoiseFigure, resolveNoiseEnvironment } from "./noiseModel";
 import type { NoiseEnvironment } from "./noiseModel";
 
 /**
@@ -93,9 +95,20 @@ const S9_DBM = -73;
 const DB_PER_S_UNIT = 6;
 
 /**
- * Thermal noise power density at 290K in dBm/Hz
+ * Boltzmann constant, exact SI value (2019 redefinition), J/K.
+ * Contract M09 (#982) requires the exact constant and T0 = 290 K.
  */
-const THERMAL_NOISE_DBM_PER_HZ = -174;
+const BOLTZMANN_J_PER_K = 1.380649e-23;
+
+/** Reference temperature T0 in kelvin (ITU-R P.372 noise-factor reference). */
+const T0_KELVIN = 290;
+
+/**
+ * Thermal noise power density k*T0 at 290 K in dBm/Hz:
+ * 10*log10(kB*T0 / 1e-3 W) = -173.975 dBm/Hz (the usual "-174" rounded).
+ */
+const THERMAL_NOISE_DBM_PER_HZ =
+  10 * Math.log10((BOLTZMANN_J_PER_K * T0_KELVIN) / 1e-3);
 
 /**
  * Calculate free space path loss using the Friis equation
@@ -300,31 +313,38 @@ export function sUnitsTodBm(sUnits: number): number {
 }
 
 /**
- * Calculate noise floor for a given bandwidth
+ * Receiver noise in the 2500 Hz reference bandwidth (contract M09/M10).
  *
- * Thermal noise power: kTB where k=Boltzmann, T=temperature, B=bandwidth
- * At 290K (17°C): -174 dBm/Hz + 10×log10(bandwidth)
+ * N_B[dBm] = 10*log10(kB*T0*B / 1e-3) + Fa, with Fa the ITU-R P.372 external
+ * noise factor in dB above kT0B for the resolved environment. There is one
+ * noise plane and one reference bandwidth: every caller, whether it names an
+ * environment or not, goes through `resolveNoiseEnvironment` and this
+ * function. The former uncited "15 dB above thermal" fallback for omitted
+ * environments is gone; it made an omitted input disagree with every explicit
+ * one by ~47 dB at 14 MHz (#945 audit, PROP-02 #948).
  *
- * HF bands also have atmospheric and man-made noise which can be
- * 10-30 dB above thermal noise floor.
+ * The receiver's own noise factor and feeder temperature (M09 `Tn`) are not
+ * modelled here; Fa alone sets the floor, as before.
  *
- * @param bandwidthHz - Receiver bandwidth in Hz
- * @param externalNoiseDb - Additional noise above thermal (default 15 dB for HF)
- * @returns Noise floor in dBm
+ * @param frequencyMHz - Operating frequency in MHz (Fa is frequency dependent)
+ * @param noiseEnvironment - Optional caller environment; omitted resolves to
+ *   the declared default with `source: "assumed"`
  */
-function calculateNoiseFloor(
-  bandwidthHz: number,
-  externalNoiseDb: number = 15,
-  frequencyMHz?: number,
+export function calculateReferenceNoise(
+  frequencyMHz: number,
   noiseEnvironment?: NoiseEnvironment,
-): number {
-  const thermalNoise = THERMAL_NOISE_DBM_PER_HZ + 10 * Math.log10(bandwidthHz);
-  // Use ITU-R P.372 noise model when frequency is available
-  const effectiveNoiseDb =
-    frequencyMHz && noiseEnvironment
-      ? getExternalNoiseFigure(frequencyMHz, noiseEnvironment)
-      : externalNoiseDb;
-  return thermalNoise + effectiveNoiseDb;
+): NoiseAssumption {
+  const { environment, source } = resolveNoiseEnvironment(noiseEnvironment);
+  const fa_dB = getExternalNoiseFigure(frequencyMHz, environment);
+  const thermalNoiseDbm =
+    THERMAL_NOISE_DBM_PER_HZ + 10 * Math.log10(REFERENCE_BANDWIDTH_HZ);
+  return {
+    environment,
+    source,
+    fa_dB,
+    noiseFloorDbm: thermalNoiseDbm + fa_dB,
+    referenceBandwidthHz: REFERENCE_BANDWIDTH_HZ,
+  };
 }
 
 /**
@@ -344,17 +364,19 @@ function calculateNoiseFloor(
  *   in the shared 2500 Hz reference bandwidth, so mode sensitivity lives in the
  *   per-mode minSNR threshold rather than in the noise floor)
  * @param antennaGainDbi - Combined TX+RX antenna gain in dBi (default 0)
+ * @param frequencyMHz - Operating frequency in MHz; the P.372 noise factor is
+ *   frequency dependent, so there is no frequency-free noise floor
+ * @param noiseEnvironment - Receiver noise environment; omitted resolves to
+ *   the declared default (see calculateReferenceNoise)
  * @returns Expected SNR in dB (can be negative for weak signals)
  *
  * @example
  * ```ts
- * // 100W SSB with 6 dBi antenna gain, 145 dB path loss
- * const snr = calculateExpectedSNR(100, 145, 'SSB', 6);
- * // snr ≈ 12 dB
+ * // 100W SSB with 6 dBi antenna gain, 145 dB path loss at 14 MHz
+ * const snr = calculateExpectedSNR(100, 145, 'SSB', 6, 14);
  *
- * // 50W FT8 with dipole (0 dBi), 155 dB path loss
- * const ft8snr = calculateExpectedSNR(50, 155, 'FT8', 0);
- * // ft8snr ≈ -10 dB (still decodable)
+ * // 50W FT8 with dipole (0 dBi), 155 dB path loss at 7 MHz, rural receiver
+ * const ft8snr = calculateExpectedSNR(50, 155, 'FT8', 0, 7, 'rural');
  * ```
  */
 export function calculateExpectedSNR(
@@ -362,7 +384,7 @@ export function calculateExpectedSNR(
   pathLossDb: number,
   _mode: OperatingMode,
   antennaGainDbi: number = 0,
-  frequencyMHz?: number,
+  frequencyMHz: number,
   noiseEnvironment?: NoiseEnvironment,
 ): number {
   // Guard against invalid inputs
@@ -370,20 +392,18 @@ export function calculateExpectedSNR(
     return -100;
   }
 
-  // Convert TX power to dBm (1W = 30 dBm)
-  const txPowerDbm = 10 * Math.log10(txPowerWatts * 1000);
+  // Convert TX power to dBm: P[dBm] = 30 + 10*log10(P[W]) (contract M08)
+  const txPowerDbm = 30 + 10 * Math.log10(txPowerWatts);
 
   // Compute the noise floor (and hence SNR) in the 2500 Hz reference bandwidth
   // used by WSJT-X and the mode thresholds. Using each mode's narrow detection
   // bandwidth here would inflate the SNR (e.g. ~+17 dB for FT8's 50 Hz) while
   // still comparing against 2500 Hz-referenced thresholds -- the optimism bug.
   // The mode's sensitivity is captured by MODE_PARAMETERS.minSNR instead.
-  const noiseFloor = calculateNoiseFloor(
-    REFERENCE_BANDWIDTH_HZ,
-    15,
+  const noiseFloor = calculateReferenceNoise(
     frequencyMHz,
     noiseEnvironment,
-  );
+  ).noiseFloorDbm;
 
   // Received signal level
   const rxSignalDbm = txPowerDbm + antennaGainDbi - pathLossDb;
@@ -580,19 +600,19 @@ export function calculateConfidenceInterval(
     snrUncertainty *= 0.8;
   }
 
-  // Clamp confidence bounds to [5, 99]
+  // Confidence is a percentage: its bounds live in [5, 99]. The centre from
+  // calculateConfidence is within [20, 95], so these limits never cross it.
   const low = Math.max(5, Math.round(baseConfidence - confidenceHalfWidth));
   const high = Math.min(99, Math.round(baseConfidence + confidenceHalfWidth));
 
-  // Clamp SNR bounds to [-30, +30]
-  const snrLow = Math.max(
-    -30,
-    Math.round((baseSNR - snrUncertainty) * 10) / 10,
-  );
-  const snrHigh = Math.min(
-    30,
-    Math.round((baseSNR + snrUncertainty) * 10) / 10,
-  );
+  // SNR bounds are the physical interval [base - u, base + u]. They are not
+  // clipped here: clipping each end to a display range (formerly [-30, +30])
+  // reversed the interval whenever the point estimate lay outside it, e.g. a
+  // 40 dB estimate reported [38.3, 30] (#945 audit). Presentation ranges are
+  // applied by the renderer, and only with one monotone clamp on all three
+  // values so order and containment survive (PROP-02 #948).
+  const snrLow = Math.round((baseSNR - snrUncertainty) * 10) / 10;
+  const snrHigh = Math.round((baseSNR + snrUncertainty) * 10) / 10;
 
   return {
     confidence: baseConfidence,
@@ -628,6 +648,11 @@ export function calculateConfidenceInterval(
  * @param kp - Current K-index (0-9) for confidence interval calculation
  * @param sfi - Current Solar Flux Index for confidence interval calculation
  * @param muf - Maximum Usable Frequency in MHz for confidence interval calculation
+ * @param support - Circuit support from the path solver (contract M07). An
+ *   unsupported mode contributes no power: the loss breakdown is still
+ *   reported, but expectedSNR and the SNR bounds are -Infinity, sUnit is S0
+ *   and signalClass is "none". Defaults to "supported" for callers that have
+ *   already established support.
  * @returns Complete SignalPrediction object with optional confidence intervals
  *
  * @example
@@ -670,6 +695,7 @@ export function predictSignalStrength(
   kp?: number,
   sfi?: number,
   muf?: number,
+  support: CircuitSupport = "supported",
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
@@ -687,19 +713,31 @@ export function predictSignalStrength(
     pathLoss = pathLoss - groundReflectionLoss + terrainLossDb;
   }
 
-  // Calculate expected SNR
-  const expectedSNR = calculateExpectedSNR(
-    txPowerWatts,
-    pathLoss,
-    mode,
-    antennaGainDbi,
-    frequencyMHz,
-    noiseEnvironment,
-  );
+  // One noise plane for the SNR and the reported assumption (M09/M10)
+  const noise = calculateReferenceNoise(frequencyMHz, noiseEnvironment);
 
-  // Calculate received signal level for S-meter reading
-  const txPowerDbm = 10 * Math.log10(txPowerWatts * 1000);
-  const rxSignalDbm = txPowerDbm + antennaGainDbi - pathLoss;
+  // An unsupported ordinary mode contributes no power (M07): zero received
+  // power is -Infinity dBm, so SNR and S-meter follow from that, not from a
+  // budget computed as if the hop reflected.
+  const isSupported = support === "supported";
+
+  // Calculate expected SNR
+  const expectedSNR = isSupported
+    ? calculateExpectedSNR(
+        txPowerWatts,
+        pathLoss,
+        mode,
+        antennaGainDbi,
+        frequencyMHz,
+        noiseEnvironment,
+      )
+    : Number.NEGATIVE_INFINITY;
+
+  // Calculate received signal level for S-meter reading (M08: 30 + 10log10 P_W)
+  const txPowerDbm = 30 + 10 * Math.log10(txPowerWatts);
+  const rxSignalDbm = isSupported
+    ? txPowerDbm + antennaGainDbi - pathLoss
+    : Number.NEGATIVE_INFINITY;
 
   // Get S-unit reading
   const sUnit = dBmToSUnits(rxSignalDbm);
@@ -721,6 +759,8 @@ export function predictSignalStrength(
     signalClass,
     confidence,
     mode,
+    support,
+    noise,
   };
 
   // Calculate confidence intervals when solar/geomagnetic data is available

@@ -10,9 +10,9 @@ import type {
   VHFCondition,
 } from "../../types/solar";
 import { getIonosphericParameters } from "./ionosphere";
-import { predictSignalStrength } from "./signal";
+import { getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
-import type { SignalPrediction, SUnit } from "@/types/signal";
+import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
 import { getEsSeasonalProbability } from "./sporadicE";
@@ -295,7 +295,9 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
   if (sfi >= 120) {
     summaryParts.push("Higher bands (10-17m) favored.");
   } else if (sfi >= 90) {
-    summaryParts.push("Mid-bands (15–20 m) may be supported on suitable paths.");
+    summaryParts.push(
+      "Mid-bands (15–20 m) may be supported on suitable paths.",
+    );
   } else {
     summaryParts.push("Lower bands (20-40m) recommended.");
   }
@@ -751,6 +753,34 @@ export function getBandConditionsForPath(
 }
 
 /**
+ * Path status from the mode-specific decode/copy margin (PROP-02 #948).
+ *
+ * One ladder for the whole engine: `getSignalClass` measures
+ * `snr - MODE_PARAMETERS[mode].minSNR` (all in the 2500 Hz reference) and this
+ * maps its five classes onto the five path statuses. The former fixed
+ * -8/-12/-18/-24 dB cutoffs ignored the selected mode, so an SSB path 11 dB
+ * below its +3 dB copy threshold was "excellent" (#945 audit). The margin is a
+ * threshold margin, not a QSO probability (contract M10).
+ */
+export function classifyPathStatus(
+  snrDb: number,
+  mode: OperatingMode,
+): PathBandCondition["status"] {
+  switch (getSignalClass(snrDb, mode)) {
+    case "strong":
+      return "excellent";
+    case "moderate":
+      return "good";
+    case "weak":
+      return "fair";
+    case "marginal":
+      return "poor";
+    case "none":
+      return "closed";
+  }
+}
+
+/**
  * Get default note based on status
  */
 function getDefaultNote(status: PathBandCondition["status"]): string {
@@ -886,7 +916,10 @@ export function getEnhancedBandConditions(
         : farEndGainDbi;
 
     // Get full signal prediction using the signal.ts model
-    // Pass kp, sfi, and muf so confidence intervals are computed
+    // Pass kp, sfi, and muf so confidence intervals are computed.
+    // Circuit support comes from the ray solver: a hop above its median basic
+    // MUF is not reflected by this engine (no above-MUF loss model exists), so
+    // the mode contributes no power (contract M07, PROP-02 #948).
     const signalPred = predictSignalStrength(
       frequencyMHz,
       distance,
@@ -900,6 +933,7 @@ export function getEnhancedBandConditions(
       kp,
       sfi,
       pathMuf,
+      rayResult.isPathViable ? "supported" : "above_basic_muf",
     );
 
     // Build notes array
@@ -972,44 +1006,20 @@ export function getEnhancedBandConditions(
 
     // Remember the total penalty so the uncertainty interval can be shifted
     // by the same amount — the displayed center must sit inside its range.
+    // (For an unsupported mode expectedSNR is -Infinity and the shift is NaN;
+    // the bounds are -Infinity too, so the clamp below still pins them.)
     const snrShift = adjustedSNR - signalPred.expectedSNR;
 
-    // Clamp SNR to the same range as the uncertainty interval (signal.ts
-    // clamps snrLow/snrHigh to [-30, +30])
+    // Status and signal class from the same unclipped, mode-referenced number
+    // (PROP-02 #948). An unsupported mode has -Infinity SNR and is "closed";
+    // there is no separate blanket SFI/day-night closure any more, because
+    // those rules could contradict the circuit the ray solver just returned.
+    const status = classifyPathStatus(adjustedSNR, mode);
+    const adjustedClass = getSignalClass(adjustedSNR, mode);
+
+    // Display range: one monotone clamp to [-30, +30] on the center and (below)
+    // both bounds, so order and containment are preserved.
     adjustedSNR = Math.max(-30, Math.min(30, Math.round(adjustedSNR)));
-
-    // Determine status based on adjusted SNR
-    let status: PathBandCondition["status"];
-    if (adjustedSNR >= -8) {
-      status = "excellent";
-    } else if (adjustedSNR >= -12) {
-      status = "good";
-    } else if (adjustedSNR >= -18) {
-      status = "fair";
-    } else if (adjustedSNR >= -24) {
-      status = "poor";
-    } else {
-      status = "closed";
-    }
-
-    // Check if band is completely closed
-    const isBandClosed =
-      sfi < band.minSfi - 30 ||
-      (band.prefersDaylight &&
-        !ionoParams.isDaytime &&
-        ionoParams.zenithAngle > 100) ||
-      (!band.prefersDaylight &&
-        ionoParams.isDaytime &&
-        ionoParams.zenithAngle < 30 &&
-        band.name === "160m");
-
-    if (isBandClosed) {
-      status = "closed";
-      adjustedSNR = -30;
-      if (notes.length === 0) {
-        notes.push("Band closed");
-      }
-    }
 
     // Sporadic E annotation for 6m and 10m
     if (
@@ -1029,10 +1039,13 @@ export function getEnhancedBandConditions(
     const { sUnit } = signalPred;
 
     // Shift the uncertainty interval by the same Kp/SFI penalties applied to
-    // the center estimate (and pin it to -30 when the band is closed) so the
-    // displayed center, range, and status all come from one number.
-    const displayPred: SignalPrediction = { ...signalPred };
-    if (isBandClosed) {
+    // the center estimate so the displayed center, range, status and class
+    // all come from one number, then apply the same display clamp.
+    const displayPred: SignalPrediction = {
+      ...signalPred,
+      signalClass: adjustedClass,
+    };
+    if (signalPred.support !== "supported") {
       displayPred.snrLow = -30;
       displayPred.snrHigh = -30;
     } else {

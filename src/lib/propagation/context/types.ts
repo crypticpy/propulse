@@ -90,6 +90,17 @@ export interface SourceRecord {
 export type SourceHistory = readonly SourceRecord[];
 
 /**
+ * A record stripped of its number.
+ *
+ * M11 keeps an excluded source "visible and dated" while excluding it from
+ * corrections. Carrying the whole record would leave the number one property
+ * access away from a consumer who never checked the state, so the snapshot
+ * publishes the provenance without the value: visible, dated, and impossible
+ * to read as data.
+ */
+export type DatedRecord = Omit<SourceRecord, "value">;
+
+/**
  * Why a record that exists was not used. Every one of these is a statement
  * about the record and `issuedAt`, never about the wall clock.
  */
@@ -183,7 +194,7 @@ export type SnapshotEntry =
       readonly state: "excluded";
       readonly sourceId: string;
       readonly reason: ExclusionReason;
-      readonly latest: SourceRecord | null;
+      readonly latest: DatedRecord | null;
       readonly sourceVersion: string;
     }
   | {

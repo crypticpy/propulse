@@ -56,24 +56,25 @@ describe("parseResult fixtures", () => {
     expect(qso?.state.availability).toBe("unavailable");
     expect(decode?.state.availability).toBe("available");
     // The decode head is conditioned on a named decoder and duration, and it
-    // reports a margin rather than an uncalibrated percentage (M10).
-    const value =
-      decode?.state.availability === "available"
-        ? (decode.state.value as Mutable)
-        : undefined;
-    expect(value?.probability).toBeNull();
-    expect(value?.decoderVersion).toBe("2.7.0");
+    // reports a margin rather than an uncalibrated percentage (M10). The head
+    // narrows to its own payload type, so no cast is needed here.
+    if (decode?.state.availability !== "available") {
+      throw new Error("the fixture's decode head is available");
+    }
+    expect(decode.state.value.probability).toBeNull();
+    expect(decode.state.value.decoderVersion).toBe("2.7.0");
+    expect(decode.state.value.observationSeconds).toBe(15);
   });
 
   it("decodes the JSON no-power sentinel to -Infinity", () => {
     const outcome = parseResult(candidate("noPowerMode"));
     if (!outcome.ok) throw new Error("fixture must parse");
     const snr = findHead(outcome.value, "snr2500");
-    const value =
-      snr?.state.availability === "available"
-        ? (snr.state.value as { snr2500Db: number })
-        : undefined;
-    expect(value?.snr2500Db).toBe(Number.NEGATIVE_INFINITY);
+    if (snr?.state.availability !== "available") {
+      throw new Error("the fixture's SNR head is available");
+    }
+    expect(snr.state.value.snr2500Db).toBe(Number.NEGATIVE_INFINITY);
+    expect(snr.state.value.support).toBe("geometrically_unsupported");
   });
 });
 
@@ -323,6 +324,37 @@ describe("parseResult fails closed", () => {
     expect(
       reasonsAt(bad, "heads[1].state.value.sourceCoverageIds").join(),
     ).toMatch(/at least 1/);
+  });
+
+  it("rejects a satellite pass whose loss of signal precedes acquisition", () => {
+    const bad = candidate("missingInput");
+    heads(bad)[0] = {
+      ...heads(bad)[0],
+      quantity: "pass_geometry",
+      units: "seconds",
+      domain: "qualified_ephemeris_horizon",
+      state: {
+        availability: "available",
+        value: {
+          aosAt: "2026-09-11T19:10:00Z",
+          losAt: "2026-09-11T19:02:00Z",
+          timingUncertaintySeconds: 2,
+          ephemerisAgeSeconds: 43200,
+          horizonDeg: 0,
+        },
+      },
+    };
+    expect(reasonsAt(bad, "heads[0].state.value.losAt").join()).toMatch(
+      /must follow acquisition/,
+    );
+  });
+
+  it("requires a fallback reason when only the head's model version differs (M19)", () => {
+    const bad = candidate("fullHfCircuit");
+    headFor(bad, "snr2500").effectiveModelVersion = "1.1.0";
+    expect(reasonsAt(bad, "heads[1].fallbackReason").join()).toMatch(
+      /own fallback reason/,
+    );
   });
 
   it("rejects a non-integer observation count", () => {

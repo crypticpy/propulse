@@ -143,6 +143,19 @@ export const CAPABILITY_STATES = [
 export type CapabilityState = (typeof CAPABILITY_STATES)[number];
 
 /**
+ * The capability states a router may actually send a request to. `planned` has
+ * no implementation and `unsupported` is a declared gap, so neither can answer
+ * a head; `data_limited` can answer with its own evidence caveat.
+ */
+export const ROUTABLE_CAPABILITY_STATES: readonly CapabilityState[] = [
+  "implemented_unvalidated",
+  "validated_climatology",
+  "validated_current",
+  "validated_forecast",
+  "data_limited",
+];
+
+/**
  * M07 mode semantics. `geometrically_unsupported` and `screened` contribute no
  * power; `above_basic_muf_with_loss` is a supported mode carrying the
  * reference's above-MUF loss and is NOT a closed circuit.

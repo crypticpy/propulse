@@ -108,11 +108,11 @@ export function deepFreeze<T>(value: T): T {
  * Run a schema against unknown input and return a frozen value or issues.
  * A thrown error inside a refinement becomes an issue; nothing escapes.
  */
-export function parseWith<T>(
-  schema: z.ZodType<T>,
+export function parseWith<S extends z.ZodTypeAny>(
+  schema: S,
   candidate: unknown,
-): ParseOutcome<T> {
-  let outcome: z.SafeParseReturnType<unknown, T>;
+): ParseOutcome<z.output<S>> {
+  let outcome: z.SafeParseReturnType<unknown, z.output<S>>;
   try {
     outcome = schema.safeParse(candidate);
   } catch (error) {

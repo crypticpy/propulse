@@ -194,6 +194,42 @@ describe("parseRequest fails closed", () => {
     );
   });
 
+  it("rejects coincident endpoints with no explicit route azimuth (M06)", () => {
+    const bad = candidate("hfShortPath");
+    (bad.rx as Mutable).coordinates = structuredClone(
+      (bad.tx as Mutable).coordinates,
+    );
+    expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
+      /explicit route azimuth is required/,
+    );
+  });
+
+  it("rejects exactly antipodal endpoints with no explicit route azimuth (M06)", () => {
+    const bad = candidate("hfShortPath");
+    const tx = (bad.tx as Mutable).coordinates as Mutable;
+    const rx = (bad.rx as Mutable).coordinates as Mutable;
+    rx.latitudeDeg = -(tx.latitudeDeg as number);
+    rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
+    expect(reasonsAt(bad, "route.azimuthDeg").join()).toMatch(
+      /explicit route azimuth is required/,
+    );
+  });
+
+  it("accepts degenerate endpoints once the route azimuth is explicit", () => {
+    const explicit = candidate("hfShortPath");
+    (explicit.rx as Mutable).coordinates = structuredClone(
+      (explicit.tx as Mutable).coordinates,
+    );
+    (explicit.route as Mutable).azimuthDeg = 45;
+    expect(parseRequest(explicit).ok).toBe(true);
+  });
+
+  it("still accepts an ordinary path with a derived (null) azimuth", () => {
+    const ordinary = candidate("hfShortPath");
+    expect((ordinary.route as Mutable).azimuthDeg).toBeNull();
+    expect(parseRequest(ordinary).ok).toBe(true);
+  });
+
   it("rejects out-of-range coordinates", () => {
     const bad = candidate("hfShortPath");
     ((bad.tx as Mutable).coordinates as Mutable).latitudeDeg = 91;

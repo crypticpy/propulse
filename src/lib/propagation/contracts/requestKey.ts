@@ -20,6 +20,7 @@
  * model, nothing that one view could change under another.
  */
 import type { PredictionRequest } from "@/lib/propagation/contracts/request";
+import type { Known } from "@/lib/propagation/contracts/validation";
 
 type Canonical =
   string | number | boolean | null | Canonical[] | { [key: string]: Canonical };
@@ -45,6 +46,20 @@ function canonicalize(value: Canonical): string {
   return `{${body}}`;
 }
 
+/**
+ * Project a known/unknown field without flattening its discriminant into a
+ * string. Encoding an unknown as `unknown:<reason>` would let a *known* string
+ * whose value happens to read "unknown:withheld" produce the same key as an
+ * unknown withheld for that reason, so the structure is kept instead.
+ */
+function knownProjection<T extends Canonical>(
+  field: Known<T>,
+): Record<string, Canonical> {
+  return field.state === "known"
+    ? { state: "known", value: field.value }
+    : { state: "unknown", reason: field.reason };
+}
+
 function stationProjection(
   station: PredictionRequest["tx"],
 ): Record<string, Canonical> {
@@ -55,37 +70,18 @@ function stationProjection(
     longitudeDeg: station.coordinates.longitudeDeg,
     datum: station.coordinates.datum,
     precisionKind: station.coordinates.precision.kind,
-    precisionHorizontalMeters:
-      station.coordinates.precision.horizontalMeters.state === "known"
-        ? station.coordinates.precision.horizontalMeters.value
-        : `unknown:${station.coordinates.precision.horizontalMeters.reason}`,
+    precisionHorizontalMeters: knownProjection(
+      station.coordinates.precision.horizontalMeters,
+    ),
     precisionCellSizeDeg: station.coordinates.precision.cellSizeDeg,
-    antennaPatternId:
-      station.antenna.patternId.state === "known"
-        ? station.antenna.patternId.value
-        : `unknown:${station.antenna.patternId.reason}`,
-    antennaGainDbi:
-      station.antenna.gainDbi.state === "known"
-        ? station.antenna.gainDbi.value
-        : `unknown:${station.antenna.gainDbi.reason}`,
-    antennaHeightMeters:
-      station.antenna.heightMeters.state === "known"
-        ? station.antenna.heightMeters.value
-        : `unknown:${station.antenna.heightMeters.reason}`,
+    antennaPatternId: knownProjection(station.antenna.patternId),
+    antennaGainDbi: knownProjection(station.antenna.gainDbi),
+    antennaHeightMeters: knownProjection(station.antenna.heightMeters),
     antennaHeightDatum: station.antenna.heightDatum,
     polarization: station.antenna.polarization,
-    deliveredPowerWatts:
-      station.deliveredPowerWatts.state === "known"
-        ? station.deliveredPowerWatts.value
-        : `unknown:${station.deliveredPowerWatts.reason}`,
-    feedLossDb:
-      station.feedLossDb.state === "known"
-        ? station.feedLossDb.value
-        : `unknown:${station.feedLossDb.reason}`,
-    noiseAssumptionId:
-      station.noiseAssumptionId.state === "known"
-        ? station.noiseAssumptionId.value
-        : `unknown:${station.noiseAssumptionId.reason}`,
+    deliveredPowerWatts: knownProjection(station.deliveredPowerWatts),
+    feedLossDb: knownProjection(station.feedLossDb),
+    noiseAssumptionId: knownProjection(station.noiseAssumptionId),
   };
 }
 

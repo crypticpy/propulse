@@ -21,6 +21,8 @@ import {
   QUANTITY_UNITS,
   REFERENCE_BANDWIDTH_HZ,
   RESULT_SCHEMA_VERSION,
+  type FallbackReason,
+  type PredictionDomain,
   type PredictionQuantity,
 } from "@/lib/propagation/contracts/enums";
 import {
@@ -241,7 +243,16 @@ const passGeometryPayload = z
     ephemerisAgeSeconds: finite.nonnegative(),
     horizonDeg: finite.min(-90).max(90),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (instantMs(value.losAt) <= instantMs(value.aosAt)) {
+      reject(
+        ctx,
+        ["losAt"],
+        "Loss of signal must follow acquisition of signal",
+      );
+    }
+  });
 
 const dopplerPayload = z
   .object({
@@ -251,6 +262,24 @@ const dopplerPayload = z
     signConvention: z.literal("positive_receding"),
   })
   .strict();
+
+/**
+ * The payload type each quantity carries. `PAYLOAD_SCHEMAS` below and this map
+ * are the two halves of one contract: adding a quantity without both is a type
+ * error, and consumers narrow a head by its quantity rather than casting.
+ */
+export interface PayloadByQuantity {
+  circuit_support: z.infer<typeof circuitSupportPayload>;
+  snr2500: z.infer<typeof snr2500Payload>;
+  network_detection: z.infer<typeof networkDetectionPayload>;
+  observed_activity: z.infer<typeof observedActivityPayload>;
+  conditional_decode: z.infer<typeof conditionalDecodePayload>;
+  completed_qso: z.infer<typeof completedQsoPayload>;
+  field_strength: z.infer<typeof fieldStrengthPayload>;
+  usable_burst: z.infer<typeof usableBurstPayload>;
+  pass_geometry: z.infer<typeof passGeometryPayload>;
+  doppler: z.infer<typeof dopplerPayload>;
+}
 
 const PAYLOAD_SCHEMAS: Record<PredictionQuantity, z.ZodTypeAny> = {
   circuit_support: circuitSupportPayload,
@@ -285,6 +314,39 @@ const headState = z.discriminatedUnion("availability", [
     .strict(),
 ]);
 
+/** Everything a head declares regardless of which event it answers (M01). */
+export interface PredictionHeadBase {
+  units: string;
+  domain: PredictionDomain;
+  contextId: string;
+  validAt: string;
+  effectiveModelId: string;
+  effectiveModelVersion: string;
+  calibrationId: string | null;
+  assumptions: string[];
+  fallbackReason: FallbackReason | null;
+  uncertainty: z.infer<typeof uncertainty>;
+}
+
+/**
+ * A head, discriminated by its quantity so `state.value` is the payload that
+ * quantity actually carries. An unavailable head has a reason and no value.
+ */
+export type PredictionHead = {
+  [Q in PredictionQuantity]: PredictionHeadBase & {
+    quantity: Q;
+    state:
+      | {
+          availability: "available" | "experimental";
+          value: PayloadByQuantity[Q];
+        }
+      | {
+          availability: "unsupported" | "missing_input" | "unavailable";
+          reason: string;
+        };
+  };
+}[PredictionQuantity];
+
 const predictionHead = z
   .object({
     quantity: z.enum(PREDICTION_QUANTITIES),
@@ -306,7 +368,7 @@ const predictionHead = z
    * payload replaces the raw one so a wire encoding (the "-Infinity" no-power
    * sentinel) is normalized exactly once, here.
    */
-  .transform((value, ctx) => {
+  .transform((value, ctx): PredictionHead => {
     if (value.units !== QUANTITY_UNITS[value.quantity]) {
       reject(
         ctx,
@@ -325,7 +387,9 @@ const predictionHead = z
           "An unavailable head cannot carry an uncertainty interval",
         );
       }
-      return value;
+      // The quantity and its payload are checked below; the cast only tells
+      // TypeScript that the enum member and its payload belong together.
+      return value as PredictionHead;
     }
     const payload = PAYLOAD_SCHEMAS[value.quantity].safeParse(
       value.state.value,
@@ -370,8 +434,8 @@ const predictionHead = z
     }
     return {
       ...value,
-      state: { ...value.state, value: payload.data as unknown },
-    };
+      state: { ...value.state, value: payload.data },
+    } as PredictionHead;
   });
 
 /** M02/M11 as-issued evidence. Eligibility is proven, never assumed. */
@@ -499,10 +563,10 @@ export const predictionResultSchema = z
           "A head belongs to the result's context",
         );
       }
-      if (
-        head.effectiveModelId !== value.provenance.effectiveModelId &&
-        head.fallbackReason === null
-      ) {
+      const servedByAnotherModel =
+        head.effectiveModelId !== value.provenance.effectiveModelId ||
+        head.effectiveModelVersion !== value.provenance.effectiveModelVersion;
+      if (servedByAnotherModel && head.fallbackReason === null) {
         reject(
           ctx,
           ["heads", index, "fallbackReason"],
@@ -514,7 +578,6 @@ export const predictionResultSchema = z
 
 /** A validated, frozen prediction result. */
 export type PredictionResult = z.infer<typeof predictionResultSchema>;
-export type PredictionHead = PredictionResult["heads"][number];
 
 /** Parse an untrusted result. Fails closed; never throws on data. */
 export function parseResult(
@@ -524,9 +587,12 @@ export function parseResult(
 }
 
 /** The single head for a quantity, or undefined when the model omitted it. */
-export function findHead(
+export function findHead<Q extends PredictionQuantity>(
   result: PredictionResult,
-  quantity: PredictionQuantity,
-): PredictionHead | undefined {
-  return result.heads.find((head) => head.quantity === quantity);
+  quantity: Q,
+): Extract<PredictionHead, { quantity: Q }> | undefined {
+  return result.heads.find(
+    (head): head is Extract<PredictionHead, { quantity: Q }> =>
+      head.quantity === quantity,
+  );
 }

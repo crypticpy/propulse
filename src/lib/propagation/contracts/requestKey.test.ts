@@ -118,6 +118,40 @@ describe("requestKey identity", () => {
     },
   );
 
+  it("never aliases a known string with an unknown carrying that text", () => {
+    // A known pattern id that literally reads "unknown:withheld" and an
+    // unknown withheld for reason "withheld" are different scientific inputs.
+    const knownLookalike = build((draft) => {
+      ((draft.tx as Mutable).antenna as Mutable).patternId = {
+        state: "known",
+        value: "unknown:withheld",
+      };
+    });
+    const genuinelyUnknown = build((draft) => {
+      ((draft.tx as Mutable).antenna as Mutable).patternId = {
+        state: "unknown",
+        reason: "withheld",
+      };
+    });
+    expect(requestKey(genuinelyUnknown)).not.toBe(requestKey(knownLookalike));
+  });
+
+  it("never aliases a known number with an unknown numeric field", () => {
+    const knownGain = build((draft) => {
+      ((draft.tx as Mutable).antenna as Mutable).gainDbi = {
+        state: "known",
+        value: 8.5,
+      };
+    });
+    const unknownGain = build((draft) => {
+      ((draft.tx as Mutable).antenna as Mutable).gainDbi = {
+        state: "unknown",
+        reason: "8.5",
+      };
+    });
+    expect(requestKey(unknownGain)).not.toBe(requestKey(knownGain));
+  });
+
   it("distinguishes the two directions of the same path", () => {
     const forward = build();
     const reverse = build((draft) => {

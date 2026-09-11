@@ -23,6 +23,7 @@ import {
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
   QUANTITY_UNITS,
+  ROUTABLE_CAPABILITY_STATES,
   UNCERTAINTY_KINDS,
 } from "@/lib/propagation/contracts/enums";
 import {
@@ -208,8 +209,16 @@ export function parseCapability(
 }
 
 /**
- * True when the capability can answer this exact request shape. A no-op
- * capability answers nothing and is routed past without producing a number.
+ * True when the capability can actually answer this exact request shape.
+ *
+ * Every dimension the head declares is checked, not just the frequency: the
+ * head has to be in a routable state, and it has to declare the requested
+ * mechanism family and mode profile. A head that lists no mode profiles covers
+ * nothing, because an empty declaration is a gap rather than a wildcard. A
+ * no-op capability declares no heads and therefore answers nothing.
+ *
+ * `mechanismFamily` is the family the router already resolved; the request's
+ * own "auto" is resolved before this call.
  */
 export function capabilityCovers(
   capability: ModelCapability,
@@ -219,14 +228,19 @@ export function capabilityCovers(
     horizon: ModelCapabilityHead["horizons"][number];
     frequencyHz: number;
     geometryClass: ModelCapabilityHead["geometryClasses"][number];
+    mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
+    modeProfileId: string;
   },
 ): boolean {
   return capability.heads.some(
     (head) =>
+      ROUTABLE_CAPABILITY_STATES.includes(head.state) &&
       head.quantity === query.quantity &&
       head.domain === query.domain &&
       head.horizons.includes(query.horizon) &&
       head.geometryClasses.includes(query.geometryClass) &&
+      head.mechanismFamilies.includes(query.mechanismFamily) &&
+      head.modeProfileIds.includes(query.modeProfileId) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz,
   );

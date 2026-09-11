@@ -49,6 +49,43 @@ export const TERRAIN_DEPENDENT_FAMILIES = [
   "ground_sky_coherent",
 ] as const;
 
+/**
+ * Angular tolerance for degenerate great-circle geometry, in radians.
+ *
+ * 1e-6 rad is about 6.4 m on the Earth's surface (6371 km * 1e-6), which is
+ * below the finest coordinate precision this contract records (a GNSS fix,
+ * metres). Endpoints closer than that, or that far from exactly antipodal, are
+ * degenerate within their own coordinate noise, while any real path stays well
+ * outside the tolerance.
+ */
+const DEGENERATE_GEOMETRY_TOLERANCE_RAD = 1e-6;
+
+/** M06: theta = atan2(|u x v|, u . v), stable at both 0 and pi. */
+function angularSeparationRad(
+  a: { latitudeDeg: number; longitudeDeg: number },
+  b: { latitudeDeg: number; longitudeDeg: number },
+): number {
+  const toRad = Math.PI / 180;
+  const unit = (point: { latitudeDeg: number; longitudeDeg: number }) => {
+    const lat = point.latitudeDeg * toRad;
+    const lon = point.longitudeDeg * toRad;
+    return [
+      Math.cos(lat) * Math.cos(lon),
+      Math.cos(lat) * Math.sin(lon),
+      Math.sin(lat),
+    ] as const;
+  };
+  const [ux, uy, uz] = unit(a);
+  const [vx, vy, vz] = unit(b);
+  const dot = ux * vx + uy * vy + uz * vz;
+  const cross = Math.hypot(
+    uy * vz - uz * vy,
+    uz * vx - ux * vz,
+    ux * vy - uy * vx,
+  );
+  return Math.atan2(cross, dot);
+}
+
 const coordinatePrecision = z
   .object({
     kind: z.enum(COORDINATE_PRECISION_KINDS),
@@ -267,6 +304,20 @@ export const predictionRequestSchema = z
         ctx,
         ["relay", "ephemerisEpoch"],
         "An ephemeris epoch after issuedAt is not as-issued (M02)",
+      );
+    }
+    const separation = angularSeparationRad(
+      value.tx.coordinates,
+      value.rx.coordinates,
+    );
+    const degenerate =
+      separation < DEGENERATE_GEOMETRY_TOLERANCE_RAD ||
+      separation > Math.PI - DEGENERATE_GEOMETRY_TOLERANCE_RAD;
+    if (degenerate && value.route.azimuthDeg === null) {
+      reject(
+        ctx,
+        ["route", "azimuthDeg"],
+        "Coincident or antipodal endpoints have no derived short or long tangent; an explicit route azimuth is required (M06)",
       );
     }
     const family = value.mechanismPolicy.family;

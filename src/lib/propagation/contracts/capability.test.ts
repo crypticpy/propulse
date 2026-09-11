@@ -14,6 +14,25 @@ function candidate(name: string): Mutable {
   return structuredClone(cases[name]) as Mutable;
 }
 
+function parsed(name: string) {
+  const outcome = parseCapability(candidate(name));
+  if (!outcome.ok) {
+    throw new Error(`fixture must parse: ${JSON.stringify(outcome.issues)}`);
+  }
+  return outcome.value;
+}
+
+/** A request shape the HF physics fixture's SNR head does declare. */
+const baseQuery = {
+  quantity: "snr2500",
+  domain: "characterized_fixed_path",
+  horizon: "current",
+  geometryClass: "terrestrial_great_circle",
+  mechanismFamily: "regular_ef",
+  modeProfileId: "ft8-wsjtx-2.7.0-15s",
+  frequencyHz: 14074000,
+} as const;
+
 function issues(value: unknown): ContractIssue[] {
   const outcome = parseCapability(value);
   expect(outcome.ok).toBe(false);
@@ -39,35 +58,86 @@ describe("parseCapability fixtures", () => {
     if (!outcome.ok) throw new Error("no-op fixture must parse");
     expect(outcome.value.heads).toEqual([]);
     expect(
-      capabilityCovers(outcome.value, {
-        quantity: "snr2500",
-        domain: "characterized_fixed_path",
-        horizon: "current",
-        frequencyHz: 14074000,
-        geometryClass: "terrestrial_great_circle",
-      }),
+      capabilityCovers(outcome.value, { ...baseQuery, frequencyHz: 14074000 }),
     ).toBe(false);
   });
 
   it("answers coverage from the frequency range, not a band nickname", () => {
-    const outcome = parseCapability(candidate("hfPhysics"));
-    if (!outcome.ok) throw new Error("fixture must parse");
-    const query = {
-      quantity: "snr2500",
-      domain: "characterized_fixed_path",
-      horizon: "current",
-      geometryClass: "terrestrial_great_circle",
-    } as const;
+    const capability = parsed("hfPhysics");
     expect(
-      capabilityCovers(outcome.value, { ...query, frequencyHz: 14074000 }),
+      capabilityCovers(capability, { ...baseQuery, frequencyHz: 14074000 }),
     ).toBe(true);
     // 6 m is inside the declared band keys but outside the 2-30 MHz range.
     expect(
-      capabilityCovers(outcome.value, { ...query, frequencyHz: 50313000 }),
+      capabilityCovers(capability, { ...baseQuery, frequencyHz: 50313000 }),
     ).toBe(false);
     // 160 m below 2 MHz is out of the reference domain and is not clamped in.
     expect(
-      capabilityCovers(outcome.value, { ...query, frequencyHz: 1840000 }),
+      capabilityCovers(capability, { ...baseQuery, frequencyHz: 1840000 }),
+    ).toBe(false);
+  });
+
+  it("does not route to a head that is only planned or unsupported", () => {
+    const capability = parsed("hfPhysics");
+    const decodeQuery = {
+      ...baseQuery,
+      quantity: "conditional_decode",
+      frequencyHz: 14074000,
+    } as const;
+    // The fixture's decode head is `planned`: declared, not implemented.
+    expect(capabilityCovers(capability, decodeQuery)).toBe(false);
+
+    const declaredGap = structuredClone(cases.hfPhysics) as Mutable;
+    (declaredGap.heads as Mutable[])[1].state = "unsupported";
+    const gap = parseCapability(declaredGap);
+    if (!gap.ok) throw new Error("mutated fixture must parse");
+    expect(
+      capabilityCovers(gap.value, { ...baseQuery, frequencyHz: 14074000 }),
+    ).toBe(false);
+  });
+
+  it("does not route a mechanism family the head never declared", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        frequencyHz: 14074000,
+        mechanismFamily: "es",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not route a mode profile the head never declared", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        frequencyHz: 14074000,
+        modeProfileId: "cw-500hz-v1",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not route a horizon, domain or geometry the head never declared", () => {
+    const capability = parsed("hfPhysics");
+    expect(
+      capabilityCovers(capability, {
+        ...baseQuery,
+        frequencyHz: 14074000,
+        horizon: "forecast_seconds",
+      }),
+    ).toBe(false);
+    expect(
+      capabilityCovers(capability, {
+        ...baseQuery,
+        frequencyHz: 14074000,
+        domain: "versioned_event_population",
+      }),
+    ).toBe(false);
+    expect(
+      capabilityCovers(capability, {
+        ...baseQuery,
+        frequencyHz: 14074000,
+        geometryClass: "earth_space",
+      }),
     ).toBe(false);
   });
 });

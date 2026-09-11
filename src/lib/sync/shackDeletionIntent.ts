@@ -15,6 +15,12 @@ export interface PendingGearDeletion {
   /** Local record id (`instance_id` for user_radios). */
   recordId: string;
   requestedAt: string;
+  /**
+   * Signed-in user id that requested the deletion, recorded at enqueue
+   * time. Prevents an offline deletion queued under one account from being
+   * pushed (and silently lost) under a different signed-in account (#326).
+   */
+  ownerId: string;
 }
 
 export function gearDeletionKey(
@@ -25,6 +31,7 @@ export function gearDeletionKey(
 
 export function enqueueGearDeletionIntent(
   pending: ReadonlyArray<PendingGearDeletion>,
+  ownerId: string,
   table: GearDeletionTable,
   recordId: string,
   requestedAt = new Date().toISOString(),
@@ -33,11 +40,12 @@ export function enqueueGearDeletionIntent(
   if (pending.some((entry) => gearDeletionKey(entry) === key)) {
     return [...pending];
   }
-  return [...pending, { table, recordId, requestedAt }];
+  return [...pending, { table, recordId, requestedAt, ownerId }];
 }
 
 export function enqueueGearDeletionIntents(
   pending: ReadonlyArray<PendingGearDeletion>,
+  ownerId: string,
   entries: ReadonlyArray<Pick<PendingGearDeletion, "table" | "recordId">>,
   requestedAt = new Date().toISOString(),
 ): PendingGearDeletion[] {
@@ -45,6 +53,7 @@ export function enqueueGearDeletionIntents(
   for (const entry of entries) {
     next = enqueueGearDeletionIntent(
       next,
+      ownerId,
       entry.table,
       entry.recordId,
       requestedAt,
@@ -56,10 +65,13 @@ export function enqueueGearDeletionIntents(
 export function removeAcknowledgedGearDeletions(
   pending: ReadonlyArray<PendingGearDeletion>,
   acknowledgedKeys: ReadonlySet<string> | readonly string[],
+  ownerId: string,
 ): PendingGearDeletion[] {
   const ack =
     acknowledgedKeys instanceof Set
       ? acknowledgedKeys
       : new Set(acknowledgedKeys);
-  return pending.filter((entry) => !ack.has(gearDeletionKey(entry)));
+  return pending.filter(
+    (entry) => !(ack.has(gearDeletionKey(entry)) && entry.ownerId === ownerId),
+  );
 }

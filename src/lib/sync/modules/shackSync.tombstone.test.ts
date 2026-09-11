@@ -15,15 +15,18 @@ const mocks = vi.hoisted(() => ({
       table: string;
       recordId: string;
       requestedAt: string;
+      ownerId: string;
     }>,
   },
   setState: vi.fn(),
   acknowledgeGearDeletions: vi.fn(),
-  update: vi.fn(),
+  applyGearRemoval: vi.fn(),
   from: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
   gt: vi.fn(),
+  /** Ordered log of table-level writes, for asserting delete-before-upsert (#326). */
+  callLog: [] as string[],
 }));
 
 vi.mock("@/stores/shackStore", () => ({
@@ -31,6 +34,7 @@ vi.mock("@/stores/shackStore", () => ({
     getState: () => ({
       ...mocks.shackState,
       acknowledgeGearDeletions: mocks.acknowledgeGearDeletions,
+      applyGearRemoval: mocks.applyGearRemoval,
     }),
     setState: mocks.setState,
   },
@@ -57,27 +61,59 @@ function queryBuilder(rows: unknown[] | null) {
   return builder;
 }
 
+/**
+ * Builds a `.from(table)` stand-in for the push path: the tombstone chain
+ * `.update().eq(userIdEq).eq(idColumnEq).select()`, the zero-row follow-up
+ * `.select().eq().eq().maybeSingle()`, and `.upsert()` for survivors. Every
+ * `.eq()` call is recorded so tests can assert the filtered column/value.
+ */
+function makeTableMock(
+  table: string,
+  updateResult: { data: unknown[] | null; error: { message: string } | null },
+) {
+  const eqLog: Array<[string, unknown]> = [];
+  const eq = (column: string, value: unknown) => {
+    eqLog.push([column, value]);
+    return chain;
+  };
+  const chain: {
+    eq: typeof eq;
+    select: () => Promise<typeof updateResult>;
+    maybeSingle: () => Promise<{ data: null; error: null }>;
+  } = {
+    eq,
+    select: vi.fn(() => {
+      mocks.callLog.push(`update:${table}`);
+      return Promise.resolve(updateResult);
+    }),
+    maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+  };
+  return {
+    update: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+    upsert: vi.fn(() => {
+      mocks.callLog.push(`upsert:${table}`);
+      return { error: null };
+    }),
+    eqLog,
+  };
+}
+
 beforeEach(() => {
   mocks.shackState.radios = [];
   mocks.shackState.pendingGearDeletions = [];
   mocks.setState.mockClear();
   mocks.acknowledgeGearDeletions.mockClear();
-  mocks.update.mockReset();
+  mocks.applyGearRemoval.mockClear();
   mocks.from.mockReset();
   mocks.select.mockReset();
   mocks.eq.mockReset();
   mocks.gt.mockReset();
-
-  mocks.update.mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({ error: null }),
-      error: null,
-    }),
-  });
+  mocks.callLog = [];
 });
 
 describe("shackSync tombstones (#326)", () => {
-  it("pull removes server-tombstoned gear and acks matching pending intents", async () => {
+  it("pull removes server-tombstoned gear, acks matching pending intents for the pulling user, and cascades the cleanup", async () => {
     mocks.shackState.radios = [
       {
         id: "radio-old",
@@ -90,6 +126,7 @@ describe("shackSync tombstones (#326)", () => {
         table: "user_radios",
         recordId: "radio-old",
         requestedAt: "2026-01-02T00:00:00.000Z",
+        ownerId: "user-1",
       },
     ];
 
@@ -128,41 +165,84 @@ describe("shackSync tombstones (#326)", () => {
         radios: [],
       }),
     );
-    expect(mocks.acknowledgeGearDeletions).toHaveBeenCalledWith([
-      "user_radios:radio-old",
-    ]);
+    expect(mocks.acknowledgeGearDeletions).toHaveBeenCalledWith(
+      ["user_radios:radio-old"],
+      "user-1",
+    );
+    // Referential cleanup (dangling presets/chains/activeRadioId) runs
+    // through the same shared cascade the local remove* actions use (#326).
+    expect(mocks.applyGearRemoval).toHaveBeenCalledWith(
+      "user_radios",
+      ["radio-old"],
+      "user-1",
+    );
   });
 
-  it("push applies pending deletions before upserting survivors", async () => {
+  it("push applies pending deletions before upserting survivors, filtered by user_id and the correct id column", async () => {
     mocks.shackState.pendingGearDeletions = [
       {
         table: "antennas",
         recordId: "ant-1",
         requestedAt: "2026-01-02T00:00:00.000Z",
+        ownerId: "user-1",
       },
     ];
     mocks.shackState.antennas = [{ id: "ant-2", name: "Dipole" }];
 
+    const antennasMock = makeTableMock("antennas", {
+      data: [{ id: "ant-1" }],
+      error: null,
+    });
     mocks.from.mockImplementation((table: string) => {
-      if (table === "antennas") {
-        return {
-          update: mocks.update,
-          upsert: vi.fn().mockReturnValue({ error: null }),
-          eq: vi.fn().mockReturnThis(),
-        };
-      }
-      return {
-        upsert: vi.fn().mockReturnValue({ error: null }),
-        update: mocks.update,
-        eq: vi.fn().mockReturnThis(),
-      };
+      if (table === "antennas") return antennasMock;
+      return { upsert: vi.fn().mockReturnValue({ error: null }) };
     });
 
     await shackSync.push("user-1");
 
-    expect(mocks.update).toHaveBeenCalled();
-    expect(mocks.acknowledgeGearDeletions).toHaveBeenCalledWith([
-      "antennas:ant-1",
+    expect(mocks.acknowledgeGearDeletions).toHaveBeenCalledWith(
+      ["antennas:ant-1"],
+      "user-1",
+    );
+    // Delete-before-upsert ordering: the tombstone must land before the
+    // survivor upsert, or a stale upsert could resurrect the deleted row.
+    expect(mocks.callLog).toEqual(["update:antennas", "upsert:antennas"]);
+    // The tombstone update is scoped to this user's row via `id`, not
+    // `instance_id` (that column only exists on user_radios).
+    expect(antennasMock.eqLog).toEqual([
+      ["user_id", "user-1"],
+      ["id", "ant-1"],
+    ]);
+  });
+
+  it("scopes the user_radios tombstone update by instance_id, not id", async () => {
+    mocks.shackState.pendingGearDeletions = [
+      {
+        table: "user_radios",
+        recordId: "radio-1",
+        requestedAt: "2026-01-02T00:00:00.000Z",
+        ownerId: "user-1",
+      },
+    ];
+
+    const radiosMock = makeTableMock("user_radios", {
+      data: [{ instance_id: "radio-1" }],
+      error: null,
+    });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "user_radios") return radiosMock;
+      return { upsert: vi.fn().mockReturnValue({ error: null }) };
+    });
+
+    await shackSync.push("user-1");
+
+    expect(mocks.acknowledgeGearDeletions).toHaveBeenCalledWith(
+      ["user_radios:radio-1"],
+      "user-1",
+    );
+    expect(radiosMock.eqLog).toEqual([
+      ["user_id", "user-1"],
+      ["instance_id", "radio-1"],
     ]);
   });
 });

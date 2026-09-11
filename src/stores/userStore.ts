@@ -45,6 +45,8 @@ import {
   useUserRadios,
   useActiveUserRadio,
 } from "./shackStore";
+import { useAuthStore } from "./authStore";
+import { enqueueGearDeletionIntents } from "../lib/sync/shackDeletionIntent";
 
 // Re-export types that consumers import from userStore
 export type { SavedTarget, ServiceCredentials };
@@ -323,10 +325,33 @@ export const useUserStore = create<UserStore>()(() => ({
   resetPreferences: () => {
     // Matches original: full factory reset across all stores
     useSettingsStore.getState().resetPreferences();
+    const currentShack = useShackStore.getState();
+    // Clearing radios/customRadios here bypasses removeRadio/
+    // removeCustomRadio, so it must tombstone them itself or a later sync
+    // pull will resurrect them from the server (#326).
+    const droppedEntries = [
+      ...currentShack.radios.map((r) => ({
+        table: "user_radios" as const,
+        recordId: r.id,
+      })),
+      ...currentShack.customRadios.map((r) => ({
+        table: "custom_radios" as const,
+        recordId: r.id,
+      })),
+    ];
     useShackStore.setState({
       radios: [],
       customRadios: [],
       activeRadioId: null,
+      ...(droppedEntries.length > 0
+        ? {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              currentShack.pendingGearDeletions,
+              useAuthStore.getState().user?.id ?? "",
+              droppedEntries,
+            ),
+          }
+        : {}),
     });
     useProfileStore.setState({
       station: null,

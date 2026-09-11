@@ -17,6 +17,7 @@ vi.hoisted(() => {
   });
 });
 import { useProfileStore } from "./profileStore";
+import { useShackStore } from "./shackStore";
 import { useUserStore } from "./userStore";
 
 const originalProfileState = useProfileStore.getState();
@@ -83,5 +84,37 @@ describe("userStore bridge subscriptions", () => {
 
     expect(notifications).toBe(0);
     unsubscribe();
+  });
+});
+
+describe("userStore.resetPreferences gear tombstones (#326)", () => {
+  const originalShackState = useShackStore.getState();
+
+  afterEach(() => {
+    useShackStore.setState(originalShackState, true);
+  });
+
+  it("tombstones existing radios and custom radios instead of silently dropping them", () => {
+    useShackStore.setState({
+      radios: [
+        {
+          id: "radio-1",
+          equipmentId: "ic-7300",
+          addedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      customRadios: [{ id: "custom-1", displayName: "Homebrew" } as never],
+      pendingGearDeletions: [],
+    });
+
+    useUserStore.getState().resetPreferences();
+
+    expect(useShackStore.getState().radios).toEqual([]);
+    expect(useShackStore.getState().customRadios).toEqual([]);
+    const keys = useShackStore
+      .getState()
+      .pendingGearDeletions.map((d) => `${d.table}:${d.recordId}`)
+      .sort();
+    expect(keys).toEqual(["custom_radios:custom-1", "user_radios:radio-1"]);
   });
 });

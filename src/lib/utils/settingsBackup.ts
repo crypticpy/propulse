@@ -9,6 +9,7 @@
 import { useProfileStore, type SavedTarget } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShackStore } from "@/stores/shackStore";
+import { useAuthStore } from "@/stores/authStore";
 import {
   useMapStore,
   type PanelStates,
@@ -18,6 +19,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { useWatchStore, type WatchItem } from "@/stores/watchStore";
 import { usePinStore } from "@/stores/pinStore";
 import { useAlertsStore } from "@/stores/alertsStore";
+import { enqueueGearDeletionIntents } from "@/lib/sync/shackDeletionIntent";
 import type { MapPin } from "@/types/pin";
 import type { UserStation, UserPreferences } from "@/types/user";
 import type {
@@ -55,6 +57,20 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   "uiInteraction",
   "forecastDisplay",
 ]);
+
+/** Signed-in user id at import time, for owner-scoped tombstone intents (#326). */
+function currentOwnerId(): string {
+  return useAuthStore.getState().user?.id ?? "";
+}
+
+/** Ids present in `before` but absent from `after`, by `id` field. */
+function droppedIds(
+  before: ReadonlyArray<{ id: string }>,
+  after: ReadonlyArray<{ id: string }>,
+): string[] {
+  const afterIds = new Set(after.map((item) => item.id));
+  return before.filter((item) => !afterIds.has(item.id)).map((item) => item.id);
+}
 
 function sanitizeObject<T extends Record<string, unknown>>(
   obj: T,
@@ -395,10 +411,49 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           customRadios !== undefined ||
           activeRadioId !== undefined
         ) {
+          const currentShack = useShackStore.getState();
+          // A backup import replaces radios/customRadios wholesale; any id
+          // dropped by that replacement must be tombstoned the same as a
+          // local remove* action, or the next sync pull will resurrect it
+          // on other devices (#326). Resurrecting gear that was already
+          // tombstoned elsewhere because the backup itself still contains
+          // it is the reverse problem and is out of scope for this PR.
+          const droppedRadioIds =
+            radios !== undefined
+              ? droppedIds(
+                  currentShack.radios,
+                  radios as ReadonlyArray<{ id: string }>,
+                )
+              : [];
+          const droppedCustomRadioIds =
+            customRadios !== undefined
+              ? droppedIds(
+                  currentShack.customRadios,
+                  customRadios as ReadonlyArray<{ id: string }>,
+                )
+              : [];
           useShackStore.setState({
             ...(radios !== undefined ? { radios } : {}),
             ...(customRadios !== undefined ? { customRadios } : {}),
             ...(activeRadioId !== undefined ? { activeRadioId } : {}),
+            ...(droppedRadioIds.length > 0 || droppedCustomRadioIds.length > 0
+              ? {
+                  pendingGearDeletions: enqueueGearDeletionIntents(
+                    currentShack.pendingGearDeletions,
+                    currentOwnerId(),
+                    [
+                      ...droppedRadioIds.map((recordId) => ({
+                        table: "user_radios" as const,
+                        recordId,
+                      })),
+                      ...droppedCustomRadioIds.map((recordId) => ({
+                        table: "custom_radios" as const,
+                        recordId,
+                      })),
+                    ],
+                  ),
+                }
+              : {}),
           } as never);
         }
 
@@ -410,12 +465,52 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
       // Import shack equipment
       if (backup.shackEquipment) {
+        const currentShack = useShackStore.getState();
+        const nextAntennas = backup.shackEquipment.antennas ?? [];
+        const nextFeedlines = backup.shackEquipment.feedlines ?? [];
+        const nextInlineComponents = backup.shackEquipment.inlineComponents ?? [];
+        const nextAccessories = backup.shackEquipment.accessories ?? [];
+        const nextStationPresets = backup.shackEquipment.stationPresets ?? [];
+
+        // This wholesale replace bypasses the store's remove* actions, so
+        // any id dropped here must be tombstoned by hand — otherwise a
+        // sync pull re-adds it on other devices. Restoring a backup that
+        // itself still contains gear already tombstoned elsewhere
+        // (resurrection via import) is the reverse problem and is out of
+        // scope for this PR (#326 follow-up).
+        const droppedEntries = [
+          ...droppedIds(currentShack.antennas, nextAntennas).map(
+            (recordId) => ({ table: "antennas" as const, recordId }),
+          ),
+          ...droppedIds(currentShack.feedlines, nextFeedlines).map(
+            (recordId) => ({ table: "feedlines" as const, recordId }),
+          ),
+          ...droppedIds(currentShack.inlineComponents, nextInlineComponents).map(
+            (recordId) => ({ table: "inline_components" as const, recordId }),
+          ),
+          ...droppedIds(currentShack.accessories, nextAccessories).map(
+            (recordId) => ({ table: "accessories" as const, recordId }),
+          ),
+          ...droppedIds(currentShack.stationPresets, nextStationPresets).map(
+            (recordId) => ({ table: "station_presets" as const, recordId }),
+          ),
+          ...(backup.shackEquipment.stationChains !== undefined
+            ? droppedIds(
+                currentShack.stationChains,
+                backup.shackEquipment.stationChains,
+              ).map((recordId) => ({
+                table: "station_chains" as const,
+                recordId,
+              }))
+            : []),
+        ];
+
         useShackStore.setState({
-          antennas: backup.shackEquipment.antennas ?? [],
-          feedlines: backup.shackEquipment.feedlines ?? [],
-          inlineComponents: backup.shackEquipment.inlineComponents ?? [],
-          accessories: backup.shackEquipment.accessories ?? [],
-          stationPresets: backup.shackEquipment.stationPresets ?? [],
+          antennas: nextAntennas,
+          feedlines: nextFeedlines,
+          inlineComponents: nextInlineComponents,
+          accessories: nextAccessories,
+          stationPresets: nextStationPresets,
           activePresetId: backup.shackEquipment.activePresetId ?? null,
           // Station chains — gracefully handle old backups that lack these fields
           ...(backup.shackEquipment.stationChains !== undefined
@@ -423,6 +518,15 @@ export function importSettings(backup: SettingsBackup): ImportResult {
             : {}),
           ...(backup.shackEquipment.activeChainId !== undefined
             ? { activeChainId: backup.shackEquipment.activeChainId }
+            : {}),
+          ...(droppedEntries.length > 0
+            ? {
+                pendingGearDeletions: enqueueGearDeletionIntents(
+                  useShackStore.getState().pendingGearDeletions,
+                  currentOwnerId(),
+                  droppedEntries,
+                ),
+              }
             : {}),
         });
       }

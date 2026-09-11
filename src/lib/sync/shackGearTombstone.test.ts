@@ -5,7 +5,6 @@ import {
 } from "./shackGearTombstone";
 
 const mocks = vi.hoisted(() => ({
-  update: vi.fn(),
   from: vi.fn(),
 }));
 
@@ -15,14 +14,38 @@ vi.mock("@/lib/supabase", () => ({
   }),
 }));
 
+/**
+ * Builds a `.from(table)` stand-in supporting the two chains
+ * `pushPendingGearDeletions` uses: `.update().eq().eq().select()` and the
+ * zero-row follow-up `.select().eq().eq().maybeSingle()`.
+ */
+function makeTableMock(
+  updateResult: { data: unknown[] | null; error: { message: string } | null },
+  checkResult: {
+    data: unknown | null;
+    error: { message: string } | null;
+  } = { data: null, error: null },
+) {
+  return {
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          select: vi.fn().mockResolvedValue(updateResult),
+        }),
+      }),
+    }),
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue(checkResult),
+        }),
+      }),
+    }),
+  };
+}
+
 beforeEach(() => {
-  mocks.update.mockReset();
   mocks.from.mockReset();
-  mocks.update.mockReturnValue({ eq: vi.fn().mockReturnThis(), error: null });
-  mocks.from.mockImplementation(() => ({
-    update: mocks.update,
-    eq: vi.fn().mockReturnThis(),
-  }));
 });
 
 describe("shackGearTombstone", () => {
@@ -46,27 +69,105 @@ describe("shackGearTombstone", () => {
         { id: "local-only", name: "local-only" },
         { id: "gone", name: "gone" },
       ],
+      "antennas",
+      new Set<string>(),
     );
 
     expect(result?.merged.map((row) => row.id)).toEqual(["keep", "local-only"]);
     expect(result?.removedIds).toEqual(["gone"]);
   });
 
+  it("excludes an active server row with a pending local deletion, without acking it", () => {
+    // Offline delete queued locally, then logout/login races the initial
+    // pull ahead of the eager push: the server row is still active (#326).
+    const result = mergeGearPullRows(
+      [
+        {
+          id: "pending-delete",
+          updated_at: "2026-01-02T00:00:00.000Z",
+          deleted_at: null,
+        },
+      ],
+      (row) => ({ id: row.id, name: row.id }),
+      (row) => row.id,
+      [],
+      "antennas",
+      new Set<string>(["antennas:pending-delete"]),
+    );
+
+    expect(result?.merged).toEqual([]);
+    expect(result?.removedIds).toEqual([]);
+  });
+
   it("pushes owner-scoped soft deletes before survivor upserts", async () => {
-    const eq = vi
-      .fn()
-      .mockReturnValueOnce({ eq: vi.fn().mockReturnValue({ error: null }) });
-    mocks.update.mockReturnValue({ eq });
+    const table = makeTableMock({ data: [{ id: "ant-1" }], error: null });
+    mocks.from.mockImplementation(() => table);
 
     const ack = await pushPendingGearDeletions("user-1", [
       {
         table: "antennas",
         recordId: "ant-1",
         requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-1",
       },
     ]);
 
     expect(mocks.from).toHaveBeenCalledWith("antennas");
+    expect(ack).toEqual(["antennas:ant-1"]);
+  });
+
+  it("does not push or ack an intent owned by a different account", async () => {
+    const ack = await pushPendingGearDeletions("user-B", [
+      {
+        table: "antennas",
+        recordId: "ant-1",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-A",
+      },
+    ]);
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(ack).toEqual([]);
+  });
+
+  it("does not ack a zero-row update when the row still exists for this user", async () => {
+    // PostgREST reports no error when an update matches nothing (e.g. RLS
+    // scoped the row away). Without a row-returned check this would
+    // silently drop the intent and lose the deletion forever (#326).
+    const table = makeTableMock(
+      { data: [], error: null },
+      { data: { id: "ant-1" }, error: null },
+    );
+    mocks.from.mockImplementation(() => table);
+
+    const ack = await pushPendingGearDeletions("user-1", [
+      {
+        table: "antennas",
+        recordId: "ant-1",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-1",
+      },
+    ]);
+
+    expect(ack).toEqual([]);
+  });
+
+  it("acks a zero-row update once a follow-up read confirms the row is gone", async () => {
+    const table = makeTableMock(
+      { data: [], error: null },
+      { data: null, error: null },
+    );
+    mocks.from.mockImplementation(() => table);
+
+    const ack = await pushPendingGearDeletions("user-1", [
+      {
+        table: "antennas",
+        recordId: "ant-1",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        ownerId: "user-1",
+      },
+    ]);
+
     expect(ack).toEqual(["antennas:ant-1"]);
   });
 });

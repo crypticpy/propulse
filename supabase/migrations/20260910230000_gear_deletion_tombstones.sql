@@ -64,7 +64,7 @@ BEGIN
      AND OLD.deleted_at IS NOT NULL
      AND NEW.deleted_at IS NULL THEN
     RAISE EXCEPTION 'Cannot resurrect deleted gear row in %', TG_TABLE_NAME
-      USING ERRCODE = '23505';
+      USING ERRCODE = 'P0001';
   END IF;
   RETURN NEW;
 END;

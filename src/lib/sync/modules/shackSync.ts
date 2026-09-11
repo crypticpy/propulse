@@ -21,9 +21,11 @@ import { getSupabase } from "@/lib/supabase";
 import { useShackStore } from "@/stores/shackStore";
 import {
   mergeGearPullRows,
+  pendingGearDeletionKeys,
   pullAcknowledgementKeys,
   pushPendingGearDeletions,
 } from "@/lib/sync/shackGearTombstone";
+import type { GearDeletionTable } from "@/lib/sync/shackDeletionIntent";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Json } from "@/types/supabase";
 import type { UserRadio, RadioEquipment } from "@/types/radio";
@@ -823,12 +825,15 @@ export const shackSync: SyncModule = {
     const state = useShackStore.getState();
     const stateUpdate: Record<string, unknown> = {};
     const ackKeys: string[] = [];
+    const pendingKeys = pendingGearDeletionKeys(state.pendingGearDeletions ?? []);
 
     const radioMerge = mergeGearPullRows(
       radioRows,
       rowToRadio,
       (row) => row.instance_id,
       state.radios,
+      "user_radios",
+      pendingKeys,
     );
     if (radioMerge) {
       stateUpdate.radios = radioMerge.merged;
@@ -843,6 +848,8 @@ export const shackSync: SyncModule = {
       rowToAntenna,
       (row) => row.id,
       state.antennas,
+      "antennas",
+      pendingKeys,
     );
     if (antennaMerge) {
       stateUpdate.antennas = antennaMerge.merged;
@@ -857,6 +864,8 @@ export const shackSync: SyncModule = {
       rowToFeedline,
       (row) => row.id,
       state.feedlines,
+      "feedlines",
+      pendingKeys,
     );
     if (feedlineMerge) {
       stateUpdate.feedlines = feedlineMerge.merged;
@@ -871,6 +880,8 @@ export const shackSync: SyncModule = {
       rowToAccessory,
       (row) => row.id,
       state.accessories,
+      "accessories",
+      pendingKeys,
     );
     if (accessoryMerge) {
       stateUpdate.accessories = accessoryMerge.merged;
@@ -885,6 +896,8 @@ export const shackSync: SyncModule = {
       rowToPreset,
       (row) => row.id,
       state.stationPresets,
+      "station_presets",
+      pendingKeys,
     );
     if (presetMerge) {
       stateUpdate.stationPresets = presetMerge.merged;
@@ -899,6 +912,8 @@ export const shackSync: SyncModule = {
       rowToInline,
       (row) => row.id,
       state.inlineComponents,
+      "inline_components",
+      pendingKeys,
     );
     if (inlineMerge) {
       stateUpdate.inlineComponents = inlineMerge.merged;
@@ -913,6 +928,8 @@ export const shackSync: SyncModule = {
       rowToChain,
       (row) => row.id,
       state.stationChains,
+      "station_chains",
+      pendingKeys,
     );
     if (chainMerge) {
       stateUpdate.stationChains = chainMerge.merged;
@@ -945,6 +962,8 @@ export const shackSync: SyncModule = {
       rowToCustomRadio,
       (row) => row.id,
       state.customRadios || [],
+      "custom_radios",
+      pendingKeys,
     );
     if (customRadioMerge) {
       stateUpdate.customRadios = customRadioMerge.merged;
@@ -958,8 +977,28 @@ export const shackSync: SyncModule = {
     if (Object.keys(stateUpdate).length > 0) {
       useShackStore.setState(stateUpdate);
     }
+
+    // Referential cleanup for any rows the server tombstoned during this
+    // pull — the same cascade a local remove* action runs, so a pulled
+    // tombstone doesn't leave a dangling preset.radioId / chain node /
+    // active-selection id pointing at gear that's already gone (#326).
+    const removalCascades: Array<[GearDeletionTable, string[]]> = [
+      ["user_radios", radioMerge?.removedIds ?? []],
+      ["antennas", antennaMerge?.removedIds ?? []],
+      ["feedlines", feedlineMerge?.removedIds ?? []],
+      ["accessories", accessoryMerge?.removedIds ?? []],
+      ["inline_components", inlineMerge?.removedIds ?? []],
+      ["station_presets", presetMerge?.removedIds ?? []],
+      ["station_chains", chainMerge?.removedIds ?? []],
+    ];
+    for (const [table, ids] of removalCascades) {
+      if (ids.length > 0) {
+        useShackStore.getState().applyGearRemoval(table, ids, userId);
+      }
+    }
+
     if (ackKeys.length > 0) {
-      useShackStore.getState().acknowledgeGearDeletions(ackKeys);
+      useShackStore.getState().acknowledgeGearDeletions(ackKeys, userId);
     }
 
     return maxTimestamp(timestamps);
@@ -988,7 +1027,9 @@ export const shackSync: SyncModule = {
       pendingGearDeletions ?? [],
     );
     if (acknowledgedDeletions.length > 0) {
-      useShackStore.getState().acknowledgeGearDeletions(acknowledgedDeletions);
+      useShackStore
+        .getState()
+        .acknowledgeGearDeletions(acknowledgedDeletions, userId);
     }
 
     // --- Upsert radios ---

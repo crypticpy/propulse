@@ -19,6 +19,8 @@ import {
 import {
   MODE_CLASSES,
   type ModeClass,
+  type ObservedActivityDescriptor,
+  type UnknownReason,
   type ModeClassCounts,
   type PathActivityBase,
   type PathActivityPairRow,
@@ -56,6 +58,35 @@ function qualifies(
 
 function emptyModeCounts(): Record<ModeClass, number> {
   return { cw: 0, digital: 0, phone: 0 };
+}
+
+/**
+ * The `unknown` record for a descriptor whose rows could not be read at all.
+ *
+ * Nothing was read, so no hour is known to be unreadable and no aggregation
+ * lag can be stated; both are reported as such rather than as zeroes. There
+ * is still no `count` field, which is the whole point: a failed read must not
+ * arrive at a consumer looking like a silent band.
+ */
+export function unknownActivity(
+  descriptor: ObservedActivityDescriptor,
+  reason: UnknownReason,
+): PathActivityRecord {
+  const windowSeconds =
+    descriptor.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
+  return {
+    band: descriptor.band,
+    txField: descriptor.txField,
+    rxField: descriptor.rxField,
+    issuedAt: descriptor.issuedAt,
+    windowStartAt: windowStartAt(descriptor.issuedAt, windowSeconds),
+    intervalSeconds: windowSeconds,
+    modeClasses: [...(descriptor.modeClasses ?? MODE_CLASSES)],
+    aggregationLagSeconds: null,
+    unreadableHourCount: 0,
+    state: "unknown",
+    reason,
+  };
 }
 
 /**

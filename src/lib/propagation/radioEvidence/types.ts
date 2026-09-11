@@ -33,7 +33,14 @@ export type ObservedActivityState = "verified_open" | "no_reports" | "unknown";
 export type UnknownReason =
   | "window_not_aggregated"
   | "aggregate_hour_not_readable"
-  | "no_receiver_coverage";
+  | "no_receiver_coverage"
+  /**
+   * The aggregates could not be read at all (a failed request). Only a caller
+   * that performs the read can state this one; the pure derivation never
+   * produces it. It is still `unknown`, because a failed read is the absence
+   * of evidence and nothing else.
+   */
+  | "aggregate_read_failed";
 
 /**
  * Whether the reports behind a count were attributed to a Maidenhead field
@@ -160,8 +167,8 @@ export type PathActivityRecord =
       readonly reason: UnknownReason;
     });
 
-/** Everything `derivePathActivity` reads. Rows are supplied, never fetched. */
-export interface RadioEvidenceInputs {
+/** What a verdict is about, independent of the rows that answer it. */
+export interface ObservedActivityDescriptor {
   readonly band: string;
   readonly txField: string;
   readonly rxField: string;
@@ -171,6 +178,10 @@ export interface RadioEvidenceInputs {
   readonly windowSeconds?: number;
   /** Mode classes that qualify; defaults to all three. */
   readonly modeClasses?: readonly ModeClass[];
+}
+
+/** Everything `derivePathActivity` reads. Rows are supplied, never fetched. */
+export interface RadioEvidenceInputs extends ObservedActivityDescriptor {
   readonly pairRows: readonly PathActivityPairRow[];
   readonly coverageRows: readonly PathCoverageRow[];
   readonly readableHours: readonly ReadableBandHourRow[];

@@ -284,8 +284,7 @@ export function parseCapability(
  *
  * Every dimension the head declares is checked, not just the frequency: the
  * head has to be in a routable state, and it has to declare the requested
- * mechanism family, mode profile, antenna class at both ends and receiver
- * class, and the capability has to be declared under the request's own source
+ * mechanism family, mode profile, and antenna and receiver class at both ends, and the capability has to be declared under the request's own source
  * policy version. A head that lists no mode profiles covers
  * nothing, because an empty declaration is a gap rather than a wildcard. A
  * no-op capability declares no heads and therefore answers nothing.
@@ -305,10 +304,16 @@ export function capabilityCovers(
     geometryClass: ModelCapabilityHead["geometryClasses"][number];
     mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
     modeProfileId: string;
-    /** A01: the station populations this request actually belongs to. */
+    /**
+     * A01: the station populations this request actually belongs to. Both
+     * endpoints declare a receiver class as well as an antenna class, because
+     * M18 evaluates the circuit in both directions and either station can be
+     * the receiving one.
+     */
     txAntennaClass: AntennaClass;
     rxAntennaClass: AntennaClass;
-    receiverClass: ReceiverClass;
+    txReceiverClass: ReceiverClass;
+    rxReceiverClass: ReceiverClass;
     /** M11/M19: the routing/source policy version the request was issued under. */
     policyVersion: string;
     /** The input identifiers the request actually carries (M11/M19). */
@@ -330,7 +335,8 @@ export function capabilityCovers(
       head.modeProfileIds.includes(query.modeProfileId) &&
       head.antennaClasses.includes(query.txAntennaClass) &&
       head.antennaClasses.includes(query.rxAntennaClass) &&
-      head.receiverClasses.includes(query.receiverClass) &&
+      head.receiverClasses.includes(query.txReceiverClass) &&
+      head.receiverClasses.includes(query.rxReceiverClass) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz &&
       head.requiredInputs.every((input) => available.has(input)),

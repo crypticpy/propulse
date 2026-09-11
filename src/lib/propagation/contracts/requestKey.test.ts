@@ -99,6 +99,18 @@ describe("requestKey identity", () => {
       (draft) =>
         ((draft.rx as Mutable).receiverClass = "measured_connector_noise"),
     ],
+    [
+      "tx receiver class",
+      (draft) =>
+        ((draft.tx as Mutable).receiverClass = "measured_connector_noise"),
+    ],
+    [
+      "rx antenna class",
+      (draft) => {
+        ((draft.rx as Mutable).antenna as Mutable).antennaClass =
+          "electrically_short";
+      },
+    ],
     ["contextId", (draft) => (draft.contextId = "ctx-other-operating-context")],
     ["frequencyHz", (draft) => (draft.frequencyHz = 14074001)],
     ["modeProfileId", (draft) => (draft.modeProfileId = "cw-500hz-v1")],

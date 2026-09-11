@@ -120,7 +120,23 @@ const circuitSupportPayload = z
       )
       .min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    // One mode on one mechanism has one support state (M07). Two entries for
+    // the same identity would let a consumer pick whichever it read last.
+    const seen = new Set<string>();
+    value.modes.forEach((mode, index) => {
+      const identity = JSON.stringify([mode.modeId, mode.mechanism]);
+      if (seen.has(identity)) {
+        reject(
+          ctx,
+          ["modes", index, "modeId"],
+          `Duplicate mode identity ${mode.modeId} on mechanism ${mode.mechanism}`,
+        );
+      }
+      seen.add(identity);
+    });
+  });
 
 const networkDetectionPayload = z
   .object({

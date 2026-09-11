@@ -326,6 +326,34 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("rejects a repeated mode identity in a circuit-support payload (M07)", () => {
+    const bad = candidate("fullHfCircuit");
+    const modes = (
+      (headFor(bad, "circuit_support").state as Mutable).value as Mutable
+    ).modes as Mutable[];
+    const twin = structuredClone(modes[0]);
+    twin.support = "screened";
+    modes.push(twin);
+    expect(
+      reasonsAt(
+        bad,
+        `heads[0].state.value.modes[${modes.length - 1}].modeId`,
+      ).join(),
+    ).toMatch(/Duplicate mode identity/);
+  });
+
+  it("accepts one mode on two different mechanisms", () => {
+    const good = candidate("fullHfCircuit");
+    const modes = (
+      (headFor(good, "circuit_support").state as Mutable).value as Mutable
+    ).modes as Mutable[];
+    const twin = structuredClone(modes[0]);
+    twin.mechanism = twin.mechanism === "regular_ef" ? "es" : "regular_ef";
+    modes.push(twin);
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects an inconsistent margin against an experimental SNR head (M10)", () => {
     const bad = candidate("fullHfCircuit");
     const snr = headFor(bad, "snr2500");

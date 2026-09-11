@@ -33,7 +33,8 @@ const baseQuery = {
   frequencyHz: 14074000,
   txAntennaClass: "modeled_pattern",
   rxAntennaClass: "modeled_pattern",
-  receiverClass: "modeled_noise_figure_chain",
+  txReceiverClass: "modeled_noise_figure_chain",
+  rxReceiverClass: "modeled_noise_figure_chain",
   policyVersion: "source-policy-0.1.0",
   availableInputs: [
     "station_pair",
@@ -381,11 +382,20 @@ describe("parseCapability fails closed", () => {
     ).toBe(false);
   });
 
-  it("rejects a station outside the head's receiver class (A01)", () => {
+  it("rejects a receiving station outside the head's receiver class (A01)", () => {
     expect(
       capabilityCovers(parsed("hfPhysics"), {
         ...baseQuery,
-        receiverClass: "calibrated_system_temperature",
+        rxReceiverClass: "calibrated_system_temperature",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a transmitting station outside the head's receiver class (M18)", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        txReceiverClass: "calibrated_system_temperature",
       }),
     ).toBe(false);
   });
@@ -395,7 +405,8 @@ describe("parseCapability fails closed", () => {
       capabilityCovers(parsed("hfPhysics"), {
         ...baseQuery,
         txAntennaClass: "unspecified_scenario_range",
-        receiverClass: "unspecified_scenario_range",
+        txReceiverClass: "unspecified_scenario_range",
+        rxReceiverClass: "unspecified_scenario_range",
       }),
     ).toBe(true);
   });

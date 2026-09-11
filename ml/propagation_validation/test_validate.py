@@ -137,6 +137,24 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid, "frozen contract text"):
             validate_bundle(protocol, self.manifest, self.schema)
 
+    def test_frozen_sections_reject_any_text_change(self):
+        for section, field, value in (
+                ("events", ("snr2500", "definition"), "any nonempty text"),
+                ("resampling", ("blocks",), "every observation is an independent block"),
+                ("resampling", ("insufficient",), "never BLOCKED"),
+                ("numerics", ("note",), "added field"),
+                ("runtime_profiles", None, "extra")):
+            protocol = copy.deepcopy(self.protocol)
+            if section == "runtime_profiles":
+                protocol[section][0]["note"] = value
+            else:
+                target = protocol[section]
+                for key in field[:-1]:
+                    target = target[key]
+                target[field[-1]] = value
+            with self.assertRaisesRegex(Invalid, "frozen contract text"):
+                validate_bundle(protocol, self.manifest, self.schema)
+
     def test_resampling_status_cannot_pass(self):
         for status in ("PASS", "validated", "blocked", "READY: pending", ""):
             self.protocol["resampling"]["status"] = status

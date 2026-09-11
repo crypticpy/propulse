@@ -24,11 +24,17 @@ GATES = {
     "G-FAMILY", "G-NUMERICS", "G-RUNTIME", "G-ACCURACY",
 }
 ACCURACY_PREREQUISITES = GATES - {"G-ACCURACY", "G-RUNTIME"}
-# Frozen prose sections of protocol 0.1.0 (sha256 of canonical JSON): any edit to the
-# measurement or replay contract is a new protocol revision, not a validator-passing change.
+# Frozen sections of protocol 0.1.0 (sha256 of canonical JSON), checked last so the semantic
+# checks above name a violation precisely: any edit to these sections is a new protocol
+# revision, not a validator-passing change. Coverage rows and gates stay order-free and are
+# pinned by their own identity checks.
 FROZEN_SECTION_SHA256 = {
     "measurement": "ea8bea66f1561e775115cf5504aaa8415f0729f9e2fd8314542ed23ec4df41de",
     "replay": "774e3458a4f4fa2a11e54c471afd9e09d2cd2746dac05011f93cff6bd62e59bb",
+    "events": "537495bb82a28efbe86ec35ecbe530088f4064c153791aa3a304e995651d2f53",
+    "resampling": "97d0014d984c6647c9e5994d61b56ef6c56f8b9441105da09b7565d66f95b7ed",
+    "numerics": "9fd68dc8b9e1b9f9117ec463dafaa14e382d603ee9600839966904d421352b62",
+    "runtime_profiles": "c7b866630256fcfbba0b720ac29bb6899764491b7b8e1e6782fd1e1c6a199a2a",
 }
 
 
@@ -239,9 +245,6 @@ def validate_protocol(protocol):
     require(isinstance(protocol["replay"].get("split_assignment"), str) and
             protocol["replay"]["split_assignment"].startswith("BLOCKED"),
             "replay.split_assignment must remain BLOCKED")
-    for section, digest in FROZEN_SECTION_SHA256.items():
-        require(section_sha256(protocol[section]) == digest,
-                f"{section}: frozen contract text changed; bump the protocol revision")
     bootstrap = protocol["resampling"]
     require(bootstrap.get("applies_to_event") == "snr2500" and
             bootstrap.get("method_status") == "experimental_candidate", "resampling is an experimental SNR candidate")
@@ -267,6 +270,9 @@ def validate_protocol(protocol):
     profiles = records(protocol.get("runtime_profiles"), "runtime_profiles")
     require({p["id"] for p in profiles} == {"existing_24x11_catalog", "all_band_fullwave", "moving_target_burst"},
             "runtime profiles must distinguish workloads")
+    for section, digest in FROZEN_SECTION_SHA256.items():
+        require(section_sha256(protocol[section]) == digest,
+                f"{section}: frozen contract text changed; bump the protocol revision")
     for profile in profiles:
         require(profile.get("status") == "BLOCKED", "runtime has no measured qualification")
         nonempty(profile.get("prerequisite"), profile["id"] + ".prerequisite")

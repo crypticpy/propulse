@@ -1062,15 +1062,21 @@ export function getEnhancedBandConditions(
     // the centre estimate, then put all three through `toDisplaySNR`, so the
     // displayed centre, range, status and class all come from one number and
     // snrLow <= expectedSNR <= snrHigh holds by construction.
-    const displayPred: SignalPrediction = {
-      ...signalPred,
-      expectedSNR: adjustedSNR,
-      signalClass: adjustedClass,
-    };
-    if (signalPred.support !== "supported") {
-      displayPred.snrLow = -30;
-      displayPred.snrHigh = -30;
-    } else {
+    //
+    // An unsupported mode keeps the prediction exactly as the engine built it:
+    // expectedSNR, snrLow and snrHigh stay -Infinity and signalClass stays
+    // "none", per the `SignalPrediction` contract (M07). The -30 display floor
+    // applies only to the row's `snrEstimate`; renderers branch on `support`
+    // before formatting any of these numbers (Codex round 3, PR #1081).
+    const displayPred: SignalPrediction =
+      signalPred.support === "supported"
+        ? {
+            ...signalPred,
+            expectedSNR: adjustedSNR,
+            signalClass: adjustedClass,
+          }
+        : { ...signalPred };
+    if (signalPred.support === "supported") {
       if (displayPred.snrLow !== undefined) {
         displayPred.snrLow = toDisplaySNR(displayPred.snrLow + snrShift);
       }
@@ -1306,6 +1312,11 @@ export interface ForecastStationParams {
   farEndGainDbi?: number;
 }
 
+/** Display floor for forecast SNR bounds; -Infinity (unsupported mode) pins to -30. */
+function toForecastSNR(snr: number | undefined): number | undefined {
+  return snr === undefined ? undefined : Math.max(-30, snr);
+}
+
 export function getForecastForPath(
   homeLat: number,
   homeLon: number,
@@ -1371,8 +1382,10 @@ export function getForecastForPath(
         confidence: c.signalPrediction?.confidence,
         confidenceLow: c.signalPrediction?.confidenceLow,
         confidenceHigh: c.signalPrediction?.confidenceHigh,
-        snrLow: c.signalPrediction?.snrLow,
-        snrHigh: c.signalPrediction?.snrHigh,
+        // Forecast rows are display summaries like `snrEstimate`, so an
+        // unsupported mode's -Infinity bounds take the same -30 floor here.
+        snrLow: toForecastSNR(c.signalPrediction?.snrLow),
+        snrHigh: toForecastSNR(c.signalPrediction?.snrHigh),
       }));
 
     forecasts.push({

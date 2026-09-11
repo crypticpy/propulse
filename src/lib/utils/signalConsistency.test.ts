@@ -266,13 +266,15 @@ describe("PROP-02 unsupported ordinary modes contribute no power (M07)", () => {
       expect(band20!.signalPrediction?.signalClass).toBe("none");
       expect(band20!.sUnit?.value).toBe(0);
       expect(band20!.sUnit?.dBm).toBe(Number.NEGATIVE_INFINITY);
-      expect(band20!.snrEstimate).toBeLessThanOrEqual(-30);
-      // The displayed prediction carries the display floor, not -Infinity, so
-      // the centre stays inside its own (pinned) range; the raw engine value
-      // is asserted separately below.
-      expect(band20!.signalPrediction?.expectedSNR).toBe(-30);
-      expect(band20!.signalPrediction?.snrLow).toBe(-30);
-      expect(band20!.signalPrediction?.snrHigh).toBe(-30);
+      expect(band20!.snrEstimate).toBe(-30);
+      // Only the row's snrEstimate takes the -30 display floor. The prediction
+      // object keeps the engine's no-power sentinel so non-UI consumers cannot
+      // mistake an unsupported circuit for a merely weak one (Codex round 3).
+      expect(band20!.signalPrediction?.expectedSNR).toBe(
+        Number.NEGATIVE_INFINITY,
+      );
+      expect(band20!.signalPrediction?.snrLow).toBe(Number.NEGATIVE_INFINITY);
+      expect(band20!.signalPrediction?.snrHigh).toBe(Number.NEGATIVE_INFINITY);
     }
   });
 
@@ -484,6 +486,17 @@ describe("PROP-02 the displayed centre is the classified centre", () => {
         for (const cond of conditions) {
           const p = cond.signalPrediction!;
           const where = `${mode} ${c.label} ${cond.band}`;
+          if (p.support !== "supported") {
+            // No power: the prediction keeps the -Infinity sentinel and only
+            // the row's snrEstimate takes the display floor.
+            expect(p.expectedSNR, where).toBe(Number.NEGATIVE_INFINITY);
+            expect(p.snrLow, where).toBe(Number.NEGATIVE_INFINITY);
+            expect(p.snrHigh, where).toBe(Number.NEGATIVE_INFINITY);
+            expect(cond.snrEstimate, where).toBe(-30);
+            expect(cond.status, where).toBe("closed");
+            expect(p.signalClass, where).toBe("none");
+            continue;
+          }
           expect(p.expectedSNR, where).toBe(cond.snrEstimate);
           expect(p.snrLow!, where).toBeLessThanOrEqual(p.expectedSNR);
           expect(p.snrHigh!, where).toBeGreaterThanOrEqual(p.expectedSNR);
@@ -578,6 +591,11 @@ describe("PROP-02 uncertainty bounds are ordered and contain the point", () => {
   it("the enhanced band result keeps center inside its displayed range", () => {
     for (const c of auditConditions("SSB")) {
       const p = c.signalPrediction!;
+      if (p.support !== "supported") {
+        expect(c.snrEstimate, c.band).toBe(-30);
+        expect(p.expectedSNR, c.band).toBe(Number.NEGATIVE_INFINITY);
+        continue;
+      }
       expect(p.snrLow!, c.band).toBeLessThanOrEqual(c.snrEstimate);
       expect(p.snrHigh!, c.band).toBeGreaterThanOrEqual(c.snrEstimate);
       expect(p.expectedSNR, c.band).toBe(c.snrEstimate);

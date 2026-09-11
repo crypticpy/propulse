@@ -88,6 +88,47 @@ it.each([false, true])("keeps horizon rows, chart and selected engine probabilit
 });
 
 
+it("shows six glance facts and keeps profile and model version in a body box", () => {
+  Object.assign(mocks, { active: true });
+  render(<PropagationForecastReport open onClose={() => {}} />);
+  const dialog = screen.getByRole("dialog");
+  const facts = dialog.querySelectorAll(".hcr-facts > div");
+  expect(facts).toHaveLength(6);
+  const glance = dialog.querySelector(".hcr-facts")?.textContent ?? "";
+  expect(glance).toContain("SELECTED UTC · 20M");
+  expect(glance).toContain("BEST NOW / +6 H");
+  expect(glance).toContain("MUF NOW / +6 H");
+  expect(glance).toContain("Kp FORECAST · NOAA");
+  expect(glance).toContain("PATH");
+  expect(glance).toContain("ACTIVE HORIZONS");
+  expect(glance).not.toContain("PROFILE");
+  expect(glance).not.toContain("MODEL VERSION");
+  const box = dialog.querySelector(".hcr-forecast-model");
+  expect(box?.querySelector("dt")?.textContent).toBe("PROFILE");
+  expect(Array.from(box?.querySelectorAll("dt") ?? []).map((node) => node.textContent)).toEqual([
+    "PROFILE",
+    "MODEL VERSION",
+  ]);
+  expect(box?.textContent).toContain("PHYSICS");
+  expect(box?.textContent).toContain("MODEL OFF");
+});
+
+it("marks matrix hour headers and band labels for vh scaling", () => {
+  render(<PropagationForecastReport open onClose={() => {}} />);
+  const grid = screen.getByRole("group", { name: "Choose forecast band and UTC hour" });
+  expect(grid.querySelectorAll(".hcr-forecast-grid-hour")).toHaveLength(24);
+  expect(grid.querySelectorAll(".hcr-forecast-grid-band")).toHaveLength(6);
+});
+
+it("sizes forecast matrix labels in vh above a 12px legibility floor so 4K hour headers outgrow the 44px track", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const css = readFileSync(join(process.cwd(), "src/styles/hamclock-wall-report.css"), "utf8");
+  const block = css.match(/\.hcr-forecast-grid \{[^}]+\}/)?.[0];
+  expect(block).toMatch(/font:\s*max\(1\.4vh, 12px\)/);
+  expect(block).toMatch(/2\.8vh/);
+});
+
 it("uses only the selected NOAA forecast bucket and labels stale values", () => {
   mocks.kp = [
     { time_tag: "2026-09-07T12:00:00Z", kp: 7, kind: "observed", noaa_scale: null, a_running: null },

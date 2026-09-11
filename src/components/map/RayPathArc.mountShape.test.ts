@@ -38,6 +38,17 @@ describe("RayPathArc PathPointInspector mount shape (#872)", () => {
     expect(source).toContain("publish");
   });
 
+  it("publishes the closed state too, so the keyboard trigger stays mounted", () => {
+    // `PathPointInspector` renders an always-available sr-only "Path points"
+    // button and the in-scene hit areas are not DOM-focusable, so publishing
+    // `null` while closed removed the only keyboard entry point (#872 review
+    // round). The one state that publishes nothing is "this arc has no points
+    // to inspect".
+    const source = readSource(RAY_PATH_ARC_SOURCE_PATH);
+    expect(source).not.toMatch(/if \(open === "closed"\)/);
+    expect(source).toContain("pointSet.points.length === 0");
+  });
+
   it("renders RayPathInspectorOverlay outside Canvas in GlobeView", () => {
     const source = readSource(GLOBE_VIEW_SOURCE_PATH);
     expect(source).toContain("RayPathInspectorOverlay");

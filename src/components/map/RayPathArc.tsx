@@ -735,8 +735,13 @@ export function RayPathArc({
   const inspectorOwnerId = path?.id ?? pathId ?? `ray-${pathMode}`;
   const publishInspector = useRayPathInspectorStore((state) => state.publish);
 
+  // Published on every state including "closed": `PathPointInspector` renders
+  // an always-available sr-only "Path points" button, and the in-scene hit
+  // areas are not DOM-focusable, so unmounting the inspector at rest would
+  // leave the path points with no keyboard entry point (#872 review round).
+  // Arcs with nothing to inspect publish nothing at all.
   useEffect(() => {
-    if (open === "closed") {
+    if (pointSet.points.length === 0) {
       publishInspector(inspectorOwnerId, null);
       return;
     }

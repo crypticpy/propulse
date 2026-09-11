@@ -23,6 +23,14 @@ test("quoted and CSS hex colours are UI", () => {
   assert.equal(hunkLooksLikeUi("+  fill: '#00aa88'\n"), true);
   assert.equal(hunkLooksLikeUi("+  stroke: `#aabbcc`;\n"), true);
   assert.equal(hunkLooksLikeUi("+  className: 'bg-[#3a6]',\n"), true);
+  assert.equal(
+    hunkLooksLikeUi('+  const swatch = "linear-gradient(#fff, #000)";\n'),
+    true,
+  );
+  assert.equal(
+    hunkLooksLikeUi("+  background: linear-gradient(#fff, #000);\n"),
+    true,
+  );
 });
 
 test("null patch fails closed; empty patch is not UI", () => {

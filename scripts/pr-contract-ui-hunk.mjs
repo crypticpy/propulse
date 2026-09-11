@@ -4,9 +4,11 @@
  *
  * A visual helper can live in an excluded library (#896 round 18), so any
  * src/ file whose patch touches a colour, class name or other visual token
- * is UI. Hex matching requires a colour context (quotes, CSS `:`, or a
- * Tailwind `[#…]` arbitrary value) so issue refs like `(#326)` and
- * `Refs #994` are not treated as colours (#1086).
+ * is UI. Hex matching requires a colour context (quoted strings, CSS `:`,
+ * Tailwind `[#…]`, CSS-function `(#…`, or a comma-separated colour list)
+ * so issue refs like `(#326)` and `Refs #994` are not treated as colours
+ * (#1086). Parenthesised 1–5 digit decimal refs are stripped first so
+ * `linear-gradient(#fff, #000)` still matches.
  *
  * A file GitHub returns no hunk for (binary or oversized) fails closed.
  *
@@ -18,15 +20,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Quoted / CSS / Tailwind-arbitrary hex; not `(#123)` or a bare `#994`. */
-export const HEX_COLOUR = /(?:["'`]|:[\t ]*|\[)#[0-9a-fA-F]{3,8}\b/;
+/**
+ * Quoted / CSS / Tailwind / function / comma-list hex. Issue-paren refs
+ * (`(#326)`) are stripped before testing so they cannot match via `(`.
+ */
+export const HEX_COLOUR =
+  /(?:["'`][^"'`\n]*|:[\t ]*|\[|,[\t ]*|\()#[0-9a-fA-F]{3,8}\b/;
 
 export const VISUAL_TOKEN =
   /rgba?\(|hsla?\(|colou?r|className|\b(?:font|text|bg|border|shadow|opacity|animate)-/i;
 
 export function hunkLooksLikeUi(patch) {
   if (patch == null) return true;
-  return HEX_COLOUR.test(patch) || VISUAL_TOKEN.test(patch);
+  if (VISUAL_TOKEN.test(patch)) return true;
+  const withoutIssueRefs = patch.replace(/\(#[0-9]{1,5}\)/g, "");
+  return HEX_COLOUR.test(withoutIssueRefs);
 }
 
 export function parsePullFiles(text) {

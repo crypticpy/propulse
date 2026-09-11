@@ -156,13 +156,78 @@ def require_clean_checkout(source: Path) -> None:
         line for line in status.splitlines()
         if line.strip() and not is_generated_artifact(line[3:].strip())
     ]
+    # git status trusts the index: a path flagged assume-unchanged or
+    # skip-worktree is reported clean whatever is on disk (Codex round 12).
+    # Compare every tracked blob's content with the HEAD tree directly, so the
+    # index cannot hide an edit.
+    dirty.extend(
+        f"M  {path}" for path in tracked_content_differences(source)
+        if not is_generated_artifact(path)
+    )
     if dirty:
         raise ReferenceError(
             "reference checkout has modified or untracked files; restore the "
             f"pinned tree (git -C {source} checkout -- . && git -C {source} "
-            "clean -fd) before using it:\n"
+            "clean -fd; clear any assume-unchanged or skip-worktree flags shown "
+            "by git ls-files -v first) before using it:\n"
             + "\n".join(dirty)
         )
+
+
+def tracked_content_differences(source: Path) -> list[str]:
+    """Tracked paths whose working-tree content differs from the HEAD tree.
+
+    Independent of the index: the HEAD tree comes from ``ls-tree`` and each
+    working file is re-hashed with ``hash-object``, so ``update-index
+    --assume-unchanged`` or ``--skip-worktree`` cannot suppress a difference.
+    A missing file counts as a difference.
+    """
+    env = git_env()
+    listing = subprocess.check_output(
+        ["git", "-C", str(source), "ls-tree", "-r", "-z", "HEAD"],
+        text=True,
+        env=env,
+    )
+    expected: dict[str, tuple[str, str]] = {}
+    for entry in listing.split("\0"):
+        if not entry:
+            continue
+        meta, path = entry.split("\t", 1)
+        mode, kind, blob = meta.split(" ")
+        if kind == "blob":
+            expected[path] = (mode, blob)
+    differences: list[str] = []
+    regular: list[str] = []
+    for path, (mode, blob) in expected.items():
+        target = source / path
+        if mode == "120000":
+            if not target.is_symlink():
+                differences.append(path)
+                continue
+            actual = subprocess.check_output(
+                ["git", "-C", str(source), "hash-object", "--stdin"],
+                input=os.readlink(target),
+                text=True,
+                env=env,
+            ).strip()
+            if actual != blob:
+                differences.append(path)
+        elif target.is_file() and not target.is_symlink():
+            regular.append(path)
+        else:
+            differences.append(path)
+    if regular:
+        hashes = subprocess.check_output(
+            ["git", "-C", str(source), "hash-object", "--stdin-paths"],
+            input="\n".join(regular) + "\n",
+            text=True,
+            env=env,
+        ).split()
+        differences.extend(
+            path for path, actual in zip(regular, hashes, strict=True)
+            if actual != expected[path][1]
+        )
+    return sorted(differences)
 
 
 RECEIPT_FILENAME = "build-receipt.json"

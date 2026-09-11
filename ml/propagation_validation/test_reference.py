@@ -410,6 +410,46 @@ class CleanCheckoutTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "COEFF.txt"):
                 require_clean_checkout(repo)
 
+    def test_index_flags_cannot_hide_an_edit(self):
+        """assume-unchanged and skip-worktree make ``git status`` report a
+        modified file as clean (Codex round 12); the content comparison against
+        the HEAD tree must still reject it, and a deleted file too."""
+        import subprocess
+        import tempfile
+        from reference.runner import git_env, require_clean_checkout
+
+        env = git_env()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
+            (repo / "P372/Data").mkdir(parents=True)
+            (repo / "P372/Data/COEFF.txt").write_text("1 2 3\n")
+            (repo / "source.c").write_text("int main(void) { return 0; }\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "pin"], check=True, env=env)
+            require_clean_checkout(repo)
+            for flag, path in (("--assume-unchanged", "source.c"),
+                               ("--skip-worktree", "P372/Data/COEFF.txt")):
+                subprocess.run(["git", "-C", str(repo), "update-index", flag, path],
+                               check=True, env=env)
+                (repo / path).write_text("edited\n")
+                status = subprocess.check_output(
+                    ["git", "-C", str(repo), "status", "--porcelain"], text=True, env=env)
+                self.assertEqual(status, "", f"{flag} should hide the edit from status")
+                with self.assertRaisesRegex(RuntimeError, path):
+                    require_clean_checkout(repo)
+                (repo / path).unlink()
+                with self.assertRaisesRegex(RuntimeError, path):
+                    require_clean_checkout(repo)
+                unflag = flag.replace("--", "--no-", 1)
+                subprocess.run(["git", "-C", str(repo), "update-index", unflag, path],
+                               check=True, env=env)
+                subprocess.run(["git", "-C", str(repo), "checkout", "--", path],
+                               check=True, env=env)
+                require_clean_checkout(repo)
+
     def test_require_revalidates_head_and_cleanliness_when_artifacts_exist(self):
         import subprocess
         import tempfile

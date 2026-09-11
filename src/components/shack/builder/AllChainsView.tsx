@@ -37,12 +37,7 @@ import { SignalPathList } from "./SignalPathList";
 import { addPathEquipment } from "./addPathEquipment";
 import type { StationChain } from "@/types/stationChain";
 import type { AccessoryCategory } from "@/types/shack";
-import {
-  ALL_EQUIPMENT_OPTIONS,
-  getNodeRank,
-  getValidEquipmentTypes,
-  validateChain,
-} from "@/lib/chainOrdering";
+import { getValidEquipmentTypes, validateChain } from "@/lib/chainOrdering";
 import { AddEquipmentPanel } from "./AddEquipmentPanel";
 import { BuilderCanvas } from "./BuilderCanvas";
 import { ChainStripPreview } from "./ChainStripPreview";
@@ -347,6 +342,7 @@ function ExpandedChainBody({
                 setSwapState(null);
                 setSelectedNodeIndex(index);
               }}
+              onInsert={handleAddEquipmentAtPosition}
               onRemove={handleRequestRemoveNode}
               onSwap={(index) => {
                 const node = chain.nodes[index];
@@ -386,33 +382,27 @@ function ExpandedChainBody({
           <AddEquipmentPanel
             position={addEquipmentState.position}
             automaticPlacement={addEquipmentState.allTypes}
-            validTypes={
-              addEquipmentState.allTypes
-                ? ALL_EQUIPMENT_OPTIONS
-                : getValidEquipmentTypes(
-                    addEquipmentState.position > 0
-                      ? getNodeRank(
-                          chain.nodes[addEquipmentState.position - 1],
-                          getAccessoryCategory,
-                        )
-                      : null,
-                    addEquipmentState.position < chain.nodes.length
-                      ? getNodeRank(
-                          chain.nodes[addEquipmentState.position],
-                          getAccessoryCategory,
-                        )
-                      : null,
-                  )
-            }
+            validTypes={getValidEquipmentTypes()}
             onAdd={(nodeType, equipmentId) => {
+              const explicitAt = addEquipmentState.allTypes
+                ? undefined
+                : addEquipmentState.position;
               const result = handleDropEquipment(
                 nodeType,
                 equipmentId,
-                addEquipmentState.allTypes
-                  ? undefined
-                  : addEquipmentState.position,
+                explicitAt,
               );
-              if (result.ok) setAddEquipmentState(null);
+              if (!result.ok) return;
+              setAddEquipmentState(null);
+              if (explicitAt === undefined || pathView !== "list") return;
+              requestAnimationFrame(() => {
+                const list = document.querySelector(".sw-path-list");
+                if (!list?.isConnected) return;
+                const row = list.children.item(explicitAt);
+                row
+                  ?.querySelector<HTMLButtonElement>("[data-path-configure]")
+                  ?.focus();
+              });
             }}
             onCancel={() => setAddEquipmentState(null)}
           />

@@ -13,6 +13,7 @@ import {
 } from "@/lib/utils/bands";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useSettingsStore } from "@/stores/settingsStore";
+import type { OperatingMode } from "@/types/signal";
 
 export interface ContactAnalysis {
   /** Great circle distance in km */
@@ -43,7 +44,7 @@ interface UseContactAnalysisParams {
   viewerHours?: number[];
   targetHours?: number[];
   txPowerWatts?: number;
-  mode?: "SSB" | "CW" | "FT8";
+  mode?: OperatingMode;
   antennaGainDbi?: number;
   farEndGainDbi?: number | ((band: string) => number);
 }

@@ -820,3 +820,29 @@ describe("PROP-02 a penalty moves every number it should (Codex r2)", () => {
     expect(onlyForFt8.length).toBeGreaterThan(0);
   });
 });
+
+describe("PR #1081 round 6: RTTY keeps its own SNR threshold through the mode adapters", () => {
+  // stationPhysics.toPhysicsMode, solarAnalysisMode and recommend.ts's
+  // modelMode all used to fold RTTY into FT8 or CW before reaching this
+  // engine, so an RTTY forecast was classified against the wrong mode's
+  // minSNR. RTTY's threshold (-5 dB) sits between CW's (-8) and FT8's
+  // (-21) in MODE_PARAMETERS, so the same raw SNR must classify
+  // differently for each -- proving RTTY is not silently reusing either.
+  it("classifies a fixed SNR differently for RTTY, CW and FT8", () => {
+    const snrDb = -4;
+    expect(getSignalClass(snrDb, "RTTY")).toBe("marginal");
+    expect(getSignalClass(snrDb, "CW")).toBe("weak");
+    expect(getSignalClass(snrDb, "FT8")).toBe("moderate");
+    expect(getSignalClass(snrDb, "RTTY")).not.toBe(getSignalClass(snrDb, "CW"));
+    expect(getSignalClass(snrDb, "RTTY")).not.toBe(getSignalClass(snrDb, "FT8"));
+  });
+
+  it("stationPhysics.toPhysicsMode('RTTY') feeds this engine RTTY's own threshold, not CW's or FT8's", async () => {
+    const { toPhysicsMode } = await import("@/lib/station/stationPhysics");
+    const snrDb = -4;
+    const viaAdapter = getSignalClass(snrDb, toPhysicsMode("RTTY"));
+    expect(viaAdapter).toBe(getSignalClass(snrDb, "RTTY"));
+    expect(viaAdapter).not.toBe(getSignalClass(snrDb, "CW"));
+    expect(viaAdapter).not.toBe(getSignalClass(snrDb, "FT8"));
+  });
+});

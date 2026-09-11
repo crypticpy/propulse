@@ -76,6 +76,7 @@ import { InfoTip } from "@/components/ui/Tooltip";
 import { PROPAGATION_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import { hopQualityColor } from "@/lib/map/targetPathPresentation";
+import { toDecisionReportMode } from "@/lib/station/stationPhysics";
 import type { RayTraceResult } from "@/lib/utils/rayTrace";
 
 interface PathAnalysisProps {
@@ -774,7 +775,7 @@ export function PathAnalysis({
           : null,
         kp: currentKp,
         txPowerWatts,
-        mode: physicsMode,
+        mode: toDecisionReportMode(physicsMode),
         spots: isLive ? spots : [],
         spotsObservedAt: isLive ? clusterFeed.observedAt : null,
         spotsFetchedAt: isLive ? clusterFeed.fetchedAt : null,

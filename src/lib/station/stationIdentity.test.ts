@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   nearestHamClockPower,
   physicsAntennaGainDbi,
+  toDecisionReportMode,
   toPhysicsMode,
 } from "./stationPhysics";
 import {
@@ -116,10 +117,22 @@ const band: BandChainPerformance = {
 };
 
 describe("stationPhysics", () => {
-  it("maps live modes onto the physics trio", () => {
+  it("maps live modes onto the physics engine's mode set", () => {
     expect(toPhysicsMode("USB")).toBe("SSB");
     expect(toPhysicsMode("CW-R")).toBe("CW");
     expect(toPhysicsMode("FT4")).toBe("FT8");
+  });
+
+  it("preserves RTTY rather than collapsing it into FT8 (#1081 round 6)", () => {
+    expect(toPhysicsMode("RTTY")).toBe("RTTY");
+    expect(toPhysicsMode("RTTY-R")).toBe("RTTY");
+  });
+
+  it("narrows RTTY to SSB (not CW) for the LUF/DecisionReport pathway, which does not model RTTY's SNR threshold yet", () => {
+    expect(toDecisionReportMode("RTTY")).toBe("SSB");
+    expect(toDecisionReportMode("CW")).toBe("CW");
+    expect(toDecisionReportMode("FT8")).toBe("FT8");
+    expect(toDecisionReportMode("SSB")).toBe("SSB");
   });
 
   it("folds system loss into path gain", () => {

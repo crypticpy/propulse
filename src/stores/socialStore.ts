@@ -61,13 +61,28 @@ function toActivityEvent(row: Record<string, unknown>): ActivityEvent {
  */
 export type ViewerFriendship = "friend" | "stranger" | "unknown";
 
+/**
+ * Whether the cached `following` set describes the signed-in account. A
+ * refresh in flight for the same account still counts: the set in hand is that
+ * account's last known answer, and dropping it mid-refresh is what made the
+ * viewer flash as a stranger on every remount (#995 round 5).
+ */
+export function followSetBelongsToViewer(
+  followingLoadedForUserId: string | null,
+  authUserId: string | null,
+): boolean {
+  return !!authUserId && followingLoadedForUserId === authUserId;
+}
+
 export function viewerFriendship(
   following: PublicProfile[],
   followingLoadedForUserId: string | null,
   authUserId: string | null,
   profileId: string,
 ): ViewerFriendship {
-  if (!authUserId || followingLoadedForUserId !== authUserId) return "unknown";
+  if (!followSetBelongsToViewer(followingLoadedForUserId, authUserId)) {
+    return "unknown";
+  }
   return following.some((profile) => profile.id === profileId)
     ? "friend"
     : "stranger";
@@ -86,6 +101,13 @@ interface SocialStore {
    * friends-only sections.
    */
   followingLoadedForUserId: string | null;
+  /**
+   * A refresh is in flight for the account the cache is already tagged to.
+   * The set stays readable while it runs; actions that would write a follow
+   * row wait for it, so the button never offers "Follow" for a relation that
+   * may already exist.
+   */
+  isRefreshingFollowing: boolean;
   feed: ActivityEvent[];
   isLoadingFollowers: boolean;
   isLoadingFeed: boolean;
@@ -106,6 +128,7 @@ const initialState = {
   followers: [] as PublicProfile[],
   following: [] as PublicProfile[],
   followingLoadedForUserId: null as string | null,
+  isRefreshingFollowing: false,
   feed: [] as ActivityEvent[],
   isLoadingFollowers: false,
   isLoadingFeed: false,
@@ -169,16 +192,24 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
 
-    // The set in hand belongs to whoever it was loaded for. Drop it before
-    // the request so nothing reads the previous account's relationships
-    // while this one is in flight; `followingLoadedForUserId` stays null
-    // until the answer for THIS user lands, which is what makes the
-    // viewer-is-friend question answer "unknown" in between.
-    set({
-      following: [],
-      followingLoadedForUserId: null,
-      isLoadingFollowers: true,
-    });
+    // The set in hand belongs to whoever it was loaded for. Only a set
+    // belonging to someone else (or to nobody) is dropped up front, so the
+    // viewer-is-friend question answers "unknown" while another account's
+    // answer is in flight. A refresh for the SAME account keeps its set and
+    // its tag: clearing there made every remount flash the viewer as a
+    // stranger, hiding friends-only content and offering "Follow" for a
+    // relation that already exists.
+    const cacheBelongsToUser = get().followingLoadedForUserId === userId;
+    set(
+      cacheBelongsToUser
+        ? { isRefreshingFollowing: true, isLoadingFollowers: true }
+        : {
+            following: [],
+            followingLoadedForUserId: null,
+            isRefreshingFollowing: true,
+            isLoadingFollowers: true,
+          },
+    );
 
     /** A result is only ours if the signed-in user has not changed since. */
     const stillCurrent = () => useAuthStore.getState().user?.id === userId;
@@ -193,10 +224,24 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
       if (!stillCurrent()) return;
 
-      if (followsError || !follows?.length) {
+      if (followsError) {
+        // A failed refresh is not an answer. Keep this account's last known
+        // set rather than demoting it to "unknown" on a transient error.
+        set({
+          ...(cacheBelongsToUser
+            ? {}
+            : { following: [], followingLoadedForUserId: null }),
+          isRefreshingFollowing: false,
+          isLoadingFollowers: false,
+        });
+        return;
+      }
+
+      if (!follows?.length) {
         set({
           following: [],
-          followingLoadedForUserId: followsError ? null : userId,
+          followingLoadedForUserId: userId,
+          isRefreshingFollowing: false,
           isLoadingFollowers: false,
         });
         return;
@@ -213,8 +258,10 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
       if (profilesError || !profiles) {
         set({
-          following: [],
-          followingLoadedForUserId: null,
+          ...(cacheBelongsToUser
+            ? {}
+            : { following: [], followingLoadedForUserId: null }),
+          isRefreshingFollowing: false,
           isLoadingFollowers: false,
         });
         return;
@@ -225,11 +272,12 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
           toPublicProfile(p as unknown as Record<string, unknown>),
         ),
         followingLoadedForUserId: userId,
+        isRefreshingFollowing: false,
         isLoadingFollowers: false,
       });
     } catch {
       if (!stillCurrent()) return;
-      set({ isLoadingFollowers: false });
+      set({ isRefreshingFollowing: false, isLoadingFollowers: false });
     }
   },
 
@@ -243,10 +291,16 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await supabase.from("follows").insert({
-        follower_id: userId,
-        following_id: targetUserId,
-      });
+      // (follower_id, following_id) is the primary key, so a second attempt
+      // at a follow the viewer already has would fail on it. Following is
+      // idempotent by nature: upsert and ignore the duplicate instead.
+      const { error } = await supabase.from("follows").upsert(
+        {
+          follower_id: userId,
+          following_id: targetUserId,
+        },
+        { onConflict: "follower_id,following_id", ignoreDuplicates: true },
+      );
 
       if (error) {
         console.error("[socialStore] followUser error:", error.message);
@@ -351,7 +405,12 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
   // ── Reset ─────────────────────────────────────────────────────────
 
-  clearFollowing: () => set({ following: [], followingLoadedForUserId: null }),
+  clearFollowing: () =>
+    set({
+      following: [],
+      followingLoadedForUserId: null,
+      isRefreshingFollowing: false,
+    }),
 
   reset: () => set(initialState),
 }));

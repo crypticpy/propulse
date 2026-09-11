@@ -297,6 +297,10 @@ function OtherProfileView({
     profile.id,
   );
   const isFollowing = friendship === "friend";
+  // An unknown relation must never offer an action: "Follow" on a relation
+  // that already exists is a duplicate write on the follows primary key, and
+  // "Following" on one that does not is a lie. The control waits instead.
+  const relationshipKnown = friendship !== "unknown";
 
   // One predicate for the published location: the grid line, "Where to find
   // me" and the contact panel's coordinates are the same disclosure.
@@ -621,6 +625,7 @@ function OtherProfileView({
       actions={
         <Button
           variant={isFollowing ? "secondary" : "primary"}
+          disabled={!relationshipKnown}
           onClick={
             isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
           }
@@ -646,6 +651,7 @@ function OtherProfileView({
           <VisitorProfileCard
             profile={profile}
             locationDisclosed={locationDisclosed}
+            relationshipKnown={relationshipKnown}
             viewerInterests={viewerInterests}
             isFollowing={isFollowing}
             onFollow={handleFollow}

@@ -21,12 +21,13 @@ const profile: PublicProfile = {
   },
 };
 
-function draw(locationDisclosed: boolean) {
+function draw(locationDisclosed: boolean, relationshipKnown = true) {
   return render(
     <VisitorProfileCard
       profile={profile}
       locationDisclosed={locationDisclosed}
       isFollowing={false}
+      relationshipKnown={relationshipKnown}
       onFollow={() => {}}
       onUnfollow={() => {}}
     />,
@@ -51,5 +52,24 @@ describe("VisitorProfileCard location disclosure (#995)", () => {
     expect(screen.getAllByText("DM79").length).toBeGreaterThan(0);
     expect(screen.getByText("Coordinates")).toBeTruthy();
     expect(screen.getByText("39.74, -104.98")).toBeTruthy();
+  });
+
+  // An unknown relation must not offer "Follow": the viewer may already
+  // follow this operator, and the insert would collide with the follows
+  // primary key (#995 round 5).
+  it("does not offer Follow while the relation is unknown", () => {
+    draw(true, false);
+    expect(
+      (screen.getByRole("button", { name: "Follow" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("offers Follow once the relation is known", () => {
+    draw(true, true);
+    expect(
+      (screen.getByRole("button", { name: "Follow" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
   });
 });

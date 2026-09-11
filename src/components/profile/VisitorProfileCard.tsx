@@ -37,6 +37,13 @@ interface VisitorProfileCardProps {
   /** Viewer's own interest tags — used to highlight shared interests */
   viewerInterests?: InterestTag[];
   isFollowing: boolean;
+  /**
+   * Whether the viewer's follow relation to this profile is known yet. While
+   * it is not, neither action is offered: "Follow" would risk a duplicate
+   * write on the follows primary key, "Following" would claim a relation we
+   * cannot see.
+   */
+  relationshipKnown: boolean;
   onFollow: () => void;
   onUnfollow: () => void;
 }
@@ -69,6 +76,7 @@ export function VisitorProfileCard({
   locationDisclosed,
   viewerInterests,
   isFollowing,
+  relationshipKnown,
   onFollow,
   onUnfollow,
 }: VisitorProfileCardProps) {
@@ -236,20 +244,24 @@ export function VisitorProfileCard({
           {isFollowing ? (
             <button
               type="button"
+              disabled={!relationshipKnown}
               onClick={onUnfollow}
               className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
                          bg-signal-green/20 text-signal-green border border-signal-green/30
-                         hover:bg-signal-green/30 transition-colors"
+                         hover:bg-signal-green/30 transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Following
             </button>
           ) : (
             <button
               type="button"
+              disabled={!relationshipKnown}
               onClick={onFollow}
               className="w-full px-4 py-2.5 text-sm font-medium rounded-full text-center
                          bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30
-                         hover:bg-plasma-orange/25 transition-colors"
+                         hover:bg-plasma-orange/25 transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Follow
             </button>

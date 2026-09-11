@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useSocialStore } from "@/stores/socialStore";
+import { followSetBelongsToViewer, useSocialStore } from "@/stores/socialStore";
 import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import type { PublicProfile } from "@/types/social";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
@@ -41,6 +41,10 @@ export function FriendList() {
 
 function FriendListInner() {
   const following = useSocialStore((s) => s.following);
+  const followingLoadedForUserId = useSocialStore(
+    (s) => s.followingLoadedForUserId,
+  );
+  const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const followers = useSocialStore((s) => s.followers);
   const isLoading = useSocialStore((s) => s.isLoadingFollowers);
   const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
@@ -57,6 +61,15 @@ function FriendListInner() {
     fetchFollowing();
     fetchFollowers();
   }, [fetchFollowing, fetchFollowers]);
+
+  // Whether the cached follow set is this account's. Until it is, no toggle
+  // is actionable: "Follow" on a relation that already exists is a duplicate
+  // write on the follows primary key. A refresh for the same account keeps
+  // the set, so this stays true across a remount.
+  const relationshipsKnown = followSetBelongsToViewer(
+    followingLoadedForUserId,
+    authUserId,
+  );
 
   // Set of IDs the current user follows (for toggle logic)
   const followingIds = useMemo(
@@ -157,6 +170,7 @@ function FriendListInner() {
                 key={profile.id}
                 profile={profile}
                 isFollowing={true}
+                actionable={relationshipsKnown}
                 onToggle={() => handleUnfollow(profile.id)}
               />
             ))}
@@ -176,6 +190,7 @@ function FriendListInner() {
                 key={profile.id}
                 profile={profile}
                 isFollowing={followingIds.has(profile.id)}
+                actionable={relationshipsKnown}
                 onToggle={() =>
                   followingIds.has(profile.id)
                     ? handleUnfollow(profile.id)
@@ -212,10 +227,17 @@ interface ProfileCardProps {
     lastActiveAt?: string;
   };
   isFollowing: boolean;
+  /** False while the viewer's follow set is unknown; the toggle then waits. */
+  actionable: boolean;
   onToggle: () => void;
 }
 
-function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
+function ProfileCard({
+  profile,
+  isFollowing,
+  actionable,
+  onToggle,
+}: ProfileCardProps) {
   const online = isOnline(profile.lastActiveAt);
 
   return (
@@ -249,10 +271,11 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
       </div>
       <button
         onClick={onToggle}
+        disabled={!actionable}
         className={
           isFollowing
-            ? "bg-su-line/10 text-su-muted border border-su-line/40 rounded-full px-3 py-1 text-xs hover:bg-su-line/20 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
-            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+            ? "bg-su-line/10 text-su-muted border border-su-line/40 rounded-full px-3 py-1 text-xs hover:bg-su-line/20 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
         }
       >
         {isFollowing ? "Unfollow" : "Follow"}

@@ -89,6 +89,76 @@ class ReferenceError(RuntimeError):
     """Raised when the pinned reference build is missing or fails."""
 
 
+def git_env() -> dict[str, str]:
+    """Environment for git subprocesses with the caller's GIT_* variables removed.
+
+    Git exports GIT_DIR (and friends) to hooks. With GIT_DIR set, ``git -C``
+    and even ``git init <path>`` operate on the ambient repository instead of
+    the path given, so a build run from a pre-push hook would clone into, and
+    then check the cleanliness of, the developer's own repository.
+    """
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
+# The upstream repository commits its own build outputs (object files, the
+# dependency stubs, the shared libraries and the ITURHFProp executable), so a
+# build on any host rewrites tracked files. Those are products of the pinned
+# sources, not provenance, and are ignored by the cleanliness check.
+BUILD_PRODUCT_SUFFIXES = (".o", ".d", ".so", ".a", ".dylib")
+BUILD_PRODUCT_DIRS = ("ITURHFProp/Linux/", "P533/Linux/", "P372/Linux/")
+
+
+def is_build_product(relative_path: str) -> bool:
+    return relative_path.endswith(BUILD_PRODUCT_SUFFIXES) or relative_path.startswith(
+        BUILD_PRODUCT_DIRS
+    )
+
+
+def require_clean_checkout(source: Path) -> None:
+    """Refuse a clone whose tracked sources, makefiles or data differ from the pin.
+
+    HEAD alone does not prove provenance: an edited source or coefficient
+    file would be compiled and then recorded as if it came from COMMIT.
+    Untracked files and rebuilt tracked build products are allowed; any other
+    tracked modification is not.
+    """
+    status = subprocess.check_output(
+        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
+        text=True,
+        env=git_env(),
+    )
+    dirty = [
+        line for line in status.splitlines()
+        if line.strip() and not is_build_product(line[3:].strip())
+    ]
+    if dirty:
+        raise ReferenceError(
+            "reference checkout has modified tracked files; restore the pinned "
+            f"tree (git -C {source} checkout -- . ) before using it:\n"
+            + "\n".join(dirty)
+        )
+
+
+def require_pinned_checkout(source: Path) -> None:
+    """HEAD must be COMMIT and the tracked tree must be clean.
+
+    Every consumer of the build (golden generation, the portable proof, the
+    native runner) revalidates here, not only the build step: artifacts
+    that merely exist could have been rebuilt from another commit or from a
+    hand-edited source and would otherwise be stamped with the pinned COMMIT.
+    """
+    if not (source / ".git").exists():
+        raise ReferenceError(f"{source} is not a git checkout of the pinned reference")
+    actual = subprocess.check_output(
+        ["git", "-C", str(source), "rev-parse", "HEAD"], text=True, env=git_env()
+    ).strip()
+    if actual != COMMIT:
+        raise ReferenceError(
+            f"pinned commit mismatch: checkout is at {actual}, contract pins {COMMIT}"
+        )
+    require_clean_checkout(source)
+
+
 def validate_case(case: Case) -> None:
     if not -90.0 <= case.tx_lat <= 90.0 or not -90.0 <= case.rx_lat <= 90.0:
         raise ValueError(f"{case.case_id}: latitude outside [-90, 90]")
@@ -260,6 +330,7 @@ class ReferenceBuild:
                 "pinned ITU-R HF build is absent; run "
                 "scripts/propagation-reference-fetch first"
             )
+        require_pinned_checkout(self.source)
 
     def environment(self) -> dict[str, str]:
         env = dict(os.environ)

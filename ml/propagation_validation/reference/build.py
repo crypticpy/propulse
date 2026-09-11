@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import platform
 import subprocess
 import sys
@@ -27,12 +26,12 @@ if __package__ in (None, ""):  # direct `python3 build.py`
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from reference.runner import (  # type: ignore[no-redef]
         COMMIT, DEFAULT_BUILD_DIR, HERE, REPOSITORY, SOURCE_DIRNAME, TAG,
-        ReferenceBuild,
+        ReferenceBuild, git_env, require_pinned_checkout,
     )
 else:
     from .runner import (
         COMMIT, DEFAULT_BUILD_DIR, HERE, REPOSITORY, SOURCE_DIRNAME, TAG,
-        ReferenceBuild,
+        ReferenceBuild, git_env, require_pinned_checkout,
     )
 
 MANIFEST_PATH = HERE / "manifest.json"
@@ -79,17 +78,6 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def git_env() -> dict[str, str]:
-    """Environment for git subprocesses with the caller's GIT_* variables removed.
-
-    Git exports GIT_DIR (and friends) to hooks. With GIT_DIR set, ``git -C``
-    and even ``git init <path>`` operate on the ambient repository instead of
-    the path given, so a build run from a pre-push hook would clone into, and
-    then check the cleanliness of, the developer's own repository.
-    """
-    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-
-
 def run(command: list[str], cwd: Path) -> str:
     completed = subprocess.run(
         command, cwd=cwd, capture_output=True, text=True, env=git_env()
@@ -119,33 +107,7 @@ def ensure_clone(source: Path) -> None:
              REPOSITORY, str(source)],
             source.parent,
         )
-    actual = subprocess.check_output(
-        ["git", "-C", str(source), "rev-parse", "HEAD"], text=True, env=git_env()
-    ).strip()
-    if actual != COMMIT:
-        raise RuntimeError(
-            f"pinned commit mismatch: clone is at {actual}, contract pins {COMMIT}"
-        )
-    require_clean_checkout(source)
-
-
-def require_clean_checkout(source: Path) -> None:
-    """Refuse to build from a clone whose tracked files differ from the pin.
-
-    HEAD alone does not prove provenance: an edited source or coefficient
-    file would be compiled and then recorded as if it came from COMMIT.
-    Untracked build products are allowed; tracked modifications are not.
-    """
-    dirty = subprocess.check_output(
-        ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
-        text=True,
-        env=git_env(),
-    ).strip()
-    if dirty:
-        raise RuntimeError(
-            "reference checkout has modified tracked files; restore the pinned "
-            f"tree (git -C {source} checkout -- . ) before building:\n{dirty}"
-        )
+    require_pinned_checkout(source)
 
 
 def build_native(source: Path) -> tuple[list[list[str]], float]:

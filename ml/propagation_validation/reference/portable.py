@@ -268,24 +268,54 @@ def run_wasm_case(module: Path, case, data_path: Path, workdir: Path) -> dict[st
     return merged
 
 
+def _rss_probe() -> tuple[list[str], str, int] | None:
+    """(prefix, regex, divisor) for a peak-RSS-capable `time`, or None.
+
+    BSD/macOS `/usr/bin/time -l` prints bytes as `N  maximum resident set
+    size`; GNU time `-v` prints KiB as `Maximum resident set size (kbytes): N`.
+    A shell builtin `time` measures nothing, so only the binary counts.
+    """
+    binary = shutil.which("time", path="/usr/bin")
+    if binary is None:
+        return None
+    for flag, pattern, divisor in (
+        ("-l", r"(\d+)\s+maximum resident set size", 1024),
+        ("-v", r"Maximum resident set size \(kbytes\):\s*(\d+)", 1),
+    ):
+        try:
+            probe = subprocess.run(
+                [binary, flag, "true"], capture_output=True, text=True, timeout=10
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0 and re.search(pattern, probe.stderr):
+            return [binary, flag], pattern, divisor
+    return None
+
+
 def peak_rss_kb(command: list[str], env: dict[str, str] | None = None) -> int | None:
-    """macOS/BSD `/usr/bin/time -l` peak RSS in KiB; None where unavailable.
+    """Peak RSS in KiB via BSD `time -l` or GNU `time -v`; None where neither exists.
 
     A probe that fails to launch (for example the native executable without
-    its library search path) must not be published as a measurement.
+    its library search path) must not be published as a measurement, so a
+    nonzero exit from the measured command is an error rather than None.
     """
+    probe = _rss_probe()
+    if probe is None:
+        return None
+    prefix, pattern, divisor = probe
     completed = subprocess.run(
-        ["/usr/bin/time", "-l", *command], capture_output=True, text=True, env=env
+        [*prefix, *command], capture_output=True, text=True, env=env
     )
     if completed.returncode != 0:
         raise RuntimeError(
             f"RSS probe exited {completed.returncode}: {' '.join(command)}\n"
             f"{completed.stderr.strip()[-400:]}"
         )
-    match = re.search(r"(\d+)\s+maximum resident set size", completed.stderr)
+    match = re.search(pattern, completed.stderr)
     if not match:
         return None
-    return int(match.group(1)) // 1024
+    return int(match.group(1)) // divisor
 
 
 def asset_budget(source: Path) -> dict[str, Any]:

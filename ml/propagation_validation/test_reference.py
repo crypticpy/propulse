@@ -295,7 +295,7 @@ class CleanCheckoutTests(unittest.TestCase):
     def test_modified_tracked_file_is_rejected(self):
         import subprocess
         import tempfile
-        from reference.build import git_env, require_clean_checkout
+        from reference.runner import git_env, require_clean_checkout
 
         # This runs under the pre-push hook, where git exports GIT_DIR. With it
         # set, ``git init <path>`` ignores the path and re-initialises the
@@ -313,9 +313,51 @@ class CleanCheckoutTests(unittest.TestCase):
             require_clean_checkout(repo)  # clean: no error
             (repo / "build.o").write_bytes(b"\0")  # untracked build product is fine
             require_clean_checkout(repo)
+            # Upstream commits its build outputs; rebuilding them is not a
+            # provenance change.
+            for rel in ("P533/Src/P533/P533.o", "P533/Linux/libp533.so",
+                        "ITURHFProp/Linux/ITURHFProp"):
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_bytes(b"\0")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "products"], check=True, env=env)
+            for rel in ("P533/Src/P533/P533.o", "P533/Linux/libp533.so",
+                        "ITURHFProp/Linux/ITURHFProp"):
+                (repo / rel).write_bytes(b"\1")
+            require_clean_checkout(repo)
             (repo / "COEFF.txt").write_text("1 2 4\n")
-            with self.assertRaisesRegex(RuntimeError, "modified tracked files"):
+            with self.assertRaisesRegex(RuntimeError, "COEFF.txt"):
                 require_clean_checkout(repo)
+
+    def test_require_revalidates_head_and_cleanliness_when_artifacts_exist(self):
+        import subprocess
+        import tempfile
+        from reference.runner import git_env, require_pinned_checkout
+
+        env = git_env()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "ITU-R-HF"
+            repo.mkdir()
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
+            for rel in ("ITURHFProp/Linux/ITURHFProp", "P533/Linux/libp533.so",
+                        "P372/Linux/libp372.so", "P372/Data/keep"):
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_bytes(b"\0")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                 "commit", "-q", "-m", "not the pin"], check=True, env=env)
+            build = ReferenceBuild(repo)
+            self.assertTrue(build.available())
+            with self.assertRaisesRegex(RuntimeError, "pinned commit mismatch"):
+                build.require()
+            with self.assertRaisesRegex(RuntimeError, "pinned commit mismatch"):
+                require_pinned_checkout(repo)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "not a git checkout"):
+                require_pinned_checkout(Path(tmp))
 
 
 class ParityDeltaTests(unittest.TestCase):
@@ -335,3 +377,20 @@ class ParityDeltaTests(unittest.TestCase):
             )
         _, labels = parity_deltas(golden, {"c1": {"snr_db": 12.5, "mode": "2F2"}})
         self.assertEqual(labels, ["c1.mode"])
+
+
+class PeakRssTests(unittest.TestCase):
+    def test_probe_is_a_measurement_or_none_never_a_crash(self):
+        from reference.portable import _rss_probe, peak_rss_kb
+
+        probe = _rss_probe()
+        value = peak_rss_kb(["true"])
+        if probe is None:
+            self.assertIsNone(value)
+        else:
+            self.assertIsInstance(value, int)
+            self.assertGreater(value, 0)
+        with self.assertRaisesRegex(RuntimeError, "RSS probe exited"):
+            if probe is None:
+                raise RuntimeError("RSS probe exited (no time binary on this host)")
+            peak_rss_kb(["false"])

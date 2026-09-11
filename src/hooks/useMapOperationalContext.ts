@@ -349,6 +349,26 @@ export function useOperationalWorkspaceSync(): void {
       try {
         // Apply one domain at a time so editing a QSO draft can never replay a
         // stale contest session, target, or UI snapshot from another window.
+        //
+        // Census of the six (#859 round 12). A domain whose payload carries a
+        // write stamp for the value it travels with must install only what is
+        // strictly newer, because a window left open answers the handshake
+        // with whatever it has had up all along:
+        //
+        // - `map` — stamped (`targetSetAt`). Gated below.
+        // - `operational`, `qso` — no stamp; scope, panel and draft state are
+        //   last-writer-wins, and the per-sender revision gate already orders
+        //   one sender's messages against each other.
+        // - `dx` — no stamp. `selectedSpot.time` is when the *spot* was
+        //   posted, not when this operator selected it; gating on it would
+        //   refuse to select an older spot.
+        // - `contest` — no stamp. `startTime`/`endTime` are the contest's,
+        //   not a write time.
+        // - `contestUi` — no write stamp. `draftUpdatedAtBySessionId` is a
+        //   per-session "typed recently" signal read by `ContestDock` for
+        //   spot-prefill behaviour; it stamps neither the six maps it travels
+        //   with nor the domain as a whole, so gating the payload on it would
+        //   be inventing a stamp rather than honouring one. Last-writer-wins.
         switch (message.domain) {
           case "operational":
             useMapOperationalStore.setState(
@@ -384,11 +404,47 @@ export function useOperationalWorkspaceSync(): void {
             // let a stale pop-out outrank a cursor already applied here
             // (round 9). Unknown freshness stays unknown, and the wall gives
             // an unstamped target the losing side.
-            const stamped = Number.isFinite(map.targetSetAt);
+            //
+            // And a stamped snapshot is *applied* only when its stamp is
+            // strictly newer than the one already held (#859 round 12).
+            // Arriving is not the same as being newer: a pop-out left open
+            // answers the handshake with the target it picked an hour ago,
+            // and installing that unconditionally — then numbering it with
+            // the newest local sequence, because applying it really is the
+            // latest thing this window did — hands a stale target the top of
+            // the order and takes a cursor that is genuinely newer. The two
+            // timestamps are safe to compare directly: both are workspace
+            // windows on *this* machine, one clock (round 10's note), which
+            // is exactly why the cursor's foreign `at` is not compared here.
+            //
+            // Nothing held, or held unstamped, means there is nothing to
+            // lose: install. Equal or older: ignore it entirely, including
+            // the number — a snapshot this window declines to apply is not
+            // an application.
+            const held = useMapStore.getState();
+            if (Number.isFinite(map.targetSetAt)) {
+              const senderAt = map.targetSetAt as number;
+              const nothingToLose =
+                held.target === null || held.targetSetAt === undefined;
+              if (!nothingToLose && senderAt <= (held.targetSetAt as number)) {
+                break;
+              }
+              useMapStore.setState({
+                target: map.target,
+                targetSetAt: senderAt,
+                targetSeq: nextLocalWriteSeq(),
+              });
+              break;
+            }
+            // Unstamped: last-writer-wins on the value, as it has always
+            // been — there is no stamp to compare, and refusing it would
+            // leave a legacy pop-out unable to move this window's target at
+            // all. It carries no number either, so the wall never promotes
+            // it over something it can order (round 9).
             useMapStore.setState({
               target: map.target,
-              targetSetAt: stamped ? map.targetSetAt : undefined,
-              targetSeq: stamped ? nextLocalWriteSeq() : undefined,
+              targetSetAt: undefined,
+              targetSeq: undefined,
             });
             break;
           }

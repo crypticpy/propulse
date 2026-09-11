@@ -657,7 +657,11 @@ describe("useHamClockWallOperatingState", () => {
           revision: 1,
           state: {
             target: { lat: -20, lon: -45, name: "PY5DX" },
-            targetSetAt: Date.now(),
+            // A millisecond after the pick above, which is what makes it a
+            // new selection rather than a stale window answering with what
+            // it has always had (round 12). The clock is frozen, so this is
+            // written out rather than advanced.
+            targetSetAt: (useMapStore.getState().targetSetAt as number) + 1,
           },
         },
       } as MessageEvent);
@@ -694,6 +698,70 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().targetSeq).toBeUndefined();
     renderHook(() => useHamClockWallOperatingState());
     expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ" });
+    sync.unmount();
+  });
+
+  it("keeps a newer cursor when a stale pop-out answers the handshake", async () => {
+    // #859 round 12, thread 1. A pop-out left open answers the workspace
+    // handshake with the target it picked an hour ago. Arriving is not the
+    // same as being newer: installing it and numbering it with the newest
+    // local sequence — because applying it really is the latest thing this
+    // window did — put a stale target at the top of the order and took a
+    // cursor that was genuinely newer.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    const t0 = new Date("2026-09-10T00:00:00Z").getTime();
+    vi.setSystemTime(t0);
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    // The wall picks a target, then a newer cursor arrives and takes it.
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone", "K1ABC", "EM10"));
+    });
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+    const heldSeq = useMapStore.getState().targetSeq as number;
+
+    // The stale pop-out answers with a target stamped an hour ago.
+    const stale = (revision: number, name: string, setAt: number): MessageEvent =>
+      ({
+        data: {
+          kind: "snapshot",
+          sender: "pop-out",
+          domain: "map",
+          revision,
+          state: { target: { lat: -20, lon: -45, name }, targetSetAt: setAt },
+        },
+      }) as MessageEvent;
+    act(() => {
+      channel.onmessage?.(stale(1, "OLD", t0 - 60 * 60_000));
+    });
+
+    // Not applied at all — not the value, and not a number for it either.
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+    expect(useMapStore.getState().targetSeq).toBe(heldSeq);
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+
+    // The same window then makes a genuinely new selection, and it installs
+    // and takes its place in this window's order.
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      channel.onmessage?.(stale(2, "PY5DX", Date.now()));
+    });
+    expect(useMapStore.getState().target).toMatchObject({ name: "PY5DX" });
+    expect(useMapStore.getState().targetSeq as number).toBeGreaterThan(heldSeq);
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).toMatchObject({ name: "PY5DX" });
     sync.unmount();
   });
 

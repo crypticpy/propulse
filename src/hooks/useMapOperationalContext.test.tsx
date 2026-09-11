@@ -201,6 +201,61 @@ describe("map target synchronization", () => {
     view.unmount();
   });
 
+  it("ignores a stamped snapshot that is not newer than the target it holds", async () => {
+    // #859 round 12. A pop-out left open answers the handshake with the
+    // target it picked an hour ago. Both stamps are workspace windows on this
+    // machine, one clock, so they compare directly — and only a strictly
+    // newer one may install. An equal stamp is not newer either: that is the
+    // same window re-announcing what this one already has.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "HELD" },
+      targetSetAt: 5_000,
+      // Nothing numbered here yet, so the assertions below are about numbers
+      // this applier did or did not take.
+      targetSeq: undefined,
+    });
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+    const seqBefore = nextLocalWriteSeq();
+
+    const snapshot = (revision: number, name: string, setAt: number) =>
+      ({
+        data: {
+          kind: "snapshot",
+          sender: "other-window",
+          domain: "map",
+          revision,
+          state: { target: { lat: 1, lon: 1, name }, targetSetAt: setAt },
+        },
+      }) as MessageEvent;
+
+    act(() => {
+      channel.onmessage?.(snapshot(1, "OLDER", 4_999));
+    });
+    expect(useMapStore.getState().target).toMatchObject({ name: "HELD" });
+
+    act(() => {
+      channel.onmessage?.(snapshot(2, "EQUAL", 5_000));
+    });
+    expect(useMapStore.getState().target).toMatchObject({ name: "HELD" });
+    // Declining to apply a snapshot is not an application: no number was
+    // taken for either of them, or a stale target would still have climbed
+    // to the top of this window's order.
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
+
+    act(() => {
+      channel.onmessage?.(snapshot(3, "NEWER", 5_001));
+    });
+    expect(useMapStore.getState().target).toMatchObject({ name: "NEWER" });
+    expect(useMapStore.getState().targetSetAt).toBe(5_001);
+    expect(useMapStore.getState().targetSeq as number).toBeGreaterThan(seqBefore);
+    view.unmount();
+  });
+
   it("leaves a legacy snapshot that carries no write time unstamped", async () => {
     // Unknown, not new (#859 round 9). A window on an older bundle answers
     // the handshake with whatever target it has had up all along; stamping

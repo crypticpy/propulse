@@ -80,6 +80,35 @@ function legacyWouldAccept(message: OperatingMessage): boolean {
   return count > 0;
 }
 
+/**
+ * `main`'s tie rule, reimplemented here so a test can check that this bundle
+ * settles a tie the same way the bundle in the field does.
+ *
+ * From `origin/main src/stores/operatingStateStore.ts`:
+ *
+ * ```ts
+ * // 167-169
+ * function beats(incoming: FieldStamp, current: FieldStamp): boolean {
+ *   if (incoming.at !== current.at) return incoming.at > current.at;
+ *   return incoming.by > current.by;
+ * }
+ * // 241-253: `mergePatch(state, patch, by)` keys every entry on `by`, which
+ * // is `message.senderId` for an inbound patch (456) and `state.deviceId`
+ * // for a local write (268). The entry's own fields are never consulted.
+ * const incoming: FieldStamp = { at: entry.at, by };
+ * ```
+ *
+ * So on `main` the tie key is always the envelope sender, compared with a
+ * plain string `>`.
+ */
+function legacyAccepts(
+  incoming: { at: number; senderId: string },
+  current: { at: number; by: string },
+): boolean {
+  if (incoming.at !== current.at) return incoming.at > current.at;
+  return incoming.senderId > current.by;
+}
+
 describe("operatingStateStore", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -197,13 +226,18 @@ describe("operatingStateStore", () => {
     a.disconnect();
   });
 
-  it("will not let an authorless entry win a same-millisecond tie-break", async () => {
-    // A tab on a bundle older than #859 round 5 answers a `hello` with a
-    // patch that cannot name its author. Credited to the sender, a relay
-    // from a peer whose id sorts high would win the tie-break with a write it
-    // never made — re-entering a race already settled, and (before round 5's
-    // structural fix, now belt and braces) re-stamping the local arrival
-    // time. An authorless entry is accepted only on a strictly newer `at`.
+  it("settles a same-millisecond tie the way the deployed bundle settles it", async () => {
+    // #859 round 12. Rounds 6-8 made an authorless entry lose every tie, so
+    // that a relay could not re-enter a settled race under a guessed author.
+    // It also split the network: on the same millisecond this screen rejected
+    // a legacy tab's write while the legacy tab accepted this screen's, and
+    // the two sat on different values for good. A tie is arbitrary; what
+    // matters is that everyone picks the same arbitrary winner, so the tie
+    // key is `by ?? senderId` compared exactly as `main` compares it.
+    //
+    // The replay is stopped in `mergePatch` instead, by not re-applying a
+    // value already held — see the relay tests above and in
+    // `useHamClockWallOperatingState.test.ts`.
     const bus = createMemoryBus();
     const a = await openScreen(bus, "a");
 
@@ -215,33 +249,88 @@ describe("operatingStateStore", () => {
       },
     });
 
-    // Equal `at`, sender id sorts above the held author: rejected.
+    // Equal `at`, delivering id sorts *below* the held author: rejected, and
+    // the oracle agrees.
+    expect(legacyAccepts({ at: 5_000, senderId: "aa-low" }, { at: 5_000, by: "aaa" })).toBe(false);
     a.store.getState().applyMessage({
       v: OPERATING_PROTOCOL_VERSION,
-      senderId: "zzz-relay",
+      senderId: "aa-low",
       sentAt: 1,
       kind: "state",
       patch: { band: { value: "40m", at: 5_000 } },
     });
     expect(a.store.getState().cursor.band).toBe("20m");
-    expect(a.store.getState().stamps.band).toEqual({
-      at: 5_000,
-      by: "aaa",
-      appliedAt: 5_000,
-      appliedSeq: 0,
-    });
 
-    // Strictly newer: an old peer's genuine write still wins.
+    // Equal `at`, delivering id sorts above: accepted, as `main` would.
+    expect(legacyAccepts({ at: 5_000, senderId: "zzz-legacy" }, { at: 5_000, by: "aaa" })).toBe(true);
     a.store.getState().applyMessage({
       v: OPERATING_PROTOCOL_VERSION,
-      senderId: "zzz-relay",
+      senderId: "zzz-legacy",
       sentAt: 1,
       kind: "state",
-      patch: { band: { value: "40m", at: 5_001 } },
+      patch: { band: { value: "40m", at: 5_000 } },
     });
     expect(a.store.getState().cursor.band).toBe("40m");
+    // Round 8 is untouched where it counts: the id was borrowed for the
+    // comparison and dropped. Nothing downstream can mistake it for a claim.
+    expect(a.store.getState().stamps.band.by).toBeUndefined();
+
+    // Strictly newer: an old peer's genuine write still wins, as before.
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "aa-low",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "80m", at: 5_001 } },
+    });
+    expect(a.store.getState().cursor.band).toBe("80m");
 
     a.disconnect();
+  });
+
+  it("agrees with a legacy tab on the winner of a direct same-millisecond write", async () => {
+    // The convergence the round is for (#859 round 12), both ways round. One
+    // upgraded screen and one legacy tab write different values in the same
+    // millisecond, each receiving the other's message directly — no relay, so
+    // both sides key on the same id and must reach the same value.
+    //
+    // The legacy side is the oracle above, reimplemented from `origin/main`;
+    // the upgraded side is the real store.
+    for (const [upgradedId, legacyId] of [
+      ["aaa-upgraded", "zzz-legacy"],
+      ["zzz-upgraded", "mmm-legacy"],
+    ]) {
+      const bus = createMemoryBus();
+      const screen = await openScreen(bus, "u", { connect: false });
+      screen.store.setState({ deviceId: upgradedId });
+      screen.connect();
+
+      screen.store.getState().setBand("20m");
+      const at = screen.store.getState().stamps.band.at;
+
+      // The legacy tab wrote "40m" in the same millisecond and sends it.
+      screen.store.getState().applyMessage({
+        v: OPERATING_PROTOCOL_VERSION,
+        senderId: legacyId,
+        sentAt: 1,
+        kind: "state",
+        patch: { band: { value: "40m", at } },
+      });
+
+      // What the legacy tab does with ours: it holds its own write keyed on
+      // its own id, and keys ours on the envelope sender.
+      const legacyTakesOurs = legacyAccepts(
+        { at, senderId: upgradedId },
+        { at, by: legacyId },
+      );
+      const legacyBand = legacyTakesOurs ? "20m" : "40m";
+
+      // Same winner on both sides — the higher id, whichever tab that is.
+      expect(screen.store.getState().cursor.band).toBe(legacyBand);
+      expect(legacyBand).toBe(legacyId > upgradedId ? "40m" : "20m");
+
+      screen.disconnect();
+    }
   });
 
   it("relays a legacy write without inventing an author for it", async () => {
@@ -249,11 +338,16 @@ describe("operatingStateStore", () => {
     // B is upgraded and relays A's write, C is upgraded and holds its own
     // authored write at the same `at` with an id that sorts *below* B's.
     //
-    // If B credits itself for what it merely delivered, that guess goes out
-    // as an explicit `by` on the relay and is indistinguishable from a
-    // first-hand claim — so C loses the equal-`at` tie-break to an id that
-    // never wrote anything, re-stamps, and a locally newer map target is
-    // overwritten on the next remount. Unknown provenance stays unknown.
+    // What must not happen is B *claiming* the write: a guessed `by` on the
+    // relay is indistinguishable downstream from a first-hand claim, and
+    // would be stored and relayed on again as one. Unknown provenance stays
+    // unknown, on the wire and in the stamp.
+    //
+    // C does take the value (#859 round 12): the tie is keyed on the
+    // relaying peer, which is what a legacy tab does with the same message,
+    // and the two must not end up on different values. The re-application
+    // that round 5 guards against is a *re-delivery of the value already
+    // held*, which is blocked in `mergePatch` and covered separately.
     const bus = createMemoryBus();
     const sent: OperatingMessage[] = [];
     bus.connect("tap").subscribe((message) => sent.push(message));
@@ -301,14 +395,18 @@ describe("operatingStateStore", () => {
       expect(message.patch.band?.by).toBeUndefined();
     }
 
-    // C keeps its own write, and its stamp is untouched — no re-stamp.
-    expect(held.store.getState().cursor.band).toBe("20m");
-    expect(held.store.getState().stamps.band).toEqual({
-      at: 5_000,
-      by: "aaa-held",
-      appliedAt: 5_000,
-      appliedSeq: 0,
-    });
+    // C takes the value, keyed on the relaying peer exactly as a legacy tab
+    // would key it...
+    expect(
+      legacyAccepts(
+        { at: 5_000, senderId: "zzz-relay" },
+        { at: 5_000, by: "aaa-held" },
+      ),
+    ).toBe(true);
+    expect(held.store.getState().cursor.band).toBe("40m");
+    // ...and still records no author for it. The relayer's id was borrowed
+    // for the comparison and dropped.
+    expect(held.store.getState().stamps.band.by).toBeUndefined();
 
     relay.disconnect();
     held.disconnect();

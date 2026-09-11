@@ -217,30 +217,83 @@ function nextStamp(): number {
 
 /**
  * Deterministic on every screen: newer wins, and the tie on an equal `at` goes
- * to the higher author id. Compares the wire `at`, never `appliedAt` — arrival
- * order differs per screen, so merging on it would let two screens disagree
- * about the winner. Takes only the wire half of a stamp, so a caller cannot
- * mint the local half before knowing whether the write is even accepted.
+ * to the higher id.
  *
- * An author may be absent on either side, because a bundle older than #859
- * round 5 cannot name one (#859 rounds 6-8). The rule on an equal `at`:
+ * The tie key is `by ?? senderId`, and the tie is resolved **exactly the way
+ * the deployed bundle resolves it** (#859 round 12). `main` keys every entry
+ * on the envelope sender and compares with `>`:
  *
- * - authorless incoming **never** wins. Its author is unknown, so it may well
- *   be a relay of the very write already held, and crediting it to whoever
- *   delivered it is what let a replay re-enter a settled race.
- * - authored incoming beats an authorless one already held. That is the same
- *   rule read from the other side, which is what makes it converge: whichever
- *   order the two reach a screen, the authored write is the one left standing.
- * - two authorless entries at one `at` are a no-op, in both directions.
+ * ```ts
+ * // origin/main src/stores/operatingStateStore.ts:167-169, 253
+ * function beats(incoming: FieldStamp, current: FieldStamp): boolean {
+ *   if (incoming.at !== current.at) return incoming.at > current.at;
+ *   return incoming.by > current.by;          // `by` === the envelope sender
+ * }
+ * ```
+ *
+ * Rounds 6-8 made an authorless entry lose every tie instead, so that a relay
+ * could not re-enter a settled race under a guessed author. It stopped the
+ * replay, but it also split the network: on the same millisecond an upgraded
+ * screen rejected the legacy tab's write while the legacy tab accepted the
+ * upgraded screen's, and the two sat on different values with nothing to
+ * break the deadlock. A tie is arbitrary by definition; the only thing that
+ * matters is that every screen picks the *same* arbitrary winner, which means
+ * picking the one the bundle already in the field picks.
+ *
+ * Round 8 still stands where it counts: the sender id is borrowed for this
+ * comparison and then dropped. Nothing guessed is ever stored in a stamp or
+ * put on the wire, so no downstream screen mistakes it for a first-hand
+ * claim, and `currentPatch` still relays an authorless write authorless.
+ *
+ * The replay that round 5 and round 8 were guarding against is handled where
+ * it belongs instead, in `mergePatch`: re-delivering a value already held is
+ * not an application and takes no new number, whoever it is keyed on.
+ *
+ * Residual, stated plainly: a *relayed* same-millisecond tie can still be
+ * settled differently on the two sides, because a legacy tab keys the relay
+ * on the relaying peer while this bundle keys it on the original author. It
+ * heals on the next write with a different `at`, and disappears once every
+ * tab is upgraded. Direct writes — the common case — agree exactly.
+ *
+ * Compares the wire `at`, never `appliedAt`: arrival order differs per
+ * screen, so merging on it would let two screens disagree about the winner.
+ * Takes only the wire half of a stamp, so a caller cannot mint the local half
+ * before knowing whether the write is even accepted.
  */
 function beats(
   incoming: Pick<FieldStamp, "at" | "by">,
   current: Pick<FieldStamp, "at" | "by">,
+  /** The envelope's sender — this screen's own id for a local write. */
+  senderId: string,
 ): boolean {
   if (incoming.at !== current.at) return incoming.at > current.at;
-  if (incoming.by === undefined) return false;
+  // An authorless entry held here was keyed on its deliverer when it was
+  // accepted, and that key was dropped, so there is nothing left to compare
+  // it against. It yields, which is what `main` would do to it on the same
+  // ids more often than not and never leaves two screens deadlocked.
   if (current.by === undefined) return true;
-  return incoming.by > current.by;
+  return (incoming.by ?? senderId) > current.by;
+}
+
+/**
+ * Is this the value already held? Every cursor value is a string, `null`, or
+ * one of two flat records of primitives, so a shallow compare is exact.
+ */
+function sameCursorValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (
+    a === null ||
+    b === null ||
+    typeof a !== "object" ||
+    typeof b !== "object"
+  ) {
+    return false;
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((key) => left[key] === right[key]);
 }
 
 function registrationKey(deviceId: string, workspaceId: string): string {
@@ -346,6 +399,12 @@ function currentPatch(state: OperatingStateStoreState): CursorPatch {
 function mergePatch(
   state: OperatingStateStoreState,
   patch: CursorPatch,
+  /**
+   * The envelope's sender, this screen's own id for a local write. Used only
+   * to break an equal-`at` tie the way the deployed bundle breaks it, and
+   * never written into a stamp (#859 rounds 8 and 12).
+   */
+  senderId: string,
 ): Partial<OperatingStateStoreState> | null {
   const cursor = { ...state.cursor };
   const stamps = { ...state.stamps };
@@ -365,16 +424,33 @@ function mergePatch(
     const incoming = { at: entry.at, by: entry.by };
     // One rule for both, authored and not: `beats()` orders an absent author
     // rather than the caller special-casing it here, so the absence cannot be
-    // handled one way at this site and another at the next one. An authorless
-    // entry still ends up accepted only on a strictly newer `at`, never on
-    // the equal-`at` tie-break (#859 rounds 6-8).
+    // handled one way at this site and another at the next one.
     //
     // Note this is the whole compatibility mechanism: the wire version is
     // *not* bumped for `by`, because every deployed parser drops a version it
     // does not recognise, so a bump would make this bundle invisible to a tab
     // left open across the deploy (round 7). An optional field plus a rule
     // for its absence is bidirectional; a bump is not.
-    if (!beats(incoming, current)) continue;
+    if (!beats(incoming, current, senderId)) continue;
+    // The value we already hold, delivered again — a `hello` reply, or a
+    // relay keyed on its deliverer that `beats()` now lets through (#859
+    // round 12). There is nothing to apply, so nothing is applied: no new
+    // application number and no fresh `appliedAt`. Re-stamping a write
+    // already held is what let a replay outrank a map target chosen in
+    // between (round 5), and that guard has to survive the tie rule getting
+    // more permissive, not depend on it.
+    //
+    // The one thing such a delivery can add is an author this screen never
+    // knew: the write arrived first from a tab too old to name one, and the
+    // relay states it. That is learned, not guessed — it is on the entry —
+    // so it is recorded, and only it. The chip can then name the screen the
+    // operator actually used.
+    if (sameCursorValue(cursor[field], entry.value)) {
+      if (current.by !== undefined || entry.by === undefined) continue;
+      stamps[field] = { ...current, by: entry.by };
+      changed = true;
+      continue;
+    }
     // Stamped here — the one place a stamp is written — so the local half
     // covers every accepted path: a local `writeField` (same moment as its
     // `nextStamp()`), an inbound `state` patch, a `hello` reply carrying a
@@ -412,7 +488,7 @@ function writeField<K extends CursorField>(field: K, value: WorkflowCursor[K]): 
   // like every other accepted entry, and that number means nothing to the
   // peers this patch is about to reach (#859 round 11).
   const patch = { [field]: { value, at, by: state.deviceId } } as CursorPatch;
-  const next = mergePatch(state, patch);
+  const next = mergePatch(state, patch, state.deviceId);
   if (next) useOperatingStateStore.setState(next);
   post({ kind: "state", patch });
 }
@@ -600,7 +676,7 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
 
         switch (message.kind) {
           case "state": {
-            const next = mergePatch(state, message.patch);
+            const next = mergePatch(state, message.patch, message.senderId);
             if (next) set(next);
             break;
           }
@@ -644,6 +720,7 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
                     by: message.senderId,
                   },
                 },
+                message.senderId,
               );
               if (merged) set(merged);
             }

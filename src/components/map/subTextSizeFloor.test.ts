@@ -187,6 +187,18 @@
  * `src/components/kiosk/WallClockDisplay.tsx` (the wall clock numerals,
  * outside `FILES`) and 3 `text-[var(--hc-fg)]` colour tokens in the HamClock
  * switch/chip files, which are in `FILES` and are allowlisted by exact token.
+ *
+ * #833 round 5 (review): every arbitrary-size matcher required a digit right
+ * after the bracket, so Tailwind's explicit type-hint form -- `text-[length:
+ * 0.6rem]`, `text-[length:12px]` -- was exempt from all of them at once while
+ * rendering exactly what the un-hinted spelling renders. The `length:` prefix
+ * is now optional in the px sub-floor matcher, the floor spelling, the
+ * rem/em/pt matcher and the #925 map class scan (skipped, not captured, so
+ * the numeric comparisons are untouched); the function-valued rejection
+ * already saw through it because the token still contains the call, and the
+ * allowlist stays whole-token so a hinted spelling of an allowlisted colour
+ * is not cleared. Census of `src/` for `text-[length:`: 0 -- matcher-proved,
+ * and the census runs as an assertion so the first one cannot land unnoticed.
  */
 
 import { fileURLToPath } from "node:url";
@@ -280,8 +292,16 @@ const ALLOWLIST: AllowlistEntry[] = [
  * reason `RELATIVE_SIZE_RE` does: they are valid CSS, they render smaller
  * than the floor, and an integer-only grammar reported the file clean
  * (#833 review round 3). The comparison below is numeric, not textual.
+ *
+ * Every arbitrary-size matcher here also accepts Tailwind's explicit type
+ * hint, `text-[length:12px]` / `text-[length:0.6rem]`. The hint changes
+ * nothing about the rendered size -- it only tells Tailwind to read the value
+ * as a length rather than guess -- so a grammar that required a digit right
+ * after the bracket exempted the identical dodge from every rule at once
+ * (#833 review round 5). The prefix is optional, never required, and is
+ * skipped rather than captured so the numeric comparisons are unchanged.
  */
-const SIZE_RE = /text-\[(\d*\.?\d+)px\]/g;
+const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 
 /**
  * The same floor written as an inline style rather than a Tailwind class:
@@ -387,7 +407,7 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
  * `text-xs` at the default root, but it ignores the text-scale multiplier.
  * `/tight` and other modifiers still match because the class starts with
  * this token. */
-const FLOOR_PX_RE = /text-\[(\d*\.?\d+)px\]/g;
+const FLOOR_PX_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 
 /** True when a line spells the floor itself as an arbitrary px value, at any
  * decimal spelling of 12 (`text-[12px]`, `text-[12.0px]`). Sub-floor values
@@ -406,7 +426,7 @@ function hasFloorPxSpelling(line: string): boolean {
  * The numeric part accepts a leading decimal point (`text-[.6rem]`) as well
  * as the zero-prefixed form: both are valid CSS and render identically, so a
  * grammar that only saw `0.6` would let the same 9.6px through. */
-const RELATIVE_SIZE_RE = /text-\[(\d*\.?\d+)(rem|em|pt)\]/g;
+const RELATIVE_SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)(rem|em|pt)\]/g;
 
 /** Every arbitrary `text-[...]` value on a line, with its full class token so
  * the allowlist below can be matched exactly. */
@@ -418,7 +438,10 @@ const ARBITRARY_TEXT_RE = /text-\[([^\]]+)\]/g;
  * walked straight past it -- every one of them can resolve below the floor,
  * and none of them can be evaluated statically (#833 review round 4). The
  * rule is therefore a rejection of the whole shape, not a list of function
- * names to chase. */
+ * names to chase. The type-hint form is covered by the same rule: the token
+ * for `text-[length:calc(0.75rem-2px)]` still contains `calc(`, and the
+ * allowlist below is matched on the whole token, so a hinted spelling of an
+ * allowlisted color is not silently cleared (#833 review round 5). */
 const FUNCTION_VALUE_RE = /[A-Za-z-]+\(/;
 
 /**
@@ -582,6 +605,60 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
     expect(functionValuedTextValues("text-[var(--hc-fg-2)]").length).toBe(1);
   });
 
+  it("reads Tailwind's explicit length: type hint under every rule (#833 review round 5)", () => {
+    // `text-[length:0.6rem]` renders exactly what `text-[0.6rem]` renders:
+    // the hint only tells Tailwind to treat the value as a length instead of
+    // guessing. Requiring a digit right after the bracket exempted the hinted
+    // spelling from every rule at once.
+    const relativeHits = (text: string) =>
+      [...text.matchAll(RELATIVE_SIZE_RE)].filter((match) =>
+        isSubFloorRelative(Number(match[1]), match[2]),
+      );
+    expect(relativeHits("text-[length:0.6rem]").length).toBe(1);
+    expect(relativeHits("text-[length:.6rem]").length).toBe(1);
+    // The floor itself still passes: the hint does not change the value.
+    expect(relativeHits("text-[length:0.75rem]").length).toBe(0);
+    expect(relativeHits("text-[length:0.65em]").length).toBe(1);
+    expect(relativeHits("text-[length:8pt]").length).toBe(1);
+
+    // px: the hinted floor is the floor, and the hinted sub-floor is a
+    // sub-floor.
+    expect(hasFloorPxSpelling("text-[length:12px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[length:12.0px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[length:11px]")).toBe(false);
+    const subFloorPxHits = (text: string) =>
+      [...text.matchAll(SIZE_RE)].filter(
+        (match) => Number(match[1]) < FLOOR_PX,
+      );
+    expect(subFloorPxHits("text-[length:11px]").length).toBe(1);
+    expect(subFloorPxHits("text-[length:12px]").length).toBe(0);
+    expect(hasFixedMapTextSize("text-[length:13px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[length:14px]")).toBe(false);
+
+    // Function-valued hinted values stay rejected: they cannot be evaluated
+    // statically whether or not the hint is there.
+    expect(
+      functionValuedTextValues("text-[length:calc(0.75rem-2px)]").length,
+    ).toBe(1);
+    expect(
+      functionValuedTextValues("text-[length:clamp(0.5rem,2vw,1rem)]").length,
+    ).toBe(1);
+
+    // Census 2026-09-10: zero `text-[length:` spellings under src/. The rules
+    // are in place before the first one lands, which is the point of a guard.
+    const hinted: string[] = [];
+    for (const file of walkMapSourceFiles(resolve(REPO_ROOT, "src"))) {
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          if (line.includes("text-[length:")) {
+            hinted.push(`${file.slice(REPO_ROOT.length + 1)}:${index + 1}`);
+          }
+        });
+    }
+    expect(hinted).toEqual([]);
+  });
+
   it("every function-value allowlist entry still exists in FILES", () => {
     // A stale entry would quietly widen the exemption; the audited files have
     // to keep earning it.
@@ -599,7 +676,7 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
 
 /** Fixed 12/13 px classes sit at or just above the floor but ignore the root
  * text-scale multiplier; #925 converts them to `text-xs`/`text-sm`. */
-const FIXED_MAP_TEXT_RE = /text-\[(\d*\.?\d+)px\]/g;
+const FIXED_MAP_TEXT_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 
 /** True when a line carries a fixed 12px/13px text class at any decimal
  * spelling (`text-[12.0px]`, `text-[13.0px]`). An integer-only grammar

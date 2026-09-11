@@ -28,7 +28,7 @@ Vitest is the test runner (`npm run test`; focused runs via `npx vitest run <pat
 ## Shared-machine rules (several agents run here at once)
 
 - Tests: use `npm test` (`vitest run`). Never `vitest` watch mode in an agent session. The config caps workers at 4; set `VITEST_MAX_WORKERS` only when the machine has nothing else running.
-- Dev servers: one per machine, at `http://localhost:5173`, owned by the human or the orchestrator. Run `npm run dev:session -- status` first and use the shared server if it's running; if it isn't, report that and stop — agents never start one (`npm run dev`, `dev:session start`, `vite`, `vite preview`, or a Playwright `webServer`). `dev:session start` itself refuses when any server is already listening.
+- Dev servers: one per machine, at `http://localhost:5173`, owned by the human or the orchestrator. Run `npm run dev:session -- status` first and use the shared server if it's running; if it isn't, report that and stop — agents never start one (`npm run dev`, `dev:session start`, `vite`, `vite preview`, or a Playwright `webServer`). `dev:session start` itself refuses when any server is already listening. A PR that needs a rendered check is not the agent's to run: leave a comment on the PR saying what to check (route, viewport, text scale, steps), and the orchestrator or the human runs it on the shared server and posts the result.
 - One `npm run verify` at a time per machine: check `pgrep -fl "[v]itest"` and `pgrep -fl "[t]sc -b"` before starting (the bracket keeps the probe from matching its own shell); wait if another run is in progress.
 - Prefer Vercel preview deployments over local servers for visual checks (owner rule, 2026-08-30).
 

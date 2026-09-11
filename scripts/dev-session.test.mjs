@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -20,11 +21,13 @@ import {
   assertNoRunningServer,
   assertSharedServerIdentity,
   claimSession,
+  filterForeignDevServerLines,
   filterViteProcessLines,
   findDisallowedForwardedArgs,
+  findForeignDevServers,
   findForwardedOverrideFlags,
-  findOtherAccountSessions,
   findUnmanagedViteProcesses,
+  isDevSessionStartCommand,
   isViteExecutableCommand,
   listSessions,
   parseForwardedPort,
@@ -667,70 +670,182 @@ test("startSession accepts { registry } and rejects an already-claimed port befo
   );
 });
 
-// PR #894 round 11 P2: REGISTRY and STARTUP_LOCK_PATH are both scoped to
-// this account's uid, so two authorized `dev:session start` invocations
-// under different accounts (each with DEV_SERVER_ALLOW_EXTRA=1 and a
-// distinct port) can both pass refuseIfServerRunning and bind before either
-// sees the other. findOtherAccountSessions is the machine-wide,
-// cross-account half of the fix: it scans every account's registry
-// directory for a live session that isn't the one passed in.
-test("findOtherAccountSessions finds a live session in a sibling account's registry", async (t) => {
-  const tmpRoot = await mkdtemp(
-    path.join(os.tmpdir(), "propulse-cross-account-test-"),
-  );
-  t.after(() => rm(tmpRoot, { recursive: true, force: true }));
-  const ownRegistry = path.join(tmpRoot, "propulse-dev-1000");
-  const otherRegistry = path.join(tmpRoot, "propulse-dev-2000");
-  await mkdir(ownRegistry, { recursive: true });
-  await mkdir(otherRegistry, { recursive: true });
-  const ownSession = { id: "own", filename: path.join(ownRegistry, "5173.json") };
-  await writeFile(ownSession.filename, JSON.stringify({ ...ownSession, pid: process.pid }));
-  await writeFile(
-    path.join(otherRegistry, "5180.json"),
-    JSON.stringify({
-      id: "foreign",
-      owner: "other-account-agent",
-      task: "unrelated-task",
-      pid: process.pid, // alive: reuses this test process's own real pid
-      port: 5180,
-      url: "http://127.0.0.1:5180",
-    }),
-  );
-  const found = await findOtherAccountSessions(ownSession, { tmpdir: tmpRoot });
-  assert.equal(found.length, 1);
-  assert.equal(found[0].owner, "other-account-agent");
+// PR #894 round 12 P2: findOtherAccountSessions (round 11's fix) scanned
+// every other account's registry directory for a live session, but
+// claimSession creates each registry with mode 0700 (owner-only) — a
+// foreign account's registry throws EACCES on read, which the old
+// ENOENT-only `.catch` did not handle, so a foreign account's registry
+// existing on the machine at all (even empty, even stale) could crash an
+// otherwise-legitimate solo start outright. findForeignDevServers replaces
+// it with a process-table scan: `ps -axo pid=,command=` lists every process
+// on the machine regardless of which account owns it, so this invariant is
+// enforced by what is actually running, not by which files this account
+// can read.
+test("isDevSessionStartCommand matches a real `dev:session start` invocation but not guard/status/vite", () => {
+  const positive = [
+    "node scripts/dev-session.mjs start --owner agent --task fixture",
+    "node /repo/scripts/dev-session.mjs start",
+    "node --inspect scripts/dev-session.mjs start --owner agent",
+  ];
+  for (const command of positive) {
+    assert.ok(
+      isDevSessionStartCommand(command),
+      `expected match: ${command}`,
+    );
+  }
+  const negative = [
+    "node scripts/dev-session.mjs guard",
+    "node scripts/dev-session.mjs status",
+    "node scripts/dev-session.mjs help",
+    "node scripts/dev-session.mjs vite",
+    "node scripts/dev-session.mjs vite preview",
+    "node watcher.js /tmp/dev-session.mjs start",
+    "vite",
+    "",
+  ];
+  for (const command of negative) {
+    assert.ok(
+      !isDevSessionStartCommand(command),
+      `expected no match: ${command}`,
+    );
+  }
 });
 
-test("findOtherAccountSessions ignores its own session and a dead-pid session in another account's registry", async (t) => {
-  const tmpRoot = await mkdtemp(
-    path.join(os.tmpdir(), "propulse-cross-account-test-"),
+// A synthetic ps fixture standing in for a process on this machine under a
+// different OS account: findForeignDevServers has no readdir/registry call
+// at all, so which account owns the pid is irrelevant to whether it's
+// detected — unlike the old registry scan, which could only ever see
+// (and, on a locked-down registry, could crash on) accounts whose files
+// this one can read.
+test("findForeignDevServers detects both a foreign vite process and a foreign dev-session `start` process from a ps fixture, regardless of account", () => {
+  const stdout = [
+    "100 vim vite.config.ts",
+    "200 node /home/other-account/repo/node_modules/.bin/vite",
+    "201 node /home/other-account/repo/scripts/dev-session.mjs start --owner other",
+    "202 node /home/other-account/repo/scripts/dev-session.mjs guard",
+  ].join("\n");
+  const result = filterForeignDevServerLines(stdout, { ownPid: -1 }).map(
+    parsePidAndCommand,
   );
-  t.after(() => rm(tmpRoot, { recursive: true, force: true }));
-  const ownRegistry = path.join(tmpRoot, "propulse-dev-1000");
-  const otherRegistry = path.join(tmpRoot, "propulse-dev-2000");
-  await mkdir(ownRegistry, { recursive: true });
-  await mkdir(otherRegistry, { recursive: true });
-  const ownSession = { id: "own", filename: path.join(ownRegistry, "5173.json") };
-  await writeFile(ownSession.filename, JSON.stringify({ ...ownSession, pid: process.pid }));
-  await writeFile(
-    path.join(otherRegistry, "5180.json"),
-    JSON.stringify({ id: "dead", pid: 999999999, port: 5180 }),
+  assert.deepEqual(
+    result.map((entry) => entry.pid),
+    [200, 201],
   );
-  const found = await findOtherAccountSessions(ownSession, { tmpdir: tmpRoot });
-  assert.deepEqual(found, []);
 });
 
-// Integration-level coverage of the same fix through startSession itself:
-// a fake `importVite` stands in for the real Vite dev server (never binds a
-// real port), and `findOtherAccountSessions`/`findUnmanaged` are injected so
-// the test controls exactly what the post-bind rescan "sees" — real on
-// revert: without the rescan, startSession has no way to notice a foreign
-// session at all and this would hang waiting for a rejection that never
-// comes.
-test("startSession stops itself when the post-bind rescan finds a foreign account session", async (t) => {
+test("findForeignDevServers excludes this process's own pid and, when given, its own spawned child's pid", () => {
+  const stdout = [
+    "42 node /repo/node_modules/.bin/vite",
+    "43 node /repo/scripts/dev-session.mjs start",
+  ].join("\n");
+  assert.deepEqual(filterForeignDevServerLines(stdout, { ownPid: 42 }).length, 1);
+  assert.deepEqual(
+    filterForeignDevServerLines(stdout, { ownPid: 42, ownChildPid: 43 }),
+    [],
+  );
+});
+
+// Integration-level check that the real detection path (ps) actually finds
+// a real `dev:session start`-shaped process end to end, the same way
+// "findUnmanagedViteProcesses detects a real vite process through the real
+// ps command" already does for a real vite-shaped one — `start` runs Vite
+// in-process, so this pattern is the only thing that lets a live `start`
+// session be seen on the process table at all.
+test("findForeignDevServers detects a real dev-session `start` process through the real ps command", async (t) => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "propulse-ps-fixture-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const binPath = path.join(dir, "scripts", "dev-session.mjs");
+  await mkdir(path.dirname(binPath), { recursive: true });
+  await writeFile(binPath, "setTimeout(() => {}, 4000);\n");
+  const child = spawn(process.execPath, [binPath, "start", "--owner", "fixture"], {
+    stdio: "ignore",
+  });
+  t.after(() => {
+    try {
+      child.kill();
+    } catch {
+      // already exited
+    }
+  });
+  let found;
+  for (let attempt = 0; attempt < 40 && !found; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    found = findForeignDevServers({ ownPid: -1 }).find(
+      (entry) => entry.pid === child.pid,
+    );
+  }
+  assert.ok(found, `expected pid ${child.pid} among foreign dev servers`);
+});
+
+// The exact failure this round fixes: a foreign-account registry directory
+// this account cannot read must never abort (or crash) a legitimate solo
+// start — findForeignDevServers doesn't touch registry files at all, so
+// this is true by construction, but this test exercises it end to end
+// through startSession so a revert to registry-based detection (which
+// would readdir/parse this exact directory) goes red.
+test("startSession succeeds even when an unreadable foreign-account registry sits in the same tmpdir", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  const foreignRegistry = path.join(
+    os.tmpdir(),
+    `propulse-dev-round12fixture${process.pid}`,
+  );
+  await mkdir(foreignRegistry, { recursive: true, mode: 0o700 });
+  await chmod(foreignRegistry, 0o000);
+  t.after(async () => {
+    await chmod(foreignRegistry, 0o700).catch(() => {});
+    await rm(foreignRegistry, { recursive: true, force: true }).catch(() => {});
+  });
+  await startSession({
+    ...base,
+    registry: dir,
+    port,
+    lockPath: await lockFile(t),
+    importVite: () =>
+      Promise.resolve({
+        createServer: async () => ({
+          listen: async () => {},
+          close: async () => {},
+        }),
+      }),
+    findUnmanaged: () => [],
+  });
+  const remaining = await readdir(dir);
+  assert.equal(
+    remaining.length,
+    1,
+    "a successful start must leave its own claim in place",
+  );
+});
+
+// Integration-level coverage of the process-table fix through startSession
+// itself: a fake `importVite` stands in for the real Vite dev server (never
+// binds a real port), and `findUnmanaged` is injected so the test controls
+// exactly what the post-bind rescan "sees" — red on revert: without the
+// rescan, startSession has no way to notice a foreign session at all and
+// this would hang waiting for a rejection that never comes.
+test("startSession stops itself when the post-bind rescan finds a foreign process", async (t) => {
   const dir = await registry(t);
   const port = await unusedPort(t);
   let closed = false;
+  // The pre-start guard and the post-bind rescan share this same injected
+  // findUnmanaged (that's the fix: one process-table scanner, used twice) —
+  // nothing found the first time (pre-start passes), a foreign process by
+  // the second time (post-bind rescan catches it), the exact "appeared
+  // while starting" scenario this closes.
+  let calls = 0;
+  const findUnmanaged = () => {
+    calls++;
+    return calls === 1
+      ? []
+      : [
+          {
+            pid: 999999,
+            port: 5199,
+            command: "node /elsewhere/scripts/dev-session.mjs start",
+          },
+        ];
+  };
   await assert.rejects(
     startSession({
       ...base,
@@ -746,15 +861,7 @@ test("startSession stops itself when the post-bind rescan finds a foreign accoun
             },
           }),
         }),
-      findOtherAccountSessions: async () => [
-        {
-          owner: "other-account-agent",
-          task: "unrelated-task",
-          pid: 999999,
-          url: "http://127.0.0.1:5199",
-        },
-      ],
-      findUnmanaged: () => [],
+      findUnmanaged,
     }),
     /Another dev server appeared while starting/,
   );
@@ -782,7 +889,6 @@ test("startSession succeeds when the post-bind rescan finds only itself", async 
           close: async () => {},
         }),
       }),
-    findOtherAccountSessions: async () => [],
     findUnmanaged: () => [],
   });
   const remaining = await readdir(dir);
@@ -1184,6 +1290,7 @@ test("runManagedVite guards, then spawns the real vite binary with a clean arg l
       guardCalls++;
     },
     lockPath: await lockFile(t),
+    waitForListening: async () => false,
   });
   assert.equal(guardCalls, 1);
   assert.equal(calls.length, 1);
@@ -1197,6 +1304,7 @@ test("runManagedVite forwards the preview subcommand and strips it before the ov
     spawnFn: fakeChildFactory(calls),
     guard: async () => {},
     lockPath: await lockFile(t),
+    waitForListening: async () => false,
   });
   assert.deepEqual(calls[0].args, ["preview"]);
 });
@@ -1226,6 +1334,7 @@ test("runManagedVite allows a forwarded override when DEV_SERVER_ALLOW_EXTRA=1",
     spawnFn: fakeChildFactory(calls),
     guard: async () => {},
     lockPath: await lockFile(t),
+    waitForListening: async () => false,
   });
   assert.deepEqual(calls[0].args, ["--port", "5180"]);
 });
@@ -1286,6 +1395,7 @@ test("runManagedVite preview accepts the safe flag allowlist", async (t) => {
     spawnFn: fakeChildFactory(calls),
     guard: async () => {},
     lockPath: await lockFile(t),
+    waitForListening: async () => false,
   });
   assert.deepEqual(calls[0].args, ["preview", "--open", "--force"]);
 });
@@ -1356,7 +1466,12 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
   const lockPath = await lockFile(t);
 
   delete process.env.DEV_SERVER_ALLOW_EXTRA;
-  await runManagedVite([], { spawnFn: fakeChildFactory([]), guard, lockPath });
+  await runManagedVite([], {
+    spawnFn: fakeChildFactory([]),
+    guard,
+    lockPath,
+    waitForListening: async () => false,
+  });
   assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
 
   // Without the hatch, an override still guards the default port (then
@@ -1376,6 +1491,7 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
     spawnFn: fakeChildFactory([]),
     guard,
     lockPath,
+    waitForListening: async () => false,
   });
   assert.deepEqual(guardCalls.at(-1), { port: 5180 });
 
@@ -1385,6 +1501,7 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
     spawnFn: fakeChildFactory([]),
     guard,
     lockPath,
+    waitForListening: async () => false,
   });
   assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
 });
@@ -1423,6 +1540,7 @@ test("runManagedVite (with the hatch): guards the requested port, not a busy def
     spawnFn: fakeChildFactory(calls),
     guard: realGuard,
     lockPath,
+    waitForListening: async () => false,
   });
   assert.deepEqual(calls[0].args, ["--port", String(requestedPort)]);
 });
@@ -1458,4 +1576,61 @@ test("runManagedVite (with the hatch): still refuses when an unmanaged vite proc
     /already running/,
   );
   assert.equal(calls.length, 0);
+});
+
+// PR #894 round 12 P2: runManagedVite (the `npm run dev`/`npm run preview`
+// wrapper) used to release its startup lock right after spawning and only
+// await the child, so it never did the post-readiness rescan startSession
+// already does after binding — a same-moment racer under a different OS
+// account could pass the pre-start guard and both `npm run dev` before
+// either noticed the other. `waitForListening` is faked here so the test
+// never touches a real port; `findUnmanaged` stands in for the real
+// process-table scan and controls exactly what the post-readiness rescan
+// "sees" — red on revert: without the rescan+kill, the wrapper has no way
+// to notice a foreign server at all and the spawned child is left running.
+test("runManagedVite stops the child and exits non-zero when the post-readiness rescan finds a foreign process", async (t) => {
+  let spawnedChild;
+  const spawnFn = () => {
+    const child = new EventEmitter();
+    child.killed = false;
+    child.kill = () => {
+      child.killed = true;
+    };
+    child.pid = 424242;
+    spawnedChild = child;
+    return child;
+  };
+  await assert.rejects(
+    runManagedVite([], {
+      spawnFn,
+      guard: async () => {},
+      lockPath: await lockFile(t),
+      waitForListening: async () => true,
+      findUnmanaged: () => [
+        {
+          pid: 999999,
+          port: 5173,
+          command: "node /elsewhere/scripts/dev-session.mjs start",
+        },
+      ],
+    }),
+    /Another dev server appeared while starting/,
+  );
+  assert.equal(
+    spawnedChild.killed,
+    true,
+    "the post-readiness rescan must stop the spawned child",
+  );
+});
+
+test("runManagedVite passes through when the post-readiness rescan finds nothing", async (t) => {
+  const calls = [];
+  await runManagedVite([], {
+    spawnFn: fakeChildFactory(calls),
+    guard: async () => {},
+    lockPath: await lockFile(t),
+    waitForListening: async () => true,
+    findUnmanaged: () => [],
+  });
+  assert.equal(calls.length, 1, "vite still spawns and the wrapper passes through");
 });

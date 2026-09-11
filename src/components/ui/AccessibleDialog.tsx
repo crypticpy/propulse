@@ -181,6 +181,30 @@ function focusAfterTopmostClose(): void {
   (panel ?? topEntry.portalRoot)?.focus();
 }
 
+/**
+ * Listeners for "the dialog stack changed". A caller that must wait for modal
+ * teardown before touching focus subscribes here instead of guessing with a
+ * timer: the same cleanup that calls `focusAfterTopmostClose` notifies them,
+ * so they run after the dialog has released focus, not against it.
+ */
+const dialogStackListeners = new Set<() => void>();
+
+function notifyDialogStackChanged(): void {
+  for (const listener of [...dialogStackListeners]) listener();
+}
+
+/** Whether any registered dialog is currently open. */
+export function anyDialogOpen(): boolean {
+  return indexOfTopmostOpenEntry() !== -1;
+}
+
+export function subscribeToDialogStack(listener: () => void): () => void {
+  dialogStackListeners.add(listener);
+  return () => {
+    dialogStackListeners.delete(listener);
+  };
+}
+
 function isTopmostOpen(token: symbol): boolean {
   return openDialogStack[indexOfTopmostOpenEntry()]?.token === token;
 }
@@ -333,6 +357,7 @@ export function AccessibleDialog({
     }
     openDialogStack.push(nextStackEntry);
     syncBackgroundInert();
+    notifyDialogStackChanged();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
@@ -356,6 +381,7 @@ export function AccessibleDialog({
           openDialogStack.pop();
         }
       }
+      notifyDialogStackChanged();
     };
   }, [handleKeyDown, open]);
 

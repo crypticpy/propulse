@@ -259,13 +259,36 @@ describe("parseRequest fails closed", () => {
     );
   });
 
-  it("accepts degenerate endpoints once the route azimuth is explicit", () => {
-    const explicit = candidate("hfShortPath");
-    (explicit.rx as Mutable).coordinates = structuredClone(
-      (explicit.tx as Mutable).coordinates,
+  it("rejects a coincident terrestrial circuit even with an explicit azimuth (M06)", () => {
+    const zeroLength = candidate("hfShortPath");
+    (zeroLength.rx as Mutable).coordinates = structuredClone(
+      (zeroLength.tx as Mutable).coordinates,
     );
+    (zeroLength.route as Mutable).azimuthDeg = 45;
+    expect(reasonsAt(zeroLength, "rx.coordinates").join()).toMatch(
+      /zero-distance circuit/,
+    );
+  });
+
+  it("accepts antipodal endpoints once the route azimuth is explicit (M06)", () => {
+    const explicit = candidate("hfShortPath");
+    const tx = (explicit.tx as Mutable).coordinates as Mutable;
+    const rx = (explicit.rx as Mutable).coordinates as Mutable;
+    rx.latitudeDeg = -(tx.latitudeDeg as number);
+    rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
     (explicit.route as Mutable).azimuthDeg = 45;
-    expect(parseRequest(explicit).ok).toBe(true);
+    const outcome = parseRequest(explicit);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("still accepts coincident endpoints on a relayed geometry (A21)", () => {
+    const relayed = candidate("satellitePass");
+    (relayed.rx as Mutable).coordinates = structuredClone(
+      (relayed.tx as Mutable).coordinates,
+    );
+    (relayed.route as Mutable).azimuthDeg = 45;
+    const outcome = parseRequest(relayed);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("rejects an explicit route azimuth on an ordinary path (M06)", () => {

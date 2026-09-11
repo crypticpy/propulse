@@ -56,7 +56,8 @@
           "value": 18.0
         },
         "heightDatum": "above_ground_level",
-        "polarization": "horizontal"
+        "polarization": "horizontal",
+        "antennaClass": "modeled_pattern"
       },
       "deliveredPowerWatts": {
         "state": "known",
@@ -69,7 +70,8 @@
       "noiseAssumptionId": {
         "state": "known",
         "value": "p372-residential-v17"
-      }
+      },
+      "receiverClass": "modeled_noise_figure_chain"
     },
     "rx": {
       "stationId": "station-unknown-dx",
@@ -101,7 +103,8 @@
           "value": 10.0
         },
         "heightDatum": "above_ground_level",
-        "polarization": "horizontal"
+        "polarization": "horizontal",
+        "antennaClass": "modeled_pattern"
       },
       "deliveredPowerWatts": {
         "state": "unknown",
@@ -114,7 +117,8 @@
       "noiseAssumptionId": {
         "state": "known",
         "value": "p372-residential-v17"
-      }
+      },
+      "receiverClass": "modeled_noise_figure_chain"
     },
     "relay": null,
     "requestedModel": {
@@ -182,7 +186,8 @@
           "value": 2.0
         },
         "heightDatum": "above_ground_level",
-        "polarization": "rhcp"
+        "polarization": "rhcp",
+        "antennaClass": "modeled_pattern"
       },
       "deliveredPowerWatts": {
         "state": "known",
@@ -195,7 +200,8 @@
       "noiseAssumptionId": {
         "state": "known",
         "value": "p372-residential-v17"
-      }
+      },
+      "receiverClass": "modeled_noise_figure_chain"
     },
     "rx": {
       "stationId": "station-home-k5xyz",
@@ -227,7 +233,8 @@
           "value": 2.0
         },
         "heightDatum": "above_ground_level",
-        "polarization": "rhcp"
+        "polarization": "rhcp",
+        "antennaClass": "modeled_pattern"
       },
       "deliveredPowerWatts": {
         "state": "known",
@@ -240,7 +247,8 @@
       "noiseAssumptionId": {
         "state": "known",
         "value": "p372-residential-v17"
-      }
+      },
+      "receiverClass": "modeled_noise_figure_chain"
     },
     "relay": {
       "relayId": "so-50",

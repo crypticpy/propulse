@@ -79,9 +79,11 @@ function stationProjection(
     antennaHeightMeters: knownProjection(station.antenna.heightMeters),
     antennaHeightDatum: station.antenna.heightDatum,
     polarization: station.antenna.polarization,
+    antennaClass: station.antenna.antennaClass,
     deliveredPowerWatts: knownProjection(station.deliveredPowerWatts),
     feedLossDb: knownProjection(station.feedLossDb),
     noiseAssumptionId: knownProjection(station.noiseAssumptionId),
+    receiverClass: station.receiverClass,
   };
 }
 

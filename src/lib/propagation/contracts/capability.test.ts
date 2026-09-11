@@ -31,6 +31,10 @@ const baseQuery = {
   mechanismFamily: "regular_ef",
   modeProfileId: "ft8-wsjtx-2.7.0-15s",
   frequencyHz: 14074000,
+  txAntennaClass: "modeled_pattern",
+  rxAntennaClass: "modeled_pattern",
+  receiverClass: "modeled_noise_figure_chain",
+  policyVersion: "source-policy-0.1.0",
   availableInputs: [
     "station_pair",
     "smoothed_solar_index",
@@ -48,6 +52,8 @@ const METEOR_SNR_HEAD = {
   horizons: ["current"],
   mechanismFamilies: ["meteor"],
   geometryClasses: ["terrestrial_great_circle"],
+  antennaClasses: ["modeled_pattern", "unspecified_scenario_range"],
+  receiverClasses: ["modeled_noise_figure_chain", "unspecified_scenario_range"],
   frequencyRangeHz: { minHz: 50000000, maxHz: 148000000 },
   bandKeys: ["6m", "2m"],
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
@@ -328,6 +334,57 @@ describe("parseCapability fails closed", () => {
     expect(reasonsAt(bad, "heads[1].calibrationId").join()).toMatch(
       /calibration identity/,
     );
+  });
+
+  it("rejects a capability declared under another source policy version", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        policyVersion: "source-policy-0.2.0",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts the matching source policy version", () => {
+    expect(capabilityCovers(parsed("hfPhysics"), baseQuery)).toBe(true);
+  });
+
+  it("rejects a station outside the head's antenna class (A01)", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        rxAntennaClass: "electrically_short",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a station outside the head's receiver class (A01)", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        receiverClass: "calibrated_system_temperature",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts a station inside both declared classes (A01)", () => {
+    expect(
+      capabilityCovers(parsed("hfPhysics"), {
+        ...baseQuery,
+        txAntennaClass: "unspecified_scenario_range",
+        receiverClass: "unspecified_scenario_range",
+      }),
+    ).toBe(true);
+  });
+
+  it("separates two heads that differ only by antenna class", () => {
+    const draft = candidate("hfPhysics");
+    const heads = draft.heads as Mutable[];
+    const twin = structuredClone(heads[1]);
+    twin.antennaClasses = ["electrically_short"];
+    heads.push(twin);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
   it("does not confuse a two-entry list with one joined entry", () => {

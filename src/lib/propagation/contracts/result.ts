@@ -549,6 +549,59 @@ const provenance = z
     }
   });
 
+/**
+ * M10: `margin_dB = SNR2500 - threshold2500`. When one result carries both an
+ * available SNR head and an available decode head from the same model, the
+ * margin is that subtraction and nothing else, so the two heads are checked
+ * against each other. A tolerance of 1e-6 dB is a rounding allowance, not a
+ * modelling allowance: the same model produced both numbers.
+ *
+ * The check is skipped when either head is unavailable, when the decode head
+ * came from another model (its own threshold and its own SNR), and when the
+ * mode carries no power, because the -Infinity sentinel has no finite margin.
+ */
+const DECODE_MARGIN_TOLERANCE_DB = 1e-6;
+
+function crossCheckDecodeMargin(
+  heads: readonly PredictionHead[],
+  ctx: z.RefinementCtx,
+): void {
+  const decodeIndex = heads.findIndex(
+    (head) => head.quantity === "conditional_decode",
+  );
+  if (decodeIndex < 0) return;
+  const decode = heads[decodeIndex] as Extract<
+    PredictionHead,
+    { quantity: "conditional_decode" }
+  >;
+  const snr = heads.find((head) => head.quantity === "snr2500") as
+    Extract<PredictionHead, { quantity: "snr2500" }> | undefined;
+  if (snr === undefined) return;
+  if (
+    decode.state.availability !== "available" ||
+    snr.state.availability !== "available"
+  ) {
+    return;
+  }
+  if (
+    snr.effectiveModelId !== decode.effectiveModelId ||
+    snr.effectiveModelVersion !== decode.effectiveModelVersion
+  ) {
+    return;
+  }
+  const margin = decode.state.value.marginDb;
+  const snr2500Db = snr.state.value.snr2500Db;
+  if (margin === null || !Number.isFinite(snr2500Db)) return;
+  const expected = snr2500Db - decode.state.value.thresholdSnr2500Db;
+  if (Math.abs(margin - expected) > DECODE_MARGIN_TOLERANCE_DB) {
+    reject(
+      ctx,
+      ["heads", decodeIndex, "state", "value", "marginDb"],
+      `Decode margin must equal SNR2500 minus the declared threshold (M10); expected ${expected}`,
+    );
+  }
+}
+
 export const predictionResultSchema = z
   .object({
     schemaVersion: z.literal(RESULT_SCHEMA_VERSION),
@@ -619,6 +672,7 @@ export const predictionResultSchema = z
         );
       }
     });
+    crossCheckDecodeMargin(value.heads, ctx);
   });
 
 /** A validated, frozen prediction result. */

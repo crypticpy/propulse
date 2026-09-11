@@ -120,6 +120,62 @@ export const RELAY_REQUIRED_GEOMETRY_CLASSES: readonly GeometryClass[] = [
   "earth_moon_earth",
 ];
 
+/**
+ * Antenna classes, the antenna half of A01's `antenna/receiver class` coverage
+ * dimension. The contract names the dimension but publishes no enum, so the
+ * members are derived from the wording that distinguishes the cases:
+ *
+ * - `unspecified_scenario_range`: M08, "an unspecified DX antenna is a
+ *   scenario range, not a known zero-dBi fact".
+ * - `modeled_pattern`: A10, "a declared antenna model has ... realized gain
+ *   from its accepted pattern/mismatch model".
+ * - `measured_realized_gain_pattern`: A10, "a measured realized-gain pattern
+ *   already includes it"; efficiency must not be counted twice.
+ * - `electrically_short`: A10, "electrically short LF/MF antennas require
+ *   measured or independently modeled current distribution/efficiency".
+ * - `directional_receive_only`: M08/A10, a directional receiving antenna or
+ *   "a receive loop that rejects local noise" needs both signal pattern and
+ *   noise-environment coupling.
+ * - `aperture_far_field`: A15, "antenna-aperture far-field validity".
+ * - `near_field_coupled`: A15, "near-field installations need a separate
+ *   supported coupling model".
+ */
+export const ANTENNA_CLASSES = [
+  "unspecified_scenario_range",
+  "modeled_pattern",
+  "measured_realized_gain_pattern",
+  "electrically_short",
+  "directional_receive_only",
+  "aperture_far_field",
+  "near_field_coupled",
+] as const;
+export type AntennaClass = (typeof ANTENNA_CLASSES)[number];
+
+/**
+ * Receiver classes, the receiver half of A01's coverage dimension, derived the
+ * same way from the contract wording:
+ *
+ * - `unspecified_scenario_range`: M08/M16, an unknown receive chain is a
+ *   declared scenario, never a default.
+ * - `modeled_noise_figure_chain`: M09, the Friis chain from noise figure,
+ *   feeder transmission and physical temperature.
+ * - `measured_connector_noise`: M09, "a measured total noise at the receiver
+ *   connector replaces the corresponding modeled total".
+ * - `external_noise_dominated`: A10, "at LF/HF the receiver may be dominated
+ *   by atmospheric/man-made noise and impulsive interference".
+ * - `calibrated_system_temperature`: A16, beam-average sky and system
+ *   temperature in the declared calibration convention; "preserve measured
+ *   receiver-system noise instead of adding modeled components again".
+ */
+export const RECEIVER_CLASSES = [
+  "unspecified_scenario_range",
+  "modeled_noise_figure_chain",
+  "measured_connector_noise",
+  "external_noise_dominated",
+  "calibrated_system_temperature",
+] as const;
+export type ReceiverClass = (typeof RECEIVER_CLASSES)[number];
+
 /** M01 availability enum. "Missing is never zero" (M11). */
 export const AVAILABILITY_STATES = [
   "available",

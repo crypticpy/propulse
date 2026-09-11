@@ -16,6 +16,7 @@ import {
   COORDINATE_DATUMS,
   COORDINATE_PRECISION_KINDS,
   GEOMETRY_CLASSES,
+  ANTENNA_CLASSES,
   HEIGHT_DATUMS,
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
@@ -28,6 +29,7 @@ import {
   type PredictionQuantity,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   REQUEST_SCHEMA_VERSION,
+  RECEIVER_CLASSES,
   ROUTE_LEGS,
   SOURCE_MODES,
 } from "@/lib/propagation/contracts/enums";
@@ -130,6 +132,8 @@ const antenna = z
     heightMeters: knownOrUnknown(finite.nonnegative()),
     heightDatum: z.enum(HEIGHT_DATUMS),
     polarization: z.enum(POLARIZATIONS),
+    /** A01 coverage dimension: which antenna population this station is in. */
+    antennaClass: z.enum(ANTENNA_CLASSES),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -158,6 +162,12 @@ export const stationIdentitySchema = z
     feedLossDb: knownOrUnknown(finite.nonnegative()),
     /** Receiver noise assumption identity (M09); unknown stays unknown. */
     noiseAssumptionId: knownOrUnknown(identifier),
+    /**
+     * A01 coverage dimension: which receive-chain population this station is
+     * in. Both ends declare it because M18 evaluates the circuit in both
+     * directions, so either station can be the receiving one.
+     */
+    receiverClass: z.enum(RECEIVER_CLASSES),
   })
   .strict();
 
@@ -360,6 +370,22 @@ export const predictionRequestSchema = z
     const degenerate =
       separation < DEGENERATE_GEOMETRY_TOLERANCE_RAD ||
       separation > Math.PI - DEGENERATE_GEOMETRY_TOLERANCE_RAD;
+    const coincident = separation < DEGENERATE_GEOMETRY_TOLERANCE_RAD;
+    const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
+      value.mechanismPolicy.geometryClass,
+    );
+    if (coincident && !relayed) {
+      // M06: "a zero-distance MUF visualization is not a valid HF circuit
+      // request". An explicit azimuth supplies a tangent, not a circuit, so it
+      // cannot rescue a surface path of zero length. A relayed geometry is a
+      // different matter: its legs go via a third body and stay meaningful
+      // when the two ground stations sit together.
+      reject(
+        ctx,
+        ["rx", "coordinates"],
+        `Coincident endpoints are a zero-distance circuit, which geometry class ${value.mechanismPolicy.geometryClass} cannot answer (M06)`,
+      );
+    }
     if (degenerate && value.route.azimuthDeg === null) {
       reject(
         ctx,

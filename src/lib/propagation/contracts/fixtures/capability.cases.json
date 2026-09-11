@@ -33,7 +33,12 @@
         "uncertaintyKind": "none",
         "internalFallback": {
           "kind": "none"
-        }
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ]
       },
       {
         "quantity": "snr2500",
@@ -62,7 +67,12 @@
         "uncertaintyKind": "native_reference_decile",
         "internalFallback": {
           "kind": "none"
-        }
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ]
       },
       {
         "quantity": "conditional_decode",
@@ -88,7 +98,12 @@
           "kind": "model",
           "modelId": "propulse-physics-v1-margin",
           "modelVersion": "1.0.0"
-        }
+        },
+        "antennaClasses": ["modeled_pattern", "unspecified_scenario_range"],
+        "receiverClasses": [
+          "modeled_noise_figure_chain",
+          "unspecified_scenario_range"
+        ]
       }
     ],
     "corrections": [

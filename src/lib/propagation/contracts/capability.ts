@@ -11,6 +11,8 @@
  */
 import { z } from "zod";
 import {
+  ANTENNA_CLASSES,
+  type AntennaClass,
   CAPABILITY_SCHEMA_VERSION,
   CAPABILITY_INPUT_IDS,
   type CapabilityInputId,
@@ -24,6 +26,8 @@ import {
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
+  RECEIVER_CLASSES,
+  type ReceiverClass,
   QUANTITY_UNITS,
   ROUTABLE_CAPABILITY_STATES,
   UNCERTAINTY_KINDS,
@@ -57,6 +61,13 @@ const capabilityHead = z
     horizons: z.array(z.enum(PREDICTION_HORIZONS)).min(1),
     mechanismFamilies: z.array(z.enum(MECHANISM_FAMILIES)).min(1),
     geometryClasses: z.array(z.enum(GEOMETRY_CLASSES)).min(1),
+    /**
+     * A01 coverage dimensions. A head qualified for one station population is
+     * not eligible for another: supplying `station_pair` says the inputs exist,
+     * never that the station is inside the trained or validated population.
+     */
+    antennaClasses: z.array(z.enum(ANTENNA_CLASSES)).min(1),
+    receiverClasses: z.array(z.enum(RECEIVER_CLASSES)).min(1),
     frequencyRangeHz: frequencyRange,
     /** Derived labels for display; the frequency range is authoritative. */
     bandKeys: z.array(identifier),
@@ -157,6 +168,8 @@ function coverageTupleKey(head: {
   horizons: readonly string[];
   mechanismFamilies: readonly string[];
   geometryClasses: readonly string[];
+  antennaClasses: readonly string[];
+  receiverClasses: readonly string[];
   modeProfileIds: readonly string[];
   frequencyRangeHz: { minHz: number; maxHz: number };
 }): string {
@@ -172,6 +185,8 @@ function coverageTupleKey(head: {
     set(head.horizons),
     set(head.mechanismFamilies),
     set(head.geometryClasses),
+    set(head.antennaClasses),
+    set(head.receiverClasses),
     set(head.modeProfileIds),
     head.frequencyRangeHz.minHz,
     head.frequencyRangeHz.maxHz,
@@ -249,7 +264,9 @@ export function parseCapability(
  *
  * Every dimension the head declares is checked, not just the frequency: the
  * head has to be in a routable state, and it has to declare the requested
- * mechanism family and mode profile. A head that lists no mode profiles covers
+ * mechanism family, mode profile, antenna class at both ends and receiver
+ * class, and the capability has to be declared under the request's own source
+ * policy version. A head that lists no mode profiles covers
  * nothing, because an empty declaration is a gap rather than a wildcard. A
  * no-op capability declares no heads and therefore answers nothing.
  *
@@ -268,11 +285,20 @@ export function capabilityCovers(
     geometryClass: ModelCapabilityHead["geometryClasses"][number];
     mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
     modeProfileId: string;
+    /** A01: the station populations this request actually belongs to. */
+    txAntennaClass: AntennaClass;
+    rxAntennaClass: AntennaClass;
+    receiverClass: ReceiverClass;
+    /** M11/M19: the routing/source policy version the request was issued under. */
+    policyVersion: string;
     /** The input identifiers the request actually carries (M11/M19). */
     availableInputs: readonly CapabilityInputId[];
   },
 ): boolean {
   const available = new Set<CapabilityInputId>(query.availableInputs);
+  // A capability declared under another source policy version is a different
+  // routing contract, not a newer spelling of this one (M11/M19).
+  if (capability.sourcePolicyVersion !== query.policyVersion) return false;
   return capability.heads.some(
     (head) =>
       ROUTABLE_CAPABILITY_STATES.includes(head.state) &&
@@ -282,6 +308,9 @@ export function capabilityCovers(
       head.geometryClasses.includes(query.geometryClass) &&
       head.mechanismFamilies.includes(query.mechanismFamily) &&
       head.modeProfileIds.includes(query.modeProfileId) &&
+      head.antennaClasses.includes(query.txAntennaClass) &&
+      head.antennaClasses.includes(query.rxAntennaClass) &&
+      head.receiverClasses.includes(query.receiverClass) &&
       query.frequencyHz >= head.frequencyRangeHz.minHz &&
       query.frequencyHz <= head.frequencyRangeHz.maxHz &&
       head.requiredInputs.every((input) => available.has(input)),

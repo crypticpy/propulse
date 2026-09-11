@@ -64,6 +64,17 @@ describe("requestKey identity", () => {
   });
 
   const scientificChanges: [string, (draft: Mutable) => void][] = [
+    [
+      "tx antenna class",
+      (draft) =>
+        (((draft.tx as Mutable).antenna as Mutable).antennaClass =
+          "electrically_short"),
+    ],
+    [
+      "rx receiver class",
+      (draft) =>
+        ((draft.rx as Mutable).receiverClass = "measured_connector_noise"),
+    ],
     ["contextId", (draft) => (draft.contextId = "ctx-other-operating-context")],
     ["frequencyHz", (draft) => (draft.frequencyHz = 14074001)],
     ["modeProfileId", (draft) => (draft.modeProfileId = "cw-500hz-v1")],

@@ -307,6 +307,35 @@ describe("parseResult fails closed", () => {
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
+  it("accepts a decode margin that equals SNR2500 minus the threshold (M10)", () => {
+    const good = candidate("fullHfCircuit");
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a decode margin inconsistent with the SNR head (M10)", () => {
+    const bad = candidate("fullHfCircuit");
+    ((headFor(bad, "snr2500").state as Mutable).value as Mutable).snr2500Db =
+      10;
+    const decode = (headFor(bad, "conditional_decode").state as Mutable)
+      .value as Mutable;
+    decode.thresholdSnr2500Db = 4;
+    decode.marginDb = 100;
+    expect(reasonsAt(bad, "heads[2].state.value.marginDb").join()).toMatch(
+      /minus the declared threshold/,
+    );
+  });
+
+  it("accepts a decode head when the result carries no SNR head", () => {
+    const good = candidate("fullHfCircuit");
+    good.heads = heads(good).filter((head) => head.quantity !== "snr2500");
+    const decode = (headFor(good, "conditional_decode").state as Mutable)
+      .value as Mutable;
+    decode.marginDb = 100;
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects a probability interval that leaves [0, 1]", () => {
     const bad = candidate("fullHfCircuit");
     const head = headFor(bad, "conditional_decode");

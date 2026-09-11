@@ -115,6 +115,11 @@ test("a budget-exhausted Sourcery review with no inline comments does not count"
   assert.equal(countFindingReviews({ reviews, reviewComments }), 0);
 });
 
+test("a review whose only badge is P0 counts as a finding review", () => {
+  const { reviews, reviewComments } = flatten([codexReview(1, "P0")]);
+  assert.equal(countFindingReviews({ reviews, reviewComments }), 1);
+});
+
 test("a plain crypticpy reply review with no badge does not count", () => {
   const reviews = [{ id: 1, user: { login: "crypticpy" }, body: "" }];
   const reviewComments = [
@@ -304,6 +309,20 @@ test("capped with a review pinned to an old head fails", () => {
 test("capped with a review from a non-allowed login fails", () => {
   const result = evaluateReviewCap(
     cappedInput([architectureReview({ login: "random-fixer" })]),
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.reviewed, false);
+});
+
+test("a NONE-association comment with a valid-looking ship verdict is ignored (finding 5 of PR #1067's second review: an outside contributor cannot plant an architecture review)", () => {
+  const result = evaluateReviewCap(
+    cappedInput([
+      {
+        user: { login: "some-outside-contributor" },
+        authorAssociation: "NONE",
+        body: architectureReview().body,
+      },
+    ]),
   );
   assert.equal(result.ok, false);
   assert.equal(result.reviewed, false);

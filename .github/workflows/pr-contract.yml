@@ -39,7 +39,17 @@ jobs:
       - name: Run review-cap unit tests
         # The script above is load-bearing for a required check; give it CI
         # coverage on every pr-contract run now that this job has a checkout.
-        run: node --test scripts/review-cap.test.mjs
+        # Bootstrap guard: this checks out the base ref, so the very push
+        # that adds this test file fails here with nothing to run against
+        # (finding 1 of PR #1067's second review) — treat that as inactive, not a
+        # failure. The gate is inert until scripts/review-cap.test.mjs (and
+        # scripts/review-cap.mjs, checked below) land on the default branch.
+        run: |
+          if [ ! -f scripts/review-cap.test.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            exit 0
+          fi
+          node --test scripts/review-cap.test.mjs
       - name: Check PR body contract
         env:
           BODY: ${{ github.event.pull_request.body }}
@@ -169,6 +179,13 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Bootstrap guard, same reasoning as "Run review-cap unit tests"
+          # above (finding 1 of PR #1067's second review): gate inactive, not
+          # failing, until the script exists on the base ref.
+          if [ ! -f scripts/review-cap.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            exit 0
+          fi
           RESULT=$(node scripts/review-cap.mjs status "$REPO" "$PR" "$HEAD_SHA") \
             || { echo "::error::could not evaluate the review cap (re-run the check)"; exit 1; }
           echo "$RESULT"

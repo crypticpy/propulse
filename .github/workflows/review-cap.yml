@@ -28,11 +28,18 @@ jobs:
     # GITHUB_TOKEN on every trigger, so every trigger is gated on write
     # access before anything downstream (labelling, the architect's
     # gh/GraphQL calls) can run. `pull_request` additionally excludes forks
-    # outright — the PR head is never executed here.
+    # outright — the PR head is never executed here. `user.type == 'Bot'` is
+    # also admitted for reviews/comments: the fifth Codex review (author
+    # chatgpt-codex-connector[bot]) is what is supposed to trigger `count`
+    # and `post-cap-resolver`, but its `author_association` is never
+    # OWNER/MEMBER/COLLABORATOR, so without this it can never fire (finding 3
+    # of PR #1067's second review). This is safe to admit: a bot-authored event
+    # still never causes any PR-head code to execute — `count` and
+    # `post-cap-resolver` only ever check out the trusted default branch.
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'pull_request_review' && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+      (github.event_name == 'pull_request_review' && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) || github.event.review.user.type == 'Bot')) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) || github.event.comment.user.type == 'Bot'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -86,6 +93,19 @@ jobs:
           PR: ${{ steps.resolve.outputs.pr }}
           HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
         run: |
+          # Bootstrap guard: this step runs from the default-branch checkout
+          # above, so it self-blocks on the very push that adds the script
+          # (finding 1 of PR #1067's second review) — treat the gate as inactive
+          # instead of erroring until the script lands on the default branch.
+          if [ ! -f scripts/review-cap.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            echo "rounds=0" >> "$GITHUB_OUTPUT"
+            echo "capped=false" >> "$GITHUB_OUTPUT"
+            echo "reviewed=false" >> "$GITHUB_OUTPUT"
+            echo "verdict=null" >> "$GITHUB_OUTPUT"
+            echo "issue=null" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           RESULT=$(node scripts/review-cap.mjs status "$REPO" "$PR" "$HEAD_SHA") \
             || { echo "::error::could not evaluate the review cap"; exit 1; }
           echo "$RESULT"
@@ -168,12 +188,20 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      # Needed only to re-run pr-contract after the verdict comment is
+      # posted below (finding 2 of PR #1067's second review): a GITHUB_TOKEN-raised
+      # comment fires no pull_request event, so pr-contract's required check
+      # would otherwise stay stuck on its last (pre-verdict) result forever.
+      actions: write
     steps:
       - name: Check out the PR head for reading only
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: refs/pull/${{ needs.count.outputs.pr }}/head
-          fetch-depth: 0
+          # No token persisted on disk where the model's Bash tool could read
+          # it, and no full history (git is not among the model's allowed
+          # tools anyway) — finding 6 of PR #1067's second review.
+          persist-credentials: false
           path: pr-head
       - name: Check the ANTHROPIC_API_KEY secret is configured
         id: key
@@ -240,16 +268,16 @@ jobs:
               }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR") \
             || { echo "::error::could not list review threads"; exit 1; }
           mkdir -p review-cap-input
-          # Skip threads a write-access human started: this file is what a
-          # human review is, and CI does not get to reply to it, only to
-          # bot-started findings (finding 10 of PR #1067's review).
+          # Skip every human-started thread, of any author_association: this
+          # file is what a human review is, and CI does not get to reply to
+          # it or resolve it, only to bot-started findings (finding 10 of PR
+          # #1067's review; finding 8 of PR #1067's second review tightened
+          # this from "write-access human" to "any human" — an outside
+          # contributor's blocking comment must not be auto-resolved either).
           printf '%s' "$THREADS_JSON" | jq '
               [.data.repository.pullRequest.reviewThreads.nodes[]
                 | select(.isResolved == false)
-                | select(
-                    (.comments.nodes[0].author.__typename != "User")
-                    or (.comments.nodes[0].authorAssociation as $assoc | ($assoc != "OWNER" and $assoc != "MEMBER" and $assoc != "COLLABORATOR"))
-                  )
+                | select(.comments.nodes[0].author.__typename != "User")
                 | {id, firstComment: .comments.nodes[0].body}
               ]' > review-cap-input/unresolved-threads.json \
             || { echo "::error::could not filter review threads"; exit 1; }
@@ -257,16 +285,18 @@ jobs:
           # architecture-review comment on this PR (any head) instead of
           # filing a new one on every push (finding 6 of PR #1067's review).
           # Last verdict line wins, matching evaluateReviewCap's own
-          # last-match-wins resolution.
+          # last-match-wins resolution. Author-filtered the same way
+          # scripts/review-cap.mjs's ALLOWED_REVIEWERS gates a valid
+          # architecture review — without it, anyone could plant a
+          # look-alike "**architecture review**...Verdict: ship (#N)"
+          # comment and hijack which issue the real automation reuses
+          # (finding 5 of PR #1067's second review).
           PRIOR_BODY=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
-              --jq '[.[] | select(.body | test("\\*\\*architecture review\\*\\*")) | .body] | last') \
+              --jq '[.[] | select(.user.login == "github-actions[bot]" or .user.login == "propulse-bot[bot]" or .user.login == "crypticpy") | select(.body | test("\\*\\*architecture review\\*\\*")) | .body] | last') \
             || { echo "::error::could not list PR comments for the prior architecture review"; exit 1; }
           PRIOR_ISSUE=$(printf '%s' "$PRIOR_BODY" | grep -Eo 'Verdict:[[:space:]]*(ship|redesign)[[:space:]]*\(#[0-9]+\)' | tail -1 | grep -Eo '[0-9]+' || true)
           printf '%s' "${PRIOR_ISSUE:-}" > review-cap-input/prior-issue.txt
           echo "prior_issue=${PRIOR_ISSUE:-}" >> "$GITHUB_OUTPUT"
-          cat > review-cap-input/context.json <<EOF
-          {"headSha": "${HEAD_SHA}", "head7": "${HEAD7}", "rounds": ${{ needs.count.outputs.rounds }}, "pr": ${PR}}
-          EOF
       - name: Run the architecture review
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@0a8d3c9443bbff909ab973b6a17a340b913f229f # v1
@@ -379,8 +409,25 @@ jobs:
             echo "::error::review-cap-output.json is missing family, title or body"
             exit 1
           fi
+          # TITLE is model-controlled and was written to GITHUB_OUTPUT with a
+          # plain `key=value` line: an embedded newline could inject an extra
+          # output key (finding 4 of PR #1067's second review). Reject one outright
+          # (a title has no business containing one), and write it with the
+          # heredoc-delimiter form and a random delimiter anyway, in case a
+          # future edit stops rejecting newlines here.
+          case "$TITLE" in
+            *$'\n'*|*$'\r'*)
+              echo "::error::review-cap-output.json title must not contain a newline"
+              exit 1
+              ;;
+          esac
           echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          DELIM="EOF_TITLE_$(date +%s%N)_${RANDOM}"
+          {
+            echo "title<<${DELIM}"
+            printf '%s\n' "$TITLE"
+            echo "${DELIM}"
+          } >> "$GITHUB_OUTPUT"
           jq -r '.body' review-cap-output.json > /tmp/review-cap-issue-body.md
       - name: Reuse or create the follow-up issue
         id: issue
@@ -419,6 +466,30 @@ jobs:
             > /tmp/review-cap-verdict.md
           gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/review-cap-verdict.md >/dev/null \
             || { echo "::error::could not post the architecture review comment"; exit 1; }
+      - name: Re-run pr-contract now that the verdict is posted
+        # This comment is posted with github.token, and a GITHUB_TOKEN-raised
+        # event never starts a workflow run, so pr-contract's required check
+        # would otherwise stay stuck on its pre-verdict result forever
+        # (finding 2 of PR #1067's second review). pr-contract reads comments live,
+        # so re-running its latest run for this head re-evaluates the verdict
+        # just posted. Best-effort: a failure here just means the PR needs a
+        # manual re-run, not that the verdict failed to post.
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.count.outputs.pr }}
+          HEAD_SHA: ${{ needs.count.outputs.head_sha }}
+        run: |
+          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
+              --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == ${PR}))] | first | .id // empty") \
+            || { echo "::warning::could not look up the latest pr-contract run for ${HEAD_SHA}"; exit 0; }
+          if [ -z "$RUN_ID" ]; then
+            echo "No pr-contract run found for ${HEAD_SHA} yet; the next push or comment evaluates the verdict."
+            exit 0
+          fi
+          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
+            || echo "::warning::could not re-run pr-contract run ${RUN_ID} for ${HEAD_SHA}"
       - name: Apply the verdict
         if: steps.key.outputs.present == 'true'
         env:
@@ -482,6 +553,15 @@ jobs:
           HEAD_SHA: ${{ needs.count.outputs.head_sha }}
           ROUNDS: ${{ needs.count.outputs.rounds }}
         run: |
+          # Bootstrap guard, same as the `count` job's status step (finding 1
+          # of PR #1067's second review): this job's own `if` already requires
+          # `capped == 'true'`, which the bootstrap guard there forces false,
+          # so this branch is normally unreachable pre-bootstrap — checked
+          # again here directly so this step is never the one that breaks.
+          if [ ! -f scripts/review-cap.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            exit 0
+          fi
           FOLLOWUP=$(node scripts/review-cap.mjs resolve-post-cap "$REPO" "$PR" "$HEAD_SHA") \
             || { echo "::error::could not resolve the post-cap follow-up"; exit 1; }
           echo "$FOLLOWUP"
@@ -493,9 +573,11 @@ jobs:
           fi
           OWNER="${REPO%%/*}"
           NAME="${REPO##*/}"
-          # Only bot-started threads: a human (OWNER/MEMBER/COLLABORATOR)
-          # leaving a genuine blocking comment on a capped, shipped PR must
-          # not have it auto-dismissed by CI (finding 10 of PR #1067's review).
+          # Only bot-started threads: any human's genuine blocking comment on
+          # a capped, shipped PR, regardless of author_association, must not
+          # be auto-dismissed by CI (finding 10 of PR #1067's review; finding
+          # 8 of PR #1067's second review tightened this from "write-access
+          # human" to "any human").
           THREADS=$(gh api graphql -f query='
               query($owner:String!, $name:String!, $pr:Int!) {
                 repository(owner:$owner, name:$name) {
@@ -512,10 +594,7 @@ jobs:
               }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
               --jq '[.data.repository.pullRequest.reviewThreads.nodes[]
                 | select(.isResolved == false)
-                | select(
-                    (.comments.nodes[0].author.__typename != "User")
-                    or (.comments.nodes[0].authorAssociation as $assoc | ($assoc != "OWNER" and $assoc != "MEMBER" and $assoc != "COLLABORATOR"))
-                  )
+                | select(.comments.nodes[0].author.__typename != "User")
                 | .id] | .[]') \
             || { echo "::error::could not list review threads"; exit 1; }
           if [ -z "$THREADS" ]; then

@@ -24,7 +24,7 @@ const SOURCERY_LOGIN = /^sourcery-ai\[bot\]$/i;
 // #874 and #894) Codex posts as `chatgpt-codex-connector[bot]`, not "under
 // the linked user's login" as issue #1054 originally assumed; the
 // badge-based match is login-agnostic so that discrepancy does not matter.
-const BADGE = /img\.shields\.io\/badge\/P[123]\b/i;
+const BADGE = /img\.shields\.io\/badge\/P[0-3]\b/i;
 const HEADING = /\*\*architecture review\*\*/i;
 const AGENT_LINE = /^-\s*agent:\s*(.+?)\s*$/im;
 const REVIEWED_LINE = /^-\s*Reviewed:\s*([0-9a-f]{7,40})\b/im;
@@ -59,8 +59,10 @@ export function countReviewRequests(issueComments, allowedRequesters = REQUEST_L
 
 /**
  * Distinct PR reviews that left inline findings: a Codex review is
- * identified by the `img.shields.io/badge/P[123]` badge on at least one of
- * its inline comments (whatever login posts it); a Sourcery review is
+ * identified by the `img.shields.io/badge/P[0-3]` badge (P0-P3, the full
+ * severity set Codex posts — a P0-only review was previously invisible to
+ * the cap) on at least one of its inline comments (whatever login posts
+ * it); a Sourcery review is
  * identified by the `sourcery-ai[bot]` login with at least one inline
  * comment (a budget-exhausted refusal has none).
  */

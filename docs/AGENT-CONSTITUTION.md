@@ -190,13 +190,16 @@ bot-started thread is resolved with a pointer to it; on `redesign`, an issue
 with the redesign plan is filed and the PR is labeled `needs-redesign`. New
 bot threads opened after the cap are answered by that same automation (a
 `post-cap-resolver` job triggered on new reviews), not by a fix agent and not
-by a person — a thread a write-access human started is left alone in both
-places, only bot-started threads are auto-resolved.
+by a person — any human-started thread, whatever its `author_association`, is
+left alone in both places, only bot-started threads are auto-resolved.
 
 Every trigger (`pull_request` synchronize, `pull_request_review` submitted,
 `issue_comment` created) is author-gated before anything runs: `pull_request`
 requires the head repo to be this repo (no fork PRs), the other two require
-`author_association` in `OWNER`/`MEMBER`/`COLLABORATOR`. The gate itself runs
+`author_association` in `OWNER`/`MEMBER`/`COLLABORATOR` **or** the actor being
+a bot (`user.type == 'Bot'`, needed so the fifth Codex review itself, whose
+association is never OWNER/MEMBER/COLLABORATOR, can trigger `count`) — a
+bot-authored trigger still never causes any PR-head code to run. The gate itself runs
 `scripts/review-cap.mjs` from a checkout of the **default branch**, never the
 PR head, in both `.github/workflows/review-cap.yml` and `pr-contract.yml` — a
 PR editing the script cannot change what grades it.
@@ -224,7 +227,12 @@ PR editing the script cannot change what grades it.
   review needs a new comment for the new head, same as the design-review
   gate; if the `ANTHROPIC_API_KEY` secret is missing, the automation posts a
   one-time notice instead of a review and the gate stays red until the
-  secret is added.
+  secret is added. The gate is inert, not failing, until `scripts/review-cap.mjs`
+  and `scripts/review-cap.test.mjs` exist on the default branch: every step
+  that runs them from a base-ref checkout checks for the file first and, if
+  absent, treats the PR as uncapped (`capped=false`) or skips its unit-test
+  run rather than erroring — otherwise the PR that adds these scripts could
+  never pass its own base-ref checkout of them.
 
 ## Merging and Done
 

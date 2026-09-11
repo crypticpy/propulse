@@ -360,7 +360,7 @@
     "at_noon_max_relative": 0.014293682625675652,
     "penetration_max_relative": 0.00025115156135657735,
     "diurnal_exponent_max_absolute": 0.024048483967594625,
-    "absorption_term_max_db": 0.0490111256785935
+    "absorption_li_max_db": 0.07307785198510991
   },
   "anchors": [
     {

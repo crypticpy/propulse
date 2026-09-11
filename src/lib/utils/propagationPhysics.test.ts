@@ -31,6 +31,7 @@ import {
   MODE_PARAMETERS,
 } from "./signal";
 import { getManMadeNoise } from "./noiseModel";
+import { getGeomagneticLatitude } from "./geomagnetic";
 
 // Equinox so solar declination ~= 0; a 40N reflection point sits at the
 // central meridian (lon 0), so UTC 12:00 is local noon and UTC 00:00 midnight.
@@ -255,6 +256,31 @@ describe("item 4/12 - D-layer absorption", () => {
     // every deeply absorbed circuit look identical.
     expect(calculateDLayerAbsorption(1.8, 10, 200, 5)).toBeGreaterThan(50);
   });
+  it("takes the tangent of the inclination, not the inclination itself", () => {
+    // The modified dip is atan(tan(I) / sqrt(cos(latitude))). The reference
+    // harness supplies the diurnal exponent with dip = tan(moddip) at latitude
+    // zero, where the modified dip reduces to atan(dip), which fixes the
+    // convention. Passing I itself as the numerator produced 52.8 degrees at
+    // 45 degrees geomagnetic latitude where 67.2 is correct, and selected the
+    // wrong exponent everywhere but the geomagnetic equator and the poles.
+    const gm = getGeomagneticLatitude(45, -158);
+    expect(gm).toBeCloseTo(45, 1);
+    expect(modifiedDipAngle(45, -158)).toBeCloseTo(67.2, 1);
+
+    // On the geographic equator sqrt(cos(latitude)) is 1, so the modified dip
+    // is the dipole inclination itself. This is the harness's own case.
+    const equatorial =
+      (Math.atan(2 * Math.tan((2.7723144829971615 * Math.PI) / 180)) * 180) /
+      Math.PI;
+    expect(modifiedDipAngle(0, 0)).toBeCloseTo(equatorial, 9);
+
+    // The ends are unmoved: the geomagnetic equator is zero and the pole is 90.
+    expect(getGeomagneticLatitude(-2.8, 0)).toBeCloseTo(0, 1);
+    expect(modifiedDipAngle(-2.8, 0)).toBeLessThan(0.05);
+    expect(getGeomagneticLatitude(80.5, -72)).toBeCloseTo(89.8, 1);
+    expect(modifiedDipAngle(80.5, -72)).toBeCloseTo(90, 1);
+  });
+
   it("sfiToR12 inverts the canonical SFI = 63.7 + 0.728*R12 relation", () => {
     expect(sfiToR12(63.7)).toBeCloseTo(0, 5);
     expect(sfiToR12(120)).toBeCloseTo((120 - 63.7) / 0.728, 5);

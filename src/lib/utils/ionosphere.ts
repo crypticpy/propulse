@@ -569,9 +569,15 @@ export function solarNoonZenithAngle(latitudeDeg: number, date: Date): number {
  * Modified magnetic dip, degrees, from the dipole geomagnetic latitude.
  *
  * `tan(I) = 2 tan(geomagnetic latitude)` is the centred-dipole relation, and
- * the modified dip is `atan2(I, sqrt(cos(latitude)))` with the latitude in
- * radians, which is the form P.533-14 indexes its diurnal absorption exponent
- * by. This is a declared approximation: the true dip comes from a field model
+ * the modified dip is `atan(tan(I) / sqrt(cos(latitude)))`, the form P.533-14
+ * indexes its diurnal absorption exponent by. The numerator is the tangent of
+ * the inclination, not the inclination itself: the reference harness supplies
+ * the exponent with `dip = tan(moddip)` at latitude zero, where the modified
+ * dip reduces to `atan(dip)`, which fixes the convention. At 45 degrees
+ * geomagnetic latitude that is 67.2 degrees; passing the angle instead of its
+ * tangent gave 52.8 and selected the wrong exponent.
+ *
+ * This is a declared approximation: the true dip comes from a field model
  * evaluated at 100 km, which no leaf in this repository exposes yet.
  */
 export function modifiedDipAngle(
@@ -580,10 +586,10 @@ export function modifiedDipAngle(
 ): number {
   const geomagneticLatRad =
     getGeomagneticLatitude(latitudeDeg, longitudeDeg) * DEG_TO_RAD;
-  const dipRad = Math.atan(2 * Math.tan(geomagneticLatRad));
+  const tanDip = 2 * Math.tan(geomagneticLatRad);
   const latitudeRad = latitudeDeg * DEG_TO_RAD;
   return (
-    Math.abs(Math.atan2(dipRad, Math.sqrt(Math.abs(Math.cos(latitudeRad))))) *
+    Math.abs(Math.atan2(tanDip, Math.sqrt(Math.abs(Math.cos(latitudeRad))))) *
     RAD_TO_DEG
   );
 }

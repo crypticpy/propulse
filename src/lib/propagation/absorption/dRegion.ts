@@ -49,10 +49,15 @@
  *      ATnoon                     1.429 % maximum relative error
  *      penetration factor phi     0.025 % maximum relative error
  *      diurnal exponent p         0.024 absolute
- *      absorption term, anchors   0.049 dB worst case
+ *      equation (20) loss         0.073 dB worst anchor
  *
- * against a declared tolerance of 0.25 dB. `dRegion.test.ts` re-derives all
- * four from the fixture, so these numbers cannot drift out of the doc block.
+ * against a declared tolerance of 0.25 dB. The last is an absolute difference
+ * of losses on one declared circuit, the R2 audit case of one 3000 km hop at
+ * 14 MHz with the mirror at 300 km and SSN 100, because equation (20) already
+ * yields decibels: a log ratio of the absorption terms is a different quantity
+ * and understates that circuit's 0.0536 dB error as 0.016. `dRegion.test.ts`
+ * re-derives all four from the fixture, so these numbers cannot drift out of
+ * the doc block.
  *
  * **Declared approximations.** Each is surfaced on the result's `assumptions`
  * rather than hidden:

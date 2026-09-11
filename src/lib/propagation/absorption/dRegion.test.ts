@@ -30,8 +30,21 @@ function supported(
   return geometry;
 }
 
+/**
+ * The circuit the anchor residual is expressed on: one 3000 km hop with the
+ * mirror at 300 km, 14 MHz, SSN 100, fL 1.2 MHz, which is the plan's R2 audit
+ * case and the first anchor exactly. Equation (20) is a loss in dB, so the
+ * error that matters is a difference of losses. A log ratio of the absorption
+ * terms is a different quantity entirely and understates it: on this circuit
+ * it reports 0.016 where the loss is out by 0.0536 dB.
+ */
+const ANCHOR_CIRCUIT = supported(3000, 1, 300);
+const ANCHOR_CIRCUIT_SCALE =
+  (1 + 0.0067 * 100) /
+  ((14 + 1.2) ** 2 * Math.cos(ANCHOR_CIRCUIT.incidenceAngle110Rad));
+
 describe("the fitted model against its reference anchors", () => {
-  it("reproduces every anchor's absorption term inside the declared tolerance", () => {
+  it("reproduces every anchor's equation (20) loss inside the declared tolerance", () => {
     let worstDb = 0;
     for (const anchor of REFERENCE_ANCHORS) {
       const crossing: DRegionCrossing = {
@@ -42,20 +55,20 @@ describe("the fitted model against its reference anchors", () => {
         zenithAngleDeg: anchor.zenith_deg,
         zenithNoonAngleDeg: anchor.zenith_noon_deg,
       };
-      const modelled = absorptionTerm(crossing, anchor.fv_mhz);
-      const errorDb = Math.abs(
-        10 * Math.log10(modelled / anchor.absorption_term),
-      );
+      const modelledLiDb =
+        ANCHOR_CIRCUIT_SCALE * absorptionTerm(crossing, anchor.fv_mhz);
+      const referenceLiDb = ANCHOR_CIRCUIT_SCALE * anchor.absorption_term;
+      const errorDb = Math.abs(modelledLiDb - referenceLiDb);
       expect(
         errorDb,
-        `${anchor.case_id}: ${modelled.toFixed(4)} vs reference ${anchor.absorption_term.toFixed(4)}`,
+        `${anchor.case_id}: ${modelledLiDb.toFixed(4)} dB vs reference ${referenceLiDb.toFixed(4)} dB`,
       ).toBeLessThan(ANCHOR_TOLERANCE_DB);
       worstDb = Math.max(worstDb, errorDb);
     }
     // The number quoted in the module doc block. Re-derived here so it cannot
     // drift out of the documentation.
-    expect(worstDb).toBeCloseTo(FIT_RESIDUALS.absorption_term_max_db, 9);
-    expect(worstDb).toBeCloseTo(0.049, 3);
+    expect(worstDb).toBeCloseTo(FIT_RESIDUALS.absorption_li_max_db, 9);
+    expect(worstDb).toBeCloseTo(0.073, 3);
   });
 
   it("reproduces each measured primitive", () => {
@@ -89,7 +102,7 @@ describe("the fitted model against its reference anchors", () => {
     expect(FIT_RESIDUALS.at_noon_max_relative).toBeLessThan(0.015);
     expect(FIT_RESIDUALS.penetration_max_relative).toBeLessThan(0.0005);
     expect(FIT_RESIDUALS.diurnal_exponent_max_absolute).toBeLessThan(0.025);
-    expect(FIT_RESIDUALS.absorption_term_max_db).toBeLessThan(
+    expect(FIT_RESIDUALS.absorption_li_max_db).toBeLessThan(
       ANCHOR_TOLERANCE_DB,
     );
   });
@@ -123,9 +136,14 @@ describe("absorption magnitude on the audit circuit (R2)", () => {
       ssn: 100,
     });
     expect(result.verticalFrequencyMHz).toBeCloseTo(2.7645, 4);
-    expect(
-      Math.abs(10 * Math.log10(result.absorptionDb / REFERENCE_LI_DB)),
-    ).toBeLessThan(ANCHOR_TOLERANCE_DB);
+    // A difference of losses, not a ratio: both numbers are already in dB.
+    expect(Math.abs(result.absorptionDb - REFERENCE_LI_DB)).toBeLessThan(
+      ANCHOR_TOLERANCE_DB,
+    );
+    expect(Math.abs(result.absorptionDb - REFERENCE_LI_DB)).toBeCloseTo(
+      0.0536,
+      3,
+    );
     expect(result.absorptionDb).toBeCloseTo(REFERENCE_LI_DB, 0);
   });
 

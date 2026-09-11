@@ -369,6 +369,50 @@ ANCHOR_INPUTS: list[dict[str, Any]] = [
      "zenith_deg": 95.0, "zenith_noon_deg": 18.0},
 ]
 
+# The circuit the anchor residual is expressed on. Equation (20) is a dB loss,
+# so the honest error measure is a difference of losses, not a log ratio of the
+# absorption terms that feed it: the ratio understates the audit circuit's
+# 0.0536 dB error as 0.016. Every anchor's term is therefore converted into a
+# complete equation (20) loss on one declared circuit, the plan's R2 audit
+# case, and the model and the reference are subtracted in dB. Anchor one is
+# that circuit exactly. The circuit is fixed rather than derived from each
+# anchor's fv, because fv / cos(i) invents operating frequencies from 1 MHz to
+# 122 MHz, outside the band the model is used in and the reference measured.
+ANCHOR_CIRCUIT_GROUND_DISTANCE_KM = 3000.0
+ANCHOR_CIRCUIT_HOP_COUNT = 1
+ANCHOR_CIRCUIT_MIRROR_HEIGHT_KM = 300.0
+ANCHOR_CIRCUIT_FREQUENCY_MHZ = 14.0
+ANCHOR_CIRCUIT_SSN = 100.0
+ANCHOR_CIRCUIT_GYROFREQUENCY_MHZ = 1.2
+EARTH_RADIUS_KM = 6371.0
+ABSORPTION_INCIDENCE_HEIGHT_KM = 110.0
+
+
+def anchor_circuit_scale() -> float:
+    """The factor equation (20) multiplies the absorption term by, per dB.
+
+    The geometry is the same one `src/lib/propagation/geometry/hop.ts` solves,
+    written out here so the gate does not depend on the TypeScript engine.
+    """
+    hop_ground = ANCHOR_CIRCUIT_GROUND_DISTANCE_KM / ANCHOR_CIRCUIT_HOP_COUNT
+    half_hop = hop_ground / (2.0 * EARTH_RADIUS_KM)
+    ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + ANCHOR_CIRCUIT_MIRROR_HEIGHT_KM)
+    elevation = math.atan2(math.cos(half_hop) - ratio, math.sin(half_hop))
+    incidence = math.asin(
+        EARTH_RADIUS_KM
+        / (EARTH_RADIUS_KM + ABSORPTION_INCIDENCE_HEIGHT_KM)
+        * math.cos(elevation)
+    )
+    return (
+        ANCHOR_CIRCUIT_HOP_COUNT
+        * (1.0 + 0.0067 * ANCHOR_CIRCUIT_SSN)
+        / (
+            (ANCHOR_CIRCUIT_FREQUENCY_MHZ + ANCHOR_CIRCUIT_GYROFREQUENCY_MHZ) ** 2
+            * math.cos(incidence)
+        )
+    )
+
+
 ZENITH_CLIP_DEG = 102.0
 F_CHI_FLOOR = 0.02
 
@@ -432,23 +476,10 @@ def build_document(build: ReferenceBuild) -> dict[str, Any]:
             for x in np.linspace(0.0, P_MAX_MODDIP_DEG, 1401)
         )
 
-    worst_anchor_db = 0.0
-    for row in anchors:
-        modelled = (
-            evaluate_at_noon(at_noon, row["latitude_deg"], row["month_index"])
-            * evaluate_phi(phi, row["fv_mhz"] / row["foE_mhz"])
-        )
-        month = row["month_index"]
-        if row["latitude_deg"] < 0.0:
-            month = (month + 6) % 12
-        exponent = evaluate_p(p, row["moddip_deg"], month)
-        modelled *= f_chi(row["zenith_deg"], exponent) / f_chi(
-            row["zenith_noon_deg"], exponent
-        )
-        worst_anchor_db = max(
-            worst_anchor_db,
-            abs(10.0 * math.log10(modelled / row["absorption_term"])),
-        )
+    coefficients = {"atNoon": at_noon, "penetration": phi, "diurnal": p}
+    worst_anchor_db = max(
+        abs(anchor_loss_error_db(coefficients, row)) for row in anchors
+    )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -464,12 +495,12 @@ def build_document(build: ReferenceBuild) -> dict[str, Any]:
             "is our own functional form fitted to measurements, and `anchors` "
             "is the acceptance oracle."
         ),
-        "coefficients": {"atNoon": at_noon, "penetration": phi, "diurnal": p},
+        "coefficients": coefficients,
         "residuals": {
             "at_noon_max_relative": at_noon_residual,
             "penetration_max_relative": phi_residual,
             "diurnal_exponent_max_absolute": p_residual,
-            "absorption_term_max_db": worst_anchor_db,
+            "absorption_li_max_db": worst_anchor_db,
         },
         "anchors": anchors,
     }
@@ -586,25 +617,56 @@ def compare_documents(committed: dict[str, Any], fresh: dict[str, Any]) -> list[
     anchors = fresh.get("anchors") or []
     if isinstance(coefficients, dict):
         for row in anchors:
-            month = row["month_index"]
-            modelled = evaluate_at_noon(
-                coefficients["atNoon"], row["latitude_deg"], month
-            ) * evaluate_phi(coefficients["penetration"], row["fv_mhz"] / row["foE_mhz"])
-            exponent_month = (month + 6) % 12 if row["latitude_deg"] < 0.0 else month
-            exponent = evaluate_p(
-                coefficients["diurnal"], row["moddip_deg"], exponent_month
-            )
-            modelled *= f_chi(row["zenith_deg"], exponent) / f_chi(
-                row["zenith_noon_deg"], exponent
-            )
-            error_db = abs(10.0 * math.log10(modelled / row["absorption_term"]))
+            error_db = abs(anchor_loss_error_db(coefficients, row))
             if error_db > ANCHOR_TOLERANCE_DB:
                 problems.append(
                     f"anchor {row['case_id']}: the committed coefficients are "
-                    f"{error_db:.4f} dB from the freshly measured term, past the "
+                    f"{error_db:.4f} dB from the freshly measured loss, past the "
                     f"declared {ANCHOR_TOLERANCE_DB} dB"
                 )
     return problems
+
+
+def modelled_absorption_term(coefficients: dict[str, Any], row: dict[str, Any]) -> float:
+    """Equation (21)'s absorption term for one anchor, from fitted coefficients."""
+    month = row["month_index"]
+    value = evaluate_at_noon(
+        coefficients["atNoon"], row["latitude_deg"], month
+    ) * evaluate_phi(coefficients["penetration"], row["fv_mhz"] / row["foE_mhz"])
+    exponent_month = (month + 6) % 12 if row["latitude_deg"] < 0.0 else month
+    exponent = evaluate_p(
+        coefficients["diurnal"], row["moddip_deg"], exponent_month
+    )
+    return value * f_chi(row["zenith_deg"], exponent) / f_chi(
+        row["zenith_noon_deg"], exponent
+    )
+
+
+def anchor_loss_error_db(
+    coefficients: dict[str, Any], row: dict[str, Any]
+) -> float:
+    """Modelled minus measured equation (20) loss on the declared circuit, dB."""
+    scale = anchor_circuit_scale()
+    return scale * (modelled_absorption_term(coefficients, row) - row["absorption_term"])
+
+
+def anchor_residual_table(
+    coefficients: dict[str, Any], anchors: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Per-anchor reference loss, modelled loss and absolute dB error."""
+    scale = anchor_circuit_scale()
+    table = []
+    for row in anchors:
+        modelled = modelled_absorption_term(coefficients, row)
+        table.append(
+            {
+                "case_id": row["case_id"],
+                "reference_li_db": scale * row["absorption_term"],
+                "modelled_li_db": scale * modelled,
+                "error_db": abs(scale * (modelled - row["absorption_term"])),
+            }
+        )
+    return table
 
 
 def main() -> int:
@@ -631,7 +693,13 @@ def main() -> int:
 
     residuals = document["residuals"]
     print(json.dumps(residuals, indent=2))
-    if residuals["absorption_term_max_db"] > 0.25:
+    print(
+        json.dumps(
+            anchor_residual_table(document["coefficients"], document["anchors"]),
+            indent=2,
+        )
+    )
+    if residuals["absorption_li_max_db"] > ANCHOR_TOLERANCE_DB:
         print("FAIL: anchor residual exceeds the declared 0.25 dB", file=sys.stderr)
         return 1
 

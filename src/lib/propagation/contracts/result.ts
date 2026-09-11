@@ -1035,19 +1035,39 @@ export const predictionResultSchema = z
       }
       seenSources.add(source.sourceId);
       if (!source.eligible) return;
+      /**
+       * M02/M24: the causal order a real product goes through. A datum is
+       * observed, then published, then captured by this system, and only then
+       * can a result use it. Each stamp being before `issuedAt` is not enough:
+       * a capture that precedes its own publication, or a publication that
+       * precedes the end of the interval it reports, describes no history that
+       * could have produced the number, and a replay driven from it would be
+       * reconstructing a provenance that never happened.
+       */
       const stamps: [string, string | null][] = [
         ["observedIntervalEndAt", source.observedIntervalEndAt],
         ["publishedAt", source.publishedAt],
         ["capturedAt", source.capturedAt],
       ];
+      let previous: [string, number] | null = null;
       for (const [field, stamp] of stamps) {
-        if (stamp !== null && instantMs(stamp) > issued) {
+        if (stamp === null) continue;
+        const at = instantMs(stamp);
+        if (at > issued) {
           reject(
             ctx,
             ["evidence", "sources", index, field],
             `An eligible source must have ${field} no later than issuedAt (M02)`,
           );
         }
+        if (previous !== null && at < previous[1]) {
+          reject(
+            ctx,
+            ["evidence", "sources", index, field],
+            `An eligible source is observed, then published, then captured: ${field} must not precede ${previous[0]} (M02, M24)`,
+          );
+        }
+        previous = [field, at];
       }
       /**
        * M02: the age of an eligible source is `issuedAt` minus the end of the

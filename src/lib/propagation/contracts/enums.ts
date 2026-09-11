@@ -250,6 +250,94 @@ export const PERMITTED_GEOMETRY_CLASSES: Record<
   waveguide: ["waveguide_mode"],
 };
 
+/**
+ * A19/A20: how a bistatic scatter request locates its scattering region.
+ *
+ * - `great_circle_plane`: the scattering volume is taken in the plane of the
+ *   terminal great circle, and the circuit is transmitter -> volume ->
+ *   receiver. Aurora (plan of record,
+ *   docs/designs/propagation/all-band-contract-v0.1.md:175), meteor trails
+ *   (line 179) and rain cells are volumes of this kind: the producer names no
+ *   object, only the two terminals, and the geometry follows from them.
+ * - `target`: the scatterer is a discrete moving object with its own identity
+ *   and trajectory (an aircraft). Its position at `validAt` is an input the
+ *   request would have to carry, and this schema version carries no such
+ *   block, so a target-basis request cannot be represented and is refused
+ *   rather than answered on the terminals alone.
+ *
+ * A family that is not requested on `bistatic_scatter` has no basis at all.
+ */
+export const SCATTER_BASES = ["great_circle_plane", "target"] as const;
+export type ScatterBasis = (typeof SCATTER_BASES)[number];
+
+export const SCATTER_BASIS_BY_MECHANISM: Record<
+  MechanismFamily,
+  ScatterBasis | null
+> = {
+  aircraft_scatter: "target",
+  atmospheric_los: null,
+  aurora: "great_circle_plane",
+  eme: null,
+  es: null,
+  event_head: null,
+  f2_daytime: null,
+  ground_sky_coherent: null,
+  groundwave: null,
+  meteor: "great_circle_plane",
+  rain_scatter: "great_circle_plane",
+  refractivity_pe: null,
+  regular_ef: null,
+  relay: null,
+  satellite: null,
+  tep_evening: null,
+  terrain_troposphere: null,
+  waveguide: null,
+};
+
+/**
+ * The families this schema version cannot express a request for, derived from
+ * the basis table rather than listed twice: a `target` basis needs a target
+ * identity and trajectory the request schema does not carry, so accepting one
+ * would mean answering it on terminal great-circle geometry that is not the
+ * geometry of the event. The frozen protocol still carries the row (the
+ * aircraft_scatter usable_burst row is `experimental`, and the protocol file
+ * is frozen), so the refusal lives here: `parseRequest` rejects the request
+ * and `parseCapability` rejects any routable head that advertises the family,
+ * which is what a blocked row would have done.
+ */
+export const UNREPRESENTABLE_MECHANISM_FAMILIES: readonly MechanismFamily[] =
+  MECHANISM_FAMILIES.filter(
+    (family) => SCATTER_BASIS_BY_MECHANISM[family] === "target",
+  );
+
+/**
+ * Which events are sampled at an instant and which are defined over an
+ * interval, per the protocol event definitions and M02.
+ *
+ * Instant-valued: `circuit_support`, `snr2500`, `field_strength`, `doppler`
+ * and `conditional_decode`. The 24-hour view evaluates
+ * `validAt[j] = issuedAt + j * 3600 s` as 24 labelled instantaneous samples,
+ * and a decode event's observation duration is a property of the declared mode
+ * profile carried in the payload, not an aggregation of the scope.
+ *
+ * Interval-valued: `network_detection` (the model's own hourly bucket, which
+ * M02 keeps as a separate interval-valued head), `observed_activity` (reports
+ * within an explicit time interval), `usable_burst` (at least one burst in an
+ * exposed interval) and `pass_geometry` (an AOS/LOS span). No instantaneous
+ * sample may be relabelled as one of these.
+ *
+ * The interval length is part of the event: an hourly detection probability
+ * and a one-second one are different claims, so a capability head that answers
+ * an interval-valued quantity declares the interval lengths it was qualified
+ * for and routing matches the request's own length against it (M02, M19).
+ */
+export const INTERVAL_VALUED_QUANTITIES: readonly PredictionQuantity[] = [
+  "network_detection",
+  "observed_activity",
+  "usable_burst",
+  "pass_geometry",
+];
+
 export const PERMITTED_RELAY_KINDS: Record<
   GeometryClass,
   readonly RelayKind[]

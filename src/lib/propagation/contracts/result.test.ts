@@ -376,6 +376,46 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("rejects an eligible source captured before it was published (M02, M24)", () => {
+    const bad = candidate("fullHfCircuit");
+    const sources = (bad.evidence as Mutable).sources as Mutable[];
+    sources[0].capturedAt = "2026-09-11T17:20:00Z";
+    expect(reasonsAt(bad, "evidence.sources[0].capturedAt").join()).toMatch(
+      /capturedAt must not precede publishedAt/,
+    );
+  });
+
+  it("rejects an eligible source published before its interval ended (M02, M24)", () => {
+    const bad = candidate("fullHfCircuit");
+    const sources = (bad.evidence as Mutable).sources as Mutable[];
+    sources[0].observedIntervalEndAt = "2026-09-11T17:45:00Z";
+    // The age is recomputed so only the causal order is under test.
+    sources[0].ageSeconds = 900;
+    expect(reasonsAt(bad, "evidence.sources[0].publishedAt").join()).toMatch(
+      /publishedAt must not precede observedIntervalEndAt/,
+    );
+  });
+
+  it("accepts an eligible source whose stamps are simultaneous (M02, M24)", () => {
+    const good = candidate("fullHfCircuit");
+    const sources = (good.evidence as Mutable).sources as Mutable[];
+    sources[0].publishedAt = "2026-09-11T17:00:00Z";
+    sources[0].capturedAt = "2026-09-11T17:00:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("leaves an excluded source's stamps unordered (M24)", () => {
+    // An excluded entry is a census of what was considered, not a history the
+    // result depends on, so a mangled or later stamp is recorded as found.
+    const good = candidate("fullHfCircuit");
+    const sources = (good.evidence as Mutable).sources as Mutable[];
+    sources[1].publishedAt = "2026-09-11T17:30:00Z";
+    sources[1].capturedAt = "2026-09-11T16:00:00Z";
+    const outcome = parseResult(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
   it("rejects an eligible source with unknown availability history (M02)", () => {
     const bad = candidate("fullHfCircuit");
     const sources = (bad.evidence as Mutable).sources as Mutable[];

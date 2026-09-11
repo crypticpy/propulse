@@ -3,6 +3,7 @@ import capabilityCases from "@/lib/propagation/contracts/fixtures/capability.cas
 import {
   CALIBRATION_REQUIRED_QUANTITIES,
   PREDICTION_QUANTITIES,
+  INTERVAL_VALUED_QUANTITIES,
   isProtocolCoverage,
   mandatoryInputsForFamilies,
   MANDATORY_INPUTS_BY_FAMILY,
@@ -50,6 +51,8 @@ const baseQuery = {
   mechanismFamily: "regular_ef",
   modeProfileId: "ft8-wsjtx-2.7.0-15s",
   frequencyHz: 14074000,
+  // snr2500 is sampled at an instant, so the request carries no interval (M02).
+  intervalSeconds: null,
   txAntennaClass: "modeled_pattern",
   rxAntennaClass: "modeled_pattern",
   txReceiverClass: "modeled_noise_figure_chain",
@@ -76,6 +79,7 @@ const SECOND_SNR_HEAD = {
   antennaClasses: ["modeled_pattern", "unspecified_scenario_range"],
   receiverClasses: ["modeled_noise_figure_chain", "unspecified_scenario_range"],
   frequencyRangeHz: { minHz: 1800000, maxHz: 2000000 },
+  intervalSecondsRange: null,
   sourceModes: ["offline", "cached_live", "live"],
   bandKeys: ["160m"],
   modeProfileIds: ["msk144-wsjtx-2.7.0-15s"],
@@ -137,6 +141,10 @@ function protocolHead(
   head.geometryClasses = [...PERMITTED_GEOMETRY_CLASSES[tuple.mechanism]];
   // A01: only a quantity with a receive chain names receiver classes.
   if (RECEIVER_PARTICIPATION[quantity] === "none") head.receiverClasses = [];
+  // M02: an interval-valued head declares the interval lengths it answers.
+  head.intervalSecondsRange = INTERVAL_VALUED_QUANTITIES.includes(quantity)
+    ? { minSeconds: 60, maxSeconds: 3600 }
+    : null;
   // A02: no display labels, so a test may narrow the range without a label
   // contradicting it.
   head.bandKeys = [];
@@ -192,6 +200,28 @@ function overlapDraft(
   left.frequencyRangeHz = first;
   right.frequencyRangeHz = second;
   tweak?.(right);
+  (draft.heads as Mutable[]).push(left, right);
+  return draft;
+}
+
+/**
+ * The fixture plus two routable usable_burst heads alike on every routing
+ * dimension but their interval ranges, so only the interval dimension decides
+ * whether they could both answer one request (M02, M19).
+ */
+function intervalOverlapDraft(
+  first: { minSeconds: number; maxSeconds: number },
+  second: { minSeconds: number; maxSeconds: number },
+): Mutable {
+  const draft = structuredClone(cases.hfPhysics) as Mutable;
+  const left = protocolHead(
+    "usable_burst",
+    (tuple) => tuple.mechanism === "meteor",
+  ).head;
+  left.uncertaintyKind = "none";
+  const right = structuredClone(left) as Mutable;
+  left.intervalSecondsRange = first;
+  right.intervalSecondsRange = second;
   (draft.heads as Mutable[]).push(left, right);
   return draft;
 }
@@ -818,6 +848,8 @@ describe("parseCapability fails closed", () => {
     const networkQuery = {
       ...secondQuery,
       quantity: "network_detection",
+      // M02: the bucket length the request asks about, inside the head's range.
+      intervalSeconds: 3600,
       domain: tuple.domain,
       horizon: tuple.horizon,
       mechanismFamily: tuple.mechanism,
@@ -1045,6 +1077,7 @@ describe("parseCapability fails closed", () => {
     const passQuery = {
       ...secondQuery,
       quantity: "pass_geometry",
+      intervalSeconds: 750,
       domain: tuple.domain,
       horizon: tuple.horizon,
       mechanismFamily: tuple.mechanism,
@@ -1140,6 +1173,100 @@ describe("parseCapability fails closed", () => {
     twin.modeProfileIds = ["b", "a"];
     heads.push(twin);
     expect(reasonsAt(draft, "heads[3].quantity").join()).toMatch(/Duplicate/);
+  });
+
+  it("rejects a routable interval head that declares no interval range (M02, M19)", () => {
+    const bad = candidate("hfPhysics");
+    const { head } = protocolHead(
+      "usable_burst",
+      (tuple) => tuple.mechanism === "meteor",
+    );
+    head.intervalSecondsRange = null;
+    head.uncertaintyKind = "none";
+    (bad.heads as Mutable[]).push(head);
+    expect(reasonsAt(bad, "heads[3].intervalSecondsRange").join()).toMatch(
+      /declares the interval lengths it answers/,
+    );
+  });
+
+  it("rejects an instantaneous head that declares an interval range (M02)", () => {
+    const bad = candidate("hfPhysics");
+    ((bad.heads as Mutable[])[1] as Mutable).intervalSecondsRange = {
+      minSeconds: 60,
+      maxSeconds: 3600,
+    };
+    expect(reasonsAt(bad, "heads[1].intervalSecondsRange").join()).toMatch(
+      /sampled at an instant and declares no interval range/,
+    );
+  });
+
+  it("routes an interval head only for the lengths it was qualified for (M02, M19)", () => {
+    const draft = candidate("hfPhysics");
+    const { head, tuple } = protocolHead(
+      "usable_burst",
+      (tuple) => tuple.mechanism === "meteor",
+    );
+    head.uncertaintyKind = "none";
+    head.intervalSecondsRange = { minSeconds: 600, maxSeconds: 3600 };
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    if (!outcome.ok) return;
+    const burstQuery = {
+      ...secondQuery,
+      quantity: "usable_burst",
+      domain: tuple.domain,
+      horizon: tuple.horizon,
+      mechanismFamily: tuple.mechanism,
+      geometryClass: "bistatic_scatter",
+      frequencyHz:
+        ((head.frequencyRangeHz as { minHz: number }).minHz +
+          (head.frequencyRangeHz as { maxHz: number }).maxHz) /
+        2,
+      intervalSeconds: 900,
+    } as const;
+    expect(capabilityCovers(outcome.value, burstQuery)).toBe(true);
+    // A one-second burst probability is a different event, not a finer one.
+    expect(
+      capabilityCovers(outcome.value, { ...burstQuery, intervalSeconds: 1 }),
+    ).toBe(false);
+    // An interval head answers no instantaneous request either.
+    expect(
+      capabilityCovers(outcome.value, { ...burstQuery, intervalSeconds: null }),
+    ).toBe(false);
+  });
+
+  it("rejects two routable interval heads whose interval ranges intersect (M19)", () => {
+    const bad = intervalOverlapDraft(
+      { minSeconds: 60, maxSeconds: 900 },
+      { minSeconds: 600, maxSeconds: 3600 },
+    );
+    expect(reasonsAt(bad, "heads[4].frequencyRangeHz").join()).toMatch(
+      /both answer one request/,
+    );
+  });
+
+  it("accepts two routable interval heads on disjoint lengths (M19)", () => {
+    const good = intervalOverlapDraft(
+      { minSeconds: 60, maxSeconds: 599 },
+      { minSeconds: 600, maxSeconds: 3600 },
+    );
+    const outcome = parseCapability(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects a routable head advertising a family no request can name (A19)", () => {
+    const bad = candidate("hfPhysics");
+    const { head } = protocolHead(
+      "usable_burst",
+      (tuple) => tuple.mechanism === "meteor",
+    );
+    head.uncertaintyKind = "none";
+    head.mechanismFamilies = ["aircraft_scatter"];
+    (bad.heads as Mutable[]).push(head);
+    expect(reasonsAt(bad, "heads[3].mechanismFamilies").join()).toMatch(
+      /No request can be written for mechanism family aircraft_scatter/,
+    );
   });
 
   it("rejects two routable heads whose frequency ranges overlap (M19)", () => {

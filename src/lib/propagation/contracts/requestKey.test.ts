@@ -370,6 +370,27 @@ describe("contracts directory holds no mutable module state", () => {
     );
   });
 
+  it("keys the basis a scattering region is located by (M01, A19)", () => {
+    // A19/A20: the basis says where the scattering volume is taken, so two
+    // requests that differ in it are two different events, not one cache entry.
+    const scatter = build((draft) => {
+      (draft.mechanismPolicy as Mutable).family = "aurora";
+      (draft.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
+      draft.route = { kind: "scatter", basis: "great_circle_plane" };
+      draft.targetEvent = "conditional_decode";
+      (draft.scope as Mutable).domain = "mechanism_labeled_exposure";
+      (draft.scope as Mutable).horizon = "current";
+    });
+    expect(requestKeyProjection(scatter).route).toEqual({
+      kind: "scatter",
+      basis: "great_circle_plane",
+    });
+    expect(requestKey(scatter)).toContain('"basis":"great_circle_plane"');
+    // The direct fixture keys its leg and tangent instead, and the two route
+    // shapes never produce the same text.
+    expect(requestKey(build())).not.toContain("scatter");
+  });
+
   it("projects every scientific field the request schema declares (M01)", () => {
     // The projection is an allowlist, so it needs a guard binding it to the
     // schema: a new request field must be projected or listed as excluded, and

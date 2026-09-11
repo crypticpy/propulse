@@ -8,7 +8,8 @@
  *
  * In the key: context, issue/valid time, target event and scope, frequency,
  * mode profile, route shape (leg and azimuth only where there is one great
- * circle), mechanism/geometry policy, terrain and environment
+ * circle, the scattering basis where there is a scattering region),
+ * mechanism/geometry policy, terrain and environment
  * pack, station scenario, both station records in TX then RX order (so a
  * reciprocal request has its own key), relay/ephemeris identity, requested
  * model policy/id/version and policy version, and source mode.
@@ -155,6 +156,24 @@ function relayProjection(
   };
 }
 
+/**
+ * The route as the science sees it: a direct path keys on its leg and tangent,
+ * a scatter circuit on the basis its scattering region is located by, and a
+ * relayed path on nothing of its own (its geometry is the relay identity,
+ * which is projected separately).
+ */
+function routeProjection(
+  route: PredictionRequest["route"],
+): Record<string, Canonical> {
+  if (route.kind === "direct") {
+    return { kind: "direct", leg: route.leg, azimuthDeg: route.azimuthDeg };
+  }
+  if (route.kind === "scatter") {
+    return { kind: "scatter", basis: route.basis };
+  }
+  return { kind: "relayed" };
+}
+
 /** The exact scientific projection the key is computed from. */
 export function requestKeyProjection(
   request: PredictionRequest,
@@ -175,14 +194,10 @@ export function requestKeyProjection(
     scopeIntervalSeconds: request.scope.intervalSeconds,
     frequencyHz: request.frequencyHz,
     modeProfileId: request.modeProfileId,
-    route:
-      request.route.kind === "direct"
-        ? {
-            kind: "direct",
-            leg: request.route.leg,
-            azimuthDeg: request.route.azimuthDeg,
-          }
-        : { kind: "relayed" },
+    // A19/A20: the scatter basis says where the scattering region is taken,
+    // which is part of the event being predicted, so it enters the key exactly
+    // as the leg and azimuth of a direct path do.
+    route: routeProjection(request.route),
     mechanismFamily: request.mechanismPolicy.family,
     geometryClass: request.mechanismPolicy.geometryClass,
     terrainProfileId: request.terrainProfileId,

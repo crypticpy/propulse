@@ -19,6 +19,7 @@
           "minHz": 1800000,
           "maxHz": 2000000
         },
+        "intervalSecondsRange": null,
         "bandKeys": ["160m"],
         "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
@@ -55,6 +56,7 @@
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
+        "intervalSecondsRange": null,
         "bandKeys": ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
         "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": [
@@ -91,6 +93,7 @@
           "minHz": 2000000.0,
           "maxHz": 30000000.0
         },
+        "intervalSecondsRange": null,
         "bandKeys": [],
         "modeProfileIds": ["ft8-wsjtx-2.7.0-15s"],
         "requiredInputs": ["snr2500", "decoder_response_calibration"],

@@ -20,6 +20,55 @@ function candidate(name: keyof typeof cases): Mutable {
   return structuredClone(cases[name]) as Mutable;
 }
 
+/**
+ * hfShortPath moved onto a bistatic scatter circuit for `family`: the frozen
+ * row for that family, the scatter route shape, and no direct leg.
+ */
+function scatterCase(
+  family: string,
+  basis = "great_circle_plane",
+  extra: (draft: Mutable) => void = () => {},
+): Mutable {
+  const draft = candidate("hfShortPath");
+  (draft.mechanismPolicy as Mutable).family = family;
+  (draft.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
+  draft.route = { kind: "scatter", basis };
+  if (family === "aurora") {
+    draft.targetEvent = "conditional_decode";
+    (draft.scope as Mutable).domain = "mechanism_labeled_exposure";
+    (draft.scope as Mutable).horizon = "current";
+  } else {
+    // meteor, rain_scatter and aircraft_scatter are frozen as usable_burst
+    // over a known exposure interval.
+    draft.targetEvent = "usable_burst";
+    (draft.scope as Mutable).domain = "known_exposure_interval";
+    (draft.scope as Mutable).horizon = "current";
+    (draft.scope as Mutable).aggregation = "interval";
+    (draft.scope as Mutable).intervalSeconds = 900;
+  }
+  extra(draft);
+  return draft;
+}
+
+/**
+ * hfShortPath with the receiver moved `offsetDeg` from the transmitter and
+ * neither endpoint declaring its horizontal uncertainty.
+ */
+function unstatedPrecisionCase(offsetDeg: number): Mutable {
+  const draft = candidate("hfShortPath");
+  const tx = (draft.tx as Mutable).coordinates as Mutable;
+  const rx = (draft.rx as Mutable).coordinates as Mutable;
+  rx.latitudeDeg = tx.latitudeDeg;
+  rx.longitudeDeg = (tx.longitudeDeg as number) + offsetDeg;
+  for (const point of [tx, rx]) {
+    (point.precision as Mutable).horizontalMeters = {
+      state: "unknown",
+      reason: "not_reported",
+    };
+  }
+  return draft;
+}
+
 function issues(value: unknown): ContractIssue[] {
   const outcome = parseRequest(value);
   expect(outcome.ok).toBe(false);
@@ -143,20 +192,86 @@ describe("parseRequest fails closed", () => {
     );
   });
 
+  it.each(["aurora", "meteor", "rain_scatter"])(
+    "routes %s through a scattering region, not a direct leg (A19, A20)",
+    (family) => {
+      const outcome = parseRequest(scatterCase(family));
+      expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+      if (!outcome.ok) return;
+      expect(outcome.value.route).toEqual({
+        kind: "scatter",
+        basis: "great_circle_plane",
+      });
+    },
+  );
+
+  it("rejects a bistatic scatter request that declares a direct leg (A19)", () => {
+    const bad = scatterCase("meteor", "great_circle_plane", (draft) => {
+      draft.route = { kind: "direct", leg: "short", azimuthDeg: null };
+    });
+    expect(reasonsAt(bad, "route.kind").join()).toMatch(
+      /takes the scatter route shape/,
+    );
+  });
+
+  it("rejects a scatter route on a single-great-circle geometry (M06)", () => {
+    const bad = candidate("hfShortPath");
+    bad.route = { kind: "scatter", basis: "great_circle_plane" };
+    expect(reasonsAt(bad, "route.kind").join()).toMatch(
+      /must declare its short or long leg/,
+    );
+  });
+
+  it("rejects an aircraft-scatter request, whose target it cannot represent (A19)", () => {
+    const bad = scatterCase("aircraft_scatter", "target");
+    expect(reasonsAt(bad, "mechanismPolicy.family").join()).toMatch(
+      /no target identity or trajectory/,
+    );
+  });
+
+  it("rejects a target basis, which places no scatterer (A19)", () => {
+    const bad = scatterCase("meteor", "target");
+    expect(reasonsAt(bad, "route.basis").join()).toMatch(
+      /no target identity or trajectory to place it/,
+    );
+  });
+
+  it("rejects a scatter basis the named family does not use (A19, A20)", () => {
+    const bad = scatterCase("aircraft_scatter", "great_circle_plane");
+    expect(reasonsAt(bad, "route.basis").join()).toMatch(
+      /locates its scattering region on basis target/,
+    );
+  });
+
+  it("resolves an auto scatter request only onto representable families (A19)", () => {
+    const good = scatterCase("meteor", "great_circle_plane", (draft) => {
+      (draft.mechanismPolicy as Mutable).family = "auto";
+    });
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects antipodal endpoints on a scattering circuit (M06, A19)", () => {
+    const bad = scatterCase("meteor", "great_circle_plane", (draft) => {
+      const tx = (draft.tx as Mutable).coordinates as Mutable;
+      const rx = (draft.rx as Mutable).coordinates as Mutable;
+      rx.latitudeDeg = -(tx.latitudeDeg as number);
+      rx.longitudeDeg = (tx.longitudeDeg as number) + 180;
+    });
+    expect(reasonsAt(bad, "rx.coordinates").join()).toMatch(
+      /lie on no single great circle/,
+    );
+  });
+
   it("models aurora as bistatic scatter, not a great circle (A19)", () => {
     const bad = candidate("hfShortPath");
     (bad.mechanismPolicy as Mutable).family = "aurora";
     expect(reasonsAt(bad, "mechanismPolicy.geometryClass").join()).toMatch(
       /aurora is not requested on geometry class terrestrial_great_circle/,
     );
-    const good = candidate("hfShortPath");
-    (good.mechanismPolicy as Mutable).family = "aurora";
-    (good.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
-    // The protocol freezes aurora as a mechanism-labelled exposure row.
-    good.targetEvent = "conditional_decode";
-    (good.scope as Mutable).domain = "mechanism_labeled_exposure";
-    (good.scope as Mutable).horizon = "current";
-    const outcome = parseRequest(good);
+    // The protocol freezes aurora as a mechanism-labelled exposure row, and
+    // A19 puts its scattering volume in the plane of the terminal circle.
+    const outcome = parseRequest(scatterCase("aurora"));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
@@ -400,16 +515,8 @@ describe("parseRequest fails closed", () => {
   });
 
   it("accepts an interval-valued event with a positive interval scope", () => {
-    const good = candidate("hfShortPath");
-    good.targetEvent = "usable_burst";
-    (good.scope as Mutable).aggregation = "interval";
-    (good.scope as Mutable).intervalSeconds = 900;
     // usable_burst is frozen as a known exposure interval on a scatter family.
-    (good.scope as Mutable).domain = "known_exposure_interval";
-    (good.scope as Mutable).horizon = "current";
-    (good.mechanismPolicy as Mutable).family = "meteor";
-    (good.mechanismPolicy as Mutable).geometryClass = "bistatic_scatter";
-    const outcome = parseRequest(good);
+    const outcome = parseRequest(scatterCase("meteor"));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
   });
 
@@ -592,6 +699,52 @@ describe("parseRequest fails closed", () => {
     // it keeps its leg and derives its own tangent.
     const outcome = parseRequest(nearAntipodalCase(0.5, 1));
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects near-coincident endpoints whose precision is unstated (M06)", () => {
+    // One degree apart is about 100 km, and neither endpoint says how well it
+    // knows where it is. Read as exact, that is an ordinary path; read as what
+    // the producer actually declared, the two cannot be told apart.
+    const bad = unstatedPrecisionCase(1);
+    expect(
+      reasonsAt(bad, "rx.coordinates.precision.horizontalMeters").join(),
+    ).toMatch(/cannot be told apart from coincident/);
+  });
+
+  it("accepts the same short path once its precision is declared (M06)", () => {
+    const good = unstatedPrecisionCase(1);
+    for (const end of ["tx", "rx"] as const) {
+      (
+        ((good[end] as Mutable).coordinates as Mutable).precision as Mutable
+      ).horizontalMeters = { state: "known", value: 5 };
+    }
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("keeps a long path legal with an unstated precision (M06)", () => {
+    // The fixture path is Austin to Sydney: far from coincident and far from
+    // antipodal even at the coarsest position the contract admits.
+    const good = candidate("hfShortPath");
+    for (const end of ["tx", "rx"] as const) {
+      (
+        ((good[end] as Mutable).coordinates as Mutable).precision as Mutable
+      ).horizontalMeters = { state: "unknown", reason: "not_reported" };
+    }
+    const outcome = parseRequest(good);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("rejects near-antipodal endpoints whose precision is unstated (M06)", () => {
+    const bad = nearAntipodalCase(0.5, 1);
+    for (const end of ["tx", "rx"] as const) {
+      (
+        ((bad[end] as Mutable).coordinates as Mutable).precision as Mutable
+      ).horizontalMeters = { state: "unknown", reason: "not_reported" };
+    }
+    expect(
+      reasonsAt(bad, "rx.coordinates.precision.horizontalMeters").join(),
+    ).toMatch(/cannot be told apart from antipodal/);
   });
 
   it("rejects a leg on antipodal endpoints (M06)", () => {

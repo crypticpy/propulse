@@ -21,6 +21,7 @@ import {
   COORDINATE_PRECISION_KINDS,
   GEOMETRY_CLASSES,
   type GeometryClass,
+  INTERVAL_VALUED_QUANTITIES,
   isKnownBandLabel,
   ANTENNA_CLASSES,
   HEIGHT_DATUMS,
@@ -33,7 +34,6 @@ import {
   PREDICTION_DOMAINS,
   PREDICTION_HORIZONS,
   PREDICTION_QUANTITIES,
-  type PredictionQuantity,
   PERMITTED_GEOMETRY_CLASSES,
   PERMITTED_RELAY_KINDS,
   PERMITTED_RELAY_KINDS_BY_MECHANISM,
@@ -43,7 +43,10 @@ import {
   REQUEST_SCHEMA_VERSION,
   RECEIVER_CLASSES,
   ROUTE_LEGS,
+  SCATTER_BASES,
+  SCATTER_BASIS_BY_MECHANISM,
   SOURCE_MODES,
+  UNREPRESENTABLE_MECHANISM_FAMILIES,
 } from "@/lib/propagation/contracts/enums";
 import {
   canonicalCoordinates,
@@ -315,28 +318,79 @@ type GeoPoint = {
  * `horizontalMeters` larger than that still wins, since a producer may know
  * its position is worse than the grid it was rounded onto.
  */
-function declaredUncertaintyMeters(point: GeoPoint): number {
+function declaredUncertaintyMeters(point: GeoPoint): number | null {
   const declared =
     point.precision.horizontalMeters.state === "known"
       ? point.precision.horizontalMeters.value
-      : 0;
+      : null;
   if (
     point.precision.kind !== "quantized_cell" ||
     point.precision.cellSizeDeg === null
   ) {
     return declared;
   }
+  return Math.max(
+    declared ?? 0,
+    cellHalfDiagonalMeters(point.latitudeDeg, point.precision.cellSizeDeg),
+  );
+}
+
+/** Half the diagonal of a `cellSizeDeg` cell at this latitude, in metres. */
+function cellHalfDiagonalMeters(
+  latitudeDeg: number,
+  cellSizeDeg: number,
+): number {
+  const latRad = (latitudeDeg * Math.PI) / 180;
+  const cellSideMeters = ((cellSizeDeg * Math.PI) / 180) * EARTH_RADIUS_M;
+  return (
+    (cellSideMeters / 2) * Math.sqrt(1 + Math.cos(latRad) * Math.cos(latRad))
+  );
+}
+
+/**
+ * M06: a coordinate whose horizontal uncertainty is `unknown` is not a
+ * coordinate known to the metre - it is a coordinate whose producer has said
+ * it cannot say. Reading the missing number as zero would let two endpoints a
+ * few metres apart, or a pair a few metres from antipodal, be resolved into a
+ * unique route out of precision nobody claimed.
+ *
+ * What the declaration does bound is the coarsest position it could be: a
+ * `maidenhead_grid` coordinate with no stated sigma may be a two-character
+ * field, 10 degrees of latitude by 20 of longitude, and that is the coarsest
+ * quantization this contract's precision kinds admit at all. So an unstated
+ * uncertainty is treated as that field's half-diagonal rather than as zero. A
+ * producer that knows better says so: `horizontalMeters` may be declared
+ * `known` with any value, including a metre-level one, and the declared number
+ * is then what the geometry uses.
+ *
+ * A `quantized_cell` coordinate is exempt: it states its own cell size, which
+ * is a stated bound rather than a missing one.
+ */
+const UNSTATED_PRECISION_LATITUDE_DEG = 10;
+const UNSTATED_PRECISION_LONGITUDE_DEG = 20;
+
+function unstatedUncertaintyMeters(point: GeoPoint): number {
   const latRad = (point.latitudeDeg * Math.PI) / 180;
-  const cellSideMeters =
-    ((point.precision.cellSizeDeg * Math.PI) / 180) * EARTH_RADIUS_M;
-  const halfDiagonalMeters =
-    (cellSideMeters / 2) * Math.sqrt(1 + Math.cos(latRad) * Math.cos(latRad));
-  return Math.max(declared, halfDiagonalMeters);
+  const metresPerDeg = (Math.PI / 180) * EARTH_RADIUS_M;
+  const latSide = UNSTATED_PRECISION_LATITUDE_DEG * metresPerDeg;
+  const lonSide =
+    UNSTATED_PRECISION_LONGITUDE_DEG * metresPerDeg * Math.cos(latRad);
+  return Math.hypot(latSide, lonSide) / 2;
+}
+
+/** Whether this endpoint leaves its horizontal uncertainty unstated (M06). */
+function hasUnstatedPrecision(point: GeoPoint): boolean {
+  return declaredUncertaintyMeters(point) === null;
+}
+
+/** The one-sigma radius the geometry uses: declared, or the unstated floor. */
+function effectiveUncertaintyMeters(point: GeoPoint): number {
+  return declaredUncertaintyMeters(point) ?? unstatedUncertaintyMeters(point);
 }
 
 function degeneracyToleranceRad(a: GeoPoint, b: GeoPoint): number {
   return (
-    (declaredUncertaintyMeters(a) + declaredUncertaintyMeters(b)) /
+    (effectiveUncertaintyMeters(a) + effectiveUncertaintyMeters(b)) /
     EARTH_RADIUS_M
   );
 }
@@ -485,27 +539,11 @@ const relayIdentity = z.discriminatedUnion("kind", [
 ]);
 
 /**
- * Which events are sampled at an instant and which are defined over an
- * interval, per the protocol event definitions and M02.
- *
- * Instant-valued: `circuit_support`, `snr2500`, `field_strength`, `doppler`
- * and `conditional_decode`. The 24-hour view evaluates
- * `validAt[j] = issuedAt + j * 3600 s` as 24 labelled instantaneous samples,
- * and a decode event's observation duration is a property of the declared mode
- * profile carried in the payload, not an aggregation of the scope.
- *
- * Interval-valued: `network_detection` (the model's own hourly bucket, which
- * M02 keeps as a separate interval-valued head), `observed_activity` (reports
- * within an explicit time interval), `usable_burst` (at least one burst in an
- * exposed interval) and `pass_geometry` (an AOS/LOS span). No instantaneous
- * sample may be relabelled as one of these.
+ * Re-exported from the enums table, where the capability contract reads it
+ * too: the interval quantities and the interval lengths a head was qualified
+ * for are one question (M02, M19).
  */
-export const INTERVAL_VALUED_QUANTITIES: readonly PredictionQuantity[] = [
-  "network_detection",
-  "observed_activity",
-  "usable_burst",
-  "pass_geometry",
-];
+export { INTERVAL_VALUED_QUANTITIES };
 
 const requestScope = z
   .object({
@@ -596,6 +634,20 @@ export const predictionRequestSchema = z
             .describe(
               "true bearing in degrees measured clockwise from true north at the transmitting station",
             ),
+        })
+        .strict(),
+      /**
+       * A19/A20: a bistatic scatter circuit is two legs, terminal -> scattering
+       * region -> terminal, not one great circle travelled the short or the
+       * long way. There is no leg to choose and no single departure tangent to
+       * declare, so this shape carries neither; what it does carry is the
+       * basis on which the scattering region is located, which is part of the
+       * event and therefore part of the key.
+       */
+      z
+        .object({
+          kind: z.literal("scatter"),
+          basis: z.enum(SCATTER_BASES),
         })
         .strict(),
       z.object({ kind: z.literal("relayed") }).strict(),
@@ -731,6 +783,14 @@ export const predictionRequestSchema = z
         `Band label ${value.bandKey} does not contain ${value.frequencyHz} Hz (A02)`,
       );
     }
+    // M06: with an unstated uncertainty the degeneracy tests run on the
+    // unstated floor, so a refusal there is a refusal to invent precision
+    // rather than a statement that the two endpoints are close.
+    const unstated =
+      hasUnstatedPrecision(value.tx.coordinates) ||
+      hasUnstatedPrecision(value.rx.coordinates);
+    const unstatedAdvice =
+      "neither endpoint declares its horizontal uncertainty, so the coarsest position this contract admits is what separates them; declare horizontalMeters to ask for a finer path (M06)";
     const coincident = isCoincident(value.tx.coordinates, value.rx.coordinates);
     const antipodal = isExactlyAntipodal(
       value.tx.coordinates,
@@ -744,6 +804,9 @@ export const predictionRequestSchema = z
     const relayed = RELAY_REQUIRED_GEOMETRY_CLASSES.includes(
       value.mechanismPolicy.geometryClass,
     );
+    // A19/A20: a scattering circuit is its own route shape, neither a single
+    // great circle nor a relayed pair of legs fixed by a declared body.
+    const scatter = value.mechanismPolicy.geometryClass === "bistatic_scatter";
     if (relayed) {
       // A21: a relayed request has no single great-circle tangent to derive or
       // to be told. Each leg's bearing comes from the relay identity, so there
@@ -804,22 +867,58 @@ export const predictionRequestSchema = z
       // when the two ground stations sit together.
       reject(
         ctx,
-        ["rx", "coordinates"],
-        `Coincident endpoints are a zero-distance circuit, which geometry class ${value.mechanismPolicy.geometryClass} cannot answer (M06)`,
+        unstated && !sameCoordinates(value.tx.coordinates, value.rx.coordinates)
+          ? ["rx", "coordinates", "precision", "horizontalMeters"]
+          : ["rx", "coordinates"],
+        unstated && !sameCoordinates(value.tx.coordinates, value.rx.coordinates)
+          ? `These endpoints cannot be told apart from coincident: ${unstatedAdvice}`
+          : `Coincident endpoints are a zero-distance circuit, which geometry class ${value.mechanismPolicy.geometryClass} cannot answer (M06)`,
       );
     }
-    if (!relayed && value.route.kind !== "direct") {
+    if (!relayed && !scatter && value.route.kind !== "direct") {
       reject(
         ctx,
         ["route", "kind"],
         `Geometry class ${value.mechanismPolicy.geometryClass} is one great circle and must declare its short or long leg (M06)`,
       );
     }
+    if (scatter) {
+      if (value.route.kind !== "scatter") {
+        reject(
+          ctx,
+          ["route", "kind"],
+          "Geometry class bistatic_scatter is two legs through a scattering region, not one great circle travelled short or long, so it takes the scatter route shape (A19, A20)",
+        );
+      } else {
+        if (value.route.basis === "target") {
+          // The decision of record: the row stays in the frozen protocol, the
+          // request that would exercise it cannot be written down yet.
+          reject(
+            ctx,
+            ["route", "basis"],
+            "A target-basis scatter is answered against a discrete moving scatterer, and this schema version carries no target identity or trajectory to place it at validAt; the request cannot be represented (A19)",
+          );
+        }
+        if (antipodal) {
+          // Two antipodal terminals lie on infinitely many great circles, so
+          // "the plane of the terminal great circle" names no plane at all.
+          reject(
+            ctx,
+            ["rx", "coordinates"],
+            "Antipodal endpoints lie on no single great circle, so a great_circle_plane scattering region cannot be placed (M06, A19)",
+          );
+        }
+      }
+    }
     if (ambiguous && !relayed) {
       reject(
         ctx,
-        ["rx", "coordinates"],
-        "These endpoints are antipodal to within their declared position uncertainty, which cannot resolve the short from the long route (M06)",
+        unstated
+          ? ["rx", "coordinates", "precision", "horizontalMeters"]
+          : ["rx", "coordinates"],
+        unstated
+          ? `These endpoints cannot be told apart from antipodal: ${unstatedAdvice}`
+          : "These endpoints are antipodal to within their declared position uncertainty, which cannot resolve the short from the long route (M06)",
       );
     }
     if (value.route.kind === "direct" && !relayed) {
@@ -870,6 +969,33 @@ export const predictionRequestSchema = z
     const relayKind = value.relay === null ? null : value.relay.kind;
     if (
       family !== "auto" &&
+      UNREPRESENTABLE_MECHANISM_FAMILIES.includes(family)
+    ) {
+      reject(
+        ctx,
+        ["mechanismPolicy", "family"],
+        `Mechanism family ${family} scatters from a discrete moving target, and this schema version carries no target identity or trajectory to represent it; the request cannot be answered on terminal geometry alone (A19)`,
+      );
+    }
+    // A19/A20: family and basis are two names for one geometry. Aurora, meteor
+    // and rain scatter take their volume in the plane of the terminal great
+    // circle; an aircraft is a target. A request that pairs them freely would
+    // place the scattering region somewhere the named family never puts it.
+    if (
+      value.route.kind === "scatter" &&
+      family !== "auto" &&
+      SCATTER_BASIS_BY_MECHANISM[family] !== value.route.basis
+    ) {
+      reject(
+        ctx,
+        ["route", "basis"],
+        SCATTER_BASIS_BY_MECHANISM[family] === null
+          ? `Mechanism family ${family} does not scatter and takes no scatter basis (A19)`
+          : `Mechanism family ${family} locates its scattering region on basis ${SCATTER_BASIS_BY_MECHANISM[family]}, not ${value.route.basis} (A19, A20)`,
+      );
+    }
+    if (
+      family !== "auto" &&
       !PERMITTED_GEOMETRY_CLASSES[family].includes(geometryClass)
     ) {
       reject(
@@ -897,8 +1023,28 @@ export const predictionRequestSchema = z
      * The families this request could still be answered by: exactly one when
      * the caller named it, every surviving candidate when it said "auto".
      */
+    const scatterBasis =
+      value.route.kind === "scatter" ? value.route.basis : null;
     const resolvable: MechanismFamily[] =
-      family === "auto" ? candidates : [family];
+      family === "auto"
+        ? candidates.filter(
+            (candidate) =>
+              // A family the request schema cannot express is not a family the
+              // router may quietly resolve "auto" onto.
+              !UNREPRESENTABLE_MECHANISM_FAMILIES.includes(candidate) &&
+              (scatterBasis === null ||
+                SCATTER_BASIS_BY_MECHANISM[candidate] === scatterBasis),
+          )
+        : [family];
+    if (family === "auto" && candidates.length > 0 && resolvable.length === 0) {
+      reject(
+        ctx,
+        scatterBasis === null
+          ? ["mechanismPolicy", "geometryClass"]
+          : ["route", "basis"],
+        `No mechanism family this request could resolve to is representable in this schema version on geometry class ${geometryClass} (A19)`,
+      );
+    }
     // M11: the frozen protocol says which claims exist. A request for a
     // (event, domain, horizon, family) the protocol never froze, or one at a
     // frequency inside a gap between a grouped band's constituents, has no row

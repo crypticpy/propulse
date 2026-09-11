@@ -35,6 +35,8 @@ import {
   CORRECTION_ORDER,
   COVARIANCE_OWNERSHIP,
   GEOMETRY_CLASSES,
+  INTERVAL_VALUED_QUANTITIES,
+  UNREPRESENTABLE_MECHANISM_FAMILIES,
   MAX_REQUEST_FREQUENCY_HZ,
   MECHANISM_FAMILIES,
   MIN_REQUEST_FREQUENCY_HZ,
@@ -79,6 +81,29 @@ const frequencyRange = z
     }
   });
 
+/**
+ * M02/M19: the interval lengths an interval-valued head was qualified for,
+ * inclusive at both ends. An hourly detection probability and a one-second one
+ * are different events, not two resolutions of one event, so a head answers
+ * only the lengths it declares and routing matches the request's own
+ * `scope.intervalSeconds` against this range.
+ */
+const intervalSecondsRange = z
+  .object({
+    minSeconds: finite.positive(),
+    maxSeconds: finite.positive(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.minSeconds > value.maxSeconds) {
+      reject(
+        ctx,
+        ["maxSeconds"],
+        "An interval range must satisfy minSeconds <= maxSeconds",
+      );
+    }
+  });
+
 const capabilityHead = z
   .object({
     quantity: z.enum(PREDICTION_QUANTITIES),
@@ -97,6 +122,12 @@ const capabilityHead = z
     /** Empty exactly when the quantity involves no receive chain (A01). */
     receiverClasses: z.array(z.enum(RECEIVER_CLASSES)),
     frequencyRangeHz: frequencyRange,
+    /**
+     * Null exactly when the quantity is sampled at an instant: there is no
+     * interval to qualify. Interval-valued quantities declare the range they
+     * answer (M02).
+     */
+    intervalSecondsRange: intervalSecondsRange.nullable(),
     /**
      * M11: which source postures this head can actually be served under. A
      * head trained on live indices cannot answer an offline request, and an
@@ -133,6 +164,20 @@ const capabilityHead = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    // M02: an instantaneous quantity has no interval to be qualified for, and
+    // a head that declared one would be advertising a length routing could
+    // never send it. A gap declaration for an interval quantity may leave the
+    // range null; a routable one may not (see the routable branch below).
+    if (
+      !INTERVAL_VALUED_QUANTITIES.includes(value.quantity) &&
+      value.intervalSecondsRange !== null
+    ) {
+      reject(
+        ctx,
+        ["intervalSecondsRange"],
+        `Quantity ${value.quantity} is sampled at an instant and declares no interval range (M02)`,
+      );
+    }
     if (value.units !== QUANTITY_UNITS[value.quantity]) {
       reject(
         ctx,
@@ -263,6 +308,7 @@ function coverageTupleKey(head: {
   receiverClasses: readonly string[];
   modeProfileIds: readonly string[];
   frequencyRangeHz: { minHz: number; maxHz: number };
+  intervalSecondsRange: { minSeconds: number; maxSeconds: number } | null;
 }): string {
   // Structural, not concatenated: any separator character is legal inside an
   // identifier, so ["a","b"] must not collide with ["a+b"]. Sorting and
@@ -281,6 +327,12 @@ function coverageTupleKey(head: {
     set(head.modeProfileIds),
     head.frequencyRangeHz.minHz,
     head.frequencyRangeHz.maxHz,
+    head.intervalSecondsRange === null
+      ? null
+      : [
+          head.intervalSecondsRange.minSeconds,
+          head.intervalSecondsRange.maxSeconds,
+        ],
   ]);
 }
 
@@ -365,6 +417,33 @@ export const modelCapabilitySchema = z
           ctx,
           ["heads", index, dimension.field],
           `A routable head declares at least one ${dimension.field}; an empty list matches no request (M19)`,
+        );
+      }
+      const unrepresentable = head.mechanismFamilies.filter((family) =>
+        UNREPRESENTABLE_MECHANISM_FAMILIES.includes(family),
+      );
+      if (unrepresentable.length > 0) {
+        // A19: the request contract cannot express a request for these
+        // families, so nothing could ever be routed here. The frozen protocol
+        // still carries the row; this is where the row is made unclaimable.
+        reject(
+          ctx,
+          ["heads", index, "mechanismFamilies"],
+          `No request can be written for mechanism family ${unrepresentable.join(", ")} in this schema version, so a routable head cannot advertise it (A19)`,
+        );
+      }
+      if (
+        INTERVAL_VALUED_QUANTITIES.includes(head.quantity) &&
+        head.intervalSecondsRange === null
+      ) {
+        // M02/M19: the request declares the length of the interval it is
+        // asking about, and a head that does not say which lengths it was
+        // qualified for would be routed for a one-second probability as
+        // readily as for an hourly one - a different event, same head.
+        reject(
+          ctx,
+          ["heads", index, "intervalSecondsRange"],
+          `A routable ${head.quantity} head is defined over an interval and declares the interval lengths it answers (M02, M19)`,
         );
       }
       // M19: two routable heads that could both answer one request leave the
@@ -579,6 +658,12 @@ export interface CapabilityQuery {
   domain: ModelCapabilityHead["domain"];
   horizon: ModelCapabilityHead["horizons"][number];
   frequencyHz: number;
+  /**
+   * M02: the length of the interval the request asks about, and null for an
+   * instantaneous sample. It is a routing dimension because it is part of the
+   * event: `scope.intervalSeconds` and this field are the same number.
+   */
+  intervalSeconds: number | null;
   geometryClass: ModelCapabilityHead["geometryClasses"][number];
   mechanismFamily: ModelCapabilityHead["mechanismFamilies"][number];
   modeProfileId: string;
@@ -678,6 +763,59 @@ export const ROUTING_DIMENSIONS: readonly RoutingDimension[] = [
   },
 ];
 
+/**
+ * The routing dimensions that are ranges rather than sets: the head declares
+ * an interval of numbers and the query carries one number that has to fall
+ * inside it. Kept beside `ROUTING_DIMENSIONS` and read by the same three
+ * rules, so the containment test in `capabilityCovers` and the overlap test
+ * between two routable heads cannot drift apart.
+ *
+ * A `null` range means the dimension is silent for this head, and a `null`
+ * demand means the request carries no such number; the two only match each
+ * other, so an interval request never lands on an instantaneous head and an
+ * instantaneous request never lands on an interval one.
+ */
+interface RangeRoutingDimension {
+  field: "frequencyRangeHz" | "intervalSecondsRange";
+  range: (head: ModelCapabilityHead) => { min: number; max: number } | null;
+  demand: (query: CapabilityQuery) => number | null;
+}
+
+export const RANGE_ROUTING_DIMENSIONS: readonly RangeRoutingDimension[] = [
+  {
+    field: "frequencyRangeHz",
+    range: (head) => ({
+      min: head.frequencyRangeHz.minHz,
+      max: head.frequencyRangeHz.maxHz,
+    }),
+    demand: (query) => query.frequencyHz,
+  },
+  {
+    field: "intervalSecondsRange",
+    range: (head) =>
+      head.intervalSecondsRange === null
+        ? null
+        : {
+            min: head.intervalSecondsRange.minSeconds,
+            max: head.intervalSecondsRange.maxSeconds,
+          },
+    demand: (query) => query.intervalSeconds,
+  },
+];
+
+/** Whether this head answers the number the query carries on this dimension. */
+function rangeCovers(
+  dimension: RangeRoutingDimension,
+  head: ModelCapabilityHead,
+  query: CapabilityQuery,
+): boolean {
+  const range = dimension.range(head);
+  const demand = dimension.demand(query);
+  if (range === null || demand === null)
+    return range === null && demand === null;
+  return demand >= range.min && demand <= range.max;
+}
+
 /** The query values a dimension demands of this head, or none when it is silent. */
 function dimensionDemands(
   dimension: RoutingDimension,
@@ -718,12 +856,13 @@ function headsOverlap(
   if (left.quantity !== right.quantity || left.domain !== right.domain) {
     return false;
   }
-  if (
-    left.frequencyRangeHz.minHz > right.frequencyRangeHz.maxHz ||
-    right.frequencyRangeHz.minHz > left.frequencyRangeHz.maxHz
-  ) {
-    return false;
-  }
+  const rangesMeet = RANGE_ROUTING_DIMENSIONS.every((dimension) => {
+    const here = dimension.range(left);
+    const there = dimension.range(right);
+    if (here === null || there === null) return here === null && there === null;
+    return here.min <= there.max && there.min <= here.max;
+  });
+  if (!rangesMeet) return false;
   return ROUTING_DIMENSIONS.every((dimension) => {
     if (!dimension.gates(left) && !dimension.gates(right)) return true;
     return intersects(dimension.values(left), dimension.values(right));
@@ -771,8 +910,9 @@ export function capabilityCovers(
           dimension.values(head).includes(value),
         ),
       ) &&
-      query.frequencyHz >= head.frequencyRangeHz.minHz &&
-      query.frequencyHz <= head.frequencyRangeHz.maxHz &&
+      RANGE_ROUTING_DIMENSIONS.every((dimension) =>
+        rangeCovers(dimension, head, query),
+      ) &&
       // A declared range can span a gap between the constituents of a grouped
       // protocol band (100 MHz lies between 4 m and 2 m). The protocol froze
       // no row there, so nothing may be routed there either.
@@ -824,6 +964,8 @@ export function capabilityKeyProjection(
       sourceModes: [...head.sourceModes],
       minHz: head.frequencyRangeHz.minHz,
       maxHz: head.frequencyRangeHz.maxHz,
+      minIntervalSeconds: head.intervalSecondsRange?.minSeconds ?? null,
+      maxIntervalSeconds: head.intervalSecondsRange?.maxSeconds ?? null,
       bandKeys: [...head.bandKeys],
       modeProfileIds: [...head.modeProfileIds],
       requiredInputs: [...head.requiredInputs],

@@ -240,22 +240,23 @@ function buildSatellitesSpec(): LayerLegendSpec {
 }
 
 /**
- * "Map orbit" track styling (#994 PR B). Past/future segments share one
- * satellite's category color at the same two alphas GroundTrack (globe) and
- * FlatMapView's drawSatelliteTracks use — 0.18 dimmed past, 0.45 bright
- * future — so the swatches read exactly as faint/bright the way the tracks
- * themselves render, not an arbitrary pair of colors. White is the ISS
- * marker's own color (CATEGORY_COLORS.iss) and the satellite most commonly
- * tracked, kept as a marker swatch here the same way buildSatellitesSpec's
- * own ISS row already renders it.
+ * "Map orbit" track styling (#994 PR B). Past segments render dim (0.18
+ * alpha) and future bright (0.45) in both GroundTrack (globe) and
+ * FlatMapView's drawSatelliteTracks, over each satellite's own category
+ * color -- but a track's actual on-canvas color varies per satellite, and a
+ * literal 18%-alpha white swatch is unreadable against the panel background.
+ * These two entries represent that dim/bright relationship, not the
+ * rendered alpha values themselves: both use the `--su-text` tone at alphas
+ * chosen to stay legible on `--su-panel` while still reading as clearly
+ * distinct from each other.
  */
 function buildOrbitTrackSpec(): LayerLegendSpec {
   return {
     key: "satelliteOrbitTrack",
     title: "Orbit track",
     entries: [
-      { color: "rgba(255,255,255,0.18)", label: "Past" },
-      { color: "rgba(255,255,255,0.45)", label: "Future" },
+      { color: "rgba(202,210,220,0.4)", label: "Past" },
+      { color: "rgba(202,210,220,0.9)", label: "Future" },
     ],
     note: "10-min marks",
   };

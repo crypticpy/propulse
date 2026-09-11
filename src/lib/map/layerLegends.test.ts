@@ -546,12 +546,14 @@ describe("buildLayerLegends", () => {
       expect(spec.entries.map((e) => e.label)).toEqual(["Past", "Future"]);
       expect(spec.note).toMatch(/10-min/);
 
-      // Same alphas GroundTrack (globe) and drawSatelliteTracks (flat map)
-      // draw past/future segments at, not arbitrary swatch colors.
+      // Legible su-text-toned swatches at clearly distinct alphas -- not the
+      // literal 0.18/0.45 rendered alphas, which at su-text's own brightness
+      // would still read but which the spec deliberately keeps decoupled
+      // from the per-satellite category color the real tracks draw in.
       const past = spec.entries.find((e) => e.label === "Past")!;
       const future = spec.entries.find((e) => e.label === "Future")!;
-      expect(past.color).toContain("0.18");
-      expect(future.color).toContain("0.45");
+      expect(past.color).toBe("rgba(202,210,220,0.4)");
+      expect(future.color).toBe("rgba(202,210,220,0.9)");
     });
 
     it("omits the orbit track entry in azimuthal, where satellites never render", () => {

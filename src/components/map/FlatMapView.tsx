@@ -3379,6 +3379,7 @@ function drawSatelliteTracks(
   ctx: CanvasRenderingContext2D,
   tracks: FlatSatelliteTrackEntry[],
   zoomScale = 1.0,
+  labelScale = 1.0,
 ) {
   if (tracks.length === 0) return;
   const zoomDamp = Math.max(1, zoomScale);
@@ -3421,7 +3422,7 @@ function drawSatelliteTracks(
     }
 
     ctx.globalAlpha = 1;
-    const fontSize = Math.max(1, Math.round(9 / zoomDamp));
+    const fontSize = Math.max(1, Math.round((10 * labelScale) / zoomDamp));
     ctx.font = `${fontSize}px monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -3758,16 +3759,9 @@ export function FlatMapView({
   // Store-driven "Map orbit" tracks (#994 PR B), companion to the globe's
   // GroundTrack in SatelliteOverlay.tsx.
   const satelliteTracks = useMapStore((s) => s.satelliteTracks);
-  // Re-anchor tracks on "now" once a minute without rebuilding them on every
-  // 5s satellite position poll tick (mirrors SatelliteOverlay's minuteTick).
-  const [satelliteTrackMinuteTick, setSatelliteTrackMinuteTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(
-      () => setSatelliteTrackMinuteTick((t) => t + 1),
-      60_000,
-    );
-    return () => clearInterval(id);
-  }, []);
+  // `satPositions` gets a new array identity on every 5s satellite position
+  // poll (useSatellites), so this memo already rebuilds -- and re-anchors
+  // "now" -- at least that often; no separate re-anchor tick is needed.
   const flatSatelliteTracks = useMemo((): FlatSatelliteTrackEntry[] => {
     if (!layers.satellites) return [];
     const entries: FlatSatelliteTrackEntry[] = [];
@@ -3788,9 +3782,6 @@ export function FlatMapView({
       });
     }
     return entries;
-    // satelliteTrackMinuteTick intentionally re-anchors "now" once a minute;
-    // it isn't otherwise read.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     layers.satellites,
     satelliteTracks,
@@ -3798,7 +3789,6 @@ export function FlatMapView({
     selectedSat,
     displaySize.width,
     displaySize.height,
-    satelliteTrackMinuteTick,
   ]);
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
@@ -6175,7 +6165,7 @@ export function FlatMapView({
       );
     }
     if (layers.satellites && flatSatelliteTracks.length > 0) {
-      drawSatelliteTracks(ctx, flatSatelliteTracks, zoom.scale);
+      drawSatelliteTracks(ctx, flatSatelliteTracks, zoom.scale, labelScale);
     }
     if (layers.satellites && satPositions.length > 0) {
       drawSatellites(

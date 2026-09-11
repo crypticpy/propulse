@@ -46,11 +46,13 @@ const viewer = { viewerLat: 5, viewerLon: 15 };
 
 function draw(
   profile: PublicProfile,
-  coords: { viewerLat?: number; viewerLon?: number } = viewer,
+  coords: {
+    viewerLat?: number;
+    viewerLon?: number;
+    viewerGrid?: string;
+  } = viewer,
 ) {
-  return render(
-    <ContactThisStation profile={profile} {...coords} />,
-  );
+  return render(<ContactThisStation profile={profile} {...coords} />);
 }
 
 describe("ContactThisStation coordinate presence (#369)", () => {
@@ -60,11 +62,36 @@ describe("ContactThisStation coordinate presence (#369)", () => {
   });
 
   it.each([
-    ["target latitude 0", { lat: 0, lon: 20 }, viewer, { targetLat: 0, targetLon: 20, viewerLat: 5, viewerLon: 15 }],
-    ["target longitude 0", { lat: 10, lon: 0 }, viewer, { targetLat: 10, targetLon: 0, viewerLat: 5, viewerLon: 15 }],
-    ["viewer latitude 0", { lat: 10, lon: 20 }, { viewerLat: 0, viewerLon: 15 }, { targetLat: 10, targetLon: 20, viewerLat: 0, viewerLon: 15 }],
-    ["viewer longitude 0", { lat: 10, lon: 20 }, { viewerLat: 5, viewerLon: 0 }, { targetLat: 10, targetLon: 20, viewerLat: 5, viewerLon: 0 }],
-    ["equator and prime meridian", { lat: 0, lon: 0 }, { viewerLat: 0, viewerLon: 0 }, { targetLat: 0, targetLon: 0, viewerLat: 0, viewerLon: 0 }],
+    [
+      "target latitude 0",
+      { lat: 0, lon: 20 },
+      viewer,
+      { targetLat: 0, targetLon: 20, viewerLat: 5, viewerLon: 15 },
+    ],
+    [
+      "target longitude 0",
+      { lat: 10, lon: 0 },
+      viewer,
+      { targetLat: 10, targetLon: 0, viewerLat: 5, viewerLon: 15 },
+    ],
+    [
+      "viewer latitude 0",
+      { lat: 10, lon: 20 },
+      { viewerLat: 0, viewerLon: 15 },
+      { targetLat: 10, targetLon: 20, viewerLat: 0, viewerLon: 15 },
+    ],
+    [
+      "viewer longitude 0",
+      { lat: 10, lon: 20 },
+      { viewerLat: 5, viewerLon: 0 },
+      { targetLat: 10, targetLon: 20, viewerLat: 5, viewerLon: 0 },
+    ],
+    [
+      "equator and prime meridian backed by grids",
+      { lat: 0, lon: 0, grid: "JJ00aa" },
+      { viewerLat: 0, viewerLon: 0, viewerGrid: "JJ00aa" },
+      { targetLat: 0, targetLon: 0, viewerLat: 0, viewerLon: 0 },
+    ],
   ] as const)(
     "renders for %s",
     (_label, profileCoords, viewerCoords, expectedCoords) => {
@@ -96,9 +123,41 @@ describe("ContactThisStation coordinate presence (#369)", () => {
   });
 
   it("returns null when viewer coordinates are absent", () => {
-    const { container } = render(
-      <ContactThisStation profile={baseProfile} />,
-    );
+    const { container } = render(<ContactThisStation profile={baseProfile} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // ProfilePage stores a callsign-only station as lat: 0, lon: 0, grid: "",
+  // and profileSync publishes that pair. Treating it as Gulf of Guinea would
+  // invent a distance and a band recommendation for a station with no location.
+  it("returns null for a callsign-only target saved with the (0, 0) sentinel", () => {
+    const { container } = draw({
+      ...baseProfile,
+      lat: 0,
+      lon: 0,
+      grid: "",
+    });
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("returns null when the viewer is callsign-only with the (0, 0) sentinel", () => {
+    const { container } = draw(baseProfile, {
+      viewerLat: 0,
+      viewerLon: 0,
+      viewerGrid: "",
+    });
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("still renders when only one coordinate of a gridless station is zero", () => {
+    draw(
+      { ...baseProfile, lat: 0, lon: 20, grid: undefined },
+      {
+        viewerLat: 5,
+        viewerLon: 0,
+        viewerGrid: undefined,
+      },
+    );
+    expect(screen.getByText("Contact TEST1")).toBeTruthy();
   });
 });

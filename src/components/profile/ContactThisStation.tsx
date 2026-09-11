@@ -19,15 +19,28 @@ import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 
 function isValidLatitude(value: number | undefined): value is number {
-  return (
-    value != null && Number.isFinite(value) && Math.abs(value) <= 90
-  );
+  return value != null && Number.isFinite(value) && Math.abs(value) <= 90;
 }
 
 function isValidLongitude(value: number | undefined): value is number {
-  return (
-    value != null && Number.isFinite(value) && Math.abs(value) <= 180
-  );
+  return value != null && Number.isFinite(value) && Math.abs(value) <= 180;
+}
+
+/**
+ * A callsign-only station is stored with an explicit `(0, 0)` sentinel and no
+ * grid (see `ProfilePage` handleSaveProfile), and profileSync publishes that
+ * pair as-is. So the exact null-island pair only counts as a location when a
+ * grid backs it up. A zero in one coordinate alone is a real place (the
+ * equator, or the prime meridian) and stays accepted either way.
+ */
+function hasStationLocation(
+  lat: number | undefined,
+  lon: number | undefined,
+  grid: string | undefined,
+): boolean {
+  if (!isValidLatitude(lat) || !isValidLongitude(lon)) return false;
+  if (lat === 0 && lon === 0) return (grid ?? "").trim().length > 0;
+  return true;
 }
 
 interface ContactCoordinates {
@@ -40,14 +53,18 @@ interface ContactCoordinates {
 function readContactCoordinates(
   profileLat: number | undefined,
   profileLon: number | undefined,
+  profileGrid: string | undefined,
   viewerLat: number | undefined,
   viewerLon: number | undefined,
+  viewerGrid: string | undefined,
 ): ContactCoordinates | null {
   if (
     !isValidLatitude(profileLat) ||
     !isValidLongitude(profileLon) ||
     !isValidLatitude(viewerLat) ||
-    !isValidLongitude(viewerLon)
+    !isValidLongitude(viewerLon) ||
+    !hasStationLocation(profileLat, profileLon, profileGrid) ||
+    !hasStationLocation(viewerLat, viewerLon, viewerGrid)
   ) {
     return null;
   }
@@ -107,8 +124,10 @@ export function ContactThisStation({
   const coords = readContactCoordinates(
     profile.lat,
     profile.lon,
+    profile.grid,
     viewerLat,
     viewerLon,
+    viewerGrid,
   );
 
   const ourPerf = useChainPerformance();

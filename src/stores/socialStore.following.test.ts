@@ -8,6 +8,7 @@ const supabaseMocks = vi.hoisted(() => ({
   profiles: vi.fn(),
   upsert: vi.fn(),
   insert: vi.fn(),
+  del: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/lib/supabase", () => ({
         in: () => supabaseMocks.profiles(),
       }),
       upsert: (...args: unknown[]) => supabaseMocks.upsert(...args),
+      delete: () => ({ eq: () => ({ eq: () => supabaseMocks.del() }) }),
       insert: (...args: unknown[]) => supabaseMocks.insert(...args),
       __table: table,
     }),
@@ -409,5 +411,109 @@ describe("socialStore following is account-scoped (#995)", () => {
     expect(state.followingLoadedForUserId).toBeNull();
     expect(state.followingLoadError?.userId).toBe("user-a");
     expect(state.isRefreshingFollowing).toBe(false);
+  });
+
+  it("does not let a refresh that read the old row resurrect an unfollow", async () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      following: [{ id: "operator-1", callsign: "OPERATOR-1" }],
+      followingLoadedForUserId: "user-a",
+    });
+
+    const stale = deferred();
+    const afterUnfollow = deferred();
+    supabaseMocks.follows
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(afterUnfollow.promise);
+    supabaseMocks.profiles.mockResolvedValue({
+      data: [profileRow("operator-1")],
+      error: null,
+    });
+    supabaseMocks.del.mockResolvedValue({ error: null });
+
+    // A refresh is in flight and has already read the follow row.
+    const refresh = useSocialStore.getState().fetchFollowing();
+
+    const unfollow = useSocialStore.getState().unfollowUser("operator-1");
+    afterUnfollow.resolve({ data: [], error: null });
+    await unfollow;
+
+    stale.resolve({ data: [{ following_id: "operator-1" }], error: null });
+    await refresh;
+
+    const state = useSocialStore.getState();
+    expect(state.following).toEqual([]);
+    expect(state.followingLoadedForUserId).toBe("user-a");
+    expect(state.followingLoadError).toBeNull();
+  });
+
+  it("keeps the unfollow when a superseded refresh fails afterwards", async () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      following: [{ id: "operator-1", callsign: "OPERATOR-1" }],
+      followingLoadedForUserId: "user-a",
+    });
+
+    const stale = deferred();
+    const afterUnfollow = deferred();
+    supabaseMocks.follows
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(afterUnfollow.promise);
+    supabaseMocks.del.mockResolvedValue({ error: null });
+
+    const refresh = useSocialStore.getState().fetchFollowing();
+    const unfollow = useSocialStore.getState().unfollowUser("operator-1");
+    afterUnfollow.resolve({ data: [], error: null });
+    await unfollow;
+
+    stale.resolve({ data: null, error: { message: "network" } });
+    await refresh;
+
+    const state = useSocialStore.getState();
+    // A superseded request may not clear the write that superseded it, and
+    // may not put the viewer into the retry state either.
+    expect(state.following).toEqual([]);
+    expect(state.followingLoadedForUserId).toBe("user-a");
+    expect(state.followingLoadError).toBeNull();
+  });
+
+  it("ends on the server's answer through an unfollow / re-follow interleave", async () => {
+    signedInAs("user-a");
+    useSocialStore.setState({
+      following: [{ id: "operator-1", callsign: "OPERATOR-1" }],
+      followingLoadedForUserId: "user-a",
+    });
+
+    const stale = deferred();
+    supabaseMocks.follows
+      .mockReturnValueOnce(stale.promise)
+      // after the unfollow
+      .mockResolvedValueOnce({ data: [], error: null })
+      // after the re-follow
+      .mockResolvedValueOnce({
+        data: [{ following_id: "operator-1" }],
+        error: null,
+      });
+    supabaseMocks.profiles.mockResolvedValue({
+      data: [profileRow("operator-1")],
+      error: null,
+    });
+    supabaseMocks.del.mockResolvedValue({ error: null });
+    supabaseMocks.upsert.mockResolvedValue({ error: null });
+
+    const refresh = useSocialStore.getState().fetchFollowing();
+    await useSocialStore.getState().unfollowUser("operator-1");
+    expect(useSocialStore.getState().following).toEqual([]);
+
+    await useSocialStore.getState().followUser("operator-1");
+
+    // The very first refresh, older than both writes, lands last.
+    stale.resolve({ data: [{ following_id: "operator-1" }], error: null });
+    await refresh;
+
+    const state = useSocialStore.getState();
+    expect(state.following.map((p) => p.id)).toEqual(["operator-1"]);
+    expect(state.followingLoadedForUserId).toBe("user-a");
+    expect(state.followingLoadError).toBeNull();
   });
 });

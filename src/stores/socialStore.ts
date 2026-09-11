@@ -112,6 +112,17 @@ export function viewerFriendship(
  */
 let followingFetchGeneration = 0;
 
+/**
+ * Supersede every in-flight `fetchFollowing`. Any local write to the follow
+ * set makes the answers already on the wire older than the truth: a refresh
+ * that read the follow row before an unfollow would otherwise land afterwards
+ * and resurrect it, reopening friends-only content. Called by every writer of
+ * `following`, which then converges by re-reading the server.
+ */
+function supersedeFollowingLoads(): void {
+  followingFetchGeneration += 1;
+}
+
 // ── Store ───────────────────────────────────────────────────────────────
 
 interface SocialStore {
@@ -231,7 +242,8 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     // its tag: clearing there made every remount flash the viewer as a
     // stranger, hiding friends-only content and offering "Follow" for a
     // relation that already exists.
-    const generation = ++followingFetchGeneration;
+    supersedeFollowingLoads();
+    const generation = followingFetchGeneration;
     const cacheBelongsToUser = get().followingLoadedForUserId === userId;
     set(
       cacheBelongsToUser
@@ -331,6 +343,10 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId || userId === targetUserId) return;
 
+    // The write makes every load already on the wire stale, whatever its
+    // outcome: they answered from before it.
+    supersedeFollowingLoads();
+
     try {
       const supabase = getSupabase();
 
@@ -347,13 +363,17 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
       if (error) {
         console.error("[socialStore] followUser error:", error.message);
+        // The load this write superseded is gone either way, so re-read
+        // rather than leaving the set frozen at a guess.
+        await get().fetchFollowing();
         return;
       }
 
-      // Refresh following list
+      // Converge on the server's answer rather than an optimistic one.
       await get().fetchFollowing();
     } catch (err) {
       console.error("[socialStore] followUser exception:", err);
+      await get().fetchFollowing();
     }
   },
 
@@ -363,6 +383,8 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     if (!isSupabaseConfigured) return;
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
+
+    supersedeFollowingLoads();
 
     try {
       const supabase = getSupabase();
@@ -375,15 +397,23 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
       if (error) {
         console.error("[socialStore] unfollowUser error:", error.message);
+        // Nothing optimistic has been written yet (the removal follows a
+        // successful delete), so there is nothing to revert; re-read to
+        // replace the load this write superseded.
+        await get().fetchFollowing();
         return;
       }
 
-      // Optimistically remove from following list
+      // Remove it locally so the UI answers immediately, then converge: the
+      // fetch below is the one that decides, and any load older than this
+      // write has already been superseded.
       set((state) => ({
         following: state.following.filter((p) => p.id !== targetUserId),
       }));
+      await get().fetchFollowing();
     } catch (err) {
       console.error("[socialStore] unfollowUser exception:", err);
+      await get().fetchFollowing();
     }
   },
 
@@ -448,13 +478,18 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
   // ── Reset ─────────────────────────────────────────────────────────
 
-  clearFollowing: () =>
+  clearFollowing: () => {
+    supersedeFollowingLoads();
     set({
       following: [],
       followingLoadedForUserId: null,
       isRefreshingFollowing: false,
       followingLoadError: null,
-    }),
+    });
+  },
 
-  reset: () => set(initialState),
+  reset: () => {
+    supersedeFollowingLoads();
+    set(initialState);
+  },
 }));

@@ -283,3 +283,47 @@ describe("units", () => {
     expect(head.units).toBe("count");
   });
 });
+
+describe("a partial window cannot carry an exact count", () => {
+  const gapped = [
+    WINDOW_HOURS[0],
+    WINDOW_HOURS[1],
+    WINDOW_HOURS[2],
+    WINDOW_HOURS[4],
+    WINDOW_HOURS[5],
+  ].map((hour_utc) => ({ hour_utc }));
+
+  it("projects missing_input even though reports exist", () => {
+    // The contract's count is exact over the stated interval. Reports from a
+    // window with a hole are a floor, not a count, so the head declines to
+    // state one rather than narrowing the interval (which M02 anchors on
+    // issuance, not on what happened to be readable).
+    const partial = record({ readableHours: gapped });
+    expect(partial.state).toBe("verified_open");
+
+    const { head, evidenceSource } = projectObservedActivityHead(
+      partial,
+      IDENTITY,
+    );
+
+    expect(head.state.availability).toBe("missing_input");
+    expect("value" in head.state).toBe(false);
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("aggregate_hour_not_readable");
+    expect(head.intervalSeconds).toBe(partial.intervalSeconds);
+    expect(parseResult(resultWith(head, [evidenceSource])).ok).toBe(true);
+  });
+
+  it("states the count when the whole window is readable", () => {
+    const { head } = projectObservedActivityHead(record(), IDENTITY);
+
+    expect(head.state.availability).toBe("available");
+    expect(
+      head.state.availability === "available" && head.state.value.count,
+    ).toBe(6);
+    expect(
+      head.state.availability === "available" && head.state.value.intervalEndAt,
+    ).toBe("2026-09-11T18:00:00.000Z");
+  });
+});

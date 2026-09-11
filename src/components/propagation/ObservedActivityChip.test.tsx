@@ -51,7 +51,9 @@ const BASE = {
   intervalSeconds: 21600,
   modeClasses: ["cw", "digital", "phone"] as const,
   aggregationLagSeconds: 0,
-  unreadableHourCount: 0,
+  requestedHourCount: 6,
+  readableHourCount: 6,
+  unreadableSpans: [],
 };
 
 const VERIFIED_OPEN: PathActivityRecord = {
@@ -67,6 +69,7 @@ const VERIFIED_OPEN: PathActivityRecord = {
   latestQualifiedHourEnd: "2026-09-11T17:00:00.000Z",
   ageSeconds: 3600,
   ageKind: "report",
+  countIsLowerBound: false,
 };
 
 const NO_REPORTS: PathActivityRecord = {
@@ -124,6 +127,25 @@ describe("verified_open", () => {
     expect(
       screen.getByRole("group", { name: /observed activity/i }).textContent,
     ).toMatch(/12 reports/);
+  });
+
+  it("says in words that a partial window makes the count a floor", () => {
+    mountWith({
+      ...VERIFIED_OPEN,
+      countIsLowerBound: true,
+      readableHourCount: 5,
+      unreadableSpans: [
+        {
+          startAt: "2026-09-11T15:00:00.000Z",
+          endAt: "2026-09-11T16:00:00.000Z",
+        },
+      ],
+    });
+
+    const group = screen.getByRole("group", { name: /observed activity/i });
+    expect(within(group).getByText(/at least 12 reports/i)).toBeTruthy();
+    expect(within(group).getByText(/partial window/i)).toBeTruthy();
+    expect(group.textContent).not.toMatch(/closed|dead|no propagation/i);
   });
 
   it("flags a wholly backfilled count instead of dropping it", () => {

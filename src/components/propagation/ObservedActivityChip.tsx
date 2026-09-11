@@ -28,6 +28,16 @@ interface ObservedActivityChipProps {
   className?: string;
 }
 
+/**
+ * How much of the window the aggregates cannot speak for, in words. The gap
+ * is named rather than hinted at, because "at least" with no reason reads as
+ * hedging instead of as a missing hour.
+ */
+function missingHourPhrase(record: PathActivityRecord): string {
+  const missing = record.requestedHourCount - record.readableHourCount;
+  return missing === 1 ? "1 hour is" : `${missing} hours are`;
+}
+
 /** An elapsed span in the coarsest unit that stays honest. */
 function formatAge(seconds: number): string {
   if (seconds < 120) return "just now";
@@ -113,8 +123,15 @@ export function ObservedActivityChip({
             Latest {formatAge(record.ageSeconds)}
           </p>
           <p className="font-mono text-sm text-su-muted">
+            {record.countIsLowerBound ? "At least " : ""}
             {record.count} reports
           </p>
+          {record.countIsLowerBound && (
+            <p className="text-sm text-su-muted">
+              Partial window: {missingHourPhrase(record)} missing from the
+              aggregate, so this is a floor, not a total.
+            </p>
+          )}
           {record.fieldAttribution === "callsign_backfill" && (
             <p className="text-sm text-su-muted">
               Grid from callsign, not from the report itself

@@ -18,11 +18,14 @@
  * Everything here is pure: rows plus `issuedAt` in, a verdict out. No clock.
  */
 
-import type {
-  CoverageVerdict,
-  PathCoverageRow,
-  ReadableBandHourRow,
-  ReadableSpan,
+import {
+  MODE_CLASSES,
+  type CoverageVerdict,
+  type ModeClass,
+  type PathCoverageRow,
+  type ReadableBandHourRow,
+  type ReadableSpan,
+  type UnreadableSpan,
 } from "@/lib/propagation/radioEvidence/types";
 
 const HOUR_MS = 3_600_000;
@@ -99,18 +102,45 @@ export function readableSpan(
 }
 
 /**
- * The hours on which the receiving field was heard from at all.
+ * The unreadable hours of a span, merged into contiguous intervals.
+ *
+ * The end is the start of the next hour after the run, so a single missing
+ * hour reads as the hour it is rather than as an instant.
+ */
+export function unreadableSpans(span: ReadableSpan): UnreadableSpan[] {
+  const spans: UnreadableSpan[] = [];
+  for (const hour of span.unreadableHourStarts) {
+    const last = spans[spans.length - 1];
+    if (last !== undefined && last.endAt === hour) {
+      spans[spans.length - 1] = { startAt: last.startAt, endAt: hourEnd(hour) };
+      continue;
+    }
+    spans.push({ startAt: hour, endAt: hourEnd(hour) });
+  }
+  return spans;
+}
+
+/**
+ * The hours on which the receiving field was heard from at all, in the modes
+ * the request asked about.
  *
  * A row counts whatever its `tx_field`: coverage is about the receiver being
- * present in the network, not about our pair. Rows carrying `unique_rx = 0`
- * are an aggregation artefact of a band-hour, not a listening receiver.
+ * present in the network, not about our pair. The mode set is not optional in
+ * the same way: a digital-only receiver proves nothing about a CW request, and
+ * counting it would turn "nobody was listening for CW" into "heard nothing on
+ * CW". Rows carrying `unique_rx = 0` are an aggregation artefact of a
+ * band-hour, not a listening receiver.
  */
 export function coveredHours(
   coverageRows: readonly PathCoverageRow[],
+  modeClasses: readonly ModeClass[] = MODE_CLASSES,
 ): Set<string> {
+  const modes = new Set<string>(modeClasses);
   const covered = new Set<string>();
   for (const row of coverageRows) {
-    if (row.unique_rx > 0) covered.add(normalizeHourStart(row.hour_utc));
+    if (row.unique_rx > 0 && modes.has(row.mode_class)) {
+      covered.add(normalizeHourStart(row.hour_utc));
+    }
   }
   return covered;
 }
@@ -120,6 +150,8 @@ export interface CoverageQuery {
   readonly windowSeconds: number;
   readonly readableHours: readonly ReadableBandHourRow[];
   readonly coverageRows: readonly PathCoverageRow[];
+  /** Modes the request asks about; defaults to all three. */
+  readonly modeClasses?: readonly ModeClass[];
 }
 
 /**
@@ -139,7 +171,7 @@ export function resolveCoverage(query: CoverageQuery): CoverageVerdict {
   if (span.readableHourStarts.length === 0) {
     return { kind: "unknown", span, reason: "aggregate_hour_not_readable" };
   }
-  const heard = coveredHours(query.coverageRows);
+  const heard = coveredHours(query.coverageRows, query.modeClasses);
   const coveredHourStarts = span.readableHourStarts.filter((hour) =>
     heard.has(hour),
   );

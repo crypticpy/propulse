@@ -49,6 +49,17 @@ export type UnknownReason =
  */
 export type FieldAttribution = "direct" | "callsign_backfill";
 
+/**
+ * A contiguous run of window hours the aggregates cannot speak for, as an
+ * interval. A count would say how much is missing; a span says which part, so
+ * a consumer can tell a fresh gap from an old one.
+ */
+export interface UnreadableSpan {
+  readonly startAt: string;
+  /** Exclusive: the start of the first readable hour after the gap. */
+  readonly endAt: string;
+}
+
 /** Which instant an age was measured from, so the two never read alike. */
 export type AgeKind = "report" | "coverage";
 
@@ -125,8 +136,16 @@ export interface PathActivityBase {
    * Null when the window holds no readable hour at all.
    */
   readonly aggregationLagSeconds: number | null;
-  /** How many whole hours of the window the gap ledger removed. */
-  readonly unreadableHourCount: number;
+  /** Whole hours the window asked about. */
+  readonly requestedHourCount: number;
+  /** Of those, how many the gap-filtered view exposes. */
+  readonly readableHourCount: number;
+  /**
+   * The hours it does not, as intervals. Empty means the evidence spans the
+   * whole window, which is the only condition under which silence is silence
+   * and a count is exact.
+   */
+  readonly unreadableSpans: readonly UnreadableSpan[];
 }
 
 /** Reports per mode class, always summing to `count`. */
@@ -138,11 +157,21 @@ export type ModeClassCounts = Readonly<Record<ModeClass, number>>;
  * `count` exists only on the two states that can honestly state one. On
  * `unknown` the field is structurally absent rather than zero: "missing is
  * never zero" (M11), and a zero here would be read as a closed path.
+ *
+ * `no_reports` additionally requires every hour of the window to be readable.
+ * Silence over five of six hours is not silence over the window: the sixth
+ * could hold every report on the path, so that case is `unknown`.
  */
 export type PathActivityRecord =
   | (PathActivityBase & {
       readonly state: "verified_open";
       readonly count: number;
+      /**
+       * True when part of the window is unreadable. The reports are real, so
+       * the state stands; the count is then a floor rather than a total, and
+       * every consumer has to say so.
+       */
+      readonly countIsLowerBound: boolean;
       /** Largest hourly distinct-transmitter count; hours are not summed. */
       readonly uniqueTx: number;
       /** Largest hourly distinct-receiver count; hours are not summed. */

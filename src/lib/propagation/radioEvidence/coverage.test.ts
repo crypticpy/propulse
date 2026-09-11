@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_OBSERVED_WINDOW_SECONDS,
   resolveCoverage,
+  unreadableSpans,
 } from "@/lib/propagation/radioEvidence/coverage";
 import type {
   PathCoverageRow,
@@ -139,5 +140,78 @@ describe("gap handling", () => {
     });
 
     expect(verdict.kind).toBe("covered");
+  });
+  it("counts a receiver as listening only in the requested modes", () => {
+    // A digital-only receiver proves nothing about a CW request: the operator
+    // asked whether anyone was listening for CW, and nobody was. Treating the
+    // digital row as coverage would turn that into "heard nothing on CW",
+    // which is the closure claim by another route.
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS),
+      coverageRows: [coverageRow(WINDOW_HOURS[3], "JN", 4)],
+      modeClasses: ["cw"],
+    });
+
+    expect(verdict.kind).toBe("unknown");
+    if (verdict.kind !== "unknown") return;
+    expect(verdict.reason).toBe("no_receiver_coverage");
+  });
+
+  it("covers the request when a row is in the requested mode set", () => {
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS),
+      coverageRows: [coverageRow(WINDOW_HOURS[3], "JN", 4)],
+      modeClasses: ["cw", "digital"],
+    });
+
+    expect(verdict.kind).toBe("covered");
+  });
+
+  it("names the unreadable hours as spans, not just a count", () => {
+    // A consumer that must decide whether a count is exact needs to know
+    // which hours are missing, not how many.
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable([
+        WINDOW_HOURS[0],
+        WINDOW_HOURS[1],
+        WINDOW_HOURS[4],
+        WINDOW_HOURS[5],
+      ]),
+      coverageRows: [coverageRow(WINDOW_HOURS[5], "JN", 4)],
+    });
+
+    expect(verdict.kind).toBe("covered");
+    expect(verdict.span.unreadableHourStarts).toEqual([
+      WINDOW_HOURS[2],
+      WINDOW_HOURS[3],
+    ]);
+    expect(unreadableSpans(verdict.span)).toEqual([
+      { startAt: WINDOW_HOURS[2], endAt: "2026-09-11T16:00:00.000Z" },
+    ]);
+  });
+
+  it("merges only contiguous gaps into one span", () => {
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable([
+        WINDOW_HOURS[1],
+        WINDOW_HOURS[3],
+        WINDOW_HOURS[4],
+      ]),
+      coverageRows: [coverageRow(WINDOW_HOURS[4], "JN", 4)],
+    });
+
+    expect(unreadableSpans(verdict.span)).toEqual([
+      { startAt: WINDOW_HOURS[0], endAt: WINDOW_HOURS[1] },
+      { startAt: WINDOW_HOURS[2], endAt: WINDOW_HOURS[3] },
+      { startAt: WINDOW_HOURS[5], endAt: "2026-09-11T18:00:00.000Z" },
+    ]);
   });
 });

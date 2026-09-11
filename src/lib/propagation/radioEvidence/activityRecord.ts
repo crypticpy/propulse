@@ -14,6 +14,7 @@ import {
   hourEnd,
   normalizeHourStart,
   resolveCoverage,
+  unreadableSpans,
   windowStartAt,
 } from "@/lib/propagation/radioEvidence/coverage";
 import {
@@ -84,7 +85,9 @@ export function unknownActivity(
     intervalSeconds: windowSeconds,
     modeClasses: [...(descriptor.modeClasses ?? MODE_CLASSES)],
     aggregationLagSeconds: null,
-    unreadableHourCount: 0,
+    requestedHourCount: 0,
+    readableHourCount: 0,
+    unreadableSpans: [],
     state: "unknown",
     reason,
   };
@@ -104,6 +107,7 @@ export function derivePathActivity(
     windowSeconds,
     readableHours: inputs.readableHours,
     coverageRows: inputs.coverageRows,
+    modeClasses,
   });
   const { span } = coverage;
 
@@ -119,14 +123,11 @@ export function derivePathActivity(
       span.latestReadableHourEnd === null
         ? null
         : ageSecondsBetween(inputs.issuedAt, span.latestReadableHourEnd),
-    unreadableHourCount: span.unreadableHourStarts.length,
+    requestedHourCount: span.candidateHourStarts.length,
+    readableHourCount: span.readableHourStarts.length,
+    unreadableSpans: unreadableSpans(span),
   };
-
-  if (coverage.kind === "unknown") {
-    // No count field at all: "missing is never zero" (M11). A zero here would
-    // be read as a closed band by every consumer that ever renders it.
-    return { ...base, state: "unknown", reason: coverage.reason };
-  }
+  const windowComplete = span.unreadableHourStarts.length === 0;
 
   const readable = new Set(span.readableHourStarts);
   const modes = new Set(modeClasses);
@@ -134,7 +135,25 @@ export function derivePathActivity(
     qualifies(row, readable, modes),
   );
 
+  // Reports first, and deliberately: a report inside a readable hour is real
+  // evidence whatever happened in an unreadable one. Qualification already
+  // requires a readable hour, so this cannot fire on an unaggregated window.
   if (qualified.length === 0) {
+    if (coverage.kind === "unknown") {
+      // No count field at all: "missing is never zero" (M11). A zero here
+      // would be read as a closed band by every consumer that renders it.
+      return { ...base, state: "unknown", reason: coverage.reason };
+    }
+    if (!windowComplete) {
+      // Silence over part of a window is not silence over the window: the
+      // missing hour could hold every report on this path. `no_reports` would
+      // state a zero for hours nothing here can see.
+      return {
+        ...base,
+        state: "unknown",
+        reason: "aggregate_hour_not_readable",
+      };
+    }
     return {
       ...base,
       state: "no_reports",
@@ -179,6 +198,9 @@ export function derivePathActivity(
     ...base,
     state: "verified_open",
     count,
+    // The reports are real; the claim that they are all of them is not, once
+    // an hour of the window is missing.
+    countIsLowerBound: !windowComplete,
     uniqueTx,
     uniqueRx,
     modeCounts: modeCounts as ModeClassCounts,

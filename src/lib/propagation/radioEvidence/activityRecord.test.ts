@@ -203,7 +203,112 @@ describe("age", () => {
     // 16:00 is the newest readable hour, so the aggregates are an hour behind
     // issuance even though the window runs to 18:00.
     expect(record.aggregationLagSeconds).toBe(3600);
-    expect(record.unreadableHourCount).toBe(1);
+    expect(record.requestedHourCount).toBe(6);
+    expect(record.readableHourCount).toBe(5);
+    expect(record.unreadableSpans).toEqual([
+      { startAt: WINDOW_HOURS[5], endAt: "2026-09-11T18:00:00.000Z" },
+    ]);
+  });
+});
+
+describe("an incomplete window is not coverage", () => {
+  const gapped = [
+    WINDOW_HOURS[0],
+    WINDOW_HOURS[1],
+    WINDOW_HOURS[2],
+    WINDOW_HOURS[4],
+    WINDOW_HOURS[5],
+  ];
+
+  it("refuses no_reports while any window hour is unreadable", () => {
+    // Silence over five of six hours is not silence over the window. The
+    // sixth hour could hold every report on this path, and nothing here can
+    // rule that out, so the verdict is unknown and names the gap.
+    const record = derive({
+      pairRows: [],
+      coverageRows: [
+        {
+          hour_utc: WINDOW_HOURS[4],
+          mode_class: "digital",
+          tx_field: "JN",
+          unique_rx: 5,
+        },
+      ],
+      readableHours: readable(gapped),
+    });
+
+    expect(record.state).not.toBe("no_reports");
+    expect(record.state).toBe("unknown");
+    if (record.state !== "unknown") return;
+    expect(record.reason).toBe("aggregate_hour_not_readable");
+    expect("count" in record).toBe(false);
+    expect(record.unreadableSpans).toEqual([
+      { startAt: WINDOW_HOURS[3], endAt: WINDOW_HOURS[4] },
+    ]);
+  });
+
+  it("still states verified_open on a partial window, as a lower bound", () => {
+    // A report inside a readable hour is real evidence whatever happened in
+    // the gap. The count survives; the claim that it is the whole count does
+    // not.
+    const record = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[4], spot_count: 9 })],
+      readableHours: readable(gapped),
+    });
+
+    expect(record.state).toBe("verified_open");
+    if (record.state !== "verified_open") return;
+    expect(record.count).toBe(9);
+    expect(record.countIsLowerBound).toBe(true);
+    expect(record.unreadableSpans).toHaveLength(1);
+  });
+
+  it("states an exact count when every window hour is readable", () => {
+    const record = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[4], spot_count: 9 })],
+    });
+
+    expect(record.state === "verified_open" && record.countIsLowerBound).toBe(
+      false,
+    );
+    expect(record.unreadableSpans).toEqual([]);
+  });
+
+  it("still reports silence over a wholly readable window", () => {
+    const record = derive({
+      pairRows: [],
+      coverageRows: [
+        {
+          hour_utc: WINDOW_HOURS[4],
+          mode_class: "digital",
+          tx_field: "JN",
+          unique_rx: 5,
+        },
+      ],
+    });
+
+    expect(record.state).toBe("no_reports");
+  });
+});
+
+describe("coverage answers the requested modes", () => {
+  it("does not let a digital receiver cover a CW request", () => {
+    const record = derive({
+      pairRows: [],
+      modeClasses: ["cw"],
+      coverageRows: [
+        {
+          hour_utc: WINDOW_HOURS[4],
+          mode_class: "digital",
+          tx_field: "JN",
+          unique_rx: 5,
+        },
+      ],
+    });
+
+    expect(record.state).toBe("unknown");
+    if (record.state !== "unknown") return;
+    expect(record.reason).toBe("no_receiver_coverage");
   });
 });
 
@@ -300,11 +405,14 @@ describe("mode filter", () => {
 
     const record = derive({ modeClasses, pairRows: [phoneOnly] });
 
-    // The phone row does not qualify, but it still proves a receiver was
-    // listening, so the cell is a covered silence and not an unknown.
-    expect(record.state).toBe("no_reports");
-    if (record.state !== "no_reports") return;
-    expect(record.count).toBe(0);
+    // The phone row neither qualifies as a report nor establishes coverage:
+    // a receiver decoding SSB says nothing about whether anyone was copying
+    // CW. Calling it a covered silence would answer the CW question with
+    // phone evidence.
+    expect(record.state).toBe("unknown");
+    if (record.state !== "unknown") return;
+    expect(record.reason).toBe("no_receiver_coverage");
+    expect("count" in record).toBe(false);
     expect(record.modeClasses).toEqual(["cw"]);
   });
 

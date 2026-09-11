@@ -164,6 +164,23 @@ export function projectObservedActivityHead(
     };
   }
 
+  if (activity.state === "verified_open" && activity.countIsLowerBound) {
+    // The contract's count is exact over the interval it states, and M02
+    // anchors that interval on issuance, so a floor cannot be published by
+    // narrowing the interval to the readable part. The record keeps the
+    // reports for the UI; the head declines to state a number it cannot back.
+    return {
+      head: {
+        ...base,
+        state: {
+          availability: "missing_input",
+          reason: "aggregate_hour_not_readable",
+        },
+      },
+      evidenceSource: evidenceSourceFor(activity, identity),
+    };
+  }
+
   return {
     head: {
       ...base,

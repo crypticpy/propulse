@@ -911,8 +911,8 @@ function crossCheckDecodeMargin(
 
 /**
  * M07: when one result carries both a circuit-support head and an SNR head
- * from the same model, the SNR head's support state is one of the verdicts the
- * circuit-support head published for that mechanism. A pair that disagrees
+ * from the same model and the same artefacts, the SNR head's support state is
+ * one of the verdicts the circuit-support head published for that mechanism. A pair that disagrees
  * offers a consumer two answers to "does this circuit carry power" with
  * nothing in the contract to choose between them.
  *
@@ -939,6 +939,19 @@ function crossCheckCircuitSupport(
     return;
   }
   if (!("value" in snr.state) || !("value" in support.state)) return;
+  if (
+    snr.effectiveModelId !== support.effectiveModelId ||
+    snr.effectiveModelVersion !== support.effectiveModelVersion ||
+    // M24: two heads from different artefacts are two different models for
+    // replay. A result may legally serve one head from a fallback model, and
+    // two models are entitled to disagree about whether a circuit carries
+    // power; only one model contradicting itself is a contract violation.
+    snr.modelHash !== support.modelHash ||
+    snr.preprocessingHash !== support.preprocessingHash ||
+    snr.featureHash !== support.featureHash
+  ) {
+    return;
+  }
   const published = support.state.value.modes
     .filter((mode) => mode.mechanism === snr.mechanismFamily)
     .map((mode) => mode.support);

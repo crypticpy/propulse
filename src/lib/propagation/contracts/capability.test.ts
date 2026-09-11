@@ -123,6 +123,16 @@ function protocolHead(quantity: (typeof PREDICTION_QUANTITIES)[number]) {
   // A02: no display labels, so a test may narrow the range without a label
   // contradicting it.
   head.bandKeys = [];
+  // A21: an orbital geometry is answered from an orbital state, so such a head
+  // must require the ephemeris.
+  if (
+    (head.geometryClasses as string[]).some(
+      (geometryClass) =>
+        geometryClass === "earth_space" || geometryClass === "earth_moon_earth",
+    )
+  ) {
+    head.requiredInputs = [...(head.requiredInputs as string[]), "ephemeris"];
+  }
   return { head, tuple };
 }
 
@@ -721,6 +731,9 @@ describe("parseCapability fails closed", () => {
     head.horizons = ["current"];
     head.mechanismFamilies = ["satellite"];
     head.geometryClasses = ["two_leg_relay"];
+    // A21: the relay body on this circuit is a spacecraft, so where it is at
+    // the valid time is an input the head requires.
+    head.requiredInputs = [...(head.requiredInputs as string[]), "ephemeris"];
     head.units = QUANTITY_UNITS.conditional_decode;
     head.uncertaintyKind = "none";
     head.frequencyRangeHz = protocolBandEnvelope("qualified_family_bands") as {
@@ -730,6 +743,70 @@ describe("parseCapability fails closed", () => {
     (draft.heads as Mutable[]).push(head);
     const outcome = parseCapability(draft);
     expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+  });
+
+  it("serves a deferred band row from the head's own declared range (M11)", () => {
+    // declared_model_bands names no frequencies: the row defers them to the
+    // declaration. A network model restricted to 20 m is therefore a legal
+    // head on that row, and must not have to advertise the whole radio
+    // universe to be accepted.
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head, tuple } = protocolHead("network_detection");
+    expect(tuple.band).toBe("declared_model_bands");
+    head.frequencyRangeHz = { minHz: 14e6, maxHz: 14.35e6 };
+    head.uncertaintyKind = "none";
+    (draft.heads as Mutable[]).push(head);
+    const outcome = parseCapability(draft);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+    if (!outcome.ok) return;
+    const networkQuery = {
+      ...secondQuery,
+      quantity: "network_detection",
+      domain: tuple.domain,
+      horizon: tuple.horizon,
+      mechanismFamily: tuple.mechanism,
+      geometryClass: "terrestrial_great_circle",
+      frequencyHz: 14.1e6,
+    } as const;
+    expect(capabilityCovers(outcome.value, networkQuery)).toBe(true);
+    // The row is the declaration's own range, so a frequency the declaration
+    // does not serve is on no row either.
+    expect(
+      capabilityCovers(outcome.value, { ...networkQuery, frequencyHz: 7e6 }),
+    ).toBe(false);
+  });
+
+  it("rejects an orbital head that does not require an ephemeris (A21, M11)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead("pass_geometry");
+    head.geometryClasses = ["earth_space"];
+    head.receiverClasses = [];
+    head.uncertaintyKind = "none";
+    head.requiredInputs = ["station_pair", "mode_profile"];
+    (draft.heads as Mutable[]).push(head);
+    expect(reasonsAt(draft, "heads[3].requiredInputs").join()).toMatch(
+      /orbital geometry must require an ephemeris \(A21, M11\)/,
+    );
+  });
+
+  it("rejects a satellite relay head that does not require an ephemeris (A21, M11)", () => {
+    const draft = structuredClone(cases.hfPhysics) as Mutable;
+    const { head } = protocolHead("conditional_decode");
+    head.domain = "configured_two_leg_path";
+    head.horizons = ["current"];
+    head.mechanismFamilies = ["satellite"];
+    head.geometryClasses = ["two_leg_relay"];
+    head.units = QUANTITY_UNITS.conditional_decode;
+    head.uncertaintyKind = "none";
+    head.requiredInputs = ["station_pair", "mode_profile"];
+    head.frequencyRangeHz = protocolBandEnvelope("qualified_family_bands") as {
+      minHz: number;
+      maxHz: number;
+    };
+    (draft.heads as Mutable[]).push(head);
+    expect(reasonsAt(draft, "heads[3].requiredInputs").join()).toMatch(
+      /orbital geometry must require an ephemeris \(A21, M11\)/,
+    );
   });
 
   it("accepts every routable head in the capability fixtures", () => {
@@ -851,6 +928,7 @@ describe("parseCapability fails closed", () => {
     head.geometryClasses = ["earth_space"];
     head.receiverClasses = [];
     head.uncertaintyKind = "none";
+    head.requiredInputs = ["station_pair", "mode_profile", "ephemeris"];
     (draft.heads as Mutable[]).push(head);
     const outcome = parseCapability(draft);
     if (!outcome.ok) {
@@ -863,6 +941,7 @@ describe("parseCapability fails closed", () => {
       horizon: tuple.horizon,
       mechanismFamily: tuple.mechanism,
       geometryClass: "earth_space",
+      availableInputs: ["station_pair", "mode_profile", "ephemeris"] as const,
     } as const;
     expect(capabilityCovers(outcome.value, passQuery)).toBe(true);
     // The same declaration does not cover a quantity that is received.

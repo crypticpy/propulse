@@ -1129,6 +1129,30 @@ describe("parseResult fails closed", () => {
     );
   });
 
+  it("does not cross-check support across different models (M07, M24)", () => {
+    // A result may serve one head from a fallback model. Two models are
+    // entitled to disagree about whether the circuit carries power; only one
+    // model contradicting itself is a contract violation.
+    const mixed = candidate("fullHfCircuit");
+    const snr = headFor(mixed, "snr2500");
+    ((snr.state as Mutable).value as Mutable).support =
+      "above_basic_muf_with_loss";
+    snr.effectiveModelId = "propulse-ml-nowcast";
+    snr.modelHash = `sha256:${"9".repeat(64)}`;
+    snr.fallbackReason = "requested_model_unavailable";
+    const outcome = parseResult(mixed);
+    expect(outcome.ok ? [] : outcome.issues).toEqual([]);
+
+    // The same contradiction from the result's own model is still rejected.
+    const sameModel = candidate("fullHfCircuit");
+    (
+      (headFor(sameModel, "snr2500").state as Mutable).value as Mutable
+    ).support = "above_basic_muf_with_loss";
+    expect(reasonsAt(sameModel, "heads[1].state.value.support").join()).toMatch(
+      /circuit-support head reports supported, screened for mechanism ground_sky_coherent/,
+    );
+  });
+
   it("rejects an eligible source whose version is not a pinned digest (M24)", () => {
     const bad = candidate("fullHfCircuit");
     const sources = (bad.evidence as Mutable).sources as Mutable[];

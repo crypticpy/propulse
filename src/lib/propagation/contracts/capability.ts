@@ -17,14 +17,16 @@ import {
   CAPABILITY_STATE_FOR_ROW_STATUS,
   isKnownBandLabel,
   isProtocolCoverage,
-  rangeCoversBand,
   PERMITTED_GEOMETRY_CLASSES,
   permittedRelayKinds,
   protocolCoverageContainsHz,
+  protocolRowServedByRange,
   RELAY_REQUIRED_GEOMETRY_CLASSES,
   protocolCoverageRows,
   RECEIVER_PARTICIPATION,
   type AntennaClass,
+  type GeometryClass,
+  type MechanismFamily,
   CAPABILITY_SCHEMA_VERSION,
   CAPABILITY_INPUT_IDS,
   type CapabilityInputId,
@@ -226,6 +228,31 @@ const correctionDescriptor = z
  * choosing between two answers to one question with nothing in the contract to
  * decide by, so the second declaration is refused rather than ranked (M11).
  */
+/**
+ * Whether a head's declared geometry needs an orbital state to be answered at
+ * all: a direct earth-space or earth-moon-earth path, or a two-leg relay whose
+ * relay body is a spacecraft or the Moon. `PERMITTED_RELAY_KINDS_BY_MECHANISM`
+ * makes those the orbital families, and the request contract already requires
+ * an orbital relay identity there (A21).
+ */
+function requiresEphemeris(
+  geometryClasses: readonly GeometryClass[],
+  mechanismFamilies: readonly MechanismFamily[],
+): boolean {
+  if (
+    geometryClasses.some(
+      (geometryClass) =>
+        geometryClass === "earth_space" || geometryClass === "earth_moon_earth",
+    )
+  ) {
+    return true;
+  }
+  if (!geometryClasses.includes("two_leg_relay")) return false;
+  return mechanismFamilies.some(
+    (mechanism) => mechanism === "satellite" || mechanism === "eme",
+  );
+}
+
 function coverageTupleKey(head: {
   quantity: string;
   domain: string;
@@ -365,6 +392,20 @@ export const modelCapabilitySchema = z
           `A routable ${head.quantity} head requires a calibration identity (M22)`,
         );
       }
+      if (
+        requiresEphemeris(head.geometryClasses, head.mechanismFamilies) &&
+        !head.requiredInputs.includes("ephemeris")
+      ) {
+        // A21: an orbital path is where the third body is, and where it is at
+        // the valid time comes from an ephemeris. A head that does not require
+        // one could be routed with no orbital state at all, and would answer
+        // the geometry from nothing (A21, M11).
+        reject(
+          ctx,
+          ["heads", index, "requiredInputs"],
+          "A head on an orbital geometry must require an ephemeris (A21, M11)",
+        );
+      }
       for (const mechanism of head.mechanismFamilies) {
         // A21/A22: family and geometry name one physical path, so a routable
         // head may not advertise a geometry class its family never takes.
@@ -407,7 +448,7 @@ export const modelCapabilitySchema = z
             const expected = new Set(
               protocolCoverageRows(claim)
                 .filter((row) =>
-                  rangeCoversBand(head.frequencyRangeHz, row.band),
+                  protocolRowServedByRange(row, head.frequencyRangeHz),
                 )
                 .map((row) => CAPABILITY_STATE_FOR_ROW_STATUS[row.status]),
             );
@@ -608,6 +649,9 @@ export function capabilityCovers(
           mechanism: query.mechanismFamily,
         },
         query.frequencyHz,
+        // A row on a deferred band label takes its frequencies from this
+        // declaration, so the head's own range is what decides the row.
+        head.frequencyRangeHz,
       ) &&
       head.requiredInputs.every((input) => available.has(input)),
   );

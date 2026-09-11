@@ -505,6 +505,44 @@ export function protocolBandEnvelope(band: string): FrequencyRange | undefined {
   };
 }
 
+/**
+ * The two labels the protocol does not use to name a frequency range at all:
+ * they defer the band to the declaration itself ("the bands the model
+ * declares", "the bands the family qualifies"). A head on such a row is
+ * therefore judged on its own declared range, and requiring it to cover the
+ * synthetic 10 kHz - 300 GHz span these labels are stored as would force a
+ * network or satellite-family model to advertise the whole radio universe.
+ */
+export const DEFERRED_BAND_LABELS: readonly string[] = [
+  "declared_model_bands",
+  "qualified_family_bands",
+];
+
+/** Whether this label defers its frequency coverage to the declaration. */
+export function isDeferredBandLabel(band: string): boolean {
+  return DEFERRED_BAND_LABELS.includes(band);
+}
+
+/**
+ * Whether a declared range serves a coverage row's band.
+ *
+ * A row frozen for a named band is served only by a range covering every
+ * constituent of that label; a row on a deferred label is served by any
+ * non-empty range inside the legal request universe, which is all those
+ * labels ever claimed.
+ */
+export function protocolRowServedByRange(
+  row: ProtocolCoverageRow,
+  range: FrequencyRange,
+): boolean {
+  if (!isDeferredBandLabel(row.band)) return rangeCoversBand(range, row.band);
+  return (
+    range.minHz < range.maxHz &&
+    range.minHz >= MIN_REQUEST_FREQUENCY_HZ &&
+    range.maxHz <= MAX_REQUEST_FREQUENCY_HZ
+  );
+}
+
 /** Whether a declared range covers every constituent of a band label. */
 export function rangeCoversBand(range: FrequencyRange, band: string): boolean {
   const ranges = PROTOCOL_BAND_RANGES[band];
@@ -906,7 +944,9 @@ export function protocolCoverageRows(claim: {
  * Whether the protocol defines this claim for a band the declared range serves
  * in full. A row is frozen for a whole band label, so a head claiming it must
  * cover every constituent of that label; two rows are never glued together to
- * cover a band neither of them froze.
+ * cover a band neither of them froze. A row on a deferred label
+ * (`DEFERRED_BAND_LABELS`) names no band of its own and is served by the
+ * declaration's own range.
  */
 export function isProtocolCoverage(
   claim: {
@@ -920,7 +960,7 @@ export function isProtocolCoverage(
   const rows = protocolCoverageRows(claim);
   if (rows.length === 0) return false;
   if (range === undefined) return true;
-  return rows.some((row) => rangeCoversBand(range, row.band));
+  return rows.some((row) => protocolRowServedByRange(row, range));
 }
 
 /**
@@ -936,10 +976,23 @@ export function protocolCoverageContainsHz(
     mechanism: MechanismFamily;
   },
   frequencyHz: number,
+  /**
+   * The range a declaration serves, when there is one. A row on a deferred
+   * band label takes its frequencies from the declaration, so this is the only
+   * thing that can answer "is this frequency on the row" for such a row. A
+   * request carries no declaration and passes nothing here, which leaves the
+   * deferred labels spanning the legal request universe as stored.
+   */
+  declaredRange?: FrequencyRange,
 ): boolean {
-  return protocolCoverageRows(claim).some((row) =>
-    bandContainsHz(row.band, frequencyHz),
-  );
+  return protocolCoverageRows(claim).some((row) => {
+    if (isDeferredBandLabel(row.band) && declaredRange !== undefined) {
+      return (
+        frequencyHz >= declaredRange.minHz && frequencyHz <= declaredRange.maxHz
+      );
+    }
+    return bandContainsHz(row.band, frequencyHz);
+  });
 }
 
 /** M01 availability enum. "Missing is never zero" (M11). */

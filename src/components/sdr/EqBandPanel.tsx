@@ -184,7 +184,7 @@ export function EqBandPanel({
 
   const activeClasses = isNotch
     ? "bg-plasma-orange/20 border-plasma-orange/40 text-su-text"
-    : "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan";
+    : "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-su-text";
 
   const inactiveClasses =
     "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text";
@@ -293,7 +293,7 @@ export function EqBandPanel({
           onClick={handleToggle}
           className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors ${
             band.enabled
-              ? "bg-signal-green/15 border-signal-green/30 text-signal-green hover:bg-signal-green/25"
+              ? "bg-signal-green/15 border-signal-green/30 text-su-text hover:bg-signal-green/20"
               : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           }`}
         >
@@ -302,8 +302,8 @@ export function EqBandPanel({
         <button
           onClick={handleRemove}
           className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
-            bg-alert-red/10 border-alert-red/25 text-alert-red/80
-            hover:bg-alert-red/20 hover:text-alert-red"
+            bg-alert-red/10 border-alert-red/25 text-su-text
+            hover:bg-alert-red/20 hover:text-su-text"
         >
           Remove
         </button>

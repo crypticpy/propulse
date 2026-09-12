@@ -151,7 +151,7 @@ function DspToggle({
       className={`px-1.5 py-0.5 text-xs font-semibold rounded border transition-colors
         disabled:opacity-40 disabled:cursor-not-allowed ${
           active
-            ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
+            ? "bg-signal-green/15 border-signal-green/30 text-su-text"
             : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
         }`}
     >

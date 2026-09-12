@@ -388,7 +388,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
               onClick={() => toggle(tab.id)}
               className={`flex-1 px-2 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
                 isActive
-                  ? "bg-cosmic-cyan/15 text-cosmic-cyan border-t-2 border-cosmic-cyan -mt-px"
+                  ? "bg-cosmic-cyan/15 text-su-text border-t-2 border-cosmic-cyan -mt-px"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
@@ -478,7 +478,7 @@ function SlicePanelRxInline({
                   className={`px-1.5 py-0.5 text-xs font-semibold rounded border transition-colors
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
-                        ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
+                        ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-su-text"
                         : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
                     }`}
                 >
@@ -652,7 +652,7 @@ function SlicePanelXRit({
           className={`px-1.5 py-0.5 text-xs font-bold rounded border transition-colors shrink-0
             disabled:opacity-40 disabled:cursor-not-allowed ${
               xitEnabled
-                ? "bg-cosmic-cyan/20 border-cosmic-cyan/30 text-cosmic-cyan"
+                ? "bg-cosmic-cyan/20 border-cosmic-cyan/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
@@ -694,7 +694,7 @@ function SlicePanelXRit({
           className={`flex-1 px-2 py-1 text-xs font-bold uppercase rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               split
-                ? "bg-caution-amber/20 border-caution-amber/30 text-caution-amber"
+                ? "bg-caution-amber/20 border-caution-amber/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >

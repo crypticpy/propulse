@@ -88,7 +88,7 @@ export function SlicePanelDsp({
             className={`px-2 py-1.5 text-xs font-bold uppercase rounded border transition-all
               disabled:cursor-not-allowed ${
                 btn.active
-                  ? "bg-signal-green/20 border-signal-green/30 text-signal-green shadow-[0_0_6px_rgba(0,255,136,0.15)]"
+                  ? "bg-signal-green/20 border-signal-green/30 text-su-text shadow-[0_0_6px_rgba(0,255,136,0.15)]"
                   : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text disabled:opacity-40"
               }`}
             title={`Toggle ${btn.label}`}
@@ -123,7 +123,7 @@ export function SlicePanelDsp({
                     className={`px-1 py-1 text-xs font-bold rounded border transition-colors
                       disabled:cursor-not-allowed ${
                         agcMode === a.mode
-                          ? "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan"
+                          ? "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-su-text"
                           : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text disabled:opacity-40"
                       }`}
                   >

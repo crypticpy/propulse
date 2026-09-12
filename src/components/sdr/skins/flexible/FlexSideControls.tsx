@@ -217,7 +217,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             className={`flex-1 px-2 py-1 text-xs font-bold font-mono rounded border transition-colors
               disabled:opacity-40 disabled:cursor-not-allowed ${
                 vfo === v
-                  ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
+                  ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-su-text"
                   : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
               }`}
           >
@@ -330,7 +330,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             onClick={() => onFreqUnitChange(unit)}
             className={`flex-1 px-1 py-0.5 text-xs font-semibold rounded-full border transition-colors ${
               freqUnit === unit
-                ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
+                ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
           >
@@ -351,7 +351,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           onClick={onFt8Toggle}
           className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
             ft8DecoderEnabled
-              ? "bg-signal-green/20 border-signal-green/40 text-signal-green ring-1 ring-signal-green/20"
+              ? "bg-signal-green/20 border-signal-green/40 text-su-text ring-1 ring-signal-green/20"
               : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           }`}
         >
@@ -375,8 +375,8 @@ export const FlexSideControls = memo(function FlexSideControls({
             className={`flex-1 px-2 py-1.5 text-xs font-bold tracking-wide rounded border transition-colors ${
               ft8DecoderMode === m
                 ? ft8DecoderEnabled
-                  ? "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40 ring-1 ring-cosmic-cyan/20"
-                  : "bg-cosmic-cyan/10 text-cosmic-cyan/70 border-cosmic-cyan/25"
+                  ? "bg-cosmic-cyan/20 text-su-text border-cosmic-cyan/40 ring-1 ring-cosmic-cyan/20"
+                  : "bg-cosmic-cyan/10 text-su-text border-cosmic-cyan/25"
                 : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
           >
@@ -436,7 +436,7 @@ export const FlexSideControls = memo(function FlexSideControls({
 
           {/* Error */}
           {ft8Error && (
-            <div className="rounded bg-alert-red/10 border border-alert-red/20 px-2 py-1.5 text-xs leading-tight text-alert-red/90">
+            <div className="rounded bg-alert-red/10 border border-alert-red/20 px-2 py-1.5 text-xs leading-tight text-su-text">
               {ft8Error}
             </div>
           )}
@@ -522,7 +522,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           className={`flex-1 px-1.5 py-1 text-xs font-semibold rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               fftEnabled
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
+                ? "bg-signal-green/15 border-signal-green/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
@@ -614,7 +614,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               className={`w-full px-3 py-2 text-xs font-bold uppercase tracking-wider rounded border transition-all
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isRecording
-                    ? "bg-alert-red/20 border-alert-red/40 text-alert-red ring-1 ring-alert-red/20"
+                    ? "bg-alert-red/20 border-alert-red/40 text-su-text ring-1 ring-alert-red/20"
                     : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                 }`}
             >
@@ -662,7 +662,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 <button
                   onClick={onExportRecording}
                   className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
-                    bg-signal-green/10 border-signal-green/30 text-signal-green
+                    bg-signal-green/10 border-signal-green/30 text-su-text
                     hover:bg-signal-green/20"
                 >
                   Export WAV
@@ -670,8 +670,8 @@ export const FlexSideControls = memo(function FlexSideControls({
                 <button
                   onClick={onDiscardRecording}
                   className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
-                    bg-alert-red/10 border-alert-red/25 text-alert-red/70
-                    hover:bg-alert-red/20 hover:text-alert-red"
+                    bg-alert-red/10 border-alert-red/25 text-su-text
+                    hover:bg-alert-red/20 hover:text-su-text"
                 >
                   Discard
                 </button>

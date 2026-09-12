@@ -818,7 +818,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 <div className="pointer-events-none absolute right-2 top-1 z-20 flex items-center gap-1">
                   <button
                     type="button"
-                    className="pointer-events-auto rounded border border-plasma-orange/40 bg-su-panel/70 px-2 py-0.5 text-[10px] font-medium text-plasma-orange disabled:cursor-not-allowed disabled:opacity-40"
+                    className="pointer-events-auto rounded border border-plasma-orange/40 bg-su-panel/70 px-2 py-0.5 text-xs font-medium text-plasma-orange disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => handleClearEqBands("notch")}
                     disabled={notchBandCount === 0}
                     title="Remove all notch points"
@@ -827,7 +827,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   </button>
                   <button
                     type="button"
-                    className="pointer-events-auto rounded border border-cosmic-cyan/40 bg-su-panel/70 px-2 py-0.5 text-[10px] font-medium text-cosmic-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                    className="pointer-events-auto rounded border border-cosmic-cyan/40 bg-su-panel/70 px-2 py-0.5 text-xs font-medium text-cosmic-cyan disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => handleClearEqBands("all")}
                     disabled={totalEqBandCount === 0}
                     title="Remove all EQ and notch points"
@@ -882,7 +882,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-su-line/50 bg-su-panel/90 px-2 py-1">
                   <button
                     type="button"
-                    className={`pointer-events-auto rounded px-2 py-0.5 text-[10px] font-medium ${
+                    className={`pointer-events-auto rounded px-2 py-0.5 text-xs font-medium ${
                       passbandHighlightEnabled
                         ? "border border-cosmic-cyan/40 text-cosmic-cyan"
                         : "border border-su-line/50 text-su-muted"
@@ -892,7 +892,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   >
                     Passband {passbandHighlightEnabled ? "On" : "Off"}
                   </button>
-                  <label className="pointer-events-auto flex items-center gap-1 text-[10px] text-su-muted">
+                  <label className="pointer-events-auto flex items-center gap-1 text-xs text-su-muted">
                     <span>Opacity</span>
                     <input
                       type="range"
@@ -906,7 +906,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                       disabled={!passbandHighlightEnabled}
                       className="h-1 w-24 accent-cosmic-cyan disabled:opacity-40"
                     />
-                    <span className="w-8 text-right font-mono text-[9px] text-su-muted">
+                    <span className="w-8 text-right font-mono text-xs text-su-muted">
                       {wf.passbandOpacity.toFixed(2)}
                     </span>
                   </label>
@@ -948,7 +948,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 Start the daemon on the machine connected to your radio, then
                 click <span className="text-su-muted">Daemon</span> to connect.
               </div>
-              <div className="text-[11px] font-mono text-su-muted">
+              <div className="text-xs font-mono text-su-muted">
                 cd daemon &amp;&amp; cargo run -p propulse-daemon
               </div>
             </div>

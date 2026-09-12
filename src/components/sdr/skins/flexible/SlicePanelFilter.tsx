@@ -152,7 +152,7 @@ export function SlicePanelFilter({
       )}
 
       {/* Current filter readout */}
-      <div className="flex items-center justify-between text-[9px] text-su-muted font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-su-muted font-mono">
         <span>
           {filterLow}&ndash;{filterHigh} Hz
         </span>

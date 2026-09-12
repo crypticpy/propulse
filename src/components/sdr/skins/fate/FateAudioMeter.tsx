@@ -206,9 +206,9 @@ export function FateAudioMeter({ analyserNode }: FateAudioMeterProps) {
 
       {/* Label */}
       <span
-        className="text-[8px] font-mono tabular-nums leading-none shrink-0"
+        className="text-xs font-mono tabular-nums leading-none shrink-0"
         style={{
-          width: 28,
+          width: "4ch",
           textAlign: "right",
           color: isLow
             ? COLOR_AMBER

@@ -43,23 +43,10 @@ interface AllowlistEntry {
 
 const ALLOWLIST: AllowlistEntry[] = [
   {
-    file: "src/components/sdr/skins/flexible/SlicePanelFilter.tsx",
-    match:
-      "flex items-center justify-between text-[9px] text-su-muted font-mono",
-    reason:
-      "tabular Hz/BW readout under filter presets — decorative mono scale beside tabular values, not standalone body copy.",
-  },
-  {
     file: "src/components/sdr/primitives/SmeterBar.tsx",
     match: "text-[7px] text-su-muted font-mono -translate-x-1/2",
     reason:
       "S-unit tick labels above the bar — decorative scale markers aligned to tick positions.",
-  },
-  {
-    file: "src/components/sdr/primitives/SmeterBar.tsx",
-    match: 'readoutText: "text-[8px]"',
-    reason:
-      "compact smeter readout in a fixed 44px column — tabular mono pill that overflows at text-xs.",
   },
   {
     file: "src/components/sdr/Waterfall.tsx",
@@ -67,12 +54,6 @@ const ALLOWLIST: AllowlistEntry[] = [
       "absolute left-2 right-2 bottom-1 pointer-events-none flex justify-between text-[10px] text-su-muted font-mono",
     reason:
       "decorative frequency axis under the waterfall canvas — tabular scale labels, not interactive UI copy.",
-  },
-  {
-    file: "src/components/sdr/skins/fate/FateAudioMeter.tsx",
-    match: "text-[8px] font-mono tabular-nums leading-none shrink-0",
-    reason:
-      "compact dBFS readout in a 28px slot beside the level bar — tabular mono that overflows at text-xs.",
   },
 ];
 

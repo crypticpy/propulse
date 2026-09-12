@@ -431,12 +431,12 @@ function ToolsSlide({ onNext }: { onNext: () => void }) {
               <div className="flex items-center gap-1.5">
                 <h3 className="text-xs font-semibold text-su-text">{t.name}</h3>
                 {t.soon && (
-                  <span className="text-[9px] font-medium text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs font-medium text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded-full">
                     Adapter Coming Soon
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-su-muted leading-relaxed">
+              <p className="text-xs text-su-muted leading-relaxed">
                 {t.desc}
               </p>
             </div>
@@ -527,7 +527,7 @@ function CommunitySlide({ onFinish }: { onFinish: () => void }) {
         </ul>
       </div>
 
-      <p className="text-[11px] text-su-muted text-center leading-relaxed mb-6">
+      <p className="text-xs text-su-muted text-center leading-relaxed mb-6">
         Cloud features and extended modeling are available for a small monthly
         subscription that helps keep the servers running.
       </p>

@@ -998,7 +998,7 @@ export function ShackSchematicView({
 
       {/* Band selector strip (change #3) */}
       {onSelectBand && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg px-1.5 py-1">
+        <div className="absolute top-12 left-2 right-2 z-10 mx-auto flex w-fit max-w-[calc(100%_-_1rem)] flex-wrap items-center justify-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg px-1.5 py-1">
           {BANDS.map((band) => (
             <button
               key={band}

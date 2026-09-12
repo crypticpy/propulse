@@ -63,8 +63,9 @@ Work is tracked on [Project #4](https://github.com/users/crypticpy/projects/4). 
 Every session, sub-agent and bot on this machine shares ONE owner-token GraphQL budget (5,000 points/hour). Board sweeps and per-PR polling have drained it to zero and stalled everyone, so three GitHub Apps split the work, each with its own 12,500/hour budget:
 
 - **Reads** (`pr view`, `pr checks`, `issue view`, review-thread listing, `api rate_limit`, any poll): `~/.config/propulse-reader/ghr`. Read-only App; it cannot comment, resolve or merge, so a wrong call fails instead of writing.
-- **Writes** (comments, thread replies and resolves, PR create and edit, merges, design reviews): `~/.config/propulse-bot/ghb`. Same CLI, the bot identity the base-branch ruleset accepts for merges.
-- **Owner token** (`gh`): only what no App can see, which is the user-owned Project #4 (GitHub Apps get a Projects permission for organization projects only) and owner-only actions. Never use it for status checks.
+- **Writes** (comments, thread replies and resolves, merges, design reviews): `~/.config/propulse-bot/ghb`. Same CLI, the bot identity the base-branch ruleset accepts for merges.
+- **Board** (reserved): `~/.config/propulse-board/ghp`. Currently inert: GitHub Apps only get a Projects permission on organization-owned projects, and Project #4 is user-owned. Do not use it until the project moves to an org.
+- **Owner token** (`gh`): the user-owned Project #4 (no App can see it, for the reason above), `gh pr create` and `gh pr edit` (opening via the owner token triggers Codex's automatic review-on-open), and the `@codex review` trigger comment (Codex authorises by the commenting account; a bot-posted trigger gets no review). Never for status checks or polling.
 
 Write `ghr` for reads and `ghb` for writes into every sub-agent brief; a brief that says `gh` is wrong.
 

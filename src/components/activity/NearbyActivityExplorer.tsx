@@ -91,7 +91,7 @@ function ActivityRow({
         <span className="font-mono text-xs tabular-nums text-su-muted">
           {formatAge(result.time, now)}
         </span>
-        <span className="hidden truncate font-mono text-[11px] text-su-muted sm:block">
+        <span className="hidden truncate font-mono text-xs text-su-muted sm:block">
           {path}
         </span>
       </button>
@@ -109,7 +109,7 @@ function ActivityRow({
               {result.sources.map((source) => (
                 <span
                   key={source}
-                  className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-0.5 font-mono text-[10px] text-su-muted"
+                  className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-0.5 font-mono text-xs text-su-muted"
                 >
                   {SOURCE_LABELS[source]}
                 </span>
@@ -252,12 +252,12 @@ export function NearbyActivityExplorer({
                 Nearby Activity
               </h2>
             </div>
-            <p className="mt-1 text-[11px] text-su-muted">
+            <p className="mt-1 text-xs text-su-muted">
               Recent reception and cluster reports near your active location—not decoded audio or confirmed QSOs.
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <div className="pt-0.5 font-mono text-[10px] text-su-muted">
+            <div className="pt-0.5 font-mono text-xs text-su-muted">
               {results.length} active · {queryLabel}
             </div>
             {onClose && (
@@ -306,7 +306,7 @@ export function NearbyActivityExplorer({
           </div>
 
           {mode === "band" ? (
-            <label className="text-[10px] uppercase tracking-wide text-su-muted">
+            <label className="text-xs uppercase tracking-wide text-su-muted">
               Band
               <select
                 value={band}
@@ -320,7 +320,7 @@ export function NearbyActivityExplorer({
             </label>
           ) : (
             <>
-              <label className="text-[10px] uppercase tracking-wide text-su-muted">
+              <label className="text-xs uppercase tracking-wide text-su-muted">
                 Frequency
                 <input
                   value={frequencyInput}
@@ -335,7 +335,7 @@ export function NearbyActivityExplorer({
                   }`}
                 />
               </label>
-              <label className="text-[10px] uppercase tracking-wide text-su-muted">
+              <label className="text-xs uppercase tracking-wide text-su-muted">
                 Tolerance
                 <select
                   value={toleranceKHz}
@@ -352,7 +352,7 @@ export function NearbyActivityExplorer({
             </>
           )}
 
-          <label className="text-[10px] uppercase tracking-wide text-su-muted">
+          <label className="text-xs uppercase tracking-wide text-su-muted">
             Recent
             <select
               value={maxAgeMinutes}
@@ -367,7 +367,7 @@ export function NearbyActivityExplorer({
             </select>
           </label>
 
-          <label className="text-[10px] uppercase tracking-wide text-su-muted">
+          <label className="text-xs uppercase tracking-wide text-su-muted">
             Range
             <select
               value={maxDistanceKm ?? "global"}

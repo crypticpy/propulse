@@ -8,6 +8,7 @@
  * of other #844 batches.
  */
 
+import ts from "typescript";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -198,7 +199,8 @@ describe("#844 batch 6 status-tint sites ship --su-text ink", () => {
   it.each(BATCH6_SITES.map((site) => [site.what, site] as const))(
     "%s still ships the measured snippet",
     (_what, site) => {
-      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      const fullSource = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      const source = site.what.includes("TLE age") ? tleHelperSource(fullSource) : fullSource;
       expect(
         source.includes(site.snippet),
         `${site.file} no longer contains:\n${site.snippet}`,
@@ -238,4 +240,23 @@ describe("#844 batch 6 status-tint sites ship --su-text ink", () => {
       }
     },
   );
+});
+
+
+function tleHelperSource(source: string): string {
+  const ast = ts.createSourceFile("badge.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const helper = ast.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === "getTleAgeBadge");
+  if (!helper) throw new Error("getTleAgeBadge helper missing");
+  return helper.getText(ast);
+}
+
+it("does not let unchanged AMSAT badges mask a reverted TLE helper", () => {
+  const path = "src/components/satellites/SatelliteDetailModal.tsx";
+  const source = readFileSync(resolve(REPO_ROOT, path), "utf8");
+  const helper = tleHelperSource(source);
+  for (const site of BATCH6_SITES.filter((entry) => entry.file === path && entry.what.includes("TLE age"))) {
+    const regressed = source.replace(helper, helper.replace(site.snippet, site.snippet.replace("text-su-text", `text-${site.token}`)));
+    expect(regressed.includes(site.snippet)).toBe(true);
+    expect(tleHelperSource(regressed).includes(site.snippet)).toBe(false);
+  }
 });

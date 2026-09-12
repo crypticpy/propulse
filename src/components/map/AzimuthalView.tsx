@@ -65,7 +65,6 @@ import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { createAzimuthalProjection } from "@/lib/map/projection";
-import type { Projection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
@@ -74,8 +73,7 @@ import { drawLightningLayer } from "./layers/lightningLayer";
 import {
   drawCountryBordersLayer,
   drawStateBordersLayer,
-  drawBoostedCountryBordersLayer,
-  drawBoostedStateBordersLayer,
+  drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
@@ -1204,115 +1202,6 @@ function drawAzimuthalLabels(
   }
 }
 
-/**
- * Draw borders with boosted opacity on the night side (clipped)
- */
-function drawAzimuthalNightBoostedBorders(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  centerLat: number,
-  centerLon: number,
-  drawCountry: boolean,
-  drawStates: boolean,
-  projection: Projection,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  // Build a clip path for the night side
-  // The terminator is a circle on the globe where sun angle = 90deg
-  // Project terminator points into azimuthal coordinates
-  ctx.save();
-  ctx.beginPath();
-
-  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-  const tanSubsolarLat = Math.tan(subsolarLatRad);
-  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
-
-  const terminatorPoints: { x: number; y: number }[] = [];
-  for (let lon = -180; lon <= 180; lon += 3) {
-    const lonRad = lon * (Math.PI / 180);
-    const deltaLon = lonRad - subsolarLonRad;
-    let lat: number;
-    if (isNearEquinox) {
-      lat = 0;
-    } else {
-      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
-    }
-    const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-    terminatorPoints.push(projToCanvas(projected));
-  }
-
-  // Draw terminator as clip path boundary
-  if (terminatorPoints.length > 0) {
-    ctx.moveTo(terminatorPoints[0].x, terminatorPoints[0].y);
-    for (let i = 1; i < terminatorPoints.length; i++) {
-      ctx.lineTo(terminatorPoints[i].x, terminatorPoints[i].y);
-    }
-  }
-
-  // Need to close the path around the night side
-  // Determine which side of the terminator is night:
-  // The anti-subsolar point is the center of night
-  const antiSubsolarLat = -subsolar.lat;
-  const antiSubsolarLon =
-    subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
-  const antiProj = azimuthalProject(
-    antiSubsolarLat,
-    antiSubsolarLon,
-    centerLat,
-    centerLon,
-  );
-  const antiCanvas = projToCanvas(antiProj);
-
-  // Close the clip path by going around the outer circle on the night side
-  // First, find the angle of the anti-subsolar point relative to center
-  const antiAngle = Math.atan2(antiCanvas.y - CENTER, antiCanvas.x - CENTER);
-
-  // Sweep an arc around the outside of the projection circle on the night side
-  // This is approximate but effective for clipping
-  const lastTerminator = terminatorPoints[terminatorPoints.length - 1];
-  const firstTerminator = terminatorPoints[0];
-  const endAngle = Math.atan2(
-    lastTerminator.y - CENTER,
-    lastTerminator.x - CENTER,
-  );
-  const startAngle = Math.atan2(
-    firstTerminator.y - CENTER,
-    firstTerminator.x - CENTER,
-  );
-
-  // Draw arc on the night side (the side containing the anti-subsolar point)
-  // Use a large radius to go outside the visible area
-  const bigR = RADIUS * 1.5;
-  const steps = 36;
-  // Determine sweep direction: go from endAngle to startAngle through the anti-subsolar side
-  let sweepAngle = startAngle - endAngle;
-  // Normalize to determine the shorter/longer arc
-  if (Math.cos(antiAngle - (endAngle + sweepAngle / 2)) < 0) {
-    // anti-subsolar is on the other side, sweep the other way
-    if (sweepAngle > 0) sweepAngle -= 2 * Math.PI;
-    else sweepAngle += 2 * Math.PI;
-  }
-  for (let i = 0; i <= steps; i++) {
-    const a = endAngle + (sweepAngle * i) / steps;
-    ctx.lineTo(CENTER + bigR * Math.cos(a), CENTER + bigR * Math.sin(a));
-  }
-
-  ctx.closePath();
-  ctx.clip();
-
-  // Now draw borders at boosted opacity within the clip
-  if (drawCountry) {
-    drawBoostedCountryBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
-  }
-  if (drawStates) {
-    drawBoostedStateBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
-  }
-
-  ctx.restore();
-}
-
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -2408,14 +2297,12 @@ export function AzimuthalView({
       layers.terminator &&
       (labelOptions.borders || labelOptions.stateBorders)
     ) {
-      drawAzimuthalNightBoostedBorders(
+      drawNightBoostedBordersLayer(
         ctx,
         displayTime,
-        center.lat,
-        center.lon,
-        labelOptions.borders,
-        labelOptions.stateBorders,
         projection,
+        AZIMUTHAL_LAYER_PROFILE,
+        { country: labelOptions.borders, states: labelOptions.stateBorders },
       );
     }
 

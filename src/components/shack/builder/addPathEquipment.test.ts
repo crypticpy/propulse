@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useShackStore } from "@/stores/shackStore";
 import { MAX_CHAIN_NODES, type StationChain } from "@/types/stationChain";
-import { addPathEquipment } from "./addPathEquipment";
+import {
+  addPathEquipment,
+  collectAdjacentFeedlineRunIds,
+  resolveInlineTargetRun,
+} from "./addPathEquipment";
 
 const initial = useShackStore.getState();
 const chain: StationChain = {
@@ -113,4 +117,113 @@ describe("equipment placement UI commands", () => {
       expect(nodes).toHaveLength(4);
     },
   );
+});
+
+describe("inline gear target run selection", () => {
+  const twoRunChain: StationChain = {
+    ...chain,
+    nodes: [
+      { type: "radio", radioId: "radio" },
+      { type: "feedline_run", feedlineRunId: "run-1" },
+      { type: "feedline_run", feedlineRunId: "run-2" },
+      { type: "antenna", antennaId: "antenna" },
+    ],
+    feedlineRuns: [
+      { id: "run-1", feedlineId: "cable-a", inlineComponentIds: [] },
+      { id: "run-2", feedlineId: "cable-b", inlineComponentIds: [] },
+    ],
+  };
+
+  beforeEach(() => {
+    useShackStore.setState({
+      ...initial,
+      stationChains: [structuredClone(twoRunChain)],
+      feedlines: [
+        { id: "cable-a", name: "Shack run" } as never,
+        { id: "cable-b", name: "Tower run" } as never,
+      ],
+    });
+  });
+
+  it("adds inline gear to an explicitly named run", () => {
+    expect(
+      addPathEquipment("path", "inline", "choke", undefined, "run-2"),
+    ).toEqual({ ok: true });
+    expect(
+      useShackStore.getState().stationChains[0].feedlineRuns[1]
+        .inlineComponentIds,
+    ).toEqual(["choke"]);
+    expect(
+      useShackStore.getState().stationChains[0].feedlineRuns[0]
+        .inlineComponentIds,
+    ).toEqual([]);
+  });
+
+  it("resolves the adjacent run from a gap after the second cable run", () => {
+    expect(addPathEquipment("path", "inline", "choke", 3)).toEqual({
+      ok: true,
+    });
+    expect(
+      useShackStore.getState().stationChains[0].feedlineRuns[1]
+        .inlineComponentIds,
+    ).toEqual(["choke"]);
+  });
+
+  it("requests run selection when the drop sits between two cable runs", () => {
+    const before = useShackStore.getState().stationChains;
+    expect(addPathEquipment("path", "inline", "choke", 2)).toEqual({
+      ok: false,
+      needsRunSelection: true,
+      runOptions: [
+        { id: "run-1", name: "Shack run" },
+        { id: "run-2", name: "Tower run" },
+      ],
+    });
+    expect(useShackStore.getState().stationChains).toBe(before);
+  });
+
+  it("reports missing feedlines without mutating any run", () => {
+    useShackStore.setState({
+      stationChains: [structuredClone(chain)],
+    });
+    const before = useShackStore.getState().stationChains;
+    expect(addPathEquipment("path", "inline", "choke")).toMatchObject({
+      ok: false,
+      error: "Add a feedline before adding an inline component.",
+    });
+    expect(useShackStore.getState().stationChains).toBe(before);
+  });
+
+  it("rejects duplicates in the chosen run without touching other runs", () => {
+    useShackStore.setState({
+      stationChains: [
+        {
+          ...twoRunChain,
+          feedlineRuns: [
+            { id: "run-1", feedlineId: "cable-a", inlineComponentIds: [] },
+            {
+              id: "run-2",
+              feedlineId: "cable-b",
+              inlineComponentIds: ["choke"],
+            },
+          ],
+        },
+      ],
+    });
+    const before = useShackStore.getState().stationChains;
+    expect(
+      addPathEquipment("path", "inline", "choke", undefined, "run-2"),
+    ).toMatchObject({ ok: false });
+    expect(useShackStore.getState().stationChains).toBe(before);
+  });
+
+  it("collects adjacent feedline runs for a gap index", () => {
+    expect(
+      collectAdjacentFeedlineRunIds(twoRunChain.nodes, 2),
+    ).toEqual(new Set(["run-1", "run-2"]));
+    expect(resolveInlineTargetRun(twoRunChain, 3)).toEqual({
+      status: "resolved",
+      runId: "run-2",
+    });
+  });
 });

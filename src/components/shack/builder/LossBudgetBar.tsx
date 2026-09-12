@@ -63,7 +63,7 @@ export function LossBudgetBar({
               key={band}
               type="button"
               onClick={() => onSelectBand(band)}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium border transition-colors ${
+              className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
                 isSelected
                   ? "bg-plasma-orange text-su-on-accent border-plasma-orange/50"
                   : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
@@ -113,7 +113,7 @@ function WaterfallRow({
         <span className="text-sm font-bold text-su-text">
           {formatWatts(startingPower)}
         </span>
-        <span className="text-[10px] text-su-muted mt-0.5">Input</span>
+        <span className="text-xs text-su-muted mt-0.5">Input</span>
       </div>
 
       {/* Node segments */}
@@ -151,7 +151,7 @@ function WaterfallRow({
                 {isSource ? "0 dB" : formatDb(netDb)}
               </span>
               <span
-                className="text-[10px] text-su-muted mt-0.5 max-w-[72px] truncate"
+                className="text-xs text-su-muted mt-0.5 max-w-[72px] truncate"
                 title={node.label}
               >
                 {node.label}
@@ -177,7 +177,7 @@ function WaterfallRow({
           <span className="text-sm font-bold text-plasma-orange">
             {formatWatts(erpWatts)}
           </span>
-          <span className="text-[10px] text-su-muted mt-0.5">ERP</span>
+          <span className="text-xs text-su-muted mt-0.5">ERP</span>
         </div>
       </div>
     </div>

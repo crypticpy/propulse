@@ -158,7 +158,7 @@ export function CreateGuestSessionModal({
               {/* Generate Button */}
               <button
                 onClick={handleGenerateCode}
-                className="w-full px-4 py-3 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+                className="w-full px-4 py-3 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
                          text-su-text hover:bg-plasma-orange/20
                          transition-colors font-medium text-lg"
               >
@@ -259,7 +259,7 @@ export function CreateGuestSessionModal({
                 </button>
                 <button
                   onClick={handleEndSession}
-                  className="flex-1 px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
+                  className="flex-1 px-4 py-2 bg-alert-red/15 border border-alert-red/50 rounded-lg
                            text-su-text hover:bg-alert-red/20
                            transition-colors font-medium"
                 >

@@ -52,6 +52,7 @@ function compositeOnSurface(
 }
 
 const SURFACES = [
+  { name: "guest status wash", backdrop: (palette: StationPalette) => compositeOnSurface(palette.success, 0.15, palette.panel) },
   { name: "panel", backdrop: (palette: StationPalette) => palette.panel },
   { name: "canvas", backdrop: (palette: StationPalette) => palette.canvas },
   {
@@ -118,6 +119,68 @@ function assertNoSameHueInkOnTint(
 
 const BATCH3_SITES: Batch3Site[] = [
   {
+    file: "src/components/guest/CreateGuestSessionModal.tsx",
+    what: "the generate-code action",
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20`,
+    token: "plasma-orange",
+  },
+  {
+    file: "src/components/guest/CreateGuestSessionModal.tsx",
+    what: "the end-session action",
+    snippet: `bg-alert-red/15 border border-alert-red/50 rounded-lg
+                           text-su-text hover:bg-alert-red/20`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/alerts/StormImpactPanel.tsx",
+    what: "the minimal StormImpactPanel badge",
+    snippet: `badge: "bg-signal-green/20 text-su-text border-signal-green/40"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/alerts/StormImpactPanel.tsx",
+    what: "the moderate StormImpactPanel badge",
+    snippet: `badge: "bg-caution-amber/20 text-su-text border-caution-amber/40"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/alerts/StormImpactPanel.tsx",
+    what: "the extreme StormImpactPanel badge",
+    snippet: `badge: "bg-alert-red/20 text-su-text border-alert-red/40"`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/alerts/SwpcAlertDetailModal.tsx",
+    what: "the minor SwpcAlertDetailModal badge",
+    snippet: `badge: "bg-signal-green/20 text-su-text border-signal-green/40"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/alerts/SwpcAlertDetailModal.tsx",
+    what: "the moderate SwpcAlertDetailModal badge",
+    snippet: `badge: "bg-caution-amber/20 text-su-text border-caution-amber/40"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/alerts/SwpcAlertDetailModal.tsx",
+    what: "the extreme SwpcAlertDetailModal badge",
+    snippet: `badge: "bg-alert-red/20 text-su-text border-alert-red/40"`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/alerts/AlertDetailModal.tsx",
+    what: "the CRITICAL priority badge",
+    snippet: `classes: "bg-alert-red/20 text-su-text border-alert-red/40"`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/alerts/AlertDetailModal.tsx",
+    what: "the non-critical affected-band pill",
+    snippet: `: "bg-caution-amber/10 text-su-text border-caution-amber/30"`,
+    token: "caution-amber",
+  },
+  {
     file: "src/components/alerts/AlertDetailModal.tsx",
     what: "the WARNING priority badge",
     snippet: `classes: "bg-caution-amber/20 text-su-text border-caution-amber/40"`,
@@ -168,13 +231,13 @@ const BATCH3_SITES: Batch3Site[] = [
   {
     file: "src/components/guest/GuestModeToggle.tsx",
     what: "the End guest-session button",
-    snippet: `bg-alert-red/20 text-su-text border border-alert-red/30 hover:bg-alert-red/20 transition-colors"`,
+    snippet: `bg-alert-red/15 text-su-text border border-alert-red/30 hover:bg-alert-red/20 transition-colors"`,
     token: "alert-red",
   },
   {
     file: "src/components/cluster/ClusterConnectionForm.tsx",
     what: "the Disconnect cluster button",
-    snippet: `bg-alert-red/20 border border-alert-red/50 text-su-text hover:bg-alert-red/20"`,
+    snippet: `bg-alert-red/15 border border-alert-red/50 text-su-text hover:bg-alert-red/20"`,
     token: "alert-red",
   },
 ];

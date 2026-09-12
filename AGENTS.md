@@ -60,13 +60,17 @@ Work is tracked on [Project #4](https://github.com/users/crypticpy/projects/4). 
 
 ## GitHub API budget
 
-Every session, sub-agent and bot on this machine shares ONE owner-token GraphQL budget (5,000 points/hour). Board sweeps and per-PR polling have drained it to zero and stalled everyone, so:
+Every session, sub-agent and bot on this machine shares ONE owner-token GraphQL budget (5,000 points/hour). Board sweeps and per-PR polling have drained it to zero and stalled everyone, so three GitHub Apps split the work, each with its own 12,500/hour budget:
 
-- Run every `gh` call that reads or writes PRs, issues, checks, review threads, comments or merges through the bot wrapper `~/.config/propulse-bot/ghb` (same CLI, its own 12,500/hour budget). Write `ghb` into every sub-agent brief; a brief that says `gh` is wrong.
-- The owner token (`gh`) is reserved for what the bot cannot see: user Project #4 queries and owner-only actions. Do not use it for status checks.
+- **Reads** (`pr view`, `pr checks`, `issue view`, review-thread listing, `api rate_limit`, any poll): `~/.config/propulse-reader/ghr`. Read-only App; it cannot comment, resolve or merge, so a wrong call fails instead of writing.
+- **Writes** (comments, thread replies and resolves, PR create and edit, merges, design reviews): `~/.config/propulse-bot/ghb`. Same CLI, the bot identity the base-branch ruleset accepts for merges.
+- **Owner token** (`gh`): only what no App can see, which is the user-owned Project #4 (GitHub Apps get a Projects permission for organization projects only) and owner-only actions. Never use it for status checks.
+
+Write `ghr` for reads and `ghb` for writes into every sub-agent brief; a brief that says `gh` is wrong.
+
 - One census per sweep: fetch the PR or board state once with the minimal fields, cache it under `docs/plans.local/`, and work from the cache. Never re-query per PR, per thread or per poll.
-- Poll a check at most once per 60 seconds, and prefer REST (`ghb api repos/{owner}/{repo}/commits/{sha}/check-runs`, the separate core budget) over `gh pr checks` in loops.
-- Before any bulk loop, read `ghb api rate_limit` and stop when GraphQL remaining is under 1,000. Never `gh run rerun` to refresh a status.
+- Poll a check at most once per 60 seconds, and prefer REST (`ghr api repos/{owner}/{repo}/commits/{sha}/check-runs`, the separate core budget) over `gh pr checks` in loops.
+- Before any bulk loop, read `ghr api rate_limit` and stop when GraphQL remaining is under 1,000. Never `gh run rerun` to refresh a status.
 
 ## Configuration & API Notes
 

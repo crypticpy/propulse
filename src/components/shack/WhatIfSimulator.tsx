@@ -147,14 +147,14 @@ export function WhatIfSimulator() {
           <button
             type="button"
             onClick={reset}
-            className="text-[10px] text-su-muted hover:text-su-text uppercase tracking-wider"
+            className="text-xs text-su-muted hover:text-su-text uppercase tracking-wider"
           >
             Reset
           </button>
           <button
             type="button"
             onClick={apply}
-            className="text-[10px] text-plasma-orange hover:text-plasma-orange/80 uppercase tracking-wider"
+            className="text-xs text-plasma-orange hover:text-plasma-orange/80 uppercase tracking-wider"
           >
             Apply to path
           </button>
@@ -168,7 +168,7 @@ export function WhatIfSimulator() {
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-su-muted uppercase tracking-wider">
               Power
             </label>
             <span className="text-sm font-mono text-plasma-orange">
@@ -188,7 +188,7 @@ export function WhatIfSimulator() {
         {liveFeedline && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
+              <label className="text-xs font-medium text-su-muted uppercase tracking-wider">
                 Feedline length
               </label>
               <span className="text-sm font-mono text-plasma-orange">
@@ -208,7 +208,7 @@ export function WhatIfSimulator() {
         )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-su-muted uppercase tracking-wider">
               SWR
             </label>
             <span className="text-sm font-mono text-plasma-orange">
@@ -220,7 +220,7 @@ export function WhatIfSimulator() {
               aria-label="SWR band"
               value={swrBand}
               onChange={(event) => setSwrBand(event.target.value)}
-              className="mb-1.5 w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1 font-mono text-[10px] text-su-muted"
+              className="mb-1.5 w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1 font-mono text-xs text-su-muted"
             >
               {liveAntenna.bands.map((band) => (
                 <option key={band} value={band}>
@@ -251,13 +251,13 @@ export function WhatIfSimulator() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-su-line/40">
-                  <th className="text-left py-2 pr-3 text-[10px] text-su-muted">
+                  <th className="text-left py-2 pr-3 text-xs text-su-muted">
                     Band
                   </th>
-                  <th className="text-right py-2 px-3 text-[10px] text-su-muted">
+                  <th className="text-right py-2 px-3 text-xs text-su-muted">
                     Live ERP
                   </th>
-                  <th className="text-right py-2 pl-3 text-[10px] text-su-muted">
+                  <th className="text-right py-2 pl-3 text-xs text-su-muted">
                     Sandbox ERP
                   </th>
                 </tr>

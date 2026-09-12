@@ -171,7 +171,7 @@ export function ReplayIndicator({
           aria-label="Stop replay"
         >
           <StopIcon className="w-2.5 h-2.5" />
-          <span className="text-[11px] font-medium">Stop</span>
+          <span className="text-xs font-medium">Stop</span>
         </button>
 
         {/* Pulse animation keyframes */}
@@ -202,7 +202,7 @@ export function ReplayIndicator({
       >
         <RewindIcon className="w-3.5 h-3.5" />
         <span>Replay</span>
-        <span className="px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange text-[10px] font-semibold uppercase tracking-wide">
+        <span className="px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange text-xs font-semibold uppercase tracking-wide">
           Pro
         </span>
       </div>

@@ -45,7 +45,7 @@ export function HelpTooltip({ section, anchor, tooltip }: HelpTooltipProps) {
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className="w-4 h-4 rounded-full border border-su-line flex items-center justify-center text-[10px] font-semibold text-su-muted hover:text-plasma-orange hover:border-plasma-orange/50 transition-colors cursor-pointer"
+        className="w-4 h-4 rounded-full border border-su-line flex items-center justify-center text-xs font-semibold text-su-muted hover:text-plasma-orange hover:border-plasma-orange/50 transition-colors cursor-pointer"
         aria-label={tooltip || `Help: ${section}`}
       >
         ?

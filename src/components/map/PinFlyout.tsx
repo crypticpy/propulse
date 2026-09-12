@@ -9,7 +9,7 @@
  * and click-outside dismissal (matching MapFlyout patterns).
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { FeasibilityBadge } from "./FeasibilityBadge";
 import { useFeasibility } from "@/hooks/useFeasibility";
@@ -159,6 +159,26 @@ export function PinFlyout({
   className = "",
 }: PinFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
+  const [flyoutHeight, setFlyoutHeight] = useState(FLYOUT_HEIGHT);
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window === "undefined" ? 1920 : window.innerWidth,
+    height: typeof window === "undefined" ? 1080 : window.innerHeight,
+  }));
+  useLayoutEffect(() => {
+    if (!visible || !flyoutRef.current) return;
+    const measure = () => {
+      setFlyoutHeight(flyoutRef.current?.getBoundingClientRect().height || FLYOUT_HEIGHT);
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(flyoutRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [visible]);
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
 
@@ -255,10 +275,8 @@ export function PinFlyout({
 
   const adjustedPosition = useMemo(() => {
     const { x, y } = position;
-    const viewportWidth =
-      typeof window !== "undefined" ? window.innerWidth : 1920;
-    const viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight : 1080;
+    const viewportWidth = viewport.width;
+    const viewportHeight = viewport.height;
 
     let adjustedX: number;
     let adjustedY: number;
@@ -285,22 +303,26 @@ export function PinFlyout({
     const spaceAbove = y - EDGE_PADDING;
     const spaceBelow = viewportHeight - y - EDGE_PADDING;
 
-    if (spaceAbove >= FLYOUT_HEIGHT + CURSOR_OFFSET) {
-      adjustedY = y - FLYOUT_HEIGHT - CURSOR_OFFSET;
-    } else if (spaceBelow >= FLYOUT_HEIGHT + CURSOR_OFFSET) {
+    if (spaceAbove >= flyoutHeight + CURSOR_OFFSET) {
+      adjustedY = y - flyoutHeight - CURSOR_OFFSET;
+    } else if (spaceBelow >= flyoutHeight + CURSOR_OFFSET) {
       adjustedY = y + CURSOR_OFFSET;
     } else {
       adjustedY = Math.max(
         EDGE_PADDING,
         Math.min(
-          y - FLYOUT_HEIGHT / 2,
-          viewportHeight - FLYOUT_HEIGHT - EDGE_PADDING,
+          y - flyoutHeight / 2,
+          viewportHeight - flyoutHeight - EDGE_PADDING,
         ),
       );
     }
 
-    return { x: adjustedX, y: adjustedY };
-  }, [position]);
+    // A viewport resize can leave the last pointer outside the new bounds.
+    return {
+      x: Math.max(EDGE_PADDING, Math.min(adjustedX, viewportWidth - FLYOUT_WIDTH - EDGE_PADDING)),
+      y: Math.max(EDGE_PADDING, Math.min(adjustedY, viewportHeight - flyoutHeight - EDGE_PADDING)),
+    };
+  }, [position, flyoutHeight, viewport]);
 
   // ------- Formatted coordinates -------
 
@@ -469,6 +491,8 @@ export function PinFlyout({
         left: adjustedPosition.x,
         top: adjustedPosition.y,
         width: FLYOUT_WIDTH,
+        maxHeight: `calc(100dvh - ${EDGE_PADDING * 2}px)`,
+        overflowY: "auto",
       }}
       role="dialog"
       aria-label={`Pin info: ${displayName}`}
@@ -484,7 +508,7 @@ export function PinFlyout({
               {displayName}
             </span>
             {pin.category === "friend" && (
-              <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-medium border border-green-500/30">
+              <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30">
                 Friend
               </span>
             )}
@@ -507,7 +531,7 @@ export function PinFlyout({
         {expirationInfo && (
           <div className="mt-1">
             <span
-              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+              className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
                 expirationInfo.isExpired
                   ? "bg-red-500/20 text-red-400 border border-red-500/30"
                   : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
@@ -533,11 +557,11 @@ export function PinFlyout({
       {/* ── Recent Activity ── */}
       <div className="px-3 py-1.5 border-b border-su-line/40">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider">
+          <span className="text-su-muted text-xs font-medium uppercase tracking-wider">
             Recent Activity
           </span>
           {nearbySpots.length > 0 && (
-            <span className="text-cyan-400 text-[10px] font-mono">
+            <span className="text-cyan-400 text-xs font-mono">
               {nearbySpots.length}
             </span>
           )}
@@ -553,17 +577,17 @@ export function PinFlyout({
                   onSpotSelect?.(spot, position);
                   onClose();
                 }}
-                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-left text-xs leading-tight hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
                 aria-label={`Select ${spot.dx} and view details`}
               >
-                <span className="text-su-text font-mono truncate max-w-[80px]">
+                <span className="text-su-text font-mono min-w-0 break-all">
                   {spot.dx}
                 </span>
-                <span className="text-su-muted font-mono text-[10px]">
+                <span className="text-su-muted font-mono text-xs">
                   {formatFrequency(spot.frequency)}
                 </span>
                 <span
-                  className="rounded px-1 text-[10px] font-bold"
+                  className="justify-self-start rounded px-1 text-xs font-bold"
                   style={{
                     backgroundColor: getModeColor(spot.mode),
                     color: inkOnFill(getModeColor(spot.mode)),
@@ -571,7 +595,7 @@ export function PinFlyout({
                 >
                   {spot.mode || "?"}
                 </span>
-                <span className="text-su-muted text-[10px]">
+                <span className="text-su-muted text-xs">
                   {formatSpotAge(spot.time)}
                 </span>
               </button>
@@ -585,14 +609,14 @@ export function PinFlyout({
       {/* ── Open Bands (only if we have data) ── */}
       {openBands.length > 0 && (
         <div className="px-3 py-1.5 border-b border-su-line/40">
-          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider block mb-1">
+          <span className="text-su-muted text-xs font-medium uppercase tracking-wider block mb-1">
             Open Bands
           </span>
           <div className="flex flex-wrap gap-1">
             {openBands.map(({ band, color }) => (
               <span
                 key={band}
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium"
+                className="px-1.5 py-0.5 rounded text-xs font-mono font-medium"
                 style={{
                   backgroundColor: color,
                   color: inkOnFill(color),

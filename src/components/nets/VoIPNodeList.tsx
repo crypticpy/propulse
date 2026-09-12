@@ -92,7 +92,7 @@ export function VoIPNodeList({
 
   return (
     <div>
-      <h4 className="text-[10px] uppercase tracking-widest text-su-muted mb-2">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
         VoIP Access
       </h4>
       <div className="divide-y divide-su-line/20">

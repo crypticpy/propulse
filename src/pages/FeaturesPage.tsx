@@ -349,7 +349,7 @@ function TierBadge({
   }[tier];
 
   const sizeClasses = {
-    sm: "text-[10px] px-2 py-0.5",
+    sm: "text-xs px-2 py-0.5",
     md: "text-xs px-3 py-1",
     lg: "text-sm px-4 py-1.5",
   }[size];
@@ -486,7 +486,7 @@ function MobileFeatureCard({ category }: { category: FeatureCategory }) {
           <h3 className="font-orbitron text-sm font-bold text-su-text tracking-wide">
             {category.title}
           </h3>
-          <p className="text-[11px] text-su-muted">{category.description}</p>
+          <p className="text-xs text-su-muted">{category.description}</p>
         </div>
       </div>
 
@@ -497,19 +497,19 @@ function MobileFeatureCard({ category }: { category: FeatureCategory }) {
             <h4 className="text-sm font-medium text-su-text">{row.feature}</h4>
             <div className="space-y-1.5 pl-1">
               <div className="flex items-start gap-2">
-                <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-su-muted w-16 uppercase tracking-wider">
+                <span className="shrink-0 mt-0.5 text-xs font-semibold text-su-muted w-16 uppercase tracking-wider">
                   Local
                 </span>
                 <CellContent text={row.noAccount} tier="none" />
               </div>
               <div className="flex items-start gap-2">
-                <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-signal-green w-16 uppercase tracking-wider">
+                <span className="shrink-0 mt-0.5 text-xs font-semibold text-signal-green w-16 uppercase tracking-wider">
                   Free
                 </span>
                 <CellContent text={row.free} tier="free" />
               </div>
               <div className="flex items-start gap-2">
-                <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-plasma-orange w-16 uppercase tracking-wider">
+                <span className="shrink-0 mt-0.5 text-xs font-semibold text-plasma-orange w-16 uppercase tracking-wider">
                   Pro
                 </span>
                 <CellContent text={row.pro} tier="pro" />
@@ -636,7 +636,7 @@ function ValueCallouts() {
             sign-up, no email, no tracking. Your data stays in localStorage on
             your device.
           </p>
-          <p className="text-[11px] text-su-muted mt-3 italic">
+          <p className="text-xs text-su-muted mt-3 italic">
             Limitation: Data is tied to this browser only. Clear your cache and
             it's gone.
           </p>
@@ -657,7 +657,7 @@ function ValueCallouts() {
             browser, any device. Your data persists even if you clear your
             cache.
           </p>
-          <p className="text-[11px] text-signal-green/60 mt-3 font-medium">
+          <p className="text-xs text-signal-green/60 mt-3 font-medium">
             Plus: Public operator profile, shareable QSL card, follow other
             operators.
           </p>
@@ -678,7 +678,7 @@ function ValueCallouts() {
             historical replay, multiple saved locations, custom profile images,
             and expanded limits.
           </p>
-          <p className="text-[11px] text-plasma-orange/60 mt-3 font-medium">
+          <p className="text-xs text-plasma-orange/60 mt-3 font-medium">
             Helps keep the servers running and the data flowing.
           </p>
         </div>
@@ -726,7 +726,7 @@ function BottomCTA() {
       </div>
 
       {isSupabaseConfigured && (
-        <p className="text-[11px] text-su-muted mt-4">
+        <p className="text-xs text-su-muted mt-4">
           Pro subscription helps keep the servers running and unlocks advanced
           features.
         </p>

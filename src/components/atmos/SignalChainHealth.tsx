@@ -468,7 +468,7 @@ export function SignalChainHealth() {
           <div
             className={`w-2 h-2 rounded-full ${statusColor(overallStatus)}`}
           />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
+          <span className="text-xs font-mono uppercase tracking-widest text-su-muted">
             Signal Chain
           </span>
         </div>
@@ -501,11 +501,11 @@ export function SignalChainHealth() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-[10px] font-medium text-su-muted">
+                    <span className="text-xs font-medium text-su-muted">
                       {stage.label}
                     </span>
                     <span
-                      className={`text-[10px] font-mono ${statusTextColor(stage.status)}`}
+                      className={`text-xs font-mono ${statusTextColor(stage.status)}`}
                     >
                       {stage.sublabel}
                     </span>
@@ -515,7 +515,7 @@ export function SignalChainHealth() {
                       {stage.details.map((d, j) => (
                         <span
                           key={j}
-                          className="block text-[9px] text-su-muted"
+                          className="block text-xs text-su-muted"
                         >
                           {d}
                         </span>

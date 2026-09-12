@@ -191,9 +191,11 @@ export function SelectedSpotCard({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
+    // Outside-pointer handling is deferred past the opening gesture, but
+    // Escape must remain available when a parent refreshes onClose.
+    document.addEventListener("keydown", handleKeyDown);
     const timeout = window.setTimeout(() => {
       document.addEventListener("pointerdown", handlePointerDown);
-      document.addEventListener("keydown", handleKeyDown);
     }, 0);
     return () => {
       window.clearTimeout(timeout);

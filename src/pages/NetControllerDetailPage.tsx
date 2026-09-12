@@ -396,7 +396,7 @@ export function NetControllerDetailPage() {
 
       {/* Session History with ADIF export */}
       <div className={panelClass}>
-        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
+        <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
           Session History
         </h3>
         <NetSessionHistory

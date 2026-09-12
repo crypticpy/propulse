@@ -96,7 +96,7 @@ export function NetSessionHistory({
               </div>
 
               {/* Check-in count */}
-              <div className="flex items-center gap-1 text-[11px] text-su-muted">
+              <div className="flex items-center gap-1 text-xs text-su-muted">
                 <svg
                   className="w-3 h-3"
                   fill="none"
@@ -141,7 +141,7 @@ export function NetSessionHistory({
 
               {/* Status indicator for cancelled sessions */}
               {session.status === "cancelled" && (
-                <span className="text-[10px] text-red-400/70 font-medium uppercase">
+                <span className="text-xs text-red-400/70 font-medium uppercase">
                   Cancelled
                 </span>
               )}
@@ -154,7 +154,7 @@ export function NetSessionHistory({
                   }
                   aria-expanded={isExpanded}
                   aria-controls={`session-details-${session.id}`}
-                  className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+                  className={`px-2 py-0.5 text-xs font-medium rounded-md border transition-colors ${
                     isExpanded
                       ? "bg-nebula-blue/20 text-su-text border-nebula-blue/30"
                       : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"

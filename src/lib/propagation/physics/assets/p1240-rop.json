@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "quantity": "Rop",
+  "description": "Ratio of the median operational MUF to the median basic MUF for an F2 mode.",
+  "units": "dimensionless ratio",
+  "provenance": {
+    "recommendation": "ITU-R P.1240",
+    "edition": "P.1240-2 (07/2015); Table 1 is unchanged from P.1240-0 (1997) and P.1240-1, the edition P.533-14 cites",
+    "table": "Table 1",
+    "cited_by": "ITU-R P.533-14 section 3.7: \"for F2 modes, the operational MUF = basic MUF . Rop where Rop is given in Table 1 to Recommendation ITU-R P.1240; for E modes the operational MUF is equal to the basic MUF\".",
+    "transcribed_from": "Read off the published Table 1 of Recommendation ITU-R P.1240-2 (page 4) and cross-checked against the identical Table 1 of P.1240-0 (page 3), both fetched from the ITU-R publications site on 2026-09-12 (R-REC-P.1240-2-201507-I!!PDF-E.pdf, R-REC-P.1240-0-199705-S!!PDF-E.pdf).",
+    "transcription_caveat": "The ITU-R HF reference implementation (P533 v14.3, MUFOperational.c, commit cd172be56dc04b154e5d2fa91cbaa6ecf5284305) carries the band above 30 dBW with winter and summer exchanged relative to the published table (its array reads winter 1.15/1.25, summer 1.25/1.35 where the recommendation prints winter 1.25/1.35, summer 1.15/1.25). That divergence is moot for the reference because its EIRP index is hard-wired to the band at or below 30 dBW (`if (path->EIRP <= 30.0) power = 0; else power = 0;`), and no golden case exercises the upper band. This asset follows the published table. The six values at or below 30 dBW agree with the reference and are confirmed by every golden circuit shorter than 9000 km."
+  },
+  "seasons": {
+    "definition": "ITU-R P.1240 (Table 2 note): Winter is November, December, January, February in the Northern Hemisphere and May, June, July, August in the Southern Hemisphere; Summer the reverse; Equinox is March, April, September, October in both hemispheres. The reference's WhatSeason() applies the same rule with the equator counted north. The latitude is the path mid-point's.",
+    "order": ["winter", "equinox", "summer"]
+  },
+  "day_night": {
+    "definition": "P.533-14 states no test. The reference compares the path's UTC hour at the mid-path control point against that point's sunrise and sunset expressed as UTC hours and wrapped into 0..24; see operationalMuf.ts for what that wrapping does near a sunset that crosses midnight UTC."
+  },
+  "eirp_bands": {
+    "le_30_dbw": "EIRP no greater than 30 dBW",
+    "gt_30_dbw": "EIRP greater than 30 dBW"
+  },
+  "rop": {
+    "le_30_dbw": {
+      "winter": {
+        "day": 1.2,
+        "night": 1.3
+      },
+      "equinox": {
+        "day": 1.15,
+        "night": 1.25
+      },
+      "summer": {
+        "day": 1.1,
+        "night": 1.2
+      }
+    },
+    "gt_30_dbw": {
+      "winter": {
+        "day": 1.25,
+        "night": 1.35
+      },
+      "equinox": {
+        "day": 1.2,
+        "night": 1.3
+      },
+      "summer": {
+        "day": 1.15,
+        "night": 1.25
+      }
+    }
+  }
+}

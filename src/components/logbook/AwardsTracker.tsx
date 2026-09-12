@@ -422,7 +422,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
                 flex-1 text-center py-1.5 rounded-lg text-sm font-medium
                 ${
                   dxccStats.totalConfirmed >= milestone
-                    ? "bg-signal-green/20 text-signal-green border border-signal-green/30"
+                    ? "bg-signal-green/20 text-su-text border border-signal-green/30"
                     : "bg-su-line/10 text-su-muted border border-su-line/40"
                 }
               `}
@@ -589,9 +589,9 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
                     aspect-square flex items-center justify-center rounded text-xs font-mono
                     ${
                       confirmed
-                        ? "bg-signal-green/30 text-signal-green border border-signal-green/50"
+                        ? "bg-signal-green/20 text-su-text border border-signal-green/50"
                         : worked
-                          ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
+                          ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                           : "bg-su-line/10 text-su-muted border border-su-line/40"
                     }
                   `}
@@ -604,11 +604,11 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
           </div>
           <div className="flex gap-4 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-signal-green/30 border border-signal-green/50" />
+              <div className="w-3 h-3 rounded bg-signal-green/20 border border-signal-green/50" />
               <span className="text-su-muted">Confirmed</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-plasma-orange/30 border border-plasma-orange/50" />
+              <div className="w-3 h-3 rounded bg-plasma-orange/20 border border-plasma-orange/50" />
               <span className="text-su-muted">Worked</span>
             </div>
             <div className="flex items-center gap-1.5">

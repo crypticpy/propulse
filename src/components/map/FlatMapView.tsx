@@ -23,7 +23,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  drawFlatTerminator as drawTerminator,
   nightLightIntensity,
   flatIlluminationRasterSizes,
 } from "./lib/flatMapIllumination";
@@ -227,6 +226,7 @@ import {
   drawStateBordersLayer,
   drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
+import { drawTerminatorLayer } from "./layers/terminatorLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -355,7 +355,6 @@ const EMPTY_GROUPED_MEMBERS: ReadonlySet<LiveSpot> = new Set<LiveSpot>();
 
 // Colors
 const COLORS = {
-  terminator: "#ff6b35",
   night: "rgba(0, 0, 20, 0.6)",
   grid: "rgba(255, 255, 255, 0.15)",
   homeMarker: "#4488FF", // Blue for home station
@@ -5322,6 +5321,15 @@ export function FlatMapView({
       zoomScale: zoom.scale,
     });
 
+    // The terminator's dash/width damping predates the borders layer and
+    // divides by the raw zoom.scale, unfloored -- bordersProjection's
+    // zoomDamp is `Math.max(1, zoom.scale)`, so a dedicated instance keeps
+    // that exact pre-#1091 behaviour instead of changing it (#1091 PR 8).
+    const terminatorProjection = {
+      ...bordersProjection,
+      screenPx: (px: number) => px / zoom.scale,
+    };
+
     // RainViewer (+ NEXRAD) equirect overlay — after basemap underlay, before spots.
     if (layers.radar && radarCanvas) {
       context.save();
@@ -5356,15 +5364,10 @@ export function FlatMapView({
         nightDarkness,
         illuminationSize.mask,
       );
-      drawTerminator(
-        context,
-        displayTime,
-        renderWidth,
-        renderHeight,
+      drawTerminatorLayer(context, displayTime, terminatorProjection, {
         highViz,
-        isStandard,
-        zoom.scale,
-      );
+        dashed: labelOptions.terminatorDashed,
+      });
     }
 
     if (layers.greyline) {
@@ -5406,6 +5409,7 @@ export function FlatMapView({
           gridLabels: false,
           wasOverlay: false,
           tileLabels: false,
+          terminatorDashed: false,
         },
         isStandard,
         1,
@@ -5455,6 +5459,7 @@ export function FlatMapView({
           gridLabels: labelOptions.gridLabels,
           wasOverlay: false,
           tileLabels: false,
+          terminatorDashed: false,
         },
         isStandard,
         zoom.scale,
@@ -6000,7 +6005,19 @@ export function FlatMapView({
         nightDarkness,
         illuminationSize.mask,
       );
-      drawTerminator(ctx, displayTime, width, height, highViz, standard);
+      // No scale is tracked for this backdrop (it redraws at a fixed
+      // resolution, not the live zoom), so zoomScale/zoomDamp are both 1 --
+      // matching the pre-#1091 default `scale = 1` this call site never
+      // overrode (#1091 PR 8).
+      const miniMapProjection = createEquirectangularProjection({
+        width,
+        height,
+        zoomScale: 1,
+      });
+      drawTerminatorLayer(ctx, displayTime, miniMapProjection, {
+        highViz,
+        dashed: labelOptions.terminatorDashed,
+      });
     }
     if (!standard && layers.nightLights)
       drawNightLights(ctx, displayTime, width, height, illuminationSize.lights);
@@ -6033,6 +6050,7 @@ export function FlatMapView({
     layers.nightLights,
     illuminationSize.lights,
     illuminationSize.mask,
+    labelOptions.terminatorDashed,
   ]);
 
   // Runs after the three retained surfaces have painted the committed camera,

@@ -871,6 +871,17 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               setLabelOption("stateBorders", !labelOptions.stateBorders),
           },
           {
+            key: "terminatorDashed",
+            label: "Dashed Terminator Line",
+            title: "Draw the day/night line dashed instead of solid",
+            getValue: () => labelOptions.terminatorDashed,
+            onToggle: () =>
+              setLabelOption(
+                "terminatorDashed",
+                !labelOptions.terminatorDashed,
+              ),
+          },
+          {
             key: "maidenheadGrid",
             label: "Maidenhead Grid",
             title: "Grid lines and field labels on the globe",

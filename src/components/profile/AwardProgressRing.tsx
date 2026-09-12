@@ -109,7 +109,7 @@ export function AwardProgressRing({
           <span className="text-lg font-bold text-su-text leading-none">
             {confirmed}
           </span>
-          <span className="text-[10px] text-su-muted leading-none mt-0.5">
+          <span className="text-xs text-su-muted leading-none mt-0.5">
             / {total}
           </span>
         </div>

@@ -1,0 +1,1211 @@
+{
+  "schema_version": 1,
+  "derived_from": "ml/propagation_validation/reference/golden-v1.json",
+  "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+  "reference_version": "ITURHFProp Version: Sep 11 2026\nP533 Version: 14.2",
+  "case_count": 22,
+  "selection": "Every golden circuit at or under the 9 000 km limit of the short-path method, which is 22 of the 30. The other 8 are longer, and there the reference prints its -307 sentinel for Es because section 5.2 does not apply at all, so there is nothing on them for this slice to be measured against. The selection is an observable property of the oracle and not a choice: the test re-derives it from the distance column and fails if the two disagree.",
+  "what_is_compared": {
+    "the_problem": "Our leaves follow the published text on four points where the pinned reference build does not, and three of the four change the field strength on this corpus. A single delta column would therefore measure the deviations and the implementation at once, and a tolerance wide enough to pass would hide both. So three columns are recorded per case and the third is the one asserted.",
+    "field_strength_delta_db": "Our Es against the oracle's, as both actually ship. This is the product difference, it is DECLARED AND NOT ASSERTED AS PARITY, and its per-case value is recorded so that it cannot drift unnoticed.",
+    "field_strength_delta_with_reference_lz_and_lm_db": "The same, with the reference's own Lz of 9.14 dB (losses.ts deviation 1) and its own above-the-MUF loss (losses.ts deviations 2 and 3) substituted on every contributing mode. What remains is everything except those two formulas.",
+    "field_strength_delta_with_reference_geometry_db": "The same again, with the reference's geometry substituted as well: equation (2)'s height for the elevation, for the slant range of equation (19) and for the penetration points of the absorption, in place of the section 5.1 height this repository reads equation (13)'s hr as (modeSet.ts deviation 2, inherited here). THIS IS THE PARITY COLUMN. With the reference's own conventions and its own geometry in place, what is left is this slice's arithmetic against the oracle's.",
+    "dominant_mode_lb_delta_with_reference_geometry_db": "Equation (18) for the single mode the oracle names, under the same three substitutions. A per-mode statement rather than a sum over modes, so that a cancellation inside Es cannot pass for agreement. Null on the 8 cases where the oracle names no mode and on G11, whose named mode this slice does not evaluate at all."
+  },
+  "conventions": {
+    "transmitter_power": "Pt = 10 log10(tx_power_watts / 1000) dB(1 kW), the reference's own conversion. 100 W on 20 of the 22 cases, 1 W on G27 and 1 kW on G28.",
+    "antennas": "The oracle's antennas block: isotropic at both ends with a 0 dB gain offset, so Gt = 0 dBi and Grw = 0 dBi, and the Grw column is 0.0 on every case. The product's station model claims no parity evidence from this corpus.",
+    "time": "hour_utc is an integer UTC hour 0-23 and the reference's SolarParameters() fixes the day of the month at 15, which is the provider's own monthly anchor, so validAt is YYYY-MM-15Thh:00:00Z. The auroral loss is taken at that same hour: auroralLoss.ts deviation 2 reads the mid-path local time as a real-valued local mean time, which the reference truncates three times.",
+    "provider_mode": "reference, not enhanced: integer month, integer hour, bilinear interpolation of the 1.5-degree grid, the convention the oracle was run at.",
+    "absorption_state": "The penetration-point sampler answers from the same CCIR provider: foE, the solar zenith angle, the noon zenith angle as |latitude - solar declination|, and the longitudinal gyrofrequency at 100 km. The modified dip is left to absorptionLoss.ts, which takes it at 100 km from the same field model the reference uses.",
+    "field_strength_branch": "Es is the short-path field strength and is published on every case under 9 000 km. Ep is Es below 7 000 km and the equation (42) blend above it, which is why Ep and not Es is what the oracle's own power column is computed from.",
+    "power_branch": "PR is the median available receiver power and is asserted only up to 7 000 km. Above that the oracle's PR is the blend of the short-path and long-path powers, which is slice D's equation (42); our receiverPowerDbW there is the short-path TERM of that blend and the fixture does not pretend otherwise.",
+    "dominant_mode": "The oracle names a dominant mode on 14 of the 22 cases and prints NONE on the 8 that are past 7 000 km, where its own DMidx is never set. On those 8 the named-mode columns are null here and only the two circuit columns are read."
+  },
+  "tolerances": {
+    "absorption_fit_db": 0.25,
+    "basic_muf_mhz": 0.05,
+    "auroral_band_factor": 1.0,
+    "power_identity_db": 0.02,
+    "power_scaling_identity_db": 0.005,
+    "per_case_rule": "The budget for a reference-geometry column on one case is absorption_fit_db + auroral_band_factor * reading.max_auroral_loss_db."
+  },
+  "tolerance_derivation": "Not chosen to pass, and the test reads these two numbers out of this file rather than carrying them in code. absorption_fit_db is the declared acceptance tolerance of src/lib/propagation/absorption/fixtures/absorption-model.json, the 0.25 dB that equation (20)'s fitted ATnoon, phi and p are accepted against on the R2 audit circuit, where the measured worst anchor is 0.073 dB. Absorption is the only term of equation (18) that is a fit rather than a closed formula, so it is the only term with an error bar of its own. auroral_band_factor is 1.0 because the auroral loss of Table 2 is a lookup, not a formula: where our mid-path local time and the reference's three truncations of it land in different columns of the table, or its distance regime differs from ours, the whole of Lh is replaced by a different entry, so that term can be wrong by its own size and no more can be claimed for it. THE EVIDENCE THAT THIS IS THE RIGHT RULE AND NOT A CONVENIENT ONE IS IN THE DATA: of the 8 cases with no auroral loss at all, the 7 that do not also drop a mode agree to 0.135 dB or better, and every case whose residual is above 0.3 dB has a non-zero Lh. The worst case sits at 54 per cent of its own budget (G10, 0.134 dB against 0.25 dB), so no case is close to its limit and widening a budget to pass would be visible. basic_muf_mhz is slice A's own budget carried unchanged, because the quantity is slice A's and enters here only as the fb of equations (24) to (26); the worst of the 14 named modes is 0.005 MHz.",
+  "observed_max_delta": {
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 22 cases",
+    "field_strength_with_reference_geometry_db": 1.0079,
+    "field_strength_with_reference_geometry_case": "G12",
+    "dominant_mode_lb_with_reference_geometry_db": 1.0393,
+    "dominant_mode_lb_with_reference_geometry_case": "G12",
+    "field_strength_with_reference_geometry_db_zero_auroral_cases": 0.1343,
+    "field_strength_with_reference_geometry_case_zero_auroral": "G10",
+    "worst_fraction_of_budget": 0.537,
+    "power_identity_db": 0.0069,
+    "note": "G11 and G14 are excluded from these maxima and from the assertion, and are not covered by a tolerance at all. See reference_divergence.dropped_mode_cases."
+  },
+  "reference_divergence": {
+    "what_this_is": "NOT A PARITY COLUMN, and a green run here is not agreement with the oracle. These are the differences between what this repository ships and what the pinned build prints, each attributed to a numbered deviation in the leaf that causes it. They are asserted only against wide bounds, so that a change in their size is caught while none of them is ever mistaken for parity.",
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 22 cases",
+    "bounds": {
+      "field_strength_db": 20.0,
+      "field_strength_with_reference_lz_and_lm_db": 13.0,
+      "receiver_power_db": 12.0,
+      "derivation": "The measured maxima are 17.614 dB (G26), 11.282 dB (G11) and 10.863 dB (G11); the bounds are those rounded up with about a seventh of headroom. They are drift detectors on a declared difference and nothing more."
+    },
+    "observed_max": {
+      "field_strength_db": 17.614,
+      "field_strength_case": "G26",
+      "field_strength_with_reference_lz_and_lm_db": 11.2823,
+      "field_strength_with_reference_lz_and_lm_case": "G11",
+      "receiver_power_db": 10.8629,
+      "receiver_power_case": "G11"
+    },
+    "attribution": {
+      "lz": "losses.ts deviation 1. The published 8.72 dB against the reference's 9.14, exactly 0.42 dB on every mode of every case, always in the same direction: our field strength is higher.",
+      "above_the_muf_loss": "losses.ts deviations 2 and 3, and the largest single cause on this corpus. Every case except G11 and G27 has at least one contributing mode above its own basic MUF, because the higher-order modes of a circuit have lower basic MUFs than the lowest-order one; equation (25) is exercised on 7 cases and equation (26) on 18. The extreme is G26 at 6.10 times the basic MUF of a contributing mode, where the published equation (26) saturates at 62 dB and the reference's undocumented over-3 000 km branch saturates at 80 dB. That one formula is nearly the whole of G26's difference: substituting the reference's own Lz and Lm takes the case from +17.614 dB to -0.806 dB.",
+      "elevation_and_slant_range": "modeSet.ts deviation 2, inherited. Equation (13) is taken at the section 5.1 height here and at the equation (2) height in the reference, and the difference moves 20 log10 p', the angle of incidence that sets the absorption, and the penetration points. With the reference's geometry substituted as well, the worst remaining case is 1.008 dB.",
+      "auroral_loss": "auroralLoss.ts deviation 2. What is left after the three substitutions above is the auroral term and the absorption fit, and the data separates them cleanly: the cases with no auroral loss at all agree to 0.135 dB, and every case above 0.3 dB of residual has a non-zero Lh.",
+      "penetration_point_height": "absorptionLoss.ts deviation 2, and it is NOT a material part of any of these numbers. Recomputing the named mode's absorption with the reference's own penetration geometry moves Li by at most 0.48 dB (G12) and by less than 0.11 dB on 12 of the 13 cases where it can be measured."
+    },
+    "dropped_mode_cases": {
+      "cases": ["G11", "G14"],
+      "what_happens": "On both circuits the 2F2 mode is selected at the equation (2) height and its section 5.1 height cannot close that hop, so slice B labels it geometrically_unsupported with mirror_height_cannot_close_hop and it contributes nothing here. The reference keeps it, and on G11 it is the mode the reference calls dominant. This is the same circuit slice B's own fixture names in reference_divergence.below_horizon_case. The flag is observable and the test reads it from the mode set rather than from a case id.",
+      "effect": "G11 loses 10.863 dB of field strength and G14 loses 1.979 dB, and neither is covered by the parity budget: substituting the reference's geometry cannot put back a mode that was never evaluated. They are asserted against their own bound and excluded from the parity assertion.",
+      "bound_db": 12.0
+    },
+    "dominant_mode_disagreements": {
+      "cases": ["G05", "G06", "G10", "G11"],
+      "what_this_is": "Four of the 14 cases where the oracle names a mode: ours with the largest Prw is not the one the reference names. On G05, G06 and G10 both modes exist in both implementations and their powers are within a couple of decibels of one another, so a sub-decibel difference in the loss moves which one wins; on G11 our winner wins because the reference's is not evaluated. The dominant mode is not part of the recommendation (fieldStrengthShort.ts deviation 3), so this is reported and not asserted, and the per-mode Lb column is taken against the mode the reference names rather than against our own winner."
+    }
+  },
+  "parity_is_partial": "DECLARED LIMITATION, read this before trusting a green run. FIRST, the oracle publishes one mode per circuit and only on the 14 cases inside 7 000 km. Es and Pr are sums over the whole mode set, the sets here run from 4 to 9 modes, and the only per-mode columns are DMLb, DMEw, DMPrw and DMBMUF, so nothing here measures the field strength of the other three to eight modes and a compensating pair of errors inside the sum would pass. SECOND, equation (18) is published only as its total: the oracle has no column for Li, none for Lm, none for Lg, none for Lh and none for Lz, so this corpus can never attribute a difference to one term by itself. The attribution block above is built by substituting the reference's formulas into our own result, which is evidence about our arithmetic and not a measurement of the reference's intermediates. THIRD, the above-the-MUF loss runs on 20 of the 22 cases but only through higher-order modes: on just 2 of them (G08 and G12) is the mode the ORACLE NAMES above its own basic MUF, so the only per-mode evidence for equations (24) to (26) is those two, and equation (25) has no per-mode evidence at all. losses.test.ts covers both branches against the published text instead. FOURTH, the antennas are isotropic at both ends on every case, so nothing here tests a gain that varies with elevation, and Grw enters as 0 dBi throughout. FIFTH, the transmitter power takes three values (1 W, 100 W, 1 kW) and the only exact statement the corpus supports about it is the G04 to G28 pair, which is one circuit at two powers 10 dB apart. SIXTH, absorption_unavailable never fires: no selected mode on any of the 22 circuits has a hop the fixed 300 km penetration geometry cannot reach, so that state is covered only by fieldStrengthShort.test.ts. SEVENTH, the receiver power above 7 000 km is the equation (42) blend and is not asserted at all; 8 of the 22 cases are in that range and carry a field-strength assertion only.",
+  "internal_invariants": {
+    "what_this_is": "Two statements the oracle makes about itself, asserted here because they pin the constant and the reference plane of equation (43) without any of our own code taking part.",
+    "power_from_field_strength": "PR - Ep = Grw - 20 log10 f - 107.2 on all 30 golden cases, to 0.0069 dB, which is the rounding of the published two-decimal columns. That is equation (43) with Grw = 0, and it shows that the oracle's power is taken from the blended Ep and not from Es, which is what fieldStrengthShort.ts deviation 2 reads.",
+    "power_scaling": "G28 is G04 at 1 kW instead of 100 W and its Es, Ep and PR are each higher by exactly 10.000 dB, which is Pt entering equation (17) once and nothing else moving."
+  },
+  "cases": [
+    {
+      "case_id": "G01",
+      "label": "Austin-Dallas NVIS 80m night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 6,
+        "sunspot_number": 100,
+        "frequency_mhz": 3.6,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "field_strength_dbuv_per_m": 28.2675,
+        "path_field_strength_dbuv_per_m": 28.27,
+        "receiver_power_dbw": -90.06,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 110.32,
+        "dominant_mode_field_strength_dbuv_per_m": 27.41,
+        "dominant_mode_receiver_power_dbw": -90.92,
+        "dominant_mode_basic_muf_mhz": 4.55
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 9,
+        "contributing_mode_count": 9,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 3,
+        "above_muf_f2_mode_count": 0,
+        "max_above_muf_loss_db": 81,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": -0.3342,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.7542,
+        "field_strength_delta_with_reference_geometry_db": 0.0006,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.0015,
+        "receiver_power_delta_db": -0.3327,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G02",
+      "label": "Austin-Dallas NVIS 40m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "field_strength_dbuv_per_m": 16.6132,
+        "path_field_strength_dbuv_per_m": 16.61,
+        "receiver_power_dbw": -107.61,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 127.12,
+        "dominant_mode_field_strength_dbuv_per_m": 16.51,
+        "dominant_mode_receiver_power_dbw": -107.72,
+        "dominant_mode_basic_muf_mhz": 8.83
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 9,
+        "contributing_mode_count": 9,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 3,
+        "above_muf_f2_mode_count": 0,
+        "max_above_muf_loss_db": 65.567,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": 1.0428,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.2421,
+        "field_strength_delta_with_reference_geometry_db": 0.0128,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.0127,
+        "receiver_power_delta_db": 1.0408,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G03",
+      "label": "Austin-Chicago 80m regional night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 41.8781,
+        "rx_lon": -87.6298,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 8,
+        "sunspot_number": 50,
+        "frequency_mhz": 3.6,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 1576.37,
+        "field_strength_dbuv_per_m": 20.5602,
+        "path_field_strength_dbuv_per_m": 20.56,
+        "receiver_power_dbw": -97.77,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 119.55,
+        "dominant_mode_field_strength_dbuv_per_m": 18.18,
+        "dominant_mode_receiver_power_dbw": -100.15,
+        "dominant_mode_basic_muf_mhz": 9.03
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 9,
+        "contributing_mode_count": 9,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 3,
+        "above_muf_f2_mode_count": 0,
+        "max_above_muf_loss_db": 81,
+        "max_auroral_loss_db": 0.4
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.3187,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.1011,
+        "field_strength_delta_with_reference_geometry_db": 0.0089,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.0107,
+        "receiver_power_delta_db": 0.3229,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G04",
+      "label": "Austin-Denver 40m one-hop",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "field_strength_dbuv_per_m": 21.8576,
+        "path_field_strength_dbuv_per_m": 21.86,
+        "receiver_power_dbw": -102.37,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 123.64,
+        "dominant_mode_field_strength_dbuv_per_m": 19.99,
+        "dominant_mode_receiver_power_dbw": -104.24,
+        "dominant_mode_basic_muf_mhz": 11.6
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 9,
+        "contributing_mode_count": 9,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 3,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 81,
+        "max_auroral_loss_db": 1
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.5476,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.1166,
+        "field_strength_delta_with_reference_geometry_db": 0.2992,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.3004,
+        "receiver_power_delta_db": 0.5501,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G05",
+      "label": "Austin-New York 20m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 40.7128,
+        "rx_lon": -74.006,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 2431.61,
+        "field_strength_dbuv_per_m": 5.6492,
+        "path_field_strength_dbuv_per_m": 5.65,
+        "receiver_power_dbw": -124.54,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 147.51,
+        "dominant_mode_field_strength_dbuv_per_m": 2.07,
+        "dominant_mode_receiver_power_dbw": -128.11,
+        "dominant_mode_basic_muf_mhz": 17.43
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": false,
+        "our_dominant_mode": "1F2",
+        "mode_count": 8,
+        "contributing_mode_count": 8,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 1,
+        "above_muf_f2_mode_count": 3,
+        "max_above_muf_loss_db": 17.9789,
+        "max_auroral_loss_db": 1.3333
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.5123,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.0821,
+        "field_strength_delta_with_reference_geometry_db": -0.4349,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 0.4314,
+        "receiver_power_delta_db": 0.5171,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G06",
+      "label": "Honolulu-Los Angeles 17m",
+      "inputs": {
+        "tx_lat": 21.3069,
+        "tx_lon": -157.8583,
+        "rx_lat": 34.0522,
+        "rx_lon": -118.2437,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 22,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 4119.94,
+        "field_strength_dbuv_per_m": 2.6047,
+        "path_field_strength_dbuv_per_m": 2.6,
+        "receiver_power_dbw": -129.75,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 152.36,
+        "dominant_mode_field_strength_dbuv_per_m": -0.61,
+        "dominant_mode_receiver_power_dbw": -132.96,
+        "dominant_mode_basic_muf_mhz": 31.39
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": false,
+        "our_dominant_mode": "3F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 1,
+        "max_above_muf_loss_db": 6.4109,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": -1.9137,
+        "field_strength_delta_with_reference_lz_and_lm_db": -2.3627,
+        "field_strength_delta_with_reference_geometry_db": -0.007,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 0.0067,
+        "receiver_power_delta_db": -1.9126,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G07",
+      "label": "Reykjavik-Fairbanks auroral 30m",
+      "inputs": {
+        "tx_lat": 64.1466,
+        "tx_lon": -21.9426,
+        "rx_lat": 64.8378,
+        "rx_lon": -147.7164,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 15,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 5012.57,
+        "field_strength_dbuv_per_m": -8.5124,
+        "path_field_strength_dbuv_per_m": -8.51,
+        "receiver_power_dbw": -135.8,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 155.46,
+        "dominant_mode_field_strength_dbuv_per_m": -8.77,
+        "dominant_mode_receiver_power_dbw": -136.06,
+        "dominant_mode_basic_muf_mhz": 12.16
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "2F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 4,
+        "max_above_muf_loss_db": 26.0244,
+        "max_auroral_loss_db": 9.08
+      },
+      "divergence": {
+        "field_strength_delta_db": 1.7311,
+        "field_strength_delta_with_reference_lz_and_lm_db": 1.2217,
+        "field_strength_delta_with_reference_geometry_db": 0.4662,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.655,
+        "receiver_power_delta_db": 1.7323,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G08",
+      "label": "London-Moscow 40m winter night",
+      "inputs": {
+        "tx_lat": 51.5074,
+        "tx_lon": -0.1278,
+        "rx_lat": 55.7558,
+        "rx_lon": 37.6173,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 2,
+        "sunspot_number": 50,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 2500.54,
+        "field_strength_dbuv_per_m": 0.2042,
+        "path_field_strength_dbuv_per_m": 0.2,
+        "receiver_power_dbw": -124.02,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 143.5,
+        "dominant_mode_field_strength_dbuv_per_m": 0.12,
+        "dominant_mode_receiver_power_dbw": -124.1,
+        "dominant_mode_basic_muf_mhz": 6.63
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "above_basic_muf_with_loss",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 8,
+        "contributing_mode_count": 8,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 2,
+        "above_muf_f2_mode_count": 6,
+        "max_above_muf_loss_db": 81,
+        "max_auroral_loss_db": 1.3
+      },
+      "divergence": {
+        "field_strength_delta_db": 5.2896,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.1302,
+        "field_strength_delta_with_reference_geometry_db": -0.0221,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 0.0264,
+        "receiver_power_delta_db": 5.2887,
+        "named_mode_above_muf_loss_db": 9.5687,
+        "reference_named_mode_above_muf_loss_db": 14.5687
+      }
+    },
+    {
+      "case_id": "G09",
+      "label": "Delhi-Berlin 20m mid-latitude",
+      "inputs": {
+        "tx_lat": 28.6139,
+        "tx_lon": 77.209,
+        "rx_lat": 52.52,
+        "rx_lon": 13.405,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 14,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 5780.64,
+        "field_strength_dbuv_per_m": 5.34,
+        "path_field_strength_dbuv_per_m": 5.34,
+        "receiver_power_dbw": -124.84,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 147.25,
+        "dominant_mode_field_strength_dbuv_per_m": 2.33,
+        "dominant_mode_receiver_power_dbw": -127.85,
+        "dominant_mode_basic_muf_mhz": 21.85
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "2F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 17.0369,
+        "max_auroral_loss_db": 0.78
+      },
+      "divergence": {
+        "field_strength_delta_db": -0.109,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.5551,
+        "field_strength_delta_with_reference_geometry_db": -0.0192,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 0.0186,
+        "receiver_power_delta_db": -0.1134,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G10",
+      "label": "Cairo-Johannesburg 15m trans-equatorial",
+      "inputs": {
+        "tx_lat": 30.0444,
+        "tx_lon": 31.2357,
+        "rx_lat": -26.2041,
+        "rx_lon": 28.0473,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 12,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6263.76,
+        "field_strength_dbuv_per_m": -3.2429,
+        "path_field_strength_dbuv_per_m": -3.24,
+        "receiver_power_dbw": -136.97,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "3F2",
+        "dominant_mode_lb_db": 160.14,
+        "dominant_mode_field_strength_dbuv_per_m": -7.01,
+        "dominant_mode_receiver_power_dbw": -140.74,
+        "dominant_mode_basic_muf_mhz": 27.84
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": false,
+        "our_dominant_mode": "4F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 11.1272,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": -0.9401,
+        "field_strength_delta_with_reference_lz_and_lm_db": -1.6988,
+        "field_strength_delta_with_reference_geometry_db": 0.1343,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.0957,
+        "receiver_power_delta_db": -0.9397,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G11",
+      "label": "Helsinki-Beijing 30m polar-ish",
+      "inputs": {
+        "tx_lat": 60.1699,
+        "tx_lon": 24.9384,
+        "rx_lat": 39.9042,
+        "rx_lon": 116.4074,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 5,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6322.25,
+        "field_strength_dbuv_per_m": -12.8842,
+        "path_field_strength_dbuv_per_m": -12.88,
+        "receiver_power_dbw": -140.17,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 160.69,
+        "dominant_mode_field_strength_dbuv_per_m": -14.01,
+        "dominant_mode_receiver_power_dbw": -141.29,
+        "dominant_mode_basic_muf_mhz": 19.92
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "geometrically_unsupported",
+        "dominant_mode_agrees": false,
+        "our_dominant_mode": "3F2",
+        "mode_count": 5,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": ["2F2"],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 0,
+        "max_above_muf_loss_db": 0,
+        "max_auroral_loss_db": 0.16
+      },
+      "divergence": {
+        "field_strength_delta_db": -10.8623,
+        "field_strength_delta_with_reference_lz_and_lm_db": -11.2823,
+        "field_strength_delta_with_reference_geometry_db": -6.482,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": -10.8629,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G12",
+      "label": "Anchorage-Oslo polar 20m",
+      "inputs": {
+        "tx_lat": 61.2181,
+        "tx_lon": -149.9003,
+        "rx_lat": 59.9139,
+        "rx_lon": 10.7522,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 20,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6443.88,
+        "field_strength_dbuv_per_m": -21.4073,
+        "path_field_strength_dbuv_per_m": -21.41,
+        "receiver_power_dbw": -151.59,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 171.02,
+        "dominant_mode_field_strength_dbuv_per_m": -21.44,
+        "dominant_mode_receiver_power_dbw": -151.62,
+        "dominant_mode_basic_muf_mhz": 13.36
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "above_basic_muf_with_loss",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "2F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 5,
+        "max_above_muf_loss_db": 34.4995,
+        "max_auroral_loss_db": 3.04
+      },
+      "divergence": {
+        "field_strength_delta_db": 6.8281,
+        "field_strength_delta_with_reference_lz_and_lm_db": 2.8379,
+        "field_strength_delta_with_reference_geometry_db": -1.0079,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 1.0393,
+        "receiver_power_delta_db": 6.8264,
+        "named_mode_above_muf_loss_db": 8.4879,
+        "reference_named_mode_above_muf_loss_db": 11.8913
+      }
+    },
+    {
+      "case_id": "G13",
+      "label": "Toronto-Lima 20m north-south",
+      "inputs": {
+        "tx_lat": 43.6532,
+        "tx_lon": -79.3832,
+        "rx_lat": -12.0464,
+        "rx_lon": -77.0428,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 1,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6198.07,
+        "field_strength_dbuv_per_m": 8.1571,
+        "path_field_strength_dbuv_per_m": 8.16,
+        "receiver_power_dbw": -122.03,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "2F2",
+        "dominant_mode_lb_db": 143.48,
+        "dominant_mode_field_strength_dbuv_per_m": 6.11,
+        "dominant_mode_receiver_power_dbw": -124.08,
+        "dominant_mode_basic_muf_mhz": 19.96
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "2F2",
+        "mode_count": 5,
+        "contributing_mode_count": 5,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 3,
+        "max_above_muf_loss_db": 20.0202,
+        "max_auroral_loss_db": 0.2
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.622,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.0918,
+        "field_strength_delta_with_reference_geometry_db": -0.0132,
+        "dominant_mode_lb_delta_with_reference_geometry_db": 0.0546,
+        "receiver_power_delta_db": 0.6247,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    },
+    {
+      "case_id": "G14",
+      "label": "Singapore-Nairobi 15m equatorial",
+      "inputs": {
+        "tx_lat": 1.3521,
+        "tx_lon": 103.8198,
+        "rx_lat": -1.2921,
+        "rx_lon": 36.8219,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 11,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7454.96,
+        "field_strength_dbuv_per_m": -0.7307,
+        "path_field_strength_dbuv_per_m": -1.36,
+        "receiver_power_dbw": -135.08,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "4F2",
+        "mode_count": 5,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": ["2F2"],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 1,
+        "max_above_muf_loss_db": 5.2776,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": -4.3061,
+        "field_strength_delta_with_reference_lz_and_lm_db": -4.8651,
+        "field_strength_delta_with_reference_geometry_db": -1.9793,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G15",
+      "label": "Austin-Sao Paulo 15m",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -23.5505,
+        "rx_lon": -46.6333,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 23,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 8095.11,
+        "field_strength_dbuv_per_m": 1.2347,
+        "path_field_strength_dbuv_per_m": 0.0,
+        "receiver_power_dbw": -133.72,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 3,
+        "max_above_muf_loss_db": 24.8769,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.6261,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.1234,
+        "field_strength_delta_with_reference_geometry_db": 0.0303,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G16",
+      "label": "Austin-London 20m transatlantic",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "field_strength_dbuv_per_m": -22.8668,
+        "path_field_strength_dbuv_per_m": -24.56,
+        "receiver_power_dbw": -154.75,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 12.4951,
+        "max_auroral_loss_db": 7.38
+      },
+      "divergence": {
+        "field_strength_delta_db": 3.7436,
+        "field_strength_delta_with_reference_lz_and_lm_db": 2.9957,
+        "field_strength_delta_with_reference_geometry_db": -0.1359,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G17",
+      "label": "Tokyo-Sydney 15m",
+      "inputs": {
+        "tx_lat": 35.6762,
+        "tx_lon": 139.6503,
+        "rx_lat": -33.8688,
+        "rx_lon": 151.2093,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 4,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7825.83,
+        "field_strength_dbuv_per_m": -13.828,
+        "path_field_strength_dbuv_per_m": -14.85,
+        "receiver_power_dbw": -148.58,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 13.745,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": 4.7248,
+        "field_strength_delta_with_reference_lz_and_lm_db": 4.1196,
+        "field_strength_delta_with_reference_geometry_db": -0.0329,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G18",
+      "label": "Wellington-Honolulu 20m",
+      "inputs": {
+        "tx_lat": -41.2865,
+        "tx_lon": 174.7762,
+        "rx_lat": 21.3069,
+        "rx_lon": -157.8583,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 9,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7510.65,
+        "field_strength_dbuv_per_m": 5.3077,
+        "path_field_strength_dbuv_per_m": 6.2,
+        "receiver_power_dbw": -123.98,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 1,
+        "max_above_muf_loss_db": 5.9874,
+        "max_auroral_loss_db": 0
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.6196,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.1376,
+        "field_strength_delta_with_reference_geometry_db": -0.0086,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G19",
+      "label": "Perth-Cape Town 17m southern",
+      "inputs": {
+        "tx_lat": -31.9505,
+        "tx_lon": 115.8605,
+        "rx_lat": -33.9249,
+        "rx_lon": 18.4241,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 16,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 8697.26,
+        "field_strength_dbuv_per_m": -28.3015,
+        "path_field_strength_dbuv_per_m": -16.7,
+        "receiver_power_dbw": -149.05,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 4,
+        "max_above_muf_loss_db": 33.5748,
+        "max_auroral_loss_db": 1.86
+      },
+      "divergence": {
+        "field_strength_delta_db": 9.0077,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.1141,
+        "field_strength_delta_with_reference_geometry_db": -0.0722,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G26",
+      "label": "Austin-London 10m solar min closed",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 0,
+        "sunspot_number": 10,
+        "frequency_mhz": 28.5,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "field_strength_dbuv_per_m": -77.017,
+        "path_field_strength_dbuv_per_m": -103.21,
+        "receiver_power_dbw": -239.5,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 4,
+        "max_above_muf_loss_db": 62,
+        "max_auroral_loss_db": 3.6
+      },
+      "divergence": {
+        "field_strength_delta_db": 17.614,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.806,
+        "field_strength_delta_with_reference_geometry_db": 0.0875,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G27",
+      "label": "Austin-London 30m 1 W narrow-band",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 1.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "field_strength_dbuv_per_m": -51.4926,
+        "path_field_strength_dbuv_per_m": -58.75,
+        "receiver_power_dbw": -186.04,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": null,
+        "dominant_mode_lb_db": null,
+        "dominant_mode_field_strength_dbuv_per_m": null,
+        "dominant_mode_receiver_power_dbw": null,
+        "dominant_mode_basic_muf_mhz": null
+      },
+      "reading": {
+        "power_range": "blend_7000_to_9000_km",
+        "named_mode_state": null,
+        "dominant_mode_agrees": null,
+        "our_dominant_mode": "3F2",
+        "mode_count": 4,
+        "contributing_mode_count": 4,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 0,
+        "above_muf_f2_mode_count": 0,
+        "max_above_muf_loss_db": 0,
+        "max_auroral_loss_db": 7.38
+      },
+      "divergence": {
+        "field_strength_delta_db": -0.2591,
+        "field_strength_delta_with_reference_lz_and_lm_db": -0.6791,
+        "field_strength_delta_with_reference_geometry_db": -0.1438,
+        "dominant_mode_lb_delta_with_reference_geometry_db": null,
+        "receiver_power_delta_db": null,
+        "named_mode_above_muf_loss_db": null,
+        "reference_named_mode_above_muf_loss_db": null
+      }
+    },
+    {
+      "case_id": "G28",
+      "label": "Austin-Denver 40m 1 kW digital",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 1000.0
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "field_strength_dbuv_per_m": 31.8576,
+        "path_field_strength_dbuv_per_m": 31.86,
+        "receiver_power_dbw": -92.37,
+        "receiver_gain_dbi": 0.0,
+        "dominant_mode": "1F2",
+        "dominant_mode_lb_db": 123.64,
+        "dominant_mode_field_strength_dbuv_per_m": 29.99,
+        "dominant_mode_receiver_power_dbw": -94.24,
+        "dominant_mode_basic_muf_mhz": 11.6
+      },
+      "reading": {
+        "power_range": "up_to_7000_km",
+        "named_mode_state": "supported",
+        "dominant_mode_agrees": true,
+        "our_dominant_mode": "1F2",
+        "mode_count": 9,
+        "contributing_mode_count": 9,
+        "unevaluated_mode_count": 0,
+        "unclosed_hop_modes": [],
+        "above_muf_e_mode_count": 3,
+        "above_muf_f2_mode_count": 2,
+        "max_above_muf_loss_db": 81,
+        "max_auroral_loss_db": 1
+      },
+      "divergence": {
+        "field_strength_delta_db": 0.5476,
+        "field_strength_delta_with_reference_lz_and_lm_db": 0.1166,
+        "field_strength_delta_with_reference_geometry_db": 0.2992,
+        "dominant_mode_lb_delta_with_reference_geometry_db": -0.3004,
+        "receiver_power_delta_db": 0.5501,
+        "named_mode_above_muf_loss_db": 0,
+        "reference_named_mode_above_muf_loss_db": 0
+      }
+    }
+  ]
+}

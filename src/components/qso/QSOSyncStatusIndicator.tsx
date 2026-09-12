@@ -207,7 +207,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
           <div className="px-3 py-2 space-y-2">
             {/* Status row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Status
               </span>
               <span className="text-xs text-su-muted">
@@ -223,7 +223,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
 
             {/* Pending row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Pending
               </span>
               <span className="text-xs text-su-muted">
@@ -233,7 +233,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
 
             {/* Last sync row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Last Sync
               </span>
               <span className="text-xs text-su-muted">
@@ -243,7 +243,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
 
             {/* Device ID row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Device
               </span>
               <span
@@ -257,7 +257,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
             {/* Error message */}
             {hasError && (
               <div className="mt-1 p-2 rounded bg-alert-red/10 border border-alert-red/20">
-                <p className="text-[10px] text-alert-red/90 break-words">
+                <p className="text-xs text-alert-red/90 break-words">
                   {error}
                 </p>
               </div>
@@ -266,14 +266,14 @@ export function QSOSyncStatusIndicator(): JSX.Element {
 
           {/* Footer actions */}
           <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               {isOffline ? "Will sync when online" : "Auto-syncs every 30s"}
             </span>
             {(hasError || hasPending) && online && (
               <button
                 onClick={() => void handleRetry()}
                 disabled={retrying || syncing}
-                className="text-[10px] px-2 py-0.5 rounded font-medium transition-colors
+                className="text-xs px-2 py-0.5 rounded font-medium transition-colors
                            bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30
                            disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"

@@ -365,6 +365,10 @@ export interface LabelOptions {
   gridLabels: boolean;
   wasOverlay: boolean;
   tileLabels: boolean;
+  /** Draw the day/night terminator line dashed instead of solid, on all
+   * three map views (#1091 PR 8). Default `false`: a solid outlined line
+   * is the most visible default when views disagree on style. */
+  terminatorDashed: boolean;
 }
 
 export interface MapState {
@@ -864,6 +868,7 @@ const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   gridLabels: false,
   wasOverlay: false,
   tileLabels: false,
+  terminatorDashed: false,
 };
 
 // Load saved label options from localStorage

@@ -30,11 +30,11 @@ function Fact({
 }) {
   return (
     <div className="min-w-0 rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1.5">
-      <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
+      <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </div>
       <div
-        className={`mt-0.5 font-mono text-[11px] ${warn ? "text-caution-amber" : "text-su-text"}`}
+        className={`mt-0.5 font-mono text-xs ${warn ? "text-caution-amber" : "text-su-text"}`}
       >
         {value}
       </div>
@@ -74,7 +74,7 @@ export function PathPointCard({
         <h3 className="text-sm font-semibold text-su-text">
           {point ? roleTitle(point.role) : "Path details"}
         </h3>
-        <p className="mt-0.5 text-[10px] text-su-muted">
+        <p className="mt-0.5 text-xs text-su-muted">
           {point
             ? `Hop ${point.hopIndex + 1} · modeled prediction`
             : "Modeled path — not a measured bounce"}
@@ -84,7 +84,7 @@ export function PathPointCard({
       {status === "model-stale" && unavailableReason && (
         <div
           role="status"
-          className="border-b border-caution-amber/30 bg-caution-amber/10 px-3 py-2 text-[11px] text-caution-amber"
+          className="border-b border-caution-amber/30 bg-caution-amber/10 px-3 py-2 text-xs text-caution-amber"
         >
           {unavailableReason}
         </div>
@@ -142,10 +142,10 @@ export function PathPointCard({
               warn={point.locationPrecision === "approximate"}
             />
           </div>
-          <p className="text-[11px] leading-relaxed text-su-text">
+          <p className="text-xs leading-relaxed text-su-text">
             {point.explanation}
           </p>
-          <div className="rounded-md border border-su-line/40 px-2 py-1.5 text-[10px] text-su-muted">
+          <div className="rounded-md border border-su-line/40 px-2 py-1.5 text-xs text-su-muted">
             <div>
               {point.model.name} {point.model.version}
             </div>
@@ -164,7 +164,7 @@ export function PathPointCard({
           type="button"
           onClick={() => onOpenPathAnalysis?.()}
           disabled={!onOpenPathAnalysis}
-          className="w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1.5 text-[11px] font-medium text-su-text hover:border-cyan-400/30 hover:bg-cyan-400/10 disabled:cursor-default disabled:opacity-50"
+          className="w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1.5 text-xs font-medium text-su-text hover:border-cyan-400/30 hover:bg-cyan-400/10 disabled:cursor-default disabled:opacity-50"
         >
           Full path analysis
         </button>

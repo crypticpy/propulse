@@ -115,7 +115,8 @@
  * NO NaN AND NO SILENT CLAMP. Every out-of-domain input yields a labelled
  * `unsupported` record with a reason, never a number. The two reasons are
  * `out_of_domain` (the path is not one section 5.3 applies to, or a sampler
- * answered with something that is not a finite frequency) and
+ * answered with a value outside that quantity's own physical domain, such as
+ * a non-positive foF2 or M(3000)F2 or a negative gyrofrequency) and
  * `no_elevation_solution` (no hop count within the recommendation's own limits
  * clears the 3.0-degree minimum).
  */
@@ -521,21 +522,49 @@ function divideIntoHops(groundDistanceKm: number):
   };
 }
 
-function finiteState(
+/**
+ * Every quantity `LongPathMufSampler` may answer with, its own physical
+ * domain and how a violation is described.
+ *
+ * Finiteness alone is not enough: a finite but non-physical value, such as a
+ * missing-data sentinel of `m3000F2 = -1`, satisfies `Number.isFinite` and
+ * would otherwise reach equation (29) and produce a resolved but corrupted
+ * `fBM`. foF2 and M(3000)F2 are physically positive (section 3.4); the
+ * gyrofrequency at 300 km is physically non-negative.
+ */
+const SAMPLED_STATE_BOUNDS: readonly {
+  readonly name: keyof LongPathMufState;
+  readonly description: string;
+  readonly withinBound: (value: number) => boolean;
+}[] = [
+  {
+    name: "foF2MHz",
+    description: "a finite value greater than 0",
+    withinBound: (value) => value > 0,
+  },
+  {
+    name: "m3000F2",
+    description: "a finite value greater than 0",
+    withinBound: (value) => value > 0,
+  },
+  {
+    name: "gyrofrequency300kmMHz",
+    description: "a finite value of 0 or greater",
+    withinBound: (value) => value >= 0,
+  },
+];
+
+function invalidSampledStateDetail(
   state: LongPathMufState,
   label: ControlPointLabel,
   utcHour: number,
 ): string | null {
-  const entries: readonly (readonly [string, number])[] = [
-    ["foF2MHz", state.foF2MHz],
-    ["m3000F2", state.m3000F2],
-    ["gyrofrequency300kmMHz", state.gyrofrequency300kmMHz],
-  ];
-  for (const [name, value] of entries) {
-    if (!Number.isFinite(value)) {
+  for (const { name, description, withinBound } of SAMPLED_STATE_BOUNDS) {
+    const value = state[name];
+    if (!Number.isFinite(value) || !withinBound(value)) {
       return (
         `the sampler answered ${name} = ${String(value)} at ${label} for ` +
-        `${String(utcHour).padStart(2, "0")} UTC, which is not a finite value.`
+        `${String(utcHour).padStart(2, "0")} UTC, which is not ${description}.`
       );
     }
   }
@@ -617,7 +646,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     const hours: LongPathMufHour[] = [];
     for (let hour = 0; hour < HOURS_PER_DAY; hour += 1) {
       const state = sample(controlPoint.point, controlPoint.label, hour);
-      const complaint = finiteState(state, controlPoint.label, hour);
+      const complaint = invalidSampledStateDetail(state, controlPoint.label, hour);
       if (complaint !== null) {
         return unsupported("out_of_domain", complaint, D);
       }

@@ -660,7 +660,7 @@ export function FloatingPanel({
           }}
         >
           {icon && <span className="text-su-text/80 flex-shrink-0">{icon}</span>}
-          <span className="text-[11px] font-medium text-su-text/80 whitespace-nowrap">
+          <span className="text-xs font-medium text-su-text/80 whitespace-nowrap">
             {title.length > 12 ? title.slice(0, 12) + "\u2026" : title}
           </span>
         </div>

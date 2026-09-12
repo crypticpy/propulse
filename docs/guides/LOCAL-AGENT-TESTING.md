@@ -273,32 +273,15 @@ and distinguish isolated UI evidence from authenticated or cross-device evidence
 
 ## HamClock display regression
 
-Confirm the shared server is running and serves the checkout you need
-(`npm run dev:session -- status`, then the identity endpoint check above). If
-it does not serve your branch, ask its owner or the orchestrator rather than
-starting a second one.
+The Playwright harness `scripts/check-hamclock-display.mjs` was retired (#780).
+It timed out on Display-tab controls the wall rewrite removed (Text Size, Reset
+display, `data-panel-id="bands"` band buttons) and still called
+`mapStore.spotFilters`. Do not run it or restore those selectors.
 
-```sh
-node scripts/check-hamclock-display.mjs http://127.0.0.1:5173
-```
-
-The script refuses a non-loopback, unmanaged, connected-profile, or different-root
-server. It creates fresh Playwright contexts, marks welcome/onboarding/setup complete
-inside those contexts, seeds a synthetic station, intercepts spot responses, and
-exercises synthetic IndexedDB contacts and operating reports. It does not use a
-personal browser profile, authenticate, modify `.env`, or connect/tune hardware.
-It checks Flat/3D/AZ, local text size up to 250%, panel selection/reset/overflow,
-Activity filters, Observatory, and companion log/radio updates. JSON results and
-screenshots are written under ignored `tmp/hamclock-check/`. Treat these as UI
-checks; repeat signed-in and physical-monitor checks separately.
-
-The fixture resolves the application's already-loaded Vite module URLs before
-seeding stores. After hot updates, importing an unversioned store URL can create a
-second module instance that differs from the UI's timestamped import. Do not mistake
-that fixture mismatch for a layout reset or restart the shared server to fix it.
-
-Never stop the shared server after this check — it is not yours. The script
-closes its own disposable browsers and leaves server ownership untouched.
+Use an isolated checkout when another task is editing the application. Visual
+checks belong on an owner-named shared server from this guide — do not start a
+second Vite process. Distinguish a fresh visitor from an already configured
+operator.
 
 Focused regression command (Node 26 currently needs the Web Storage flag so Vitest
 uses the configured DOM storage implementation):
@@ -309,12 +292,9 @@ NODE_OPTIONS=--no-experimental-webstorage npx vitest run src/lib/hamclock src/li
 
 ## HamClock map fidelity regression
 
-`node scripts/check-hamclock-display.mjs <shared-server-url>` also checks a 4K
-intercontinental home view, both complete world edges (including Japan/Australia),
-and bounded retained-surface repaints during wheel gestures. Camera geometry and
-paint counts are in `tmp/hamclock-check/functional.json`; screenshots include
-`home-context-4k.png` and `world-context-4k.png`. The diagnostic camera describes
-the committed image; CSS transforms preview a gesture until its final repaint.
+4K home/world screenshot captures previously lived in the retired display
+harness. Repeat those on an owner-named shared server if a visual check is
+needed; the diagnostic JSON under `tmp/hamclock-check/` is no longer produced.
 
 After a production build, run `node scripts/check-tile-cache.mjs`. This evaluates
 the generated worker's route registrations: public Esri/OSM tiles use bounded

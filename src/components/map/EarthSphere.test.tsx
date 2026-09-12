@@ -15,9 +15,14 @@ vi.mock("@react-three/fiber", () => ({
 vi.mock("./hooks/useSeasonalDayTexture", () => ({
   useSeasonalDayTexture: mocks.useSeasonalDayTexture,
 }));
-vi.mock("@/lib/utils/standardMap", () => ({
-  getStandardMapCanvas: mocks.getStandardMapCanvas,
-}));
+vi.mock("@/lib/utils/standardMap", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/utils/standardMap")>();
+  return {
+    ...actual,
+    getStandardMapCanvas: mocks.getStandardMapCanvas,
+  };
+});
 vi.mock("@/hooks/useResolvedDisplayQuality", () => ({
   useResolvedDisplayQuality: () => ({ effective: "uhd" }),
 }));

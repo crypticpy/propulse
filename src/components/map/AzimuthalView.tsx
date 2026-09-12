@@ -66,15 +66,12 @@ import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
-import type { EarthquakeEvent } from "@/lib/api/earthquakes";
-import type { WeatherAlert } from "@/lib/api/weather";
-import type { LightningStrike } from "@/lib/api/lightning";
-import {
-  LIGHTNING_COLOR_FLAT,
-  LIGHTNING_COLOR_STRONG,
-  LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
-import type { FireHotspot } from "@/lib/api/fires";
+import { createAzimuthalProjection } from "@/lib/map/projection";
+import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
+import { drawFiresLayer } from "./layers/firesLayer";
+import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
+import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
+import { drawLightningLayer } from "./layers/lightningLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1433,231 +1430,6 @@ function drawAzimuthalNightBoostedBorders(
   ctx.restore();
 }
 
-/**
- * Draw earthquake markers on azimuthal projection
- */
-function drawAzEarthquakes(
-  ctx: CanvasRenderingContext2D,
-  earthquakes: EarthquakeEvent[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const eq of earthquakes) {
-    const point = azimuthalProject(eq.lat, eq.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    // Size based on magnitude
-    const radius = Math.max(3, Math.min(15, (eq.magnitude - 1) * 2.5));
-
-    // Color by magnitude
-    let color: string;
-    if (eq.magnitude >= 7) color = "#ff2020";
-    else if (eq.magnitude >= 5) color = "#ff8800";
-    else if (eq.magnitude >= 4) color = "#ffcc00";
-    else color = "#88cc44";
-
-    // Outer glow
-    ctx.globalAlpha = 0.15;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Inner circle
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Outline
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Label for M5+
-    if (eq.magnitude >= 5) {
-      ctx.globalAlpha = 1;
-      ctx.font = "bold 7px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeText(`M${eq.magnitude.toFixed(1)}`, sx, sy - radius - 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, sx, sy - radius - 2);
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw weather alert markers on azimuthal projection
- */
-function drawAzWeatherAlerts(
-  ctx: CanvasRenderingContext2D,
-  alerts: WeatherAlert[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const alert of alerts) {
-    const point = azimuthalProject(alert.lat, alert.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    let color: string;
-    switch (alert.severity) {
-      case "Extreme":
-        color = "#ff0040";
-        break;
-      case "Severe":
-        color = "#ff6600";
-        break;
-      case "Moderate":
-        color = "#ffaa00";
-        break;
-      default:
-        color = "#ffdd44";
-        break;
-    }
-
-    const size = 8;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - size);
-    ctx.lineTo(sx + size, sy + size * 0.6);
-    ctx.lineTo(sx - size, sy + size * 0.6);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    ctx.fillStyle = "#000000";
-    ctx.font = "bold 8px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", sx, sy);
-
-    // Event type label below triangle
-    const label =
-      alert.event.length > 16
-        ? alert.event.slice(0, 16) + "\u2026"
-        : alert.event;
-    ctx.font = "9px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = color;
-    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-    ctx.shadowBlur = 2;
-    ctx.fillText(label, sx, sy + size * 0.6 + 2);
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw lightning strike markers on azimuthal projection
- * Strike size and colour vary by peak current (currentKA)
- */
-function drawAzLightning(
-  ctx: CanvasRenderingContext2D,
-  strikes: LightningStrike[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  const now = Date.now();
-  for (const strike of strikes) {
-    const point = azimuthalProject(
-      strike.lat,
-      strike.lon,
-      centerLat,
-      centerLon,
-    );
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    const age = now - strike.time;
-    const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
-
-    // Intensity based on peak current (200 kA max, 0.3 floor)
-    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
-
-    // Outer glow — scaled by intensity
-    ctx.globalAlpha = alpha * 0.3;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 6 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-
-    // Inner core — scaled by intensity, brighter white for strong strikes
-    ctx.globalAlpha = alpha * 0.8;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle =
-      strike.currentKA > LIGHTNING_STRONG_KA
-        ? LIGHTNING_COLOR_STRONG
-        : LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw fire hotspot markers on azimuthal projection
- */
-function drawAzFires(
-  ctx: CanvasRenderingContext2D,
-  hotspots: FireHotspot[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const hp of hotspots) {
-    if (hp.confidence === "low") continue;
-
-    const point = azimuthalProject(hp.lat, hp.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    const radius = Math.max(1.5, Math.min(5, hp.frp / 100));
-
-    // Outer glow
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff6600";
-    ctx.fill();
-
-    // Inner core
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff2200";
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -2700,6 +2472,19 @@ export function AzimuthalView({
     ctx.scale(zoom, zoom);
     ctx.translate(-CENTER, -CENTER);
 
+    // zoomDamp is deliberately 1: the azimuthal hazard layers draw inside the
+    // zoom transform above without additional damping today. The pill code's
+    // Math.max(0.5, zoom) damping is a different, later decision (#1091).
+    const projection = createAzimuthalProjection({
+      centerLat: center.lat,
+      centerLon: center.lon,
+      centerX: CENTER,
+      centerY: CENTER,
+      radius: RADIUS,
+      zoomScale: zoom,
+      zoomDamp: 1,
+    });
+
     // Draw terminator line (if terminator layer is enabled)
     if (layers.terminator) {
       drawTerminator(ctx, displayTime, center.lat, center.lon);
@@ -2879,16 +2664,26 @@ export function AzimuthalView({
 
     // Hazard layers
     if (layers.earthquakes && earthquakeData.length > 0) {
-      drawAzEarthquakes(ctx, earthquakeData, center.lat, center.lon);
+      drawEarthquakesLayer(
+        ctx,
+        earthquakeData,
+        projection,
+        AZIMUTHAL_LAYER_PROFILE,
+      );
     }
     if (layers.weather && weatherAlerts.length > 0) {
-      drawAzWeatherAlerts(ctx, weatherAlerts, center.lat, center.lon);
+      drawWeatherAlertsLayer(
+        ctx,
+        weatherAlerts,
+        projection,
+        AZIMUTHAL_LAYER_PROFILE,
+      );
     }
     if (layers.lightning && lightningStrikes.length > 0) {
-      drawAzLightning(ctx, lightningStrikes, center.lat, center.lon);
+      drawLightningLayer(ctx, lightningStrikes, projection);
     }
     if (layers.fires && fireHotspots.length > 0) {
-      drawAzFires(ctx, fireHotspots, center.lat, center.lon);
+      drawFiresLayer(ctx, fireHotspots, projection, AZIMUTHAL_LAYER_PROFILE);
     }
 
     // Highlighted arc for selected DX cluster spot

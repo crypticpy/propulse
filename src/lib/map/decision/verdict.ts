@@ -9,13 +9,16 @@ import { isValidClock, pathAlmanac } from "./almanac";
 import { nearbySpots } from "./nearbySpots";
 import { samplePathMuf } from "./pathMuf";
 import type { DXSpot } from "@/types/dxcluster";
+import type { OperatingMode } from "@/types/signal";
 import type {
   DecisionReport,
   DecisionTone,
   DecisionVerdict,
   GreylineSummary,
   NearbySpotsResult,
+  PathMufOutcome,
   PathMufSample,
+  PathMufUnavailable,
 } from "./types";
 
 const LOW_BANDS = new Set(["160m", "80m", "40m"]);
@@ -74,7 +77,7 @@ export interface BuildDecisionInput {
   sfiFetchedAt?: string | null;
   kp: number | null;
   txPowerWatts: number;
-  mode: "SSB" | "CW" | "FT8";
+  mode: OperatingMode;
   spots: DXSpot[];
   spotsObservedAt?: number | null;
   spotsFetchedAt?: number | null;
@@ -84,13 +87,13 @@ export interface BuildDecisionInput {
   evidenceLive?: boolean;
 }
 
-function wizardMode(mode: "SSB" | "CW" | "FT8"): WizardMode {
+function wizardMode(mode: OperatingMode): WizardMode {
   return mode;
 }
 
 function hrefs(
   target: BuildDecisionInput["target"],
-  mode: "SSB" | "CW" | "FT8",
+  mode: OperatingMode,
   pathMode: "short" | "long",
 ): { wizardHref: string; plannerHref: string } {
   const grid =
@@ -214,6 +217,25 @@ function nowCastPhrase(args: {
   return "";
 }
 
+/** What the verdict line says when there is no path MUF to judge with. */
+const NO_PATH_MUF_LINE: Record<PathMufUnavailable, string> = {
+  no_solar_flux: "Need solar flux to judge this path",
+  invalid_clock: "Need a valid time to judge this path",
+  coincident_endpoints: "No path to judge: the target is your own QTH",
+  antipodal_endpoints:
+    "No path to judge: the target is antipodal, so no great circle is determined",
+  no_control_points: "No path to judge: this circuit has no ionospheric control points",
+};
+
+/** What the evidence trail records in place of the physics basis. */
+const NO_PATH_MUF_EVIDENCE: Record<PathMufUnavailable, string> = {
+  no_solar_flux: "physics unavailable (no SFI)",
+  invalid_clock: "physics unavailable (no valid time)",
+  coincident_endpoints: "physics unavailable (no path: target is the QTH)",
+  antipodal_endpoints: "physics unavailable (no path: antipodal endpoints)",
+  no_control_points: "physics unavailable (no path: no control points)",
+};
+
 function buildLine(args: {
   tone: DecisionTone;
   band: string | null;
@@ -226,6 +248,7 @@ function buildLine(args: {
   nowCastInWindow: boolean;
   evidenceLive: boolean;
   spottedNotModeled: boolean;
+  unavailable: PathMufUnavailable | null;
 }): string {
   const {
     tone,
@@ -239,6 +262,7 @@ function buildLine(args: {
     nowCastInWindow,
     evidenceLive,
     spottedNotModeled,
+    unavailable,
   } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
   const spotBit = !evidenceLive
@@ -248,7 +272,10 @@ function buildLine(args: {
       : `${nearby.count} spot${nearby.count === 1 ? "" : "s"} within ${nearby.radiusKm} km`;
 
   if (tone === "unknown") {
-    return `Need solar flux to judge this path (${spotBit}).`;
+    // "No flux" and "no path" are different absences. Reporting the second as
+    // the first told an operator to go and fetch solar flux they had already
+    // supplied.
+    return `${NO_PATH_MUF_LINE[unavailable ?? "no_solar_flux"]} (${spotBit}).`;
   }
   if (tone === "closed") {
     return `Closed now (${mufBit}; ${spotBit}).`;
@@ -273,10 +300,14 @@ function buildLine(args: {
 
 export function buildVerdict(
   input: BuildDecisionInput,
-  pathMuf: PathMufSample | null,
+  pathMufOutcome: PathMufOutcome,
   nearby: NearbySpotsResult,
   greyline: GreylineSummary,
 ): DecisionVerdict {
+  const pathMuf =
+    pathMufOutcome.kind === "sampled" ? pathMufOutcome.sample : null;
+  const unavailable =
+    pathMufOutcome.kind === "unavailable" ? pathMufOutcome.reason : null;
   const links = hrefs(input.target, input.mode, input.pathMode);
   const nowCastBand = input.nowCast?.band ?? null;
   const physicsBand = pathMuf
@@ -333,7 +364,7 @@ export function buildVerdict(
   const computedAt = input.computedAt ?? new Date();
   const parts: string[] = [];
   if (pathMuf) parts.push(pathMuf.evidence.basis);
-  else parts.push("physics unavailable (no SFI)");
+  else parts.push(NO_PATH_MUF_EVIDENCE[unavailable ?? "no_solar_flux"]);
   if (nowCastBand) {
     parts.push(
       `NowCast ${nowCastBand}${input.nowCast?.issueTime ? ` issue ${input.nowCast.issueTime}` : ""}`,
@@ -367,6 +398,7 @@ export function buildVerdict(
       nowCastInWindow,
       evidenceLive,
       spottedNotModeled,
+      unavailable,
     }),
     tone,
     bestBand,
@@ -386,10 +418,12 @@ export function buildDecisionReport(input: BuildDecisionInput): DecisionReport {
       ? input.computedAt
       : new Date();
   const almanac = pathAlmanac(input.qth, input.target, input.date, computedAt);
-  const pathMuf =
-    input.sfi == null || !isValidClock(input.date)
-      ? null
-      : samplePathMuf({
+  const pathMufOutcome: PathMufOutcome =
+    input.sfi == null
+      ? { kind: "unavailable", reason: "no_solar_flux" }
+      : !isValidClock(input.date)
+        ? { kind: "unavailable", reason: "invalid_clock" }
+        : samplePathMuf({
           startLat: input.qth.lat,
           startLon: input.qth.lon,
           endLat: input.target.lat,
@@ -414,11 +448,16 @@ export function buildDecisionReport(input: BuildDecisionInput): DecisionReport {
     spotsObservedAt: input.spotsObservedAt,
     spotsFetchedAt: input.spotsFetchedAt,
   });
-  const verdict = buildVerdict(input, pathMuf, nearby, almanac.greyline);
+  const verdict = buildVerdict(
+    input,
+    pathMufOutcome,
+    nearby,
+    almanac.greyline,
+  );
   return {
     generatedAt: computedAt.toISOString(),
     almanac,
-    pathMuf,
+    pathMuf: pathMufOutcome.kind === "sampled" ? pathMufOutcome.sample : null,
     nearby,
     verdict,
   };

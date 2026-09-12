@@ -19,10 +19,56 @@ jobs:
     name: pr-contract
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    # Read-only: this job only checks. The review-capped label, the stop
+    # checklist and the architecture review itself are posted by
+    # .github/workflows/review-cap.yml, which holds the write permissions
+    # (docs/AGENT-CONSTITUTION.md, "Review cap").
     permissions:
+      contents: read
       issues: read
       pull-requests: read
     steps:
+      - name: Check out the default branch to run the trusted review-cap script
+        # The review-cap gate below runs scripts/review-cap.mjs from this
+        # checkout; it must be the repository's default branch, never the PR
+        # head NOR the PR's declared base branch, or a PR could neutralise
+        # its own gate by editing the script (docs/AGENT-CONSTITUTION.md,
+        # "Review cap") — a stacked PR's base is another contributor-controlled
+        # feature branch, not a protected ref, so checking out `base.ref` was
+        # just as gameable as checking out the PR head itself (finding 2 of
+        # PR #1067's fourth review). Matches the checkout in review-cap.yml's
+        # `count`/`architect`/`post-cap-resolver` jobs. Checked out by branch
+        # name, not a recorded sha: a long-open PR's stored base sha can
+        # predate a script fix merged to the default branch since the PR
+        # opened, silently passing stale code through the bootstrap guard
+        # below (finding 4 of PR #1067's third review).
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Run review-cap unit tests
+        # The script above is load-bearing for a required check; give it CI
+        # coverage on every pr-contract run now that this job has a checkout.
+        # Bootstrap guard: this checks out the base ref, so the very push
+        # that adds this test file fails here with nothing to run against
+        # (finding 1 of PR #1067's second review) — treat that as inactive, not a
+        # failure. The gate is inert until scripts/review-cap.test.mjs (and
+        # scripts/review-cap.mjs, checked below) land on the default branch.
+        run: |
+          if [ ! -f scripts/review-cap.test.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            exit 0
+          fi
+          node --test scripts/review-cap.test.mjs
+      - name: Run design-review hunk classifier tests
+        # Same default-branch checkout as review-cap: the classifier is
+        # load-bearing once it exists on the default branch. Bootstrap guard
+        # until scripts/pr-contract-ui-hunk.test.mjs lands there (#1086).
+        run: |
+          if [ ! -f scripts/pr-contract-ui-hunk.test.mjs ]; then
+            echo "::notice::hunk classifier tests not on the base ref; skipping"
+            exit 0
+          fi
+          node --test scripts/pr-contract-ui-hunk.test.mjs
       - name: Check PR body contract
         env:
           BODY: ${{ github.event.pull_request.body }}
@@ -95,10 +141,20 @@ jobs:
           # too: any src/ file whose change touches a colour, class name or
           # other visual token is UI wherever it lives, and a file GitHub
           # returns no hunk for (binary or oversized) is treated as UI rather
-          # than skipped.
-          HUNKED=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
-            --jq '.[] | select(.filename | test("^src/")) | select((.patch == null) or (.patch | test("#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(|colou?r|className|\\b(font|text|bg|border|shadow|opacity|animate)-"; "i"))) | .filename') \
-            || { echo "::error::could not read PR hunks; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          # than skipped. Hex matching lives in scripts/pr-contract-ui-hunk.mjs
+          # so issue refs like (#326) are not colours (#1086). Until that
+          # file exists on the default-branch checkout, fall back to the
+          # inline jq classifier (bootstrap, same as review-cap).
+          if [ -f scripts/pr-contract-ui-hunk.mjs ]; then
+            HUNKED=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+              --jq '.[] | {filename, patch}' \
+              | node scripts/pr-contract-ui-hunk.mjs) \
+              || { echo "::error::could not read PR hunks; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          else
+            HUNKED=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+              --jq '.[] | select(.filename | test("^src/")) | select((.patch == null) or (.patch | test("#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(|colou?r|className|\\b(font|text|bg|border|shadow|opacity|animate)-"; "i"))) | .filename') \
+              || { echo "::error::could not read PR hunks; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          fi
           HUNKED=$(printf '%s\n' "$HUNKED" \
             | grep -vE '(\.test\.tsx?$|\.snap$|/__snapshots__/|^src/test/|^src/types/)' || true)
           UI=$(printf '%s\n%s\n%s\n' "$UI" "$NAMED" "$HUNKED" | grep -v '^$' | sort -u || true)
@@ -136,13 +192,72 @@ jobs:
             exit 1
           fi
           echo "Design review approved for ${HEAD7}: ${APPROVED}"
+      - name: Enforce the review cap
+        # Rule: docs/AGENT-CONSTITUTION.md, "Review cap". Counting and
+        # verdict-parsing logic lives in scripts/review-cap.mjs (node --test
+        # coverage in scripts/review-cap.test.mjs); this step only reads its
+        # JSON `status` output. Adding the review-capped label, the stop
+        # checklist and the architecture review itself are done by
+        # .github/workflows/review-cap.yml, which holds the write
+        # permissions this job does not need. The `status` call always runs
+        # here — the label is a human-visible marker only, never the gate's
+        # source of truth, so removing it cannot open the gate.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          # Bootstrap guard, same reasoning as "Run review-cap unit tests"
+          # above (finding 1 of PR #1067's second review): gate inactive, not
+          # failing, until the script exists on the base ref.
+          if [ ! -f scripts/review-cap.mjs ]; then
+            echo "::notice::review-cap script not on the base ref; gate inactive"
+            exit 0
+          fi
+          RESULT=$(node scripts/review-cap.mjs status "$REPO" "$PR" "$HEAD_SHA") \
+            || { echo "::error::could not evaluate the review cap (re-run the check)"; exit 1; }
+          echo "$RESULT"
+          CAPPED=$(printf '%s' "$RESULT" | jq -r '.capped')
+          if [ "$CAPPED" != "true" ]; then
+            echo "Not review-capped; skipping."
+            exit 0
+          fi
+          OK=$(printf '%s' "$RESULT" | jq -r '.ok')
+          VERDICT=$(printf '%s' "$RESULT" | jq -r '.verdict')
+          ISSUE=$(printf '%s' "$RESULT" | jq -r '.issue')
+          REASON=$(printf '%s' "$RESULT" | jq -r '.reason')
+          if [ "$OK" = "true" ]; then
+            echo "Review cap satisfied: ship, follow-up #${ISSUE}."
+            exit 0
+          fi
+          if [ "$VERDICT" = "redesign" ]; then
+            echo "::error::This PR is review-capped and the architecture review says redesign (#${ISSUE}); it needs rework against a new plan before it can merge, or it should be closed. ${REASON}"
+          elif [ "${HEAD_REPO:-}" != "$REPO" ]; then
+            # `architect` (review-cap.yml) requires `same_repo` as defence in
+            # depth around its secret-bearing model call, so it never runs
+            # for a fork PR: without this branch, pr-contract would say "wait
+            # a few minutes" forever for a PR the automation can never review
+            # (finding 6 of PR #1067's fourth review). `review-cap.yml`'s
+            # `fork-notice` job posts the matching PR comment.
+            echo "::error::This PR is review-capped and opened from a fork, so the automated architecture review in review-cap.yml cannot run against it (the architect job requires same_repo as defence in depth around its secret-bearing model call). A maintainer must retarget this PR from a same-repo branch, or use the break-glass path (docs/AGENT-CONSTITUTION.md, \"Review cap\") to post the **architecture review** comment by hand. ${REASON}"
+          else
+            echo "::error::This PR is review-capped and the architecture review is still pending; review-cap.yml posts it automatically within minutes. ${REASON}"
+          fi
+          exit 1
   rerun-on-design-review-comment:
-    name: re-run pr-contract when a design-review comment changes
+    name: re-run pr-contract when a design-review or architecture-review comment changes
     # Only the accounts whose design-review comments the body job accepts
     # (REVIEWERS above) may trigger the rerun; any other commenter writing
     # `**design review**` would otherwise be able to re-run the required
-    # check at will (Codex, #896 round 15).
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(fromJSON('["crypticpy","propulse-bot[bot]"]'), github.event.comment.user.login)
+    # check at will (Codex, #896 round 15). `github-actions[bot]` is added
+    # here (only here) because that is who review-cap.yml's automation posts
+    # the `**architecture review**` comment as; the review-cap gate itself
+    # still checks authorship against scripts/review-cap.mjs's
+    # ALLOWED_REVIEWERS, so allowing this login to trigger a rerun does not
+    # widen who can satisfy the gate.
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(fromJSON('["crypticpy","propulse-bot[bot]","github-actions[bot]"]'), github.event.comment.user.login)
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -160,8 +275,8 @@ jobs:
           # keep its green (empty for created/deleted).
           PREVIOUS_BODY: ${{ github.event.changes.body.from }}
         run: |
-          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*design review\*\*'; then
-            echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
+          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*(design|architecture) review\*\*'; then
+            echo "Neither the current nor the previous comment body is a design review or an architecture review; nothing to re-run."
             exit 0
           fi
           # This job runs on the default branch, so its own failure is not a

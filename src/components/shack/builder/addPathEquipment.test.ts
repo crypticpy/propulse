@@ -80,4 +80,37 @@ describe("equipment placement UI commands", () => {
     });
     expect(useShackStore.getState().stationChains[0]).toEqual(chain);
   });
+  it.each([
+    { label: "start", position: 0 },
+    { label: "middle", position: 2 },
+    { label: "end", position: 3 },
+  ])(
+    "inserts a filter at the $label gap instead of rewriting it to canonical rank",
+    ({ position }) => {
+      useShackStore.setState({
+        stationChains: [
+          {
+            ...chain,
+            nodes: [
+              chain.nodes[0],
+              { type: "feedline_run", feedlineRunId: "run-1" },
+              chain.nodes[1],
+            ],
+            feedlineRuns: [
+              { id: "run-1", feedlineId: "cable", inlineComponentIds: [] },
+            ],
+          },
+        ],
+      });
+      expect(
+        addPathEquipment("path", "accessory", "band-pass", position),
+      ).toEqual({ ok: true });
+      const nodes = useShackStore.getState().stationChains[0].nodes;
+      expect(nodes[position]).toEqual({
+        type: "accessory",
+        accessoryId: "band-pass",
+      });
+      expect(nodes).toHaveLength(4);
+    },
+  );
 });

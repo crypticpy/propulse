@@ -549,6 +549,18 @@ describe("station token saturation", () => {
     );
   });
 
+  it("keeps status tones at the 4.5:1 floor after scaling (tritanopia, dark, 140%)", () => {
+    // toneOnPanel already fit tritanopia's swapped tones to the floor before
+    // scaling; scaleHexChroma can push one back below it (danger measured
+    // ~4.41:1 on the dark panel at 140% before the post-scale refit).
+    const vivid = stationTokens("dark", DEFAULT_ACCENT_HEX, "tritanopia", 1.4);
+    for (const role of ["info", "success", "warning", "danger"] as const) {
+      expect(
+        stationContrast(vivid[`--su-${role}`], stationPalettes.dark.panel),
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it("writes the scaled tones onto the document and keeps --theme-accent-primary in lockstep", () => {
     applyThemeToDocument(
       getTheme("dark"),

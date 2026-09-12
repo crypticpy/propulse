@@ -225,6 +225,14 @@ export function stationTokens(
     for (const role of TONE_ROLES) {
       colors[`--su-${role}`] = scaleHexChroma(colors[`--su-${role}`], factor);
     }
+    // Chroma scaling happens after toneOnPanel already fit the colour-blind
+    // swap to the status-text floor, and can push a status tone back below
+    // it (e.g. tritanopia's danger tone on the dark panel at 140%). `accent`
+    // is excluded: its text use (`--su-accent-text` below) already re-checks
+    // contrast against the scaled value and falls back to `info`.
+    for (const role of ["info", "success", "warning", "danger"] as const) {
+      colors[`--su-${role}`] = toneOnPanel(colors[`--su-${role}`], palette.panel);
+    }
   }
   const scaledAccent = colors["--su-accent"];
   const info = colors["--su-info"];

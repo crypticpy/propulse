@@ -1,24 +1,30 @@
 /**
- * Binding test for the azimuthal disc's three hazard-layer call sites
- * (#1091 PR 4, closing the F4 gap the #1137 review found: PR 3 shipped a
- * FlatMapView binding test for earthquakes but no AzimuthalView equivalent).
+ * Binding test for the azimuthal disc's hazard-layer call sites (#1091 PR 4,
+ * closing the F4 gap the #1137 review found: PR 3 shipped a FlatMapView
+ * binding test for earthquakes but no AzimuthalView equivalent; extended by
+ * PR 5 to cover lightning, which has no `MapLayerProfile` of its own).
  *
- * `earthquakesLayer.test.ts`, `firesLayer.test.ts` and
- * `weatherAlertsLayer.test.ts` drive their draw functions directly with a
- * fake `Projection` and an explicit `MapLayerProfile`, so none of them can
- * see which profile `AzimuthalView` actually passes at its three
- * `draw*Layer` call sites. This mounts the real component (same
- * canvas-recorder technique as `FlatMapView.earthquakes.test.tsx`, plus the
- * `useUserStore` station setup `MapSurface.focusHome.test.tsx` uses to give
- * `AzimuthalView` a non-null `center`) with one fire hotspot, one M6
- * earthquake and one weather alert, and pins:
+ * `earthquakesLayer.test.ts`, `firesLayer.test.ts`, `weatherAlertsLayer.test.ts`
+ * and `lightningLayer.test.ts` drive their draw functions directly with a
+ * fake `Projection` (and, for the first three, an explicit
+ * `MapLayerProfile`), so none of them can see which `Projection`/profile
+ * `AzimuthalView` actually passes at its `draw*Layer` call sites. This
+ * mounts the real component (same canvas-recorder technique as
+ * `FlatMapView.earthquakes.test.tsx`, plus the `useUserStore` station setup
+ * `MapSurface.focusHome.test.tsx` uses to give `AzimuthalView` a non-null
+ * `center`) with one fire hotspot, one M6 earthquake, one weather alert and
+ * one 100 kA lightning strike, and pins:
  *  - the fire hotspot's core arc radius to AZIMUTHAL_LAYER_PROFILE's value
  *  - the quake's core arc radius to 12.5 = (6 - 1) * 2.5 (AZIMUTHAL's
  *    pxPerMagnitude), not FLAT's (6 - 1) * 3 = 15
  *  - the weather alert's event-type label being drawn at zoomScale 1 — the
  *    azimuthal-only always-on behaviour (labelMinZoomScale: 0), which FLAT's
  *    threshold of 1.5 would suppress
- * so a profile swap at any of the three call sites fails this test.
+ *  - the lightning strike's core arc radius at exactly 1.5 (there is no
+ *    profile to swap, so this pins that the call site still passes the
+ *    live `Projection` and the toggle still gates the draw)
+ * so a profile swap at any of the three profiled call sites, or a dropped
+ * `layers.lightning` gate, fails this test.
  */
 import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,6 +38,7 @@ import { azimuthalProject } from "@/lib/utils/azimuthal";
 import { CANVAS_SIZE } from "@/lib/webgl/AzimuthalRenderer";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { FireHotspot } from "@/lib/api/fires";
+import type { LightningStrike } from "@/lib/api/lightning";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { ReactNode } from "react";
 
@@ -134,6 +141,18 @@ vi.mock("@/hooks/useWeatherAlerts", () => ({
     isLoading: false,
     error: null,
   }),
+}));
+
+// intensity = max(0.3, min(1, 100/200)) = 0.5; core radius = 3 * 0.5 = 1.5,
+// same as the flat map since lightning has no per-view profile (#1091 PR 5).
+const STRIKE: LightningStrike = {
+  lat: -5,
+  lon: -15,
+  time: Date.now(),
+  currentKA: 100,
+};
+vi.mock("@/hooks/useLightning", () => ({
+  useLightning: () => ({ strikes: [STRIKE], isLoading: false, error: null }),
 }));
 
 interface CanvasOp {
@@ -240,6 +259,7 @@ describe("AzimuthalView hazard layers binding", () => {
         earthquakes: true,
         fires: true,
         weather: true,
+        lightning: true,
       },
     });
     useUserStore.getState().setStation({
@@ -298,5 +318,35 @@ describe("AzimuthalView hazard layers binding", () => {
         Math.abs((op.args[1] as number) - point.x) < 1,
     );
     expect(label).toBeDefined();
+  });
+
+  it("draws the lightning strike's core arc at radius 1.5 (no per-view profile)", async () => {
+    await mount();
+
+    const point = toCanvas(STRIKE.lat, STRIKE.lon);
+    const arcsAtPoint = ops.filter(
+      (op) =>
+        op.name === "arc" &&
+        Math.hypot(op.args[0] - point.x, op.args[1] - point.y) < 1,
+    );
+    expect(arcsAtPoint.length).toBeGreaterThan(0);
+
+    const coreRadius = Math.min(...arcsAtPoint.map((op) => op.args[2]));
+    expect(coreRadius).toBe(1.5);
+  });
+
+  it("draws nothing at the lightning strike's position when layers.lightning is false", async () => {
+    useMapStore.setState({
+      layers: { ...useMapStore.getState().layers, lightning: false },
+    });
+    await mount();
+
+    const point = toCanvas(STRIKE.lat, STRIKE.lon);
+    const arcsAtPoint = ops.filter(
+      (op) =>
+        op.name === "arc" &&
+        Math.hypot(op.args[0] - point.x, op.args[1] - point.y) < 1,
+    );
+    expect(arcsAtPoint).toHaveLength(0);
   });
 });

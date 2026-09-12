@@ -61,7 +61,7 @@ export function WhereToFindMe({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-0">
+        <h3 className="text-xs uppercase tracking-widest text-su-muted mb-0">
           Where to Find Me
         </h3>
 
@@ -76,7 +76,7 @@ export function WhereToFindMe({
                   key={opt}
                   type="button"
                   onClick={() => onSkedChange(opt)}
-                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors border-0 ${
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors border-0 ${
                     isActive
                       ? cfg.className
                       : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
@@ -89,7 +89,7 @@ export function WhereToFindMe({
           </div>
         ) : (
           <span
-            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${sked.className}`}
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${sked.className}`}
           >
             {sked.label}
           </span>
@@ -108,7 +108,7 @@ export function WhereToFindMe({
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {hasHours && hours && (
             <div className="shrink-0">
-              <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
+              <p className="text-xs uppercase tracking-widest text-su-muted mb-2">
                 Operating Hours (UTC)
               </p>
               <OperatingHoursChart hours={hours} size={180} />
@@ -116,7 +116,7 @@ export function WhereToFindMe({
           )}
           {hasDays && qsosByDate && (
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
+              <p className="text-xs uppercase tracking-widest text-su-muted mb-2">
                 Active Days
               </p>
               <ActiveDaysChart qsosByDate={qsosByDate} />
@@ -128,7 +128,7 @@ export function WhereToFindMe({
       {/* Favorite frequencies */}
       {(hasFreqs || editable) && (
         <div>
-          <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
+          <p className="text-xs uppercase tracking-widest text-su-muted mb-2">
             Favorite Frequencies
           </p>
           <FavoriteFreqList

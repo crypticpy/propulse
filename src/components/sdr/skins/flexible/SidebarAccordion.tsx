@@ -52,12 +52,12 @@ export function SidebarAccordion({
           />
         </svg>
 
-        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-wider group-hover:text-su-text transition-colors">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-wider group-hover:text-su-text transition-colors">
           {title}
         </span>
 
         {badge != null && (
-          <span className="text-[9px] font-mono text-su-muted ml-auto">
+          <span className="text-xs font-mono text-su-muted ml-auto">
             {badge}
           </span>
         )}

@@ -31,7 +31,7 @@ export function HappeningNowBanner({ liveNets }: HappeningNowBannerProps) {
           Happening Now
         </span>
         {/* Count badge */}
-        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-red-500/20 text-red-400">
+        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
           {liveNets.length}
         </span>
       </div>
@@ -57,14 +57,14 @@ export function HappeningNowBanner({ liveNets }: HappeningNowBannerProps) {
             {/* NCS callsign + Join label */}
             <div className="flex items-center justify-between">
               {ncsCallsign ? (
-                <span className="text-[11px] text-su-muted">
+                <span className="text-xs text-su-muted">
                   NCS:{" "}
                   <span className="font-mono text-su-muted">{ncsCallsign}</span>
                 </span>
               ) : (
                 <span />
               )}
-              <span className="text-[11px] font-semibold text-red-400 group-hover:text-red-300 transition-colors flex items-center gap-1">
+              <span className="text-xs font-semibold text-red-400 group-hover:text-red-300 transition-colors flex items-center gap-1">
                 Join
                 {/* Arrow right icon */}
                 <svg

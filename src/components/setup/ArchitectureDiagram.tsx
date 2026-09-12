@@ -19,7 +19,9 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
   const dotColor = connected ? "#00ff88" : "transparent";
 
   return (
+    <div className="overflow-x-auto" role="region" aria-label="Bridge architecture (scroll horizontally)" tabIndex={0}>
     <svg
+      style={{ minWidth: 710 }}
       viewBox="0 0 710 350"
       className="w-full h-auto"
       role="img"
@@ -88,7 +90,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="130"
         y="115"
         textAnchor="middle"
-        className="fill-su-muted text-[11px]"
+        className="fill-su-muted text-xs"
       >
         (Browser)
       </text>
@@ -117,7 +119,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="115"
         textAnchor="middle"
-        className="fill-su-muted text-[11px]"
+        className="fill-su-muted text-xs"
       >
         localhost:9867
       </text>
@@ -136,7 +138,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="310"
         y="88"
         textAnchor="middle"
-        className="fill-su-muted text-[10px] font-mono"
+        className="fill-su-muted text-xs font-mono"
       >
         WebSocket
       </text>
@@ -227,7 +229,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="225"
         textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
+        className="fill-su-text text-xs font-semibold"
       >
         Hamlib
       </text>
@@ -235,7 +237,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="242"
         textAnchor="middle"
-        className="fill-su-muted text-[10px]"
+        className="fill-su-muted text-xs"
       >
         rigctld
       </text>
@@ -255,7 +257,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="225"
         textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
+        className="fill-su-text text-xs font-semibold"
       >
         DX Cluster
       </text>
@@ -263,7 +265,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="242"
         textAnchor="middle"
-        className="fill-su-muted text-[10px]"
+        className="fill-su-muted text-xs"
       >
         Telnet
       </text>
@@ -283,7 +285,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="630"
         y="225"
         textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
+        className="fill-su-text text-xs font-semibold"
       >
         WSJT-X
       </text>
@@ -291,7 +293,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="630"
         y="242"
         textAnchor="middle"
-        className="fill-su-muted text-[10px]"
+        className="fill-su-muted text-xs"
       >
         UDP 2237
       </text>
@@ -323,7 +325,7 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="312"
         textAnchor="middle"
-        className="fill-plasma-orange text-[11px] font-semibold"
+        className="fill-plasma-orange text-xs font-semibold"
       >
         Your Radio
       </text>
@@ -331,10 +333,11 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="328"
         textAnchor="middle"
-        className="fill-su-muted text-[10px]"
+        className="fill-su-muted text-xs"
       >
         Transceiver
       </text>
     </svg>
+    </div>
   );
 }

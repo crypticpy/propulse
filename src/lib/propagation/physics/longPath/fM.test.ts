@@ -1022,4 +1022,27 @@ describe("the finite-result invariant on the assembled fM record", () => {
     // And a healthy record reports nothing to find.
     expect(firstNonFiniteField(base)).toBeNull();
   });
+
+  it("resolves rather than stack-overflowing when the sampler's own state is self-referential", () => {
+    // Codex P2: a hostile `LongPathMufSampler` can answer with a state that
+    // passes SAMPLED_STATE_BOUNDS on its three required fields while also
+    // carrying a self-reference. `firstNonFiniteField`'s cycle guard (see
+    // `finiteResult.test.ts`) must terminate on that cycle rather than
+    // recurse forever, so this stays a normal resolved record end to end.
+    const hostileState: Record<string, unknown> = {
+      foF2MHz: 8,
+      m3000F2: 3,
+      gyrofrequency300kmMHz: 1.2,
+    };
+    hostileState.self = hostileState;
+
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => hostileState as unknown as LongPathMufState,
+    });
+
+    expect(result.kind).toBe("resolved");
+    expect(Number.isFinite(resolved(result).fMMHz)).toBe(true);
+  });
 });

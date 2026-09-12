@@ -4,18 +4,21 @@
  * Rendered by AuthGate when the user is not authenticated.
  * Views: sign-in (default), magic link, forgot password, reset password.
  * No sign-up flow — invite-only beta.
+ *
+ * The sign-in / forgot-password / reset-password field state and handlers
+ * are shared with AuthModal via useAuthForm (#1093 layer 2). This file
+ * keeps its own chrome: the full-page shell, the magic-link view, and the
+ * session-expired banner.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PasswordInput as SharedPasswordInput } from "@/components/ui/PasswordInput";
 import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
-import {
-  evaluatePasswordStrength,
-  meetsAccountPasswordPolicy,
-} from "@/lib/auth/passwordStrength";
+import { meetsAccountPasswordPolicy } from "@/lib/auth/passwordStrength";
 import type { PasswordInputProps } from "@/components/ui/PasswordInput";
+import { useAuthForm } from "./useAuthForm";
 
 // ── Types ────────────────────────────────────────────────────────────
 type LoginView = "signin" | "magic_link" | "forgot" | "reset_password";
@@ -38,25 +41,35 @@ export function LoginPage() {
   const clearError = useAuthStore((s) => s.clearError);
   const isRecoveryMode = useAuthStore((s) => s.isRecoveryMode);
   const sessionExpired = useAuthStore((s) => s.sessionExpired);
-  const signInWithPassword = useAuthStore((s) => s.signInWithPassword);
   const signInWithMagicLink = useAuthStore((s) => s.signInWithMagicLink);
-  const resetPassword = useAuthStore((s) => s.resetPassword);
-  const updatePassword = useAuthStore((s) => s.updatePassword);
 
   const [view, setView] = useState<LoginView>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [confirmError, setConfirmError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Password strength for current password value
-  const strength = useMemo(
-    () => (password.length > 0 ? evaluatePasswordStrength(password) : null),
-    [password],
-  );
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    confirmPassword,
+    setConfirmPassword,
+    confirmError,
+    setConfirmError,
+    successMessage,
+    setSuccessMessage,
+    strength,
+    handleSignIn,
+    handleForgotPassword,
+    handleUpdatePassword,
+    handleConfirmBlur,
+    submitForView,
+  } = useAuthForm({
+    onForgotPasswordSuccess: () =>
+      setSuccessMessage("Check your email for a password reset link."),
+    onUpdatePasswordSuccess: () =>
+      setSuccessMessage("Password updated successfully. Redirecting..."),
+  });
 
   // ── Recovery mode: auto-switch to reset_password view ─────────────
   useEffect(() => {
@@ -68,7 +81,14 @@ export function LoginPage() {
       setPassword("");
       setConfirmPassword("");
     }
-  }, [isRecoveryMode, clearError]);
+  }, [
+    isRecoveryMode,
+    clearError,
+    setConfirmError,
+    setSuccessMessage,
+    setPassword,
+    setConfirmPassword,
+  ]);
 
   // ── Focus first input on view change ──────────────────────────────
   useEffect(() => {
@@ -86,78 +106,39 @@ export function LoginPage() {
       setConfirmPassword("");
       setView(next);
     },
-    [clearError],
+    [
+      clearError,
+      setConfirmError,
+      setSuccessMessage,
+      setPassword,
+      setConfirmPassword,
+    ],
   );
 
   // ── Handlers ──────────────────────────────────────────────────────
-  const handleSignIn = useCallback(async () => {
-    if (!email.trim() || !password) return;
-    await signInWithPassword(email.trim(), password);
-  }, [email, password, signInWithPassword]);
-
   const handleMagicLink = useCallback(async () => {
     if (!email.trim()) return;
     await signInWithMagicLink(email.trim());
     if (!useAuthStore.getState().error) {
       setSuccessMessage("Check your email for a sign-in link.");
     }
-  }, [email, signInWithMagicLink]);
-
-  const handleForgotPassword = useCallback(async () => {
-    if (!email.trim()) return;
-    await resetPassword(email.trim());
-    if (!useAuthStore.getState().error) {
-      setSuccessMessage("Check your email for a password reset link.");
-    }
-  }, [email, resetPassword]);
-
-  const handleUpdatePassword = useCallback(async () => {
-    if (!password) return;
-    if (password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 8) {
-      setConfirmError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!meetsAccountPasswordPolicy(password)) {
-      setConfirmError(
-        "Password is too weak. Add numbers and special characters.",
-      );
-      return;
-    }
-    await updatePassword(password);
-    if (!useAuthStore.getState().error) {
-      setSuccessMessage("Password updated successfully. Redirecting...");
-    }
-  }, [password, confirmPassword, updatePassword]);
-
-  const handleConfirmBlur = useCallback(() => {
-    if (confirmPassword && password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-    } else {
-      setConfirmError("");
-    }
-  }, [password, confirmPassword]);
+  }, [email, signInWithMagicLink, setSuccessMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        if (view === "signin") handleSignIn();
-        else if (view === "magic_link") handleMagicLink();
-        else if (view === "forgot") handleForgotPassword();
-        else if (view === "reset_password") handleUpdatePassword();
+        if (view === "magic_link") handleMagicLink();
+        else if (
+          view === "signin" ||
+          view === "forgot" ||
+          view === "reset_password"
+        ) {
+          submitForView(view);
+        }
       }
     },
-    [
-      view,
-      handleSignIn,
-      handleMagicLink,
-      handleForgotPassword,
-      handleUpdatePassword,
-    ],
+    [view, handleMagicLink, submitForView],
   );
 
   // ── Combined error display ────────────────────────────────────────

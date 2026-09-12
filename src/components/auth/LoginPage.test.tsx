@@ -11,11 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   supabaseConfigured,
   signInWithPasswordMock,
+  resetPasswordForEmailMock,
   updateUserMock,
   getSupabaseMock,
 } = vi.hoisted(() => ({
   supabaseConfigured: { value: true },
   signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
+  resetPasswordForEmailMock: vi.fn().mockResolvedValue({ error: null }),
   updateUserMock: vi.fn().mockResolvedValue({ error: null }),
   getSupabaseMock: vi.fn(),
 }));
@@ -65,10 +67,12 @@ beforeEach(() => {
   resetAuthState();
   supabaseConfigured.value = true;
   signInWithPasswordMock.mockClear().mockResolvedValue({ error: null });
+  resetPasswordForEmailMock.mockClear().mockResolvedValue({ error: null });
   updateUserMock.mockClear().mockResolvedValue({ error: null });
   getSupabaseMock.mockReset().mockReturnValue({
     auth: {
       signInWithPassword: signInWithPasswordMock,
+      resetPasswordForEmail: resetPasswordForEmailMock,
       updateUser: updateUserMock,
     },
   });
@@ -80,6 +84,24 @@ describe("LoginPage", () => {
     render(<LoginPage />);
     const input = screen.getByLabelText("Password");
     expect(input.className).toContain("bg-void-black/50");
+  });
+
+  it("shows the check-your-email message after a successful forgot-password request (kept behavior)", async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.click(screen.getByRole("button", { name: "Forgot password?" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Email address")).toBeTruthy();
+    });
+    await waitForAutoFocus("forgot-email");
+
+    await user.type(screen.getByLabelText("Email address"), "op@example.com");
+    await user.click(screen.getByRole("button", { name: "Send Reset Link" }));
+
+    expect(
+      await screen.findByText("Check your email for a password reset link."),
+    ).toBeTruthy();
   });
 
   describe("reset_password view: account password policy gate", () => {
@@ -144,6 +166,24 @@ describe("LoginPage", () => {
         ),
       ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();
+    });
+
+    it("shows the redirecting success message after a successful password update (kept behavior)", async () => {
+      await openResetView();
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText("New password"), "Password1!");
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "Password1!",
+      );
+      await user.click(screen.getByRole("button", { name: "Update Password" }));
+
+      expect(
+        await screen.findByText(
+          "Password updated successfully. Redirecting...",
+        ),
+      ).toBeTruthy();
     });
   });
 });

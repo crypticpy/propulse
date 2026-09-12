@@ -1,7 +1,8 @@
 /**
  * Password/passphrase strength — the one scale the app standardizes on
  * (#1093). Ported verbatim from the credential-vault pair's
- * `evaluateStrength` (CredentialUnlockDialog / PassphrasePrompt): a graded
+ * `evaluateStrength` (CredentialUnlockDialog / the since-deleted
+ * PassphrasePrompt): a graded
  * 0-4 score that rewards length and treats character-class diversity as a
  * bonus rather than a hard requirement. This replaces the separate 3-level
  * weak/fair/strong checklist that used to live in AuthModal / LoginPage.

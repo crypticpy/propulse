@@ -72,7 +72,7 @@ function ActivityRow({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="grid min-h-11 w-full grid-cols-[minmax(5rem,0.8fr)_minmax(6.5rem,1fr)_4rem] items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-su-line/10 sm:grid-cols-[minmax(5rem,0.7fr)_minmax(7rem,1fr)_5rem_4rem_minmax(8rem,1fr)]"
+        className="grid min-h-11 w-full grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-su-line/10 sm:grid-cols-[minmax(5rem,0.7fr)_minmax(7rem,1fr)_5rem_4rem_minmax(8rem,1fr)]"
       >
         <span className="min-w-0">
           <span className="block truncate font-mono text-sm font-bold text-su-text">
@@ -88,7 +88,7 @@ function ActivityRow({
         <span className="hidden truncate text-xs text-su-muted sm:block">
           {result.mode ?? "—"}
         </span>
-        <span className="font-mono text-xs tabular-nums text-su-muted">
+        <span className="font-mono text-xs tabular-nums text-su-muted whitespace-nowrap">
           {formatAge(result.time, now)}
         </span>
         <span className="hidden truncate font-mono text-xs text-su-muted sm:block">

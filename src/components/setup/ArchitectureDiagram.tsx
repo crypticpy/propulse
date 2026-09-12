@@ -19,7 +19,9 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
   const dotColor = connected ? "#00ff88" : "transparent";
 
   return (
+    <div className="overflow-x-auto" role="region" aria-label="Bridge architecture (scroll horizontally)" tabIndex={0}>
     <svg
+      style={{ minWidth: 710 }}
       viewBox="0 0 710 350"
       className="w-full h-auto"
       role="img"
@@ -336,5 +338,6 @@ export function ArchitectureDiagram({ connected }: { connected: boolean }) {
         Transceiver
       </text>
     </svg>
+    </div>
   );
 }

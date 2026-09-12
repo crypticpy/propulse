@@ -222,7 +222,7 @@ export interface AccessibleDialogProps {
   title: string;
   description?: string;
   children: ReactNode;
-  size?: "md" | "lg" | "xl" | "full";
+  size?: "sm" | "md" | "lg" | "xl" | "full";
   /** Tailwind z-index class for the portal overlay. */
   zIndexClassName?: string;
   /**
@@ -272,6 +272,7 @@ export interface AccessibleDialogProps {
 }
 
 const sizes = {
+  sm: "max-w-sm",
   md: "max-w-xl",
   lg: "max-w-3xl",
   xl: "max-w-6xl",

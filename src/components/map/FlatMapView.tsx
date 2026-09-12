@@ -95,7 +95,7 @@ import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { MapSurface } from "./MapSurface";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
-import { useViewSpotFocus } from "@/hooks/useSpotFocus";
+import { MANUAL_FOCUS_SPOT_ID, useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { FLASH_POINT_DURATION_MS, useFlashPoint } from "./hooks/useFlashPoint";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
 import {
@@ -3890,7 +3890,13 @@ export function FlatMapView({
   }, [selectedSpot]);
 
   const selectedSpotMatchesTarget = useMemo(() => {
-    if (!selectedSpot || !target) return false;
+    // A manual camera target's synthesized `focusedSpot` always shares the
+    // target's own coordinates, which would otherwise read as "the selected
+    // spot is this hover target" and suppress its label/difficulty/path
+    // metrics (#604).
+    if (!selectedSpot || !target || selectedSpot.id === MANUAL_FOCUS_SPOT_ID) {
+      return false;
+    }
     if (
       !Number.isFinite(selectedSpot.dxLat) ||
       !Number.isFinite(selectedSpot.dxLon)

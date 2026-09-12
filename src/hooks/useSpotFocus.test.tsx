@@ -7,7 +7,11 @@ import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { EMPTY_VIEW_SPOTS } from "./useBoundMapSelection";
 import { commitViewSpotSelection } from "./useMapSpotSelection";
-import { hasValidSpotCoordinates, useViewSpotFocus } from "./useSpotFocus";
+import {
+  hasValidSpotCoordinates,
+  MANUAL_FOCUS_SPOT_ID,
+  useViewSpotFocus,
+} from "./useSpotFocus";
 
 function dxSpot(overrides: Partial<DXSpot> = {}): DXSpot {
   return {
@@ -231,7 +235,9 @@ describe("useViewSpotFocus with a stable spots reference", () => {
       const { focusedSpot } = useViewSpotFocus([]);
       return (
         <span data-testid="focus">
-          {focusedSpot ? `${focusedSpot.dxLat},${focusedSpot.dxLon}` : "none"}
+          {focusedSpot
+            ? `${focusedSpot.id},${focusedSpot.dxLat},${focusedSpot.dxLon}`
+            : "none"}
         </span>
       );
     }
@@ -241,6 +247,61 @@ describe("useViewSpotFocus with a stable spots reference", () => {
         <ManualHost />
       </ViewProvider>,
     );
-    expect(screen.getByTestId("focus").textContent).toBe("41.7,-72.7");
+    expect(screen.getByTestId("focus").textContent).toBe(
+      `${MANUAL_FOCUS_SPOT_ID},41.7,-72.7`,
+    );
+  });
+
+  it("updates focus when a spot's spotter fields change without a coordinate/id change (regression: stale spotsFocusKey cache)", () => {
+    const grid = dxSpot({
+      id: "grid-1",
+      dxGrid: "GG87",
+      dxLat: -22.5,
+      dxLon: -43,
+      spotter: "K1ABC",
+      spotterLat: 41.7,
+      spotterLon: -72.7,
+      spotterGrid: "FN31",
+    });
+    const storage = createMemoryWorkingStorage();
+
+    function FocusProbeSpotter({ spots }: { spots: readonly DXSpot[] }) {
+      const { focusedSpot } = useViewSpotFocus(spots);
+      return (
+        <span data-testid="focus">
+          {focusedSpot
+            ? `${focusedSpot.spotter},${focusedSpot.spotterLat},${focusedSpot.spotterLon},${focusedSpot.spotterGrid}`
+            : "none"}
+        </span>
+      );
+    }
+
+    function Host({ spots }: { spots: readonly DXSpot[] }) {
+      const runtime = useViewRuntime();
+      useLayoutEffect(() => {
+        commitViewSpotSelection(runtime, spots[0]!);
+      }, [runtime, spots]);
+      return <FocusProbeSpotter spots={spots} />;
+    }
+
+    const { rerender } = render(
+      <ViewProvider ownerId="owner-a" slot="normal" storage={storage}>
+        <Host spots={[grid]} />
+      </ViewProvider>,
+    );
+    expect(screen.getByTestId("focus").textContent).toBe(
+      "K1ABC,41.7,-72.7,FN31",
+    );
+
+    // Same id/dxLat/dxLon/dxGrid, but the spotter refreshed to a new location.
+    const refreshed = { ...grid, spotter: "W2XYZ", spotterLat: 34.0, spotterLon: -118.2, spotterGrid: "DM04" };
+    rerender(
+      <ViewProvider ownerId="owner-a" slot="normal" storage={storage}>
+        <Host spots={[refreshed]} />
+      </ViewProvider>,
+    );
+    expect(screen.getByTestId("focus").textContent).toBe(
+      "W2XYZ,34,-118.2,DM04",
+    );
   });
 });

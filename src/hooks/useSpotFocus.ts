@@ -201,11 +201,31 @@ function useSpotFocusState(
   };
 }
 
-/** Camera focus for this view's selection only. Shared DX rows stay shared. */
+/**
+ * `focusedSpot.id` for a manual camera target synthesized below — not a
+ * real DX spot. Consumers that treat `focusedSpot` as spot-derived UI (e.g.
+ * `selectedSpotMatchesTarget` in FlatMapView/GlobeView, which suppresses a
+ * hover target's own label/difficulty/path metrics when it already matches
+ * a selected spot) must check this first: a manual target's coordinates
+ * trivially equal themselves, so without this check every manual target
+ * would be mistaken for "this hover target is the selected spot."
+ */
+export const MANUAL_FOCUS_SPOT_ID = "manual-target";
+
+/**
+ * Camera focus for this view's selection only. Shared DX rows stay shared.
+ * Includes every field a `focusedSpot` consumer reads off the cached row
+ * (`SelectedSpotArc` also uses `spotter`/`spotterLat`/`spotterLon`/
+ * `spotterGrid`) so a refresh that changes one of them busts the cache
+ * instead of leaving `stableSpots` pointing at a stale row indefinitely.
+ */
 function spotsFocusKey(spots: readonly DXSpot[]): string {
   if (spots.length === 0) return "";
   return spots
-    .map((spot) => `${spot.id}:${spot.dxLat ?? ""}:${spot.dxLon ?? ""}:${spot.dxGrid ?? ""}`)
+    .map(
+      (spot) =>
+        `${spot.id}:${spot.dxLat ?? ""}:${spot.dxLon ?? ""}:${spot.dxGrid ?? ""}:${spot.spotter ?? ""}:${spot.spotterLat ?? ""}:${spot.spotterLon ?? ""}:${spot.spotterGrid ?? ""}`,
+    )
     .join("|");
 }
 
@@ -249,7 +269,7 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     }
     if (target?.origin === "manual") {
       return {
-        id: "manual-target",
+        id: MANUAL_FOCUS_SPOT_ID,
         spotter: "",
         dx: "",
         frequency: 0,

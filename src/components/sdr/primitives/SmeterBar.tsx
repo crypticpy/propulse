@@ -67,18 +67,18 @@ const SMETER_TICKS = [
 const SIZE_CONFIG = {
   compact: {
     barHeight: "h-[4px]",
-    readoutText: "text-[8px]",
-    readoutW: "w-[44px]",
+    readoutText: "text-xs",
+    readoutW: "w-[10ch]",
   },
   normal: {
     barHeight: "h-[7px]",
-    readoutText: "text-[9px]",
-    readoutW: "w-[52px]",
+    readoutText: "text-xs",
+    readoutW: "w-[10ch]",
   },
   large: {
     barHeight: "h-[12px]",
-    readoutText: "text-[11px]",
-    readoutW: "w-[60px]",
+    readoutText: "text-xs",
+    readoutW: "w-[10ch]",
   },
 } as const;
 

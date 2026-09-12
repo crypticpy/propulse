@@ -45,10 +45,10 @@ export function HamClockBestBandHero() {
         className="w-full rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 disabled:cursor-wait"
       >
         <span className="flex items-center justify-between gap-2">
-          <span className="font-orbitron text-[9px] font-semibold uppercase tracking-[0.16em] text-su-muted">
+          <span className="font-orbitron text-xs font-semibold uppercase tracking-[0.16em] text-su-muted">
             Best Band Now
           </span>
-          <span className="truncate font-mono text-[8px] uppercase text-su-muted">
+          <span className="truncate font-mono text-xs uppercase text-su-muted">
             {scope.label}
           </span>
         </span>
@@ -62,12 +62,12 @@ export function HamClockBestBandHero() {
                 {best.band}
               </span>
               <span
-                className={`truncate font-mono text-[10px] font-semibold uppercase ${LADDER_TEXT_CLASSES[best.stable]}`}
+                className={`truncate font-mono text-xs font-semibold uppercase ${LADDER_TEXT_CLASSES[best.stable]}`}
               >
                 {bestStatus}
               </span>
             </span>
-            <span className="shrink-0 font-mono text-[8px] tabular-nums text-su-muted">
+            <span className="shrink-0 font-mono text-xs tabular-nums text-su-muted">
               {best.result.inputs.obs20m} obs ·{" "}
               {best.result.inputs.reporters20m} rx
             </span>

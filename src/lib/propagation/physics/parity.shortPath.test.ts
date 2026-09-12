@@ -62,14 +62,19 @@ import type { PropagationLayer, PropagationMode } from "./modeTypes";
  * reference's three truncations of the mid-path local time land in a different
  * column. `tolerance_derivation` carries the argument and the evidence for it.
  *
- * TWO CASES ARE NOT COVERED BY THE BUDGET AT ALL. G11 and G14 each have a 2F2
- * mode that section 5.2.1 selects at the equation (2) height and whose section
- * 5.1 height cannot close the hop, so slice B labels it
- * `mirror_height_cannot_close_hop` and it contributes nothing here while the
- * reference keeps it. Substituting the reference's geometry into our result
- * cannot put back a mode that was never evaluated, so those two are asserted
- * against the divergence bound instead, and the test reads which cases they are
- * from the mode set rather than from a case id written into the test.
+ * EVERY CASE IS NOW UNDER THAT BUDGET, AND TWO OF THEM USED NOT TO BE. G11
+ * and G14 each have a 2F2 mode that section 5.2.1 selects at the equation (2)
+ * height and whose section 5.1 height cannot close the hop. Slice B used to
+ * label it `mirror_height_cannot_close_hop` and drop it while the reference
+ * kept it, and substituting the reference's geometry cannot put back a mode
+ * that was never evaluated, so those two were asserted against a wide
+ * divergence bound instead. Under `modeSet.ts` deviation 3 the mode contributes
+ * at the selection geometry, which is the reference's own geometry for it, and
+ * both cases fall inside the ordinary per-case budget: G11's reference-geometry
+ * residual went from -6.482 dB to 0.010 dB against a 0.41 dB budget and G14's
+ * from -1.979 dB to -0.200 dB against 0.25 dB. The separate bound is gone and
+ * the fallback itself is still pinned per case, from the mode set rather than
+ * from a case id written into the test.
  *
  * `parity_is_partial` states the seven things this corpus cannot prove. The
  * loudest of them: the oracle publishes one mode per circuit and only inside
@@ -542,13 +547,22 @@ describe("P.533-14 short-path field strength parity with the ITU reference", () 
    * than that. Losing it would still pass every per-case check, so it is
    * asserted separately: a systematic tenth of a decibel in equation (18)
    * fails here and nowhere else.
+   *
+   * The population is the 7 cases with no auroral loss whose geometry is
+   * section 5.1's on every mode. G14 is the eighth zero-auroral case and is
+   * left out because one of its modes contributes at the selection geometry
+   * (`modeSet.ts` deviation 3), where the reference-geometry substitution is
+   * the identity, so the case does not measure the substitution residual the
+   * way these seven do. It reads 0.1995 dB, which is inside its own 0.25 dB
+   * per-case budget and is recorded in the fixture rather than used to move
+   * this gate.
    */
   it("agrees to a tenth of a decibel where there is no auroral loss", () => {
     let worst = 0;
     let cases = 0;
     for (const testCase of fixtures.cases) {
       if (testCase.reading.max_auroral_loss_db !== 0) continue;
-      if (testCase.reading.unclosed_hop_modes.length > 0) continue;
+      if (testCase.reading.selection_height_modes.length > 0) continue;
       const solution = solve(provider, testCase);
       expect(solution.fieldStrengthRefGeometryDb).not.toBeNull();
       worst = Math.max(
@@ -599,14 +613,31 @@ describe("P.533-14 short-path field strength parity with the ITU reference", () 
       expect(solution.result.unevaluatedModes.length).toBe(
         reading.unevaluated_mode_count,
       );
+      // Which modes fell back to the section 5.2.1 selection geometry because
+      // the section 5.1 height could not close their hop (`modeSet.ts`
+      // deviation 3), and the note that says why for each of them. On this
+      // corpus that is the 2F2 mode of G11 and of G14 and nothing else.
+      const fellBack = solution.modes.modes.filter(
+        (mode) => mode.elevationSource === "selection_height",
+      );
+      expect(fellBack.map((mode) => mode.label)).toEqual(
+        reading.selection_height_modes,
+      );
+      for (const mode of fellBack) {
+        expect(mode.geometryNote).not.toBeNull();
+        expect(mode.geometryNote).toContain("section 5.1 mirror height");
+      }
+      for (const mode of solution.modes.modes) {
+        if (mode.elevationSource === "selection_height") continue;
+        expect(mode.geometryNote).toBeNull();
+      }
+      // And no mode anywhere on this corpus closes at neither height, which is
+      // the only state left in which a mode is dropped for want of geometry.
       expect(
         solution.modes.modes
-          .filter(
-            (mode) =>
-              mode.unsupportedReason === "mirror_height_cannot_close_hop",
-          )
+          .filter((mode) => mode.unsupportedReason === "no_reflection")
           .map((mode) => mode.label),
-      ).toEqual(reading.unclosed_hop_modes);
+      ).toEqual([]);
 
       // The above-the-MUF branches actually exercised, per layer, because
       // equations (25) and (26) are the largest single cause of the shipped
@@ -669,18 +700,10 @@ describe("P.533-14 short-path field strength parity with the ITU reference", () 
         divergence.field_strength_delta_with_reference_geometry_db,
         3,
       );
-      if (reading.unclosed_hop_modes.length === 0) {
-        expect(Math.abs(deltaDb)).toBeLessThanOrEqual(budgetDb(testCase));
-      } else {
-        // G11 and G14. Not inside any tolerance, and the reason is structural:
-        // see reference_divergence.dropped_mode_cases.
-        expect(
-          fixtures.reference_divergence.dropped_mode_cases.cases,
-        ).toContain(testCase.case_id);
-        expect(Math.abs(deltaDb)).toBeLessThanOrEqual(
-          fixtures.reference_divergence.dropped_mode_cases.bound_db,
-        );
-      }
+      // Every case, with no exemption. G11 and G14 carried a wide bound of
+      // their own while their 2F2 mode was dropped; deviation 3 brought both
+      // inside this budget and the exemption went with it.
+      expect(Math.abs(deltaDb)).toBeLessThanOrEqual(budgetDb(testCase));
 
       // The per-mode statement, so that a cancellation inside equation (28)
       // cannot pass for agreement on equation (18).

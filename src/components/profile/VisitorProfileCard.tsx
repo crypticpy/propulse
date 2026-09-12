@@ -188,21 +188,21 @@ export function VisitorProfileCard({
               <div className="font-mono text-sm font-bold text-su-text">
                 {totalQSOs.toLocaleString()}
               </div>
-              <div className="text-[9px] text-su-muted uppercase">QSOs</div>
+              <div className="text-xs text-su-muted uppercase">QSOs</div>
             </div>
             <div className="w-px h-6 bg-su-line/20" />
             <div>
               <div className="font-mono text-sm font-bold text-su-text">
                 {uniqueCountries}
               </div>
-              <div className="text-[9px] text-su-muted uppercase">DXCC</div>
+              <div className="text-xs text-su-muted uppercase">DXCC</div>
             </div>
             <div className="w-px h-6 bg-su-line/20" />
             <div>
               <div className="font-mono text-sm font-bold text-su-text">
                 {displayGrid}
               </div>
-              <div className="text-[9px] text-su-muted uppercase">Grid</div>
+              <div className="text-xs text-su-muted uppercase">Grid</div>
             </div>
           </div>
 

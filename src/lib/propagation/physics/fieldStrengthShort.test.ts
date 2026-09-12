@@ -82,6 +82,21 @@ function routeOfLength(groundDistanceKm: number): ResolvedRoute {
   return { ...base, groundDistanceKm, arcAngleRad: groundDistanceKm / 6371 };
 }
 
+/**
+ * A route of an exact length, but along a different great circle than
+ * `routeOfLength`'s. Used to build two routes that share `groundDistanceKm`
+ * without sharing an origin or a tangent, which the guard in
+ * `fieldStrengthShort` must still tell apart.
+ */
+function routeOfLengthFrom(
+  tx: GeodeticPoint,
+  rx: GeodeticPoint,
+  groundDistanceKm: number,
+): ResolvedRoute {
+  const base = route(tx, rx);
+  return { ...base, groundDistanceKm, arcAngleRad: groundDistanceKm / 6371 };
+}
+
 /** Fairbanks to Tromso, about 4900 km, well inside the auroral zone. */
 const POLAR = route(
   { latitudeDeg: 64.8, longitudeDeg: -147.9 },
@@ -644,6 +659,33 @@ describe("domain checks", () => {
       shortPathFieldStrength(
         inputs(set, {}, routeOfLength(set.groundDistanceKm)),
       ),
+    ).not.toThrow();
+  });
+
+  it("rejects a mode set combined with a different circuit of the same ground distance", () => {
+    // Same length as the fixture's equatorial route (3000 km) but a
+    // different pair of endpoints, so groundDistanceKm alone cannot tell
+    // the two routes apart; the origin/tangent check must.
+    const set = resolvedSet(3000, 14);
+    const sameLengthOtherCircuit = routeOfLengthFrom(
+      { latitudeDeg: 10, longitudeDeg: 0 },
+      { latitudeDeg: 10, longitudeDeg: 40 },
+      set.groundDistanceKm,
+    );
+    expect(() =>
+      shortPathFieldStrength(inputs(set, {}, sameLengthOtherCircuit)),
+    ).toThrow(/routeOrigin|routeTangent/);
+  });
+
+  it("accepts the same route object and an equal-geometry copy", () => {
+    const pathRoute = routeOfLength(3000);
+    const set = resolvedSet(3000, 14, {}, pathRoute);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, {}, pathRoute)),
+    ).not.toThrow();
+    const equalGeometryCopy: ResolvedRoute = { ...pathRoute };
+    expect(() =>
+      shortPathFieldStrength(inputs(set, {}, equalGeometryCopy)),
     ).not.toThrow();
   });
 

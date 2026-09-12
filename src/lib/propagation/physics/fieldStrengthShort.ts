@@ -148,8 +148,10 @@ import {
 import type { PropagationLayer, PropagationMode } from "./modeTypes";
 import type { ResolvedModeSet } from "./modeSet";
 import {
+  DEGENERATE_ANGLE_RAD,
   routeMidpoint,
   type ResolvedRoute,
+  type UnitVector,
 } from "@/lib/propagation/geometry/route";
 
 /** The constant of equation (17), dB. */
@@ -290,6 +292,19 @@ function powerSumDb(valuesDb: readonly number[]): number | null {
   );
 }
 
+/** `a` and `b` differ by more than `DEGENERATE_ANGLE_RAD` in some component. */
+function unitVectorsDiffer(a: UnitVector, b: UnitVector): boolean {
+  return (
+    Math.abs(a.x - b.x) > DEGENERATE_ANGLE_RAD ||
+    Math.abs(a.y - b.y) > DEGENERATE_ANGLE_RAD ||
+    Math.abs(a.z - b.z) > DEGENERATE_ANGLE_RAD
+  );
+}
+
+function formatUnitVector(v: UnitVector): string {
+  return `(${v.x.toFixed(9)}, ${v.y.toFixed(9)}, ${v.z.toFixed(9)})`;
+}
+
 /**
  * Table 1d's control points for one layer, which are a property of the PATH.
  *
@@ -350,12 +365,40 @@ export function shortPathFieldStrength(
   // `route` and `modes` are independent inputs the caller assembles
   // separately; every penetration and control point below is found on
   // `route`, so a mode set resolved for a different route would silently
-  // relocate every sample this function takes.
-  if (Math.abs(modeSet.groundDistanceKm - route.groundDistanceKm) > 1e-6) {
+  // relocate every sample this function takes. `groundDistanceKm` alone does
+  // not identify a route: two geographically different circuits can share a
+  // ground distance, so the origin and tangent the mode set was sampled along
+  // are checked too, each within `DEGENERATE_ANGLE_RAD`, the same tolerance
+  // `resolveRoute` uses to tell two points apart on this sphere.
+  const distanceMismatch =
+    Math.abs(modeSet.groundDistanceKm - route.groundDistanceKm) > 1e-6;
+  const originMismatch = unitVectorsDiffer(modeSet.routeOrigin, route.origin);
+  const tangentMismatch = unitVectorsDiffer(
+    modeSet.routeTangent,
+    route.tangent,
+  );
+  if (distanceMismatch || originMismatch || tangentMismatch) {
+    const mismatches: string[] = [];
+    if (distanceMismatch) {
+      mismatches.push(
+        `modeSet.groundDistanceKm ${String(modeSet.groundDistanceKm)} does ` +
+          `not match route.groundDistanceKm ${String(route.groundDistanceKm)}`,
+      );
+    }
+    if (originMismatch) {
+      mismatches.push(
+        `modeSet.routeOrigin ${formatUnitVector(modeSet.routeOrigin)} does ` +
+          `not match route.origin ${formatUnitVector(route.origin)}`,
+      );
+    }
+    if (tangentMismatch) {
+      mismatches.push(
+        `modeSet.routeTangent ${formatUnitVector(modeSet.routeTangent)} does ` +
+          `not match route.tangent ${formatUnitVector(route.tangent)}`,
+      );
+    }
     throw new RangeError(
-      `modes was resolved for a different route: modeSet.groundDistanceKm ` +
-        `${String(modeSet.groundDistanceKm)} does not match ` +
-        `route.groundDistanceKm ${String(route.groundDistanceKm)}.`,
+      `modes was resolved for a different route: ${mismatches.join("; ")}.`,
     );
   }
   if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {

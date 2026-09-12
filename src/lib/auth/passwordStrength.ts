@@ -59,12 +59,6 @@ export function evaluatePasswordStrength(
   };
 }
 
-/** Shared presentation for strength meters: bar/text color and, for the
- * single-bar meter, how full the bar should be. Uses design tokens
- * (`alert-red` / `caution-amber` / `signal-green`, matching the auth pair's
- * original `strengthConfig`) plus `cosmic-cyan` — this repo's existing
- * "beyond good" accent (used across solar/logbook/sdr panels) — for the new
- * "very strong" tier. */
 /**
  * The account password policy the sign-up and reset-password forms
  * enforce: at least 8 characters with a digit and a special character.
@@ -85,6 +79,12 @@ export interface PasswordStrengthPresentation {
   widthClass: string;
 }
 
+/** Shared presentation for strength meters: bar/text color and, for the
+ * single-bar meter, how full the bar should be. Uses design tokens
+ * (`alert-red` / `caution-amber` / `signal-green`, matching the auth pair's
+ * original `strengthConfig`) plus `cosmic-cyan` — this repo's existing
+ * "beyond good" accent (used across solar/logbook/sdr panels) — for the new
+ * "very strong" tier. */
 export const PASSWORD_STRENGTH_PRESENTATION: Record<
   PasswordStrengthLevel,
   PasswordStrengthPresentation

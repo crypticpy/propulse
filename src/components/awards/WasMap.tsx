@@ -3,7 +3,7 @@
  *
  * Displays all 50 states in a responsive grid with:
  * - confirmed = signal-green
- * - worked_unconfirmed = caution-yellow
+ * - worked_unconfirmed = caution-amber
  * - needed = gray
  *
  * Uses a grid layout with state abbreviations (no SVG map paths).
@@ -16,6 +16,11 @@ import {
   statusText,
   statusLabel,
   STATUS_OPTIONS,
+  legendSwatchConfirmed,
+  legendSwatchWorked,
+  legendSwatchNeeded,
+  progressFillConfirmed,
+  progressFillWorked,
   SlotDetailPanel,
 } from "@/components/awards/shared";
 
@@ -57,14 +62,14 @@ export function WasMap({
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-signal-green/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchConfirmed}`} />
           <span className="text-su-muted">
             Confirmed:{" "}
             <span className="text-su-text font-medium">{confirmedCount}</span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-caution-yellow/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchWorked}`} />
           <span className="text-su-muted">
             Worked:{" "}
             <span className="text-su-text font-medium">
@@ -73,7 +78,7 @@ export function WasMap({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-su-input" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchNeeded}`} />
           <span className="text-su-muted">
             Needed:{" "}
             <span className="text-su-text font-medium">{neededCount}</span>
@@ -88,11 +93,11 @@ export function WasMap({
       <div className="w-full h-2 rounded-full bg-su-panel overflow-hidden">
         <div className="h-full flex">
           <div
-            className="bg-signal-green transition-all duration-500"
+            className={`${progressFillConfirmed} transition-all duration-500`}
             style={{ width: `${confirmedPct}%` }}
           />
           <div
-            className="bg-caution-yellow transition-all duration-500"
+            className={`${progressFillWorked} transition-all duration-500`}
             style={{ width: `${progressPct - confirmedPct}%` }}
           />
         </div>

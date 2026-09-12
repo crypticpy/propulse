@@ -51,4 +51,27 @@ describe("WazGrid", () => {
       2,
     );
   });
+
+  it("closes on Escape and restores focus to the clicked zone cell", () => {
+    render(
+      <WazGrid
+        slots={SLOTS}
+        totalZones={40}
+        workedCount={1}
+        confirmedCount={0}
+        neededCount={39}
+      />,
+    );
+
+    const cell = screen.getByTitle("CQ Zone 5 — Worked");
+    cell.focus();
+    fireEvent.click(cell);
+    expect(
+      screen.getByRole("dialog", { name: /Details for CQ Zone 5/ }),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(cell);
+  });
 });

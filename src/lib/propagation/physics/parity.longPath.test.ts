@@ -617,14 +617,20 @@ describe("P.533-14 long-path parity with the ITU reference", () => {
           );
         }
       }
-      const blended = interpolateDb(
-        expected.distance_km,
-        expected.es_dbuv_per_m ?? expected.el_dbuv_per_m,
-        expected.el_dbuv_per_m,
-      );
+      // Only genuine 7000-9000 km blend circuits (Es not null) actually call
+      // `interpolateDb`, the same domain `distanceBlend`'s own code follows;
+      // above 9000 km the oracle's Ep is just El, compared directly.
+      const epDbCandidate =
+        expected.es_dbuv_per_m !== null
+          ? interpolateDb(
+              expected.distance_km,
+              expected.es_dbuv_per_m,
+              expected.el_dbuv_per_m,
+            ).db
+          : expected.el_dbuv_per_m;
       worst.epDb = Math.max(
         worst.epDb,
-        Math.abs(blended.db - expected.ep_dbuv_per_m),
+        Math.abs(epDbCandidate - expected.ep_dbuv_per_m),
       );
     }
 

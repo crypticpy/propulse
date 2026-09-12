@@ -25,10 +25,12 @@ import {
   LUF_DECAY_HOURS,
   LUF_DECAY_PER_HOUR,
   LUF_MAX_HOP_KM,
+  LUF_MAX_R12,
   LUF_PATH_CONSTANT_KM,
   LUF_PENETRATION_HEIGHT_KM,
   LUF_REFLECTION_HEIGHT_KM,
   LUF_SUNSPOT_COEFFICIENT,
+  MAX_VIRTUAL_SLANT_RANGE_RATIO,
   NIGHT_LUF_DISTANCE_KM,
   WINTER_ANOMALY_LATITUDES_DEG,
   type ResolvedLongPathLuf,
@@ -518,14 +520,33 @@ describe("the 24-hour curve", () => {
   it("collapses to the night LUF at every hour when the gyrofrequency swamps it", () => {
     // Equation (33)'s bracket peaks near 14.3 MHz on this circuit, so an fH of
     // 20 MHz makes the raw LUF negative at every hour, the whole curve is fLN
-    // and there is no 2 fLN crossing to find.
-    const result = resolved({ gyrofrequencyMHz: 20 });
-    for (const hour of result.hours) {
-      expect(hour.rawLufMHz).toBeLessThan(0);
-      expect(hour.lufMHz).toBeCloseTo(result.nightLufMHz, 12);
+    // and there is no 2 fLN crossing to find. fH = 20 MHz is outside item B's
+    // gyrofrequency envelope ([0.1, 3] MHz, shared with fM), which
+    // longPathLuf's public surface now enforces, so this is exercised
+    // directly through rawLufMHz and applySunsetDecay, the pure building
+    // blocks with no envelope of their own, the same way the equation (33)
+    // and equations (37)/(38) tests above already do.
+    const nightLuf = nightLufMHz(8095.11);
+    const rawHours = Array.from({ length: 24 }, (_, utcHour) =>
+      rawLufMHz({
+        zenithCosineRootSum:
+          4 * Math.max(0, Math.cos(((utcHour - 12) / 24) * 2 * Math.PI)),
+        r12: 100,
+        incidenceAngle90Rad: 0,
+        virtualSlantRangeKm: 8461.71,
+        gyrofrequencyMHz: 20,
+        winterAnomalyFactor: 0,
+      }),
+    );
+    for (const raw of rawHours) {
+      expect(raw).toBeLessThan(0);
     }
-    expect(result.transitionUtcHour).toBeNull();
-    expect(result.fLMHz).toBeCloseTo(result.nightLufMHz, 12);
+    const initial = rawHours.map((raw) => Math.max(nightLuf, raw));
+    const { hours, transitionUtcHour } = applySunsetDecay(initial, nightLuf);
+    for (const value of hours) {
+      expect(value).toBeCloseTo(nightLuf, 12);
+    }
+    expect(transitionUtcHour).toBeNull();
   });
 
   it("selects the prediction's own hour, not the hour after it", () => {
@@ -598,8 +619,12 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
   });
 
   it("accepts a path at exactly the 7 000 km lower bound", () => {
+    // virtualSlantRangeKm must also be route-realistic for this D under item
+    // B's ratio ceiling (call()'s own default, 8461.71 km, was set for the
+    // 8095.11 km default route and is too long for a 7 000 km one).
     const result = call({
       route: stretched(EQUATORIAL, LONG_PATH_MIN_DISTANCE_KM),
+      virtualSlantRangeKm: LONG_PATH_MIN_DISTANCE_KM * 1.05,
     });
     expect(result.kind).toBe("resolved");
   });
@@ -613,20 +638,33 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
     }
   });
 
-  it("declines a negative sunspot number but allows one above 160", () => {
+  it("declines a negative sunspot number but allows one above 160, up to the envelope", () => {
     expect(call({ r12: -1 }).kind).toBe("unsupported");
     // Equation (33) states its own rule: R12 "does not saturate for high
     // values and can exceed 160".
     expect(call({ r12: 311 }).kind).toBe("resolved");
+    // Item B: no real sunspot series comes near this margin, so above it is
+    // a missing-data sentinel rather than a solar cycle.
+    expect(call({ r12: LUF_MAX_R12 + 1 }).kind).toBe("unsupported");
   });
 
-  it("declines a slant path that makes the logarithm zero or negative", () => {
-    for (const virtualSlantRangeKm of [0, -1, LUF_PATH_CONSTANT_KM, 1e7]) {
+  it("declines a slant path that is zero, negative, or route-unrealistically long", () => {
+    const D = 8095.11; // call()'s default route ground distance
+    const maxVirtualSlantRangeKm = MAX_VIRTUAL_SLANT_RANGE_RATIO * D;
+    for (const virtualSlantRangeKm of [
+      0,
+      -1,
+      maxVirtualSlantRangeKm + 1,
+      LUF_PATH_CONSTANT_KM,
+    ]) {
       const result = call({ virtualSlantRangeKm });
       expect(result.kind).toBe("unsupported");
-      if (result.kind !== "unsupported") continue;
-      expect(result.detail).toContain("9500000");
     }
+    // Item B: the route-realistic ratio ceiling, not the old log-pole
+    // constant, is what actually admits or refuses a slant range now.
+    expect(call({ virtualSlantRangeKm: maxVirtualSlantRangeKm }).kind).toBe(
+      "resolved",
+    );
   });
 
   it("never returns a NaN on any field of a resolved record", () => {
@@ -669,6 +707,65 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
     for (const value of numbers) {
       expect(Number.isFinite(value)).toBe(true);
     }
+  });
+
+  it("closes the log-pole overflow that used to reach an infinite fL: item B's r12 and virtualSlantRangeKm envelopes refuse the combination outright", () => {
+    // Before item B, neither input was individually out of bounds: R12 "does
+    // not saturate for high values" (previous test), and virtualSlantRangeKm
+    // needed only be positive and below LUF_PATH_CONSTANT_KM (9.5e6 km).
+    // Together, log_e(9.5e6 / p') could be driven to about 1e-5 by a p' a
+    // mere 0.001% below the pole, and R12 = 1.5e308 inflated equation (33)'s
+    // numerator enough to overflow the square root's argument to +Infinity.
+    // Item B's tightened envelopes (LUF_MAX_R12, MAX_VIRTUAL_SLANT_RANGE_RATIO)
+    // now refuse both inputs before any of that arithmetic runs.
+    const result = call({
+      r12: 1.5e308,
+      virtualSlantRangeKm: LUF_PATH_CONSTANT_KM * (1 - 1e-5),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+  });
+
+  it.each([
+    {
+      name: "r12 = 1.5e308, comfortably inside Number.MAX_VALUE and once able to overflow equation (33)'s numerator",
+      overrides: { r12: 1.5e308 },
+    },
+    {
+      name: "virtualSlantRangeKm = LUF_PATH_CONSTANT_KM, once admitted and now far outside the route-realistic ratio",
+      overrides: { virtualSlantRangeKm: LUF_PATH_CONSTANT_KM },
+    },
+    {
+      name: "gyrofrequencyMHz = 0, below item B's new floor shared with fM",
+      overrides: { gyrofrequencyMHz: 0 },
+    },
+  ])("hostile input, now refused outright: $name", ({ overrides }) => {
+    expect(call(overrides).kind).toBe("unsupported");
+  });
+});
+
+describe("the finite-result invariant on the assembled fL record", () => {
+  it("rawLufMHz has no envelope of its own and can still overflow, which is why the invariant guards the assembled record rather than one function", () => {
+    const overflowed = rawLufMHz({
+      zenithCosineRootSum: 28,
+      r12: 1.5e308,
+      incidenceAngle90Rad: 0,
+      virtualSlantRangeKm: LUF_PATH_CONSTANT_KM * (1 - 1e-5),
+      gyrofrequencyMHz: 1.2,
+      winterAnomalyFactor: 0,
+    });
+    expect(Number.isFinite(overflowed)).toBe(false);
+  });
+
+  it("also refuses through the public longPathLuf() surface, with reason out_of_domain, confirming item B's input envelope is what catches this combination", () => {
+    const result = call({
+      r12: 1.5e308,
+      virtualSlantRangeKm: LUF_PATH_CONSTANT_KM * (1 - 1e-5),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
   });
 });
 

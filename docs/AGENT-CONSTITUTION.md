@@ -107,6 +107,9 @@ report it is not running and stop.
   push to a live claim's branch.
 - A PR with no activity for **48 h** is stale: merge `main` in and re-request
   review, or close it with a reason.
+- GitHub API calls follow AGENTS.md's "GitHub API budget" section: reads go
+  through `ghr`, writes through `ghb`, and the owner's plain `gh` is only for
+  Project #4, `pr create`/`pr edit`, and the `@codex review` trigger.
 
 ## Design and UI review
 

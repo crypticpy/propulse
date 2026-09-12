@@ -173,6 +173,13 @@ describe("FlatMapView shared borders layer binding", () => {
   it("strokes the night-boosted country pass inside the clip() the terminator path installs, before the matching restore()", async () => {
     await mount();
 
+    // The only `.clip()` call site anywhere under src/components/map,
+    // src/lib and src/components/atmos is `bordersLayer.ts`'s night clip,
+    // so any `clip` op in this recording is unambiguously that call --
+    // even though this full-mount harness redraws the whole canvas twice
+    // (an initial paint plus a second pass once async state such as
+    // IndexedDB/ResizeObserver settles), so the stream legitimately
+    // contains two `clip` ops here, not one.
     const clipIndex = ops.findIndex((op) => op.name === "clip");
     expect(clipIndex).toBeGreaterThanOrEqual(0);
 
@@ -196,10 +203,51 @@ describe("FlatMapView shared borders layer binding", () => {
     }
     expect(nightBoostedCountryStrokeIndex).toBeGreaterThan(clipIndex);
 
-    const restoreIndex = ops.findIndex(
-      (op, i) => i > nightBoostedCountryStrokeIndex && op.name === "restore",
-    );
-    expect(restoreIndex).toBeGreaterThan(nightBoostedCountryStrokeIndex);
+    // The boosted state pass is drawn immediately after the boosted country
+    // pass, inside the same clip (lineWidth 0.7 / rgba(255, 255, 255, 0.4)).
+    let stateStrokeIndex = -1;
+    for (let i = nightBoostedCountryStrokeIndex + 1; i < ops.length; i++) {
+      const op = ops[i];
+      if (op.name === "set:lineWidth") {
+        lineWidth = op.value as number;
+      } else if (op.name === "set:strokeStyle") {
+        strokeStyle = op.value as string;
+      } else if (
+        op.name === "stroke" &&
+        lineWidth === 0.7 &&
+        strokeStyle === "rgba(255, 255, 255, 0.4)"
+      ) {
+        stateStrokeIndex = i;
+        break;
+      }
+    }
+    expect(stateStrokeIndex).toBeGreaterThan(nightBoostedCountryStrokeIndex);
+
+    // In `drawNightBoostedBordersLayer`, `ctx.restore()` is the literal
+    // next statement after the country/state boosted draws return -- so it
+    // must be the very next op in the stream, with nothing in between. This
+    // is deliberately tighter than "some restore appears later in the
+    // stream": this full-mount pass draws several more layers afterwards
+    // (labels, the outer per-frame save/restore, a second full repaint),
+    // each with their own save/restore pairs, so a bare "eventually finds a
+    // restore" check would pass even if this function never restored its
+    // own save.
+    // In `drawNightBoostedBordersLayer`, `ctx.restore()` is the literal
+    // next statement after the country/state boosted draws return, so it
+    // must be the very next op with nothing in between -- and this view's
+    // own per-frame draw wraps everything in its own outer save/restore
+    // (see `FlatMapView.tsx`), so the position right after that is always
+    // a second `restore` too (closing the outer save), regardless of
+    // whether `layers.labels` draws anything in between. Checking for two
+    // consecutive `restore` ops is deliberately tighter than "some restore
+    // appears later in the stream": this full-mount pass draws several
+    // more layers afterwards, then repaints the whole canvas a second
+    // time, each with their own save/restore pairs, so a bare "eventually
+    // finds a restore" check would still pass even if
+    // `drawNightBoostedBordersLayer` never restored its own save (the
+    // stream would then show only the outer restore, not two).
+    expect(ops[stateStrokeIndex + 1]?.name).toBe("restore");
+    expect(ops[stateStrokeIndex + 2]?.name).toBe("restore");
   });
 
   it("reaches addWrappedRingPath with the view's real render width/height (the seam primitive is still in play)", async () => {

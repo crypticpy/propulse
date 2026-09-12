@@ -4,7 +4,7 @@ import {
   AZIMUTHAL_LAYER_PROFILE,
   FLAT_LAYER_PROFILE,
 } from "@/lib/map/mapLayerProfile";
-import type { Projection } from "@/lib/map/projection";
+import type { EquirectangularProjection } from "@/lib/map/projection";
 import type { WeatherAlert } from "@/lib/api/weather";
 
 /** Minimal recording stub of the CanvasRenderingContext2D surface
@@ -104,12 +104,11 @@ function createMockCtx() {
   };
 }
 
-// The spread-of-overrides pattern below widens `kind` to the full union
-// before the merge, so the object literal needs an `as Projection` cast
-// (discriminated union `Omit<>`/spread doesn't distribute -- see CLAUDE.md).
 // wrapWidth/wrapHeight are unused by this layer -- any numbers satisfy the
 // equirectangular branch's now-required fields (#1091 PR 7).
-function fakeProjection(overrides: Partial<Projection> = {}): Projection {
+function fakeProjection(
+  overrides: Partial<EquirectangularProjection> = {},
+): EquirectangularProjection {
   return {
     kind: "equirectangular",
     zoomScale: 1,
@@ -119,7 +118,7 @@ function fakeProjection(overrides: Partial<Projection> = {}): Projection {
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,
     ...overrides,
-  } as Projection;
+  };
 }
 
 function alert(overrides: Partial<WeatherAlert> = {}): WeatherAlert {

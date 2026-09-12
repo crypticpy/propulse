@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { AZIMUTHAL_LAYER_PROFILE, FLAT_LAYER_PROFILE } from "./mapLayerProfile";
+import type { MapLayerProfile } from "./mapLayerProfile";
+import { createEquirectangularProjection } from "./projection";
+import { traceRing } from "@/components/map/layers/bordersLayer";
 
 describe("MapLayerProfile", () => {
   it("FLAT_LAYER_PROFILE.fires pins the measured flat-map values", () => {
@@ -103,12 +106,43 @@ describe("MapLayerProfile", () => {
   // `traceRing` can read `profile.borders` without a null-check. The flat
   // map's wrap-and-repeat seam never reads this group -- it carries the
   // azimuthal disc's own values as an intentionally-inert placeholder (see
-  // the `MapLayerProfile.borders` doc comment).
-  it("FLAT_LAYER_PROFILE.borders carries the azimuthal disc's values as an inert placeholder", () => {
-    expect(FLAT_LAYER_PROFILE.borders).toEqual({
-      rimDrop: 0.99,
-      jumpBreakFraction: 0.25,
+  // the `MapLayerProfile.borders` doc comment). A test that merely restates
+  // those placeholder values (as a previous version of this test did) can't
+  // tell "never read" from "read and happens not to matter yet" -- so this
+  // poisons `borders` with values that would visibly break the azimuthal
+  // seam (a negative `rimDrop`/`jumpBreakFraction`) and asserts the flat
+  // seam's traced ops are unaffected.
+  it("FLAT_LAYER_PROFILE.borders placeholder is never read by the flat map's seam", () => {
+    const projection = createEquirectangularProjection({
+      width: 1024,
+      height: 512,
+      zoomScale: 1,
     });
+    const ring: [number, number][] = [
+      [10, 10],
+      [20, 20],
+      [10, 30],
+    ];
+
+    function trace(profile: MapLayerProfile): string[] {
+      const ops: string[] = [];
+      const ctx = {
+        moveTo: (x: number, y: number) => ops.push(`moveTo:${x},${y}`),
+        lineTo: (x: number, y: number) => ops.push(`lineTo:${x},${y}`),
+        closePath: () => ops.push("closePath"),
+      } as unknown as CanvasRenderingContext2D;
+      traceRing(ctx, ring, projection, profile);
+      return ops;
+    }
+
+    const poisoned: MapLayerProfile = {
+      ...FLAT_LAYER_PROFILE,
+      borders: { rimDrop: -1, jumpBreakFraction: -1 },
+    };
+
+    const baseline = trace(FLAT_LAYER_PROFILE);
+    expect(baseline.length).toBeGreaterThan(0);
+    expect(trace(poisoned)).toEqual(baseline);
   });
 
   it("AZIMUTHAL_LAYER_PROFILE.borders pins the measured azimuthal-disc values", () => {

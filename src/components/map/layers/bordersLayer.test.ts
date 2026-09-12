@@ -19,7 +19,11 @@ import {
   createEquirectangularProjection,
   createAzimuthalProjection,
 } from "@/lib/map/projection";
-import type { Projection, ProjectedPoint } from "@/lib/map/projection";
+import type {
+  EquirectangularProjection,
+  Projection,
+  ProjectedPoint,
+} from "@/lib/map/projection";
 
 /** Minimal recording stub of the path-tracing subset of
  * CanvasRenderingContext2D that `bordersLayer.ts` uses: `beginPath`,
@@ -64,10 +68,9 @@ function createMockCtx() {
   };
 }
 
-// The spread-of-overrides pattern below widens `kind` to the full union
-// before the merge, so the object literal needs an `as Projection` cast
-// (discriminated union `Omit<>`/spread doesn't distribute -- see CLAUDE.md).
-function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
+function fakeFlatProjection(
+  overrides: Partial<EquirectangularProjection> = {},
+): EquirectangularProjection {
   return {
     kind: "equirectangular",
     zoomScale: 1,
@@ -79,7 +82,7 @@ function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,
     ...overrides,
-  } as Projection;
+  };
 }
 
 /** A ring's points are keyed by their exact [lat, lon] tuple so tests can
@@ -429,30 +432,39 @@ describe("drawNightBoostedBordersLayer", () => {
     const clipIdx = ops.indexOf("clip");
     expect(saveIdx).toBeGreaterThanOrEqual(0);
     expect(clipIdx).toBeGreaterThan(saveIdx);
+    expect(ops.filter((o) => o === "clip").length).toBe(1);
     return ops.slice(saveIdx + 1, clipIdx + 1);
   }
 
   it("flat: samples the terminator at FLAT's stepDeg=2 -> 1 moveTo + 180 lineTo, then 4 closing lineTo, closePath, clip", () => {
     mockSubsolar(23, 10);
+    const date = new Date("2026-06-21T12:00:00Z");
     const { ctx, ops } = createMockCtx();
     drawNightBoostedBordersLayer(
       ctx,
-      new Date("2026-06-21T12:00:00Z"),
+      date,
       FLAT_PROJECTION,
       FLAT_LAYER_PROFILE,
       { country: false, states: false },
     );
+    expect(subsolarSpy).toHaveBeenCalledWith(date);
     const seg = clipOps(ops);
     expect(seg[0]).toBe("beginPath");
     expect(seg.filter((o) => o.startsWith("moveTo")).length).toBe(1);
     expect(seg.filter((o) => o.startsWith("lineTo")).length).toBe(180 + 4);
     expect(seg[seg.length - 2]).toBe("closePath");
     expect(seg[seg.length - 1]).toBe("clip");
+    expect(ops[ops.length - 1]).toBe("restore");
+    expect(ops.filter((o) => o === "save").length).toBe(
+      ops.filter((o) => o === "restore").length,
+    );
   });
 
-  it("flat: closes to the top corners (y=0) when the anti-subsolar point is in the northern half", () => {
+  it("flat: subsolar lat -23 puts the night side at the top (rectangle closes on y=0)", () => {
     // Southern subsolar point (winter-solstice-like) -> anti-subsolar point
-    // is northern -> its projected y is < height/2 -> "top" branch.
+    // is northern -> its projected y is < height/2 -> "top" branch. The
+    // mocked subsolar latitude drives this, not the wall-clock date passed
+    // in (getSubsolarPoint is mocked here, so the date is inert).
     mockSubsolar(-23, 10);
     const { ctx, ops } = createMockCtx();
     drawNightBoostedBordersLayer(
@@ -470,9 +482,11 @@ describe("drawNightBoostedBordersLayer", () => {
     expect(closing[2]).toBe("lineTo:0,0");
   });
 
-  it("flat: closes to the bottom corners (y=height) when the anti-subsolar point is in the southern half", () => {
+  it("flat: subsolar lat +23 puts the night side at the bottom (rectangle closes on height)", () => {
     // Northern subsolar point (summer-solstice-like) -> anti-subsolar point
-    // is southern -> its projected y is >= height/2 -> "bottom" branch.
+    // is southern -> its projected y is >= height/2 -> "bottom" branch. The
+    // mocked subsolar latitude drives this, not the wall-clock date passed
+    // in (getSubsolarPoint is mocked here, so the date is inert).
     mockSubsolar(23, 10);
     const { ctx, ops } = createMockCtx();
     drawNightBoostedBordersLayer(
@@ -559,6 +573,10 @@ describe("drawNightBoostedBordersLayer", () => {
     expect(seg.filter((o) => o.startsWith("lineTo")).length).toBe(120 + 37);
     expect(seg[seg.length - 2]).toBe("closePath");
     expect(seg[seg.length - 1]).toBe("clip");
+    expect(ops[ops.length - 1]).toBe("restore");
+    expect(ops.filter((o) => o === "save").length).toBe(
+      ops.filter((o) => o === "restore").length,
+    );
   });
 
   it("disc: sweeps the closing arc in opposite directions for anti-subsolar positions on opposite sides", () => {

@@ -18,11 +18,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { useMapStore } from "@/stores/mapStore";
-import {
-  createCanvasRecorder,
-  makeStubRect,
-  StubResizeObserver,
-} from "@/components/map/layers/canvasRecorder.test-helper";
 import type { LightningStrike } from "@/lib/api/lightning";
 
 // The spots pipeline is unrelated to this test and pulls in a real fetch
@@ -65,11 +60,57 @@ vi.mock("@/hooks/useLightning", () => ({
   useLightning: () => ({ strikes: [STRIKE], isLoading: false, error: null }),
 }));
 
-const STUB_RECT = makeStubRect(1024, 512);
-const { ops, installCanvasRecorder } = createCanvasRecorder({
+interface CanvasOp {
+  name: string;
+  args: number[];
+}
+
+const ops: CanvasOp[] = [];
+
+const STUB_RECT: DOMRect = {
+  x: 0,
+  y: 0,
+  top: 0,
+  left: 0,
+  right: 1024,
+  bottom: 512,
   width: 1024,
   height: 512,
-});
+  toJSON: () => ({}),
+};
+
+class StubResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+function installCanvasRecorder() {
+  ops.length = 0;
+  const context = new Proxy(
+    {},
+    {
+      get: (_target, prop: string) => {
+        if (prop === "canvas") return { width: 1024, height: 512 };
+        return (...args: unknown[]) => {
+          ops.push({ name: prop, args: args.map(Number) });
+          if (prop === "measureText") return { width: 10 };
+          if (
+            prop === "createLinearGradient" ||
+            prop === "createRadialGradient"
+          ) {
+            return { addColorStop: () => {} };
+          }
+          if (prop === "getImageData")
+            return { data: new Uint8ClampedArray(4) };
+          return undefined;
+        };
+      },
+      set: () => true,
+    },
+  );
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => context) as never;
+}
 
 /** Same equirectangular mapping `FlatMapView.latLonToCanvas` uses at the
  * default 1024x512 map box. */

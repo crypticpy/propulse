@@ -1,0 +1,261 @@
+/**
+ * useObservedPathActivity — read the durable aggregates for one path and turn
+ * them into an observed-activity record (#1047).
+ *
+ * The hook owns the two things the pure derivation deliberately does not:
+ *
+ * 1. **One issuance instant, and one snapshot.** Both reads and the derivation
+ *    share a single `issuedAt`, bucketed to five minutes, and both open at the
+ *    aligned window start rather than at the bucket, so the hours queried are
+ *    the hours the record claims. The pair rows are filtered out of the
+ *    coverage read rather than fetched separately: two requests can straddle a
+ *    collector commit, and a report present in one answer but not the other
+ *    would be cached as a silent hour.
+ * 2. **What a failed read means.** It means `unknown`, with a reason. It does
+ *    not mean zero: a request that never returned is the absence of evidence,
+ *    and rendering it as a silent band would be the closure claim this whole
+ *    family refuses to make.
+ *
+ * No derivation logic lives here; that is `radioEvidence/`.
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  queryPathCoverageHours,
+  queryReadableBandHours,
+} from "@/lib/propagation/hourlyStats";
+import {
+  derivePathActivity,
+  unknownActivity,
+} from "@/lib/propagation/radioEvidence/activityRecord";
+import {
+  alignedWindow,
+  DEFAULT_OBSERVED_WINDOW_SECONDS,
+} from "@/lib/propagation/radioEvidence/coverage";
+import {
+  MODE_CLASSES,
+  type ModeClass,
+  type ObservedActivityDescriptor,
+  type PathActivityPairRow,
+  type PathActivityRecord,
+} from "@/lib/propagation/radioEvidence/types";
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+/** The canonical issuance instant for an observed-activity read. */
+export function observedActivityIssueBucket(now = Date.now()): number {
+  return Math.floor(now / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+}
+
+/**
+ * Advance the issuance bucket on five-minute boundaries and when the tab comes
+ * back, so a long-lived panel does not keep answering as of the instant it
+ * first rendered.
+ */
+function useIssueBucket(): number {
+  const [bucket, setBucket] = useState(() => observedActivityIssueBucket());
+
+  useEffect(() => {
+    let timeout = 0;
+    const advance = () => {
+      // One clock sample for both values: two reads can straddle the boundary
+      // and schedule the bucket that was just entered for five minutes later.
+      const current = observedActivityIssueBucket();
+      setBucket(current);
+      timeout = window.setTimeout(
+        advance,
+        Math.max(1_000, current + FIVE_MINUTES_MS - Date.now() + 250),
+      );
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setBucket(observedActivityIssueBucket());
+      }
+    };
+
+    advance();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  return bucket;
+}
+
+export interface ObservedActivityQueryKeyInput {
+  band: string;
+  txField: string | null;
+  rxField: string | null;
+  windowSeconds: number;
+  modeClasses?: readonly ModeClass[];
+  /** The five-minute issuance bucket the answer is as of. */
+  bucket: number;
+}
+
+/**
+ * The cache key for one observed-activity question.
+ *
+ * The mode set belongs in the key because it changes the answer: a CW request
+ * and a digital request over the same path and the same bucket are different
+ * questions, and serving one from the other's entry would render digital
+ * evidence under a CW heading. It is sorted so that asking the same question
+ * with the arguments in another order is still one question.
+ */
+export function observedActivityQueryKey(
+  input: ObservedActivityQueryKeyInput,
+): readonly unknown[] {
+  return [
+    "observed-path-activity",
+    input.band,
+    input.txField,
+    input.rxField,
+    input.windowSeconds,
+    [...(input.modeClasses ?? MODE_CLASSES)].sort().join(","),
+    input.bucket,
+  ];
+}
+
+/** The 2-character Maidenhead field of a grid square, or null. */
+function fieldOf(grid: string | null | undefined): string | null {
+  const trimmed = (grid ?? "").trim();
+  return trimmed.length >= 2 ? trimmed.slice(0, 2).toUpperCase() : null;
+}
+
+export interface ObservedPathActivityInput {
+  /** Amateur band designation, e.g. "20m". */
+  band: string;
+  /** Operator's grid square (the transmitting end). */
+  txGrid: string | null | undefined;
+  /** Target's grid square (the receiving end). */
+  rxGrid: string | null | undefined;
+  /** Lookback length in whole hours; defaults to six. */
+  windowSeconds?: number;
+  /** Mode classes that qualify; defaults to all three. */
+  modeClasses?: readonly ModeClass[];
+  /** Set false to hold the reads (an unmounted panel, a hidden tile). */
+  enabled?: boolean;
+}
+
+export interface ObservedPathActivity {
+  /** The verdict, or null before either endpoint or the first read exists. */
+  record: PathActivityRecord | null;
+  isLoading: boolean;
+  isError: boolean;
+  /** The instant every read and the record answer as of. */
+  issuedAt: string;
+}
+
+/**
+ * Observed activity for one band and one field pair over a trailing window.
+ */
+export function useObservedPathActivity(
+  input: ObservedPathActivityInput,
+): ObservedPathActivity {
+  const bucket = useIssueBucket();
+  const issuedAt = new Date(bucket).toISOString();
+  const txField = fieldOf(input.txGrid);
+  const rxField = fieldOf(input.rxGrid);
+  const windowSeconds = input.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
+  // Computed once, here, and then used for both the query bound and the
+  // derivation. It also validates the window during render rather than inside
+  // the query, because a window the aggregates cannot express is a caller bug
+  // and a failed read would file it as missing evidence.
+  const window = useMemo(
+    () => alignedWindow(issuedAt, windowSeconds),
+    [issuedAt, windowSeconds],
+  );
+  const modeClasses = input.modeClasses;
+  const enabled =
+    (input.enabled ?? true) && txField !== null && rxField !== null;
+
+  const descriptor: ObservedActivityDescriptor | null = useMemo(
+    () =>
+      txField === null || rxField === null
+        ? null
+        : {
+            band: input.band,
+            txField,
+            rxField,
+            issuedAt,
+            windowSeconds,
+            ...(modeClasses ? { modeClasses } : {}),
+          },
+    [input.band, txField, rxField, issuedAt, windowSeconds, modeClasses],
+  );
+
+  // The bound the rows are fetched over is the bound the record states. An
+  // 18:05 issuance answers over 12:00 to 18:00, so it must ask from 12:00: a
+  // window measured back from the bucket would drop the oldest hour from every
+  // read while the record went on claiming it, and silence would be
+  // unreachable for 55 minutes of every hour.
+  const since = window.startAt;
+
+  const query = useQuery({
+    queryKey: observedActivityQueryKey({
+      band: input.band,
+      txField,
+      rxField,
+      windowSeconds,
+      modeClasses,
+      bucket,
+    }),
+    enabled,
+    // The aggregates advance once an hour; refetching faster than the issuance
+    // bucket would spend requests to learn nothing.
+    staleTime: FIVE_MINUTES_MS,
+    queryFn: async (): Promise<PathActivityRecord> => {
+      if (descriptor === null) {
+        throw new Error("observed activity needs both endpoints");
+      }
+      const [coverage, readableHours] = await Promise.all([
+        queryPathCoverageHours({
+          band: descriptor.band,
+          rxField: descriptor.rxField,
+          since,
+        }),
+        // The gap witness stays a separate read, and may disagree with the
+        // coverage snapshot. That is safe in a way a pair mismatch is not: a
+        // readable hour the coverage read has not caught up with can only
+        // make the verdict unknown, never manufacture a zero.
+        queryReadableBandHours({ band: descriptor.band, since }),
+      ]);
+      // Our pair is the subset of the coverage rows transmitted from our
+      // field. One snapshot, so a report can never be counted as coverage and
+      // missed as a report. The read is one request by design, so a busy
+      // receiving field can fill its row cap; `truncated` carries that to the
+      // derivation, which then refuses silence and treats a count as a floor.
+      const coverageRows = coverage.rows;
+      const pairRows: PathActivityPairRow[] = coverageRows
+        .filter((row) => row.tx_field.toUpperCase() === descriptor.txField)
+        .map((row) => ({ ...row, rx_field: descriptor.rxField }));
+      return derivePathActivity({
+        ...descriptor,
+        window,
+        readTruncated: coverage.truncated,
+        pairRows,
+        coverageRows,
+        readableHours,
+      });
+    },
+  });
+
+  const record = useMemo(() => {
+    if (query.data) return query.data;
+    if (query.isError && descriptor !== null) {
+      // Unknown with a reason. Never `no_reports`, which would assert that a
+      // receiver was listening — something a failed read cannot know.
+      return unknownActivity(descriptor, "aggregate_read_failed");
+    }
+    return null;
+  }, [query.data, query.isError, descriptor]);
+
+  return {
+    record,
+    isLoading: query.isLoading && enabled,
+    isError: query.isError,
+    issuedAt,
+  };
+}

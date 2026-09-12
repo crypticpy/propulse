@@ -28,6 +28,51 @@ export type SignalClass = "strong" | "moderate" | "weak" | "marginal" | "none";
 export type OperatingMode = "SSB" | "CW" | "FT8" | "RTTY";
 
 /**
+ * Whether the ordinary skywave mode behind a prediction is supported.
+ *
+ * Mathematical contract M07 (#982): a supported mode may be weak but still
+ * contributes power; an unsupported mode contributes no power. This engine's
+ * only support test today is frequency <= median basic MUF at every hop. A hop
+ * above its basic MUF would need the explicit "above-the-MUF" loss Lm of
+ * ITU-R P.533-14 Annex 1, section 5.2.2 "Field strength determination"
+ * (equations (24)-(26); section 5.3 is the >7000 km long-path method, not this
+ * loss). That loss model is not implemented, so the mode is excluded rather
+ * than given a fabricated received power.
+ *
+ * DEFERRED — this PR ships two states and a hard cliff at the median basic
+ * MUF. M07 distinguishes three unsupported reasons that are NOT modelled here:
+ *   - `geometrically_unsupported` — no ray geometry closes the hop at all;
+ *   - `screened` — a lower layer screens the intended reflecting layer;
+ *   - `above_basic_muf_with_loss` — above the basic MUF but still contributing
+ *     power through Lm, which is what P.533 actually predicts.
+ * Because Lm is absent, a circuit one per cent above the median basic MUF is
+ * reported with the same "no power" verdict as one far above it, and the
+ * day-to-day variability around the *median* MUF is not represented. The
+ * discontinuity is a known modelling limitation, sanctioned by #948, and must
+ * be removed by implementing Lm (see #955 and the M07 follow-up) rather than
+ * by softening the threshold.
+ */
+export type CircuitSupport = "supported" | "above_basic_muf";
+
+/**
+ * The receiver-noise assumption a prediction was made with (contract M09/M10).
+ * `source` keeps an assumed default distinguishable from a caller-specified
+ * environment; the noise floor is always in the 2500 Hz reference bandwidth.
+ */
+export interface NoiseAssumption {
+  /** ITU-R P.372 man-made noise category used for the external noise factor */
+  environment: "city" | "residential" | "rural" | "quiet_rural";
+  /** "specified" when the caller supplied the environment, "assumed" when it did not */
+  source: "specified" | "assumed";
+  /** External noise factor Fa in dB above kT0B (ITU-R P.372) */
+  fa_dB: number;
+  /** Noise power in dBm in `referenceBandwidthHz` */
+  noiseFloorDbm: number;
+  /** Reference bandwidth for SNR and noise floor (always 2500 Hz) */
+  referenceBandwidthHz: number;
+}
+
+/**
  * Complete signal prediction for a propagation path
  * Combines all loss factors and provides expected receive conditions
  */
@@ -58,6 +103,17 @@ export interface SignalPrediction {
   snrHigh?: number;
   /** Operating mode used for this prediction */
   mode: OperatingMode;
+  /**
+   * Circuit support (contract M07). When not "supported" the mode contributes
+   * no power: expectedSNR, snrLow and snrHigh are -Infinity, sUnit is S0 at
+   * -Infinity dBm, signalClass is "none", and confidence / confidenceLow /
+   * confidenceHigh are 0 -- there is no prediction to be confident about.
+   * Renderers must branch on this field and print the unsupported state
+   * rather than formatting -Infinity.
+   */
+  support: CircuitSupport;
+  /** Receiver-noise assumption behind expectedSNR (contract M09/M10) */
+  noise: NoiseAssumption;
 }
 
 /**

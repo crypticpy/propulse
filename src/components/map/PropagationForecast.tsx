@@ -313,7 +313,7 @@ export function PropagationForecast({
                     x={MARGIN.left - 4}
                     y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 3}
                     textAnchor="end"
-                    className="fill-su-muted text-[9px] font-mono"
+                    className="fill-su-muted text-xs font-mono"
                   >
                     {band}
                   </text>
@@ -327,7 +327,7 @@ export function PropagationForecast({
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH / 2}
                   y={CHART_HEIGHT - 6}
                   textAnchor="middle"
-                  className="fill-su-muted text-[9px] font-mono"
+                  className="fill-su-muted text-xs font-mono"
                 >
                   {formatHour(hour)}
                 </text>
@@ -395,7 +395,7 @@ export function PropagationForecast({
                 x={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
                 y={MARGIN.top - 12}
                 textAnchor="middle"
-                className="fill-plasma-orange text-[8px] font-bold"
+                className="fill-plasma-orange text-xs font-bold"
               >
                 NOW
               </text>
@@ -403,7 +403,7 @@ export function PropagationForecast({
           </div>
 
           {/* Legend */}
-          <div className="flex items-center justify-center gap-3 text-[10px]">
+          <div className="flex items-center justify-center gap-3 text-xs">
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
@@ -435,7 +435,7 @@ export function PropagationForecast({
           </div>
 
           {/* Click hint */}
-          <div className="text-center text-[10px] text-su-muted">
+          <div className="text-center text-xs text-su-muted">
             Click for detailed forecast & recommendations
           </div>
         </div>

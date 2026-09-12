@@ -160,7 +160,7 @@ function MultiplierList({
           >
             {mult.value}
             {mult.band && (
-              <span className="text-su-muted ml-1 text-[10px]">
+              <span className="text-su-muted ml-1 text-xs">
                 {mult.band}
               </span>
             )}

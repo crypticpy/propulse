@@ -51,13 +51,13 @@ function StatusDot({ color }: { color: "green" | "amber" | "red" | "gray" }) {
 }
 
 const REQUIRED_BADGE = (
-  <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-signal-green/15 border border-signal-green/30 text-signal-green uppercase tracking-wide">
+  <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-signal-green/15 border border-signal-green/30 text-signal-green uppercase tracking-wide">
     Required
   </span>
 );
 
 const OPTIONAL_BADGE = (
-  <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-su-line/10 border border-su-line/40 text-su-muted uppercase tracking-wide">
+  <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-su-line/10 border border-su-line/40 text-su-muted uppercase tracking-wide">
     Optional
   </span>
 );
@@ -308,7 +308,7 @@ export function SetupGuidePage() {
               </div>
             </div>
             {state === "connected" && (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signal-green/10 border border-signal-green/25 text-signal-green">
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-signal-green/10 border border-signal-green/25 text-signal-green">
                 LIVE
               </span>
             )}
@@ -323,7 +323,7 @@ export function SetupGuidePage() {
                 Controls your radio via computer
               </div>
             </div>
-            <span className="text-[9px] text-su-muted uppercase tracking-wide">
+            <span className="text-xs text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
@@ -337,7 +337,7 @@ export function SetupGuidePage() {
                 Digital modes (FT8, FT4)
               </div>
             </div>
-            <span className="text-[9px] text-su-muted uppercase tracking-wide">
+            <span className="text-xs text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
@@ -351,7 +351,7 @@ export function SetupGuidePage() {
                 Live spots from other operators
               </div>
             </div>
-            <span className="text-[9px] text-su-muted uppercase tracking-wide">
+            <span className="text-xs text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
@@ -574,7 +574,7 @@ export function SetupGuidePage() {
           <h2 className="text-sm font-semibold text-su-text">
             One-Line Installer
           </h2>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-plasma-orange/10 border border-plasma-orange/25 text-plasma-orange ml-auto">
+          <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-plasma-orange/10 border border-plasma-orange/25 text-plasma-orange ml-auto">
             RECOMMENDED
           </span>
         </div>
@@ -847,7 +847,7 @@ export function SetupGuidePage() {
                   <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Icom IC-7300</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">3085</td>
-                    <td className="py-1.5 text-[11px]">
+                    <td className="py-1.5 text-xs">
                       rigctld -m 3085 -r{" "}
                       {platform === "windows" ? "COM3" : "/dev/ttyUSB0"} -s
                       115200
@@ -856,7 +856,7 @@ export function SetupGuidePage() {
                   <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Yaesu FT-991A</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">1035</td>
-                    <td className="py-1.5 text-[11px]">
+                    <td className="py-1.5 text-xs">
                       rigctld -m 1035 -r{" "}
                       {platform === "windows" ? "COM3" : "/dev/ttyUSB0"} -s
                       38400
@@ -865,7 +865,7 @@ export function SetupGuidePage() {
                   <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Kenwood TS-890S</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">2044</td>
-                    <td className="py-1.5 text-[11px]">
+                    <td className="py-1.5 text-xs">
                       rigctld -m 2044 -r{" "}
                       {platform === "windows" ? "COM3" : "/dev/ttyUSB0"} -s
                       115200
@@ -874,7 +874,7 @@ export function SetupGuidePage() {
                   <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Elecraft K3</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">2036</td>
-                    <td className="py-1.5 text-[11px]">
+                    <td className="py-1.5 text-xs">
                       rigctld -m 2036 -r{" "}
                       {platform === "windows" ? "COM3" : "/dev/ttyUSB0"} -s
                       38400
@@ -883,7 +883,7 @@ export function SetupGuidePage() {
                   <tr>
                     <td className="py-1.5 pr-4 font-sans">FlexRadio 6x00</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">2507</td>
-                    <td className="py-1.5 text-[11px]">
+                    <td className="py-1.5 text-xs">
                       rigctld -m 2507 -r 127.0.0.1:4992
                     </td>
                   </tr>

@@ -305,6 +305,55 @@ export interface BasicTransmissionLoss {
 export function basicTransmissionLossDb(
   terms: BasicTransmissionLossTerms,
 ): BasicTransmissionLoss {
+  // Every term is itself already a loss in dB (equations (20), (24)-(27) and
+  // the fixed Lz), and none of this codebase's own producers can emit a
+  // negative one: Li (dRegion.ts's absorptionTerm) is a product of ATnoon
+  // (measured minimum ~66 across its whole fitted domain), the penetration
+  // factor phi (floored at its own 1.0 or clamped to >= 0) and F(chi) (floored
+  // at 0.02), all divided by a positive (1 + 0.0067 R12) and cos i; Lm
+  // (aboveMufLoss) is a square or a square root of a non-negative excess,
+  // capped but never floored below zero; Lg (groundReflectionLossDb) is
+  // 2(n - 1) for an integer n >= 1; Lh (auroralLoss) is a mean over Table 2
+  // entries that are all in [0, 21.4] dB, or zero below 42.5 degrees; and a
+  // caller-supplied otherLossesDb (Lz) is a loss by definition. A direct
+  // caller of this leaf bypasses whichever module computed a term, so a
+  // non-finite or negative value is only ever caught here.
+  if (!Number.isFinite(terms.absorptionDb) || terms.absorptionDb < 0) {
+    throw new RangeError(
+      `absorptionDb must be finite and non-negative, received ` +
+        `${String(terms.absorptionDb)}.`,
+    );
+  }
+  if (!Number.isFinite(terms.aboveMufDb) || terms.aboveMufDb < 0) {
+    throw new RangeError(
+      `aboveMufDb must be finite and non-negative, received ` +
+        `${String(terms.aboveMufDb)}.`,
+    );
+  }
+  if (
+    !Number.isFinite(terms.groundReflectionDb) ||
+    terms.groundReflectionDb < 0
+  ) {
+    throw new RangeError(
+      `groundReflectionDb must be finite and non-negative, received ` +
+        `${String(terms.groundReflectionDb)}.`,
+    );
+  }
+  if (!Number.isFinite(terms.auroralDb) || terms.auroralDb < 0) {
+    throw new RangeError(
+      `auroralDb must be finite and non-negative, received ` +
+        `${String(terms.auroralDb)}.`,
+    );
+  }
+  if (
+    terms.otherLossesDb !== undefined &&
+    (!Number.isFinite(terms.otherLossesDb) || terms.otherLossesDb < 0)
+  ) {
+    throw new RangeError(
+      `otherLossesDb must be finite and non-negative, received ` +
+        `${String(terms.otherLossesDb)}.`,
+    );
+  }
   const freeSpaceDb = freeSpaceLossDb(
     terms.frequencyMHz,
     terms.virtualSlantRangeKm,

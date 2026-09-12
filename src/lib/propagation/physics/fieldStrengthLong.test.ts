@@ -52,7 +52,10 @@ function route(tx: GeodeticPoint, rx: GeodeticPoint): ResolvedRoute {
   return resolved;
 }
 
-function stretched(base: ResolvedRoute, groundDistanceKm: number): ResolvedRoute {
+function stretched(
+  base: ResolvedRoute,
+  groundDistanceKm: number,
+): ResolvedRoute {
   return {
     ...base,
     groundDistanceKm,
@@ -486,4 +489,11 @@ describe("what section 5.3.3 refuses rather than guesses", () => {
       }
     }
   });
+});
+
+it("rejects finite frequency values that overflow the field-strength equation", () => {
+  const result = longPathFieldStrength(
+    inputs({ frequencyMHz: Number.MAX_VALUE }),
+  );
+  expect(result.kind).toBe("unsupported");
 });

@@ -196,6 +196,7 @@ import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight"
 import type {
   GeodeticPoint,
   ResolvedRoute,
+  UnitVector,
 } from "@/lib/propagation/geometry/route";
 import {
   basicMuf,
@@ -267,6 +268,21 @@ export type F2MirrorHeightSource =
 export interface ResolvedModeSet {
   readonly kind: "resolved";
   readonly groundDistanceKm: number;
+  /**
+   * The transmitter end of the route this mode set was sampled along, and the
+   * unit tangent of that route's great circle at the transmitter.
+   *
+   * `groundDistanceKm` alone does not identify a route: two geographically
+   * different circuits can share a ground distance, and every control point
+   * and mode above was sampled along one specific great circle, not merely
+   * one of a given length. `fieldStrengthShort`'s route-identity guard (M06)
+   * binds on these together with `groundDistanceKm` so a caller cannot pass a
+   * different-route field-strength `route` and silently combine this mode
+   * set's basic MUF, screening and geometry with absorption and auroral terms
+   * sampled along a different circuit.
+   */
+  readonly routeOrigin: UnitVector;
+  readonly routeTangent: UnitVector;
   readonly frequencyMHz: number;
   /** dmax at M, restricted to 4000 km. Section 3.5.1.1. */
   readonly dmaxKm: number;
@@ -461,6 +477,8 @@ function resolveModeSet({
   return {
     kind: "resolved",
     groundDistanceKm: D,
+    routeOrigin: route.origin,
+    routeTangent: route.tangent,
     frequencyMHz,
     dmaxKm: muf.dmaxKm,
     f2SelectionMirrorHeightKm,

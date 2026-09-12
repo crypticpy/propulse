@@ -1,4 +1,4 @@
-import { render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -128,6 +128,29 @@ describe("SelectedSpotCard", () => {
         mode: "SSB",
       },
     }));
+  });
+
+  it("keeps Escape active when a parent refreshes the close callback", () => {
+    vi.useFakeTimers();
+    const originalClose = vi.fn();
+    const latestClose = vi.fn();
+    const card = (onClose: () => void) => (
+      <SelectedSpotCard spot={spot} position={{ x: 400, y: 300 }}
+        onOperator={() => {}} onClose={onClose} />
+    );
+    const view = render(card(originalClose));
+    try {
+      act(() => vi.runOnlyPendingTimers());
+      view.rerender(card(latestClose));
+      // A map render can refresh onClose between keyboard events. Escape
+      // must work before the newly deferred outside-pointer listener runs.
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(latestClose).toHaveBeenCalledTimes(1);
+      expect(originalClose).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
   });
 
   it("renders a persistent propagation summary and owns its actions", async () => {

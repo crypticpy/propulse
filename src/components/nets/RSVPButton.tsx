@@ -65,7 +65,7 @@ export function RSVPButton({
 
       {/* RSVP count badge */}
       <span
-        className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold ${
+        className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold ${
           hasRsvpd
             ? "text-su-text"
             : "bg-su-line/20 text-su-muted"

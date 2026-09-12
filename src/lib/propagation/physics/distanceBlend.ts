@@ -261,6 +261,76 @@ export function distanceBlend(
     };
   }
 
+  if (D === BLEND_MIN_DISTANCE_KM) {
+    // Equation (42)'s weight is (D - 7 000)/2 000, which is exactly 0 here,
+    // so Xi = Xs + 0 (Xl - Xs) = Xs and El never enters the result even
+    // though this endpoint is inside the documented inclusive range.
+    if (!haveShort) {
+      return unsupported(
+        "short_path_missing",
+        `at ${String(BLEND_MIN_DISTANCE_KM)} km equation (42)'s weight is 0, ` +
+          `so Xi = Xs exactly and only Es from equation (28) is needed; none ` +
+          `was supplied.`,
+        regime,
+        D,
+      );
+    }
+    const xShort = 10 ** (shortPathDb / BLEND_DB_PER_DECADE);
+    if (!Number.isFinite(xShort) || xShort <= 0) {
+      return unsupported("out_of_domain", "equation (42) has an unrepresentable endpoint diagnostic.", regime, D);
+    }
+    const otherLinear = haveLong ? 10 ** (longPathDb / BLEND_DB_PER_DECADE) : null;
+    const xLong = otherLinear !== null && Number.isFinite(otherLinear) && otherLinear > 0 ? otherLinear : null;
+    return {
+      kind: "resolved",
+      regime,
+      groundDistanceKm: D,
+      shortPathDb,
+      longPathDb: haveLong ? longPathDb : null,
+      weight: 0,
+      xShort,
+      xLong,
+      xInterpolated: xShort,
+      fieldStrengthDb: shortPathDb,
+      source: "equation_42",
+    };
+  }
+
+  if (D === BLEND_MAX_DISTANCE_KM) {
+    // Equation (42)'s weight is (D - 7 000)/2 000, which is exactly 1 here,
+    // so Xi = Xs + 1 (Xl - Xs) = Xl and Es never enters the result even
+    // though this endpoint is inside the documented inclusive range.
+    if (!haveLong) {
+      return unsupported(
+        "long_path_missing",
+        `at ${String(BLEND_MAX_DISTANCE_KM)} km equation (42)'s weight is 1, ` +
+          `so Xi = Xl exactly and only El from equation (39) is needed; none ` +
+          `was supplied.`,
+        regime,
+        D,
+      );
+    }
+    const xLong = 10 ** (longPathDb / BLEND_DB_PER_DECADE);
+    if (!Number.isFinite(xLong) || xLong <= 0) {
+      return unsupported("out_of_domain", "equation (42) has an unrepresentable endpoint diagnostic.", regime, D);
+    }
+    const otherLinear = haveShort ? 10 ** (shortPathDb / BLEND_DB_PER_DECADE) : null;
+    const xShort = otherLinear !== null && Number.isFinite(otherLinear) && otherLinear > 0 ? otherLinear : null;
+    return {
+      kind: "resolved",
+      regime,
+      groundDistanceKm: D,
+      shortPathDb: haveShort ? shortPathDb : null,
+      longPathDb,
+      weight: 1,
+      xShort,
+      xLong,
+      xInterpolated: xLong,
+      fieldStrengthDb: longPathDb,
+      source: "equation_42",
+    };
+  }
+
   if (!haveShort && !haveLong) {
     return unsupported(
       "both_missing",
@@ -293,6 +363,19 @@ export function distanceBlend(
   }
 
   const blended = interpolateDb(D, shortPathDb, longPathDb);
+  if (
+    ![blended.xShort, blended.xLong, blended.xInterpolated, blended.db].every(
+      Number.isFinite,
+    ) ||
+    blended.xInterpolated <= 0
+  ) {
+    return unsupported(
+      "out_of_domain",
+      "equation (42) did not produce a finite representable blend.",
+      regime,
+      D,
+    );
+  }
   return {
     kind: "resolved",
     regime,

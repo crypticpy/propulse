@@ -112,7 +112,7 @@ function ModePill({ mode }: { mode: string }) {
 
   return (
     <span
-      className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${cls}`}
+      className={`px-1.5 py-0.5 text-xs font-medium rounded border ${cls}`}
     >
       {mode}
     </span>
@@ -121,7 +121,7 @@ function ModePill({ mode }: { mode: string }) {
 
 function BandPill({ band }: { band: string }) {
   return (
-    <span className="px-1.5 py-0.5 text-[10px] font-mono text-su-muted bg-su-line/10 rounded border border-su-line/20">
+    <span className="px-1.5 py-0.5 text-xs font-mono text-su-muted bg-su-line/10 rounded border border-su-line/20">
       {band}
     </span>
   );
@@ -206,7 +206,7 @@ export function ContestExplorerCard({
             <BandPill key={band} band={band} />
           ))}
           {entry.bands.length > 6 && (
-            <span className="px-1.5 py-0.5 text-[10px] text-su-muted">
+            <span className="px-1.5 py-0.5 text-xs text-su-muted">
               +{entry.bands.length - 6} more
             </span>
           )}

@@ -27,7 +27,7 @@ function SeverityBadge({ severity }: { severity: string }) {
   const cls = SEVERITY_COLORS[severity] ?? SEVERITY_COLORS.Unknown;
   return (
     <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${cls}`}
+      className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${cls}`}
     >
       {severity}
     </span>
@@ -42,13 +42,13 @@ function AlertMatchSection({ match }: { match: RepeaterAlertMatch }) {
       {/* Alert header */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <SeverityBadge severity={match.alertSeverity} />
-        <span className="text-[10px] text-su-muted truncate flex-1">
+        <span className="text-xs text-su-muted truncate flex-1">
           {match.alertEvent}
         </span>
       </div>
 
       {/* Repeater count */}
-      <div className="text-[10px] text-su-muted">
+      <div className="text-xs text-su-muted">
         {match.repeaters.length === 0 ? (
           <span className="text-su-muted">No repeaters in zone</span>
         ) : (
@@ -77,7 +77,7 @@ function AlertMatchSection({ match }: { match: RepeaterAlertMatch }) {
           {match.repeaters.map((r) => (
             <div
               key={`${r.callsign}-${r.frequency}`}
-              className="flex items-baseline gap-2 text-[10px]"
+              className="flex items-baseline gap-2 text-xs"
             >
               <span className="font-mono font-bold text-su-text shrink-0">
                 {r.callsign}
@@ -112,7 +112,7 @@ export function RepeaterAnalysis() {
   if (matches.length === 0) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-su-muted">
+        <p className="text-xs text-su-muted">
           No repeaters in active alert zones
         </p>
       </div>

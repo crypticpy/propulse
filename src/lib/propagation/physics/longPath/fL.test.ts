@@ -10,7 +10,7 @@ import {
   type ResolvedRoute,
 } from "@/lib/propagation/geometry/route";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
-import { MAX_ROUTE_DISTANCE_KM } from "./fM";
+import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
 import {
   applySunsetDecay,
   longPathLuf,
@@ -56,7 +56,10 @@ function route(tx: GeodeticPoint, rx: GeodeticPoint): ResolvedRoute {
   return resolved;
 }
 
-function stretched(base: ResolvedRoute, groundDistanceKm: number): ResolvedRoute {
+function stretched(
+  base: ResolvedRoute,
+  groundDistanceKm: number,
+): ResolvedRoute {
   return {
     ...base,
     groundDistanceKm,
@@ -229,10 +232,9 @@ describe("equations (34) and (35), the solar zenith angle", () => {
       Math.cos(latitude * DEG_TO_RAD) *
         Math.cos(declination * DEG_TO_RAD) *
         Math.cos(eta);
-    expect(solarZenithCosine(latitude, longitude, declination, utc)).toBeCloseTo(
-      byHand,
-      12,
-    );
+    expect(
+      solarZenithCosine(latitude, longitude, declination, utc),
+    ).toBeCloseTo(byHand, 12);
   });
 
   it("is negative where the sun is below the horizon", () => {
@@ -240,9 +242,9 @@ describe("equations (34) and (35), the solar zenith angle", () => {
     expect(solarZenithCosine(0, 0, 0, 0)).toBeCloseTo(-1, 12);
     // And the polar night: 80 north in December, every hour of the day.
     for (let hour = 0; hour < 24; hour += 1) {
-      expect(solarZenithCosine(80, 0, subsolarLatitudeDeg(11), hour)).toBeLessThan(
-        0,
-      );
+      expect(
+        solarZenithCosine(80, 0, subsolarLatitudeDeg(11), hour),
+      ).toBeLessThan(0);
     }
   });
 });
@@ -586,6 +588,22 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
     expect(result.detail).toContain("circumference");
   });
 
+  it("declines a path shorter than 7 000 km, the same reason the sibling leaves use", () => {
+    const result = call({ route: stretched(EQUATORIAL, 6999.999) });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("5.1");
+    expect(result.detail).toContain(String(LONG_PATH_MIN_DISTANCE_KM));
+  });
+
+  it("accepts a path at exactly the 7 000 km lower bound", () => {
+    const result = call({
+      route: stretched(EQUATORIAL, LONG_PATH_MIN_DISTANCE_KM),
+    });
+    expect(result.kind).toBe("resolved");
+  });
+
   it("declines a month or an hour the tables have no column for", () => {
     for (const monthIndex of [-1, 12, 3.5]) {
       expect(call({ monthIndex }).kind).toBe("unsupported");
@@ -652,4 +670,10 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
       expect(Number.isFinite(value)).toBe(true);
     }
   });
+});
+
+it("rejects finite inputs that overflow the LUF equation", () => {
+  expect(
+    call({ r12: Number.MAX_VALUE, virtualSlantRangeKm: 9499999 }).kind,
+  ).toBe("unsupported");
 });

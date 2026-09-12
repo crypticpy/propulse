@@ -115,7 +115,8 @@
  * NO NaN AND NO SILENT CLAMP. Every out-of-domain input yields a labelled
  * `unsupported` record with a reason, never a number. The two reasons are
  * `out_of_domain` (the path is not one section 5.3 applies to, or a sampler
- * answered with something that is not a finite frequency) and
+ * answered with a value outside that quantity's own physical domain, such as
+ * a non-positive foF2 or M(3000)F2 or a negative gyrofrequency) and
  * `no_elevation_solution` (no hop count within the recommendation's own limits
  * clears the 3.0-degree minimum).
  */
@@ -358,7 +359,8 @@ export function longPathBasicMufMHz(
  * Every division here has a strictly positive denominator on any circuit the
  * caller reaches, because fBM is a sum of positive frequencies; `longPathMuf`
  * rejects a non-positive fBM as `out_of_domain` before calling this, so the
- * cube root and the two ratios cannot produce a NaN or an infinity.
+ * caller also checks derived finiteness: finite positive operands can still
+ * overflow the ratios or the final product.
  */
 export function kFactor(
   basicMufMHz: number,
@@ -488,7 +490,10 @@ function divideIntoHops(groundDistanceKm: number):
       readonly hopsAddedForElevation: number;
     }
   | { readonly kind: "none"; readonly detail: string } {
-  let hopCount = Math.max(1, Math.ceil(groundDistanceKm / LONG_PATH_MAX_HOP_KM));
+  let hopCount = Math.max(
+    1,
+    Math.ceil(groundDistanceKm / LONG_PATH_MAX_HOP_KM),
+  );
   const firstHopCount = hopCount;
   while (hopCount <= LONG_PATH_MAX_HOP_COUNT) {
     const geometry = hopGeometry({
@@ -521,21 +526,49 @@ function divideIntoHops(groundDistanceKm: number):
   };
 }
 
-function finiteState(
+/**
+ * Every quantity `LongPathMufSampler` may answer with, its own physical
+ * domain and how a violation is described.
+ *
+ * Finiteness alone is not enough: a finite but non-physical value, such as a
+ * missing-data sentinel of `m3000F2 = -1`, satisfies `Number.isFinite` and
+ * would otherwise reach equation (29) and produce a resolved but corrupted
+ * `fBM`. foF2 and M(3000)F2 are physically positive (section 3.4); the
+ * gyrofrequency at 300 km is physically non-negative.
+ */
+const SAMPLED_STATE_BOUNDS: readonly {
+  readonly name: keyof LongPathMufState;
+  readonly description: string;
+  readonly withinBound: (value: number) => boolean;
+}[] = [
+  {
+    name: "foF2MHz",
+    description: "a finite value greater than 0",
+    withinBound: (value) => value > 0,
+  },
+  {
+    name: "m3000F2",
+    description: "a finite value greater than 0",
+    withinBound: (value) => value > 0,
+  },
+  {
+    name: "gyrofrequency300kmMHz",
+    description: "a finite value of 0 or greater",
+    withinBound: (value) => value >= 0,
+  },
+];
+
+function invalidSampledStateDetail(
   state: LongPathMufState,
   label: ControlPointLabel,
   utcHour: number,
 ): string | null {
-  const entries: readonly (readonly [string, number])[] = [
-    ["foF2MHz", state.foF2MHz],
-    ["m3000F2", state.m3000F2],
-    ["gyrofrequency300kmMHz", state.gyrofrequency300kmMHz],
-  ];
-  for (const [name, value] of entries) {
-    if (!Number.isFinite(value)) {
+  for (const { name, description, withinBound } of SAMPLED_STATE_BOUNDS) {
+    const value = state[name];
+    if (!Number.isFinite(value) || !withinBound(value)) {
       return (
         `the sampler answered ${name} = ${String(value)} at ${label} for ` +
-        `${String(utcHour).padStart(2, "0")} UTC, which is not a finite value.`
+        `${String(utcHour).padStart(2, "0")} UTC, which is not ${description}.`
       );
     }
   }
@@ -617,17 +650,26 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     const hours: LongPathMufHour[] = [];
     for (let hour = 0; hour < HOURS_PER_DAY; hour += 1) {
       const state = sample(controlPoint.point, controlPoint.label, hour);
-      const complaint = finiteState(state, controlPoint.label, hour);
+      const complaint = invalidSampledStateDetail(
+        state,
+        controlPoint.label,
+        hour,
+      );
       if (complaint !== null) {
         return unsupported("out_of_domain", complaint, D);
       }
-      hours.push({
-        utcHour: hour,
-        state,
-        f4MHz: f2FourThousandMufMHz(state),
-        fzMHz: f2ZeroMufMHz(state),
-        basicMufMHz: longPathBasicMufMHz(state, fD),
-      });
+      const f4MHz = f2FourThousandMufMHz(state);
+      const fzMHz = f2ZeroMufMHz(state);
+      const basicMufMHz = longPathBasicMufMHz(state, fD);
+      if (![f4MHz, fzMHz, basicMufMHz].every(Number.isFinite)) {
+        return unsupported(
+          "out_of_domain",
+          `equation (29) did not produce finite MUF values at ${controlPoint.label} ` +
+            `for ${String(hour).padStart(2, "0")} UTC.`,
+          D,
+        );
+      }
+      hours.push({ utcHour: hour, state, f4MHz, fzMHz, basicMufMHz });
     }
 
     const noonUtcHour = localNoonUtcHour(controlPoint.point.longitudeDeg);
@@ -653,6 +695,14 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       minimumBasicMufMHz,
       coefficients,
     );
+    const operationalMufMHz = k * basicMufMHz; // equation (31)
+    if (!Number.isFinite(k) || !Number.isFinite(operationalMufMHz)) {
+      return unsupported(
+        "out_of_domain",
+        `equations (31) and (32) did not produce finite K and fM values at ${controlPoint.label}.`,
+        D,
+      );
+    }
     points.push({
       site: controlPoint,
       hours,
@@ -661,7 +711,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       noonUtcHour,
       minimumBasicMufMHz,
       kFactor: k,
-      operationalMufMHz: k * basicMufMHz, // equation (31)
+      operationalMufMHz,
     });
   }
 
@@ -684,8 +734,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     basicMufMHz: Math.min(near.basicMufMHz, far.basicMufMHz),
     fMMHz: Math.min(near.operationalMufMHz, far.operationalMufMHz),
     gyrofrequencyMHz:
-      (near.hours[utcHour].state.gyrofrequency300kmMHz +
-        far.hours[utcHour].state.gyrofrequency300kmMHz) /
-      2, // equation (39): "mean of the values ... at both control points"
+      near.hours[utcHour].state.gyrofrequency300kmMHz / 2 +
+      far.hours[utcHour].state.gyrofrequency300kmMHz / 2, // equation (39): "mean of the values ... at both control points"
   };
 }

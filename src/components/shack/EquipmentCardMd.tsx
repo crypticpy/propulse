@@ -137,7 +137,7 @@ export function EquipmentCardMd({
       onMouseLeave={() => setIsHovered(false)}
       className={[
         "group relative flex flex-col w-full min-w-0",
-        "bg-[#0f1420] rounded-lg overflow-hidden",
+        "bg-su-panel rounded-lg overflow-hidden",
         "border",
         onClick ? "cursor-pointer" : "",
         "transition-all duration-200",
@@ -160,13 +160,13 @@ export function EquipmentCardMd({
       <div className="relative px-3 pt-2 pb-1 min-w-0">
         <div className="flex items-center gap-1 pr-12">
           <span
-            className={`text-[9px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} truncate`}
+            className={`text-xs uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} truncate`}
           >
             {resolvedTypeLabel}
           </span>
           {tier && (
             <span
-              className={`text-[9px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-50 flex-shrink-0`}
+              className={`text-xs uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-50 flex-shrink-0`}
             >
               &middot; {TIER_LABELS[tier]}
             </span>
@@ -272,7 +272,7 @@ export function EquipmentCardMd({
               <span className="text-xs font-mono font-bold text-su-text truncate">
                 {stat.value}
               </span>
-              <span className="text-[9px] text-su-muted flex-shrink-0 hidden sm:inline">
+              <span className="text-xs text-su-muted flex-shrink-0 hidden sm:inline">
                 {stat.label}
               </span>
             </div>
@@ -286,13 +286,13 @@ export function EquipmentCardMd({
           {displayCaps.map((cap) => (
             <span
               key={`${cap.category}-${cap.label}`}
-              className={`px-1 py-px text-[9px] font-mono font-medium rounded border ${getCapabilityPillStyle(cap)}`}
+              className={`px-1 py-px text-xs font-mono font-medium rounded border ${getCapabilityPillStyle(cap)}`}
             >
               {cap.label}
             </span>
           ))}
           {overflowCount > 0 && (
-            <span className="px-1 py-px text-[9px] font-mono font-medium rounded bg-su-panel/60 text-su-muted border border-su-line/40">
+            <span className="px-1 py-px text-xs font-mono font-medium rounded bg-su-panel/60 text-su-muted border border-su-line/40">
               +{overflowCount}
             </span>
           )}
@@ -305,7 +305,7 @@ export function EquipmentCardMd({
           {badges.map((badge) => (
             <span
               key={badge.label}
-              className={`px-1.5 py-px text-[9px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+              className={`px-1.5 py-px text-xs font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
             >
               {badge.label}
             </span>

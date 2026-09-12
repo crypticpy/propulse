@@ -481,7 +481,7 @@ export function PassbandDetail({
         ref={mergedOlRef}
         className="absolute inset-0 w-full h-full touch-none"
       />
-      <span className="absolute top-1 left-2 text-[8px] text-su-muted/80 uppercase tracking-wider pointer-events-none select-none">
+      <span className="absolute top-1 left-2 text-xs text-su-muted/80 uppercase tracking-wider pointer-events-none select-none">
         {isAudioFft ? "Zoom \u00B7 Audio FFT" : "Zoom"}
       </span>
     </div>

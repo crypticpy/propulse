@@ -6,7 +6,7 @@
  * to stay within viewport bounds.
  */
 
-import { useMemo } from "react";
+import { useMemo, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DXSpot } from "@/types/dxcluster";
 
@@ -105,32 +105,36 @@ export function MapTooltip({
   spots = [],
   className = "",
 }: MapTooltipProps) {
-  // Calculate adjusted position to keep tooltip on screen
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState({ width: TOOLTIP_WIDTH, height: TOOLTIP_HEIGHT });
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window === "undefined" ? 1920 : window.innerWidth,
+    height: typeof window === "undefined" ? 1080 : window.innerHeight,
+  }));
+  useLayoutEffect(() => {
+    if (!visible || !tooltipRef.current) return;
+    const element = tooltipRef.current;
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      setBounds((previous) => previous.width === width && previous.height === height ? previous : { width, height });
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, [visible]);
   const adjustedPosition = useMemo(() => {
-    const { x, y } = position;
-    const viewportWidth =
-      typeof window !== "undefined" ? window.innerWidth : 1920;
-    const viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight : 1080;
-
-    // Adjust X position - show on left side if too close to right edge
-    let adjustedX = x + 15; // Offset from cursor
-    if (adjustedX + TOOLTIP_WIDTH > viewportWidth - EDGE_PADDING) {
-      adjustedX = x - TOOLTIP_WIDTH - 15;
-    }
-
-    // Adjust Y position - show above if too close to bottom
-    let adjustedY = y + 10;
-    if (adjustedY + TOOLTIP_HEIGHT > viewportHeight - EDGE_PADDING) {
-      adjustedY = y - TOOLTIP_HEIGHT - 10;
-    }
-
-    // Ensure not negative
-    adjustedX = Math.max(EDGE_PADDING, adjustedX);
-    adjustedY = Math.max(EDGE_PADDING, adjustedY);
-
-    return { x: adjustedX, y: adjustedY };
-  }, [position]);
+    const x = position.x + 15 + bounds.width > viewport.width - EDGE_PADDING
+      ? position.x - bounds.width - 15 : position.x + 15;
+    const y = position.y + 10 + bounds.height > viewport.height - EDGE_PADDING
+      ? position.y - bounds.height - 10 : position.y + 10;
+    return {
+      x: Math.max(EDGE_PADDING, Math.min(x, viewport.width - bounds.width - EDGE_PADDING)),
+      y: Math.max(EDGE_PADDING, Math.min(y, viewport.height - bounds.height - EDGE_PADDING)),
+    };
+  }, [position, bounds, viewport]);
 
   // Process spot data
   const spotCount = spots.length;
@@ -144,6 +148,7 @@ export function MapTooltip({
 
   const tooltipContent = (
     <div
+      ref={tooltipRef}
       className={`
         fixed z-50 pointer-events-none
         bg-su-panel/80 backdrop-blur-md
@@ -156,7 +161,7 @@ export function MapTooltip({
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
-        maxWidth: TOOLTIP_WIDTH,
+        maxWidth: Math.min(TOOLTIP_WIDTH, viewport.width - EDGE_PADDING * 2),
       }}
     >
       <div className="p-3 space-y-1.5">
@@ -194,13 +199,13 @@ export function MapTooltip({
                     <span className="text-su-muted font-mono truncate">
                       {info.callsign}
                     </span>
-                    <span className="text-cyan-400/80 font-mono text-[10px] flex-shrink-0">
+                    <span className="text-cyan-400/80 font-mono text-xs flex-shrink-0">
                       {formatFrequencyMHz(info.frequency)}
                     </span>
                   </div>
                 ))}
                 {spots.length > recentSpotInfo.length && (
-                  <div className="text-su-muted text-[10px]">
+                  <div className="text-su-muted text-xs">
                     +{spots.length - recentSpotInfo.length} more...
                   </div>
                 )}

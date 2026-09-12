@@ -137,7 +137,9 @@ describe("equation (42)", () => {
   });
 
   it("matches a transcription of the published form at every weight", () => {
-    for (const groundDistanceKm of [7000, 7250, 7454.96, 8095.11, 8697.26, 9000]) {
+    for (const groundDistanceKm of [
+      7000, 7250, 7454.96, 8095.11, 8697.26, 9000,
+    ]) {
       for (const [es, el] of [
         [-0.7307, -3.5501],
         [1.2347, -1.0404],
@@ -151,10 +153,7 @@ describe("equation (42)", () => {
           byHand(groundDistanceKm, es, el),
           9,
         );
-        expect(result.weight).toBeCloseTo(
-          (groundDistanceKm - 7000) / 2000,
-          12,
-        );
+        expect(result.weight).toBeCloseTo((groundDistanceKm - 7000) / 2000, 12);
       }
     }
   });
@@ -250,6 +249,61 @@ describe("what section 5.4 refuses rather than guesses", () => {
     }
   });
 
+  it("resolves the interpolation endpoints from the one applicable side alone", () => {
+    // At exactly 7 000 km the weight is 0, so equation (42) reduces to Es and
+    // El is not required even though the range is written inclusive of this
+    // endpoint. Symmetrically at 9 000 km only El is required.
+    const atMin = resolved(
+      distanceBlend({ groundDistanceKm: 7000, shortPathDb: 12.5 }),
+    );
+    expect(atMin.regime).toBe("interpolated");
+    expect(atMin.fieldStrengthDb).toBe(12.5);
+    expect(atMin.weight).toBe(0);
+    expect(atMin.longPathDb).toBeNull();
+
+    const atMax = resolved(
+      distanceBlend({ groundDistanceKm: 9000, longPathDb: -51.08 }),
+    );
+    expect(atMax.regime).toBe("interpolated");
+    expect(atMax.fieldStrengthDb).toBe(-51.08);
+    expect(atMax.weight).toBe(1);
+    expect(atMax.shortPathDb).toBeNull();
+  });
+
+  it("still declines a strictly interior distance missing either side", () => {
+    const noShort = distanceBlend({ groundDistanceKm: 8000, longPathDb: 3 });
+    expect(noShort.kind).toBe("unsupported");
+    if (noShort.kind === "unsupported") {
+      expect(noShort.reason).toBe("short_path_missing");
+    }
+    const noLong = distanceBlend({ groundDistanceKm: 8000, shortPathDb: 3 });
+    expect(noLong.kind).toBe("unsupported");
+    if (noLong.kind === "unsupported") {
+      expect(noLong.reason).toBe("long_path_missing");
+    }
+  });
+
+  it("still declines just inside either boundary when the required side is missing", () => {
+    // 7 000.001 km has a nonzero weight, so both sides are needed again; the
+    // fix at the exact endpoint must not leak into the interior.
+    const justInsideMin = distanceBlend({
+      groundDistanceKm: 7000.001,
+      shortPathDb: 12.5,
+    });
+    expect(justInsideMin.kind).toBe("unsupported");
+    if (justInsideMin.kind === "unsupported") {
+      expect(justInsideMin.reason).toBe("long_path_missing");
+    }
+    const justInsideMax = distanceBlend({
+      groundDistanceKm: 8999.999,
+      longPathDb: -51.08,
+    });
+    expect(justInsideMax.kind).toBe("unsupported");
+    if (justInsideMax.kind === "unsupported") {
+      expect(justInsideMax.reason).toBe("short_path_missing");
+    }
+  });
+
   it("never returns a NaN on any field of a resolved record", () => {
     for (const groundDistanceKm of [1000, 7000, 8000, 9000, 26400.16]) {
       const result = resolved(
@@ -275,4 +329,21 @@ describe("what section 5.4 refuses rather than guesses", () => {
       }
     }
   });
+});
+
+it.each([40000, -40000])(
+  "rejects unrepresentable linear blend values from %s dB",
+  (value) => {
+    expect(
+      distanceBlend({
+        groundDistanceKm: 8000,
+        shortPathDb: value,
+        longPathDb: value,
+      }).kind,
+    ).toBe("unsupported");
+  },
+);
+
+it.each([7000, 9000])("rejects unrepresentable endpoint diagnostics at %s km", (distance) => {
+  expect(distanceBlend({ groundDistanceKm: distance, shortPathDb: 40000, longPathDb: 40000 }).kind).toBe("unsupported");
 });

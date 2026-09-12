@@ -74,7 +74,10 @@ function route(tx: GeodeticPoint, rx: GeodeticPoint): ResolvedRoute {
  * both are overridden together; overriding one alone would make the route
  * sampler and the azimuth disagree about where the receiver is.
  */
-function stretched(base: ResolvedRoute, groundDistanceKm: number): ResolvedRoute {
+function stretched(
+  base: ResolvedRoute,
+  groundDistanceKm: number,
+): ResolvedRoute {
   return {
     ...base,
     groundDistanceKm,
@@ -667,10 +670,32 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     expect(result.detail).toContain("07 UTC");
   });
 
-  it("declines rather than dividing by a non-positive basic MUF", () => {
-    // Equation (32) divides by fBM and by fBM,noon. A control point whose
-    // foF2 has collapsed has no K factor, and reporting an infinite one would
-    // be worse than reporting none.
+  it.each([
+    ["f4 overflow", () => ({ ...FLAT_STATE, foF2MHz: Number.MAX_VALUE })],
+    [
+      "K overflow",
+      (_point: unknown, _label: unknown, hour: number) => ({
+        foF2MHz: hour === 12 ? 1e300 : 1e-300,
+        m3000F2: 3,
+        gyrofrequency300kmMHz: 0,
+      }),
+    ],
+  ])("declines finite samples producing %s", (_name, sample) => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample,
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toMatch(/finite/);
+  });
+
+  it("declines a non-positive sampled foF2 before it can produce a non-positive basic MUF", () => {
+    // foF2 = 0 is finite, so a finiteness-only check would let it through and
+    // equation (29) would go on to divide equation (32) by a collapsed fBM.
+    // The sampler boundary refuses it before either happens.
     const result = longPathMuf({
       route: stretched(EASTBOUND, 8095.11),
       utcHour: 12,
@@ -679,7 +704,50 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") return;
     expect(result.reason).toBe("out_of_domain");
-    expect(result.detail).toContain("equation (32)");
+    expect(result.detail).toContain("foF2MHz");
+    expect(result.detail).toContain("greater than 0");
+  });
+
+  it("declines a finite but non-physical sampled m3000F2, such as a missing-data sentinel", () => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({ ...FLAT_STATE, m3000F2: -0.001 }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("m3000F2");
+    expect(result.detail).toContain("-0.001");
+    expect(result.detail).toContain("greater than 0");
+  });
+
+  it("declines a negative sampled gyrofrequency300kmMHz", () => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({ ...FLAT_STATE, gyrofrequency300kmMHz: -1e-9 }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("gyrofrequency300kmMHz");
+    expect(result.detail).toContain("0 or greater");
+  });
+
+  it("admits gyrofrequency300kmMHz = 0 and a tiny positive foF2, the legitimate boundary", () => {
+    const result = resolved(
+      longPathMuf({
+        route: stretched(EASTBOUND, 8095.11),
+        utcHour: 12,
+        sample: () => ({
+          foF2MHz: 1e-9,
+          m3000F2: 3,
+          gyrofrequency300kmMHz: 0,
+        }),
+      }),
+    );
+    expect(Number.isFinite(result.fMMHz)).toBe(true);
   });
 
   it("never returns a NaN on any field of a resolved record", () => {
@@ -730,4 +798,12 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
       expect(Number.isFinite(value)).toBe(true);
     }
   });
+});
+
+it("keeps the mean of finite gyrofrequencies finite", () => {
+  const result = resolved(longPathMuf({
+    route: stretched(EASTBOUND, 8095.11), utcHour: 12,
+    sample: () => ({ ...FLAT_STATE, gyrofrequency300kmMHz: Number.MAX_VALUE }),
+  }));
+  expect(result.gyrofrequencyMHz).toBe(Number.MAX_VALUE);
 });

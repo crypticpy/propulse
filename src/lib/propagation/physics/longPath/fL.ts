@@ -163,7 +163,7 @@
  */
 
 import tables from "../assets/p533-fl-tables.json";
-import { MAX_ROUTE_DISTANCE_KM } from "./fM";
+import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import {
   routeSampleAtFraction,
@@ -396,7 +396,10 @@ export function rawLufMHz(inputs: {
 export function applySunsetDecay(
   initialMHz: readonly number[],
   nightLuf: number,
-): { readonly hours: readonly number[]; readonly transitionUtcHour: number | null } {
+): {
+  readonly hours: readonly number[];
+  readonly transitionUtcHour: number | null;
+} {
   const hours = [...initialMHz];
   const threshold = 2 * nightLuf; // section 5.3.2, "2*fLN"
   let tr: number | null = null;
@@ -433,7 +436,12 @@ function unsupported(
   detail: string,
   groundDistanceKm: number,
 ): UnsupportedLongPathLuf {
-  return { kind: "unsupported", reason: "out_of_domain", detail, groundDistanceKm };
+  return {
+    kind: "unsupported",
+    reason: "out_of_domain",
+    detail,
+    groundDistanceKm,
+  };
 }
 
 /**
@@ -464,6 +472,14 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
       `the route is ${D.toFixed(1)} km, longer than the ` +
         `${MAX_ROUTE_DISTANCE_KM.toFixed(1)} km circumference of the declared ` +
         `sphere, so it is not a path length.`,
+      D,
+    );
+  }
+  if (D < LONG_PATH_MIN_DISTANCE_KM) {
+    return unsupported(
+      `section 5.3 applies to paths of at least ` +
+        `${String(LONG_PATH_MIN_DISTANCE_KM)} km; this path is ` +
+        `${D.toFixed(1)} km, where sections 5.1 and 5.2 apply.`,
       D,
     );
   }
@@ -539,8 +555,7 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
       end: index % 2 === 0 ? "transmitter" : "receiver",
       offsetKm: fraction * D,
       point: routeSampleAtFraction(route, fraction),
-    }),
-  );
+    }));
 
   const midpoint = routeSampleAtFraction(route, 0.5);
   const aw = winterAnomalyFactor(midpoint.latitudeDeg, monthIndex);
@@ -578,6 +593,12 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
       gyrofrequencyMHz,
       winterAnomalyFactor: aw,
     });
+    if (!Number.isFinite(value)) {
+      return unsupported(
+        `equation (33) did not produce a finite LUF at ${String(hour)} UTC.`,
+        D,
+      );
+    }
     raw.push(value);
     initial.push(Math.max(value, fLN)); // equations (33) and (36)
   }

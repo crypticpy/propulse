@@ -70,7 +70,7 @@ function trendColor(trend: "up" | "down" | "stable"): string {
 function SubScoreBar({ sub }: { sub: RIMSubScore }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-su-muted w-[68px] truncate font-mono">
+      <span className="text-xs text-su-muted shrink-0 break-words font-mono" style={{ width: "5.5rem" }}>
         {sub.label}
       </span>
       <div className="flex-1 h-1.5 rounded-full bg-su-line/10 overflow-hidden">
@@ -83,10 +83,10 @@ function SubScoreBar({ sub }: { sub: RIMSubScore }) {
           <div className="h-full w-full bg-su-line/10" />
         )}
       </div>
-      <span className="text-[10px] font-mono text-su-muted w-6 text-right tabular-nums">
+      <span className="text-xs font-mono text-su-muted w-6 text-right tabular-nums">
         {sub.dataAvailable ? sub.value : "\u2014"}
       </span>
-      <span className={`text-[10px] w-3 text-center ${trendColor(sub.trend)}`}>
+      <span className={`text-xs w-3 text-center ${trendColor(sub.trend)}`}>
         {trendArrow(sub.trend)}
       </span>
     </div>
@@ -106,7 +106,7 @@ export function RIMScoreCard() {
       <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-su-line/20">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full border-2 border-plasma-orange/40 border-t-plasma-orange animate-spin" />
-          <span className="text-[10px] text-su-muted font-mono">
+          <span className="text-xs text-su-muted font-mono">
             Computing RIM...
           </span>
         </div>
@@ -118,7 +118,7 @@ export function RIMScoreCard() {
   if (!rimResult) {
     return (
       <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-su-line/20">
-        <span className="text-[10px] text-su-muted font-mono">
+        <span className="text-xs text-su-muted font-mono">
           No data available
         </span>
       </div>
@@ -135,12 +135,12 @@ export function RIMScoreCard() {
           >
             {rimResult.composite}
           </span>
-          <span className="text-[9px] text-su-muted font-mono mt-0.5">
+          <span className="text-xs text-su-muted font-mono mt-0.5">
             /100
           </span>
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] font-mono text-su-muted uppercase tracking-wider">
+          <span className="text-xs font-mono text-su-muted uppercase tracking-wider">
             Radio Impact
           </span>
           <span

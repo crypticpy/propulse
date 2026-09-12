@@ -121,13 +121,13 @@ export function Ft8SpotterHUD({
             <span className="text-[14px] font-bold text-su-text tabular-nums leading-none">
               {currentCycleCount > 0 ? currentCycleCount : totalDecodes}
             </span>
-            <span className="text-[10px] text-su-muted font-medium">
+            <span className="text-xs text-su-muted font-medium">
               {currentCycleCount > 0 ? "decodes" : "total"}
             </span>
           </div>
 
           {/* Separator */}
-          <span className="text-[10px] text-su-text/30 select-none">
+          <span className="text-xs text-su-text/30 select-none">
             &middot;
           </span>
 
@@ -136,11 +136,11 @@ export function Ft8SpotterHUD({
             <span className="text-sm font-semibold text-su-text/80 tabular-nums leading-none">
               {uniqueStations}
             </span>
-            <span className="text-[10px] text-su-muted font-medium">stns</span>
+            <span className="text-xs text-su-muted font-medium">stns</span>
           </div>
 
           {/* Separator */}
-          <span className="text-[10px] text-su-text/30 select-none">
+          <span className="text-xs text-su-text/30 select-none">
             &middot;
           </span>
 
@@ -159,7 +159,7 @@ export function Ft8SpotterHUD({
 
           {/* Mode pill */}
           {currentMode && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-su-line/20 text-su-text/70 leading-none uppercase">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold tracking-wider bg-su-line/20 text-su-text/70 leading-none uppercase">
               {currentMode}
             </span>
           )}

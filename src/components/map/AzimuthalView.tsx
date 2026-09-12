@@ -65,7 +65,6 @@ import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { createAzimuthalProjection } from "@/lib/map/projection";
-import type { Projection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
@@ -74,9 +73,10 @@ import { drawLightningLayer } from "./layers/lightningLayer";
 import {
   drawCountryBordersLayer,
   drawStateBordersLayer,
-  drawBoostedCountryBordersLayer,
-  drawBoostedStateBordersLayer,
+  drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
+import { drawTerminatorLayer } from "./layers/terminatorLayer";
+import type { TerminatorGeometry } from "./layers/terminatorLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -159,7 +159,6 @@ const COLORS = {
   ringLabel: "rgba(255, 255, 255, 0.5)",
   bearingLabel: "rgba(255, 255, 255, 0.7)",
   bearingTick: "rgba(255, 255, 255, 0.3)",
-  terminator: "#ff6b35",
   homeMarker: "#4488FF", // Blue for home station
   targetMarker: "#ff6b35", // Default fallback - usually overridden by difficulty
   path: "#ff6b35",
@@ -301,87 +300,6 @@ function drawBearingLabels(ctx: CanvasRenderingContext2D) {
     ctx.fillText(label, x, y);
   }
   ctx.restore();
-}
-
-/**
- * Draw terminator line
- */
-function drawTerminator(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  centerLat: number,
-  centerLon: number,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  // Generate terminator points (circle at 90 degrees from subsolar)
-  const terminatorPoints: Array<{ x: number; y: number }> = [];
-  const numPoints = 180;
-
-  const phi0 = subsolar.lat * (Math.PI / 180);
-  const lambda0 = subsolar.lon * (Math.PI / 180);
-  const angularDist = Math.PI / 2; // 90 degrees
-
-  for (let i = 0; i < numPoints; i++) {
-    const bearing = (i / numPoints) * 2 * Math.PI;
-
-    // Calculate point at 90 degrees from subsolar
-    const sinPhi0 = Math.sin(phi0);
-    const cosPhi0 = Math.cos(phi0);
-    const sinDist = Math.sin(angularDist);
-    const cosDist = Math.cos(angularDist);
-
-    const phi = Math.asin(
-      sinPhi0 * cosDist + cosPhi0 * sinDist * Math.cos(bearing),
-    );
-    const lambda =
-      lambda0 +
-      Math.atan2(
-        Math.sin(bearing) * sinDist * cosPhi0,
-        cosDist - sinPhi0 * Math.sin(phi),
-      );
-
-    const lat = phi * (180 / Math.PI);
-    let lon = lambda * (180 / Math.PI);
-    while (lon > 180) {
-      lon -= 360;
-    }
-    while (lon < -180) {
-      lon += 360;
-    }
-
-    const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-    const canvas = projToCanvas(projected);
-    terminatorPoints.push(canvas);
-  }
-
-  // Draw the terminator
-  ctx.strokeStyle = COLORS.terminator;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = 6;
-
-  ctx.beginPath();
-  for (let i = 0; i < terminatorPoints.length; i++) {
-    const point = terminatorPoints[i];
-    if (i === 0) {
-      ctx.moveTo(point.x, point.y);
-    } else {
-      // Check for wrap-around
-      const prev = terminatorPoints[i - 1];
-      const dx = point.x - prev.x;
-      const dy = point.y - prev.y;
-      if (dx * dx + dy * dy > RADIUS * RADIUS) {
-        ctx.moveTo(point.x, point.y);
-      } else {
-        ctx.lineTo(point.x, point.y);
-      }
-    }
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.shadowBlur = 0;
 }
 
 /**
@@ -1204,115 +1122,6 @@ function drawAzimuthalLabels(
   }
 }
 
-/**
- * Draw borders with boosted opacity on the night side (clipped)
- */
-function drawAzimuthalNightBoostedBorders(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  centerLat: number,
-  centerLon: number,
-  drawCountry: boolean,
-  drawStates: boolean,
-  projection: Projection,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  // Build a clip path for the night side
-  // The terminator is a circle on the globe where sun angle = 90deg
-  // Project terminator points into azimuthal coordinates
-  ctx.save();
-  ctx.beginPath();
-
-  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-  const tanSubsolarLat = Math.tan(subsolarLatRad);
-  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
-
-  const terminatorPoints: { x: number; y: number }[] = [];
-  for (let lon = -180; lon <= 180; lon += 3) {
-    const lonRad = lon * (Math.PI / 180);
-    const deltaLon = lonRad - subsolarLonRad;
-    let lat: number;
-    if (isNearEquinox) {
-      lat = 0;
-    } else {
-      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
-    }
-    const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-    terminatorPoints.push(projToCanvas(projected));
-  }
-
-  // Draw terminator as clip path boundary
-  if (terminatorPoints.length > 0) {
-    ctx.moveTo(terminatorPoints[0].x, terminatorPoints[0].y);
-    for (let i = 1; i < terminatorPoints.length; i++) {
-      ctx.lineTo(terminatorPoints[i].x, terminatorPoints[i].y);
-    }
-  }
-
-  // Need to close the path around the night side
-  // Determine which side of the terminator is night:
-  // The anti-subsolar point is the center of night
-  const antiSubsolarLat = -subsolar.lat;
-  const antiSubsolarLon =
-    subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
-  const antiProj = azimuthalProject(
-    antiSubsolarLat,
-    antiSubsolarLon,
-    centerLat,
-    centerLon,
-  );
-  const antiCanvas = projToCanvas(antiProj);
-
-  // Close the clip path by going around the outer circle on the night side
-  // First, find the angle of the anti-subsolar point relative to center
-  const antiAngle = Math.atan2(antiCanvas.y - CENTER, antiCanvas.x - CENTER);
-
-  // Sweep an arc around the outside of the projection circle on the night side
-  // This is approximate but effective for clipping
-  const lastTerminator = terminatorPoints[terminatorPoints.length - 1];
-  const firstTerminator = terminatorPoints[0];
-  const endAngle = Math.atan2(
-    lastTerminator.y - CENTER,
-    lastTerminator.x - CENTER,
-  );
-  const startAngle = Math.atan2(
-    firstTerminator.y - CENTER,
-    firstTerminator.x - CENTER,
-  );
-
-  // Draw arc on the night side (the side containing the anti-subsolar point)
-  // Use a large radius to go outside the visible area
-  const bigR = RADIUS * 1.5;
-  const steps = 36;
-  // Determine sweep direction: go from endAngle to startAngle through the anti-subsolar side
-  let sweepAngle = startAngle - endAngle;
-  // Normalize to determine the shorter/longer arc
-  if (Math.cos(antiAngle - (endAngle + sweepAngle / 2)) < 0) {
-    // anti-subsolar is on the other side, sweep the other way
-    if (sweepAngle > 0) sweepAngle -= 2 * Math.PI;
-    else sweepAngle += 2 * Math.PI;
-  }
-  for (let i = 0; i <= steps; i++) {
-    const a = endAngle + (sweepAngle * i) / steps;
-    ctx.lineTo(CENTER + bigR * Math.cos(a), CENTER + bigR * Math.sin(a));
-  }
-
-  ctx.closePath();
-  ctx.clip();
-
-  // Now draw borders at boosted opacity within the clip
-  if (drawCountry) {
-    drawBoostedCountryBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
-  }
-  if (drawStates) {
-    drawBoostedStateBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
-  }
-
-  ctx.restore();
-}
-
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -1325,6 +1134,12 @@ export function AzimuthalView({
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
   const glowRendererRef = useRef<GridGlowRenderer>(new GridGlowRenderer());
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
+  // Caller-owned terminator geometry cache (#1091 PR 8 follow-up, Codex P1):
+  // the science effect below depends on `glowTick`, which advances on every
+  // spot/grid glow animation frame, so without this the terminator would
+  // re-sample and re-project every frame instead of once per `displayTime`
+  // tick (`useMapDisplayTime` only advances it once a minute).
+  const terminatorGeometryRef = useRef<TerminatorGeometry | null>(null);
   const [glowTick, setGlowTick] = useState(0);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
@@ -2368,9 +2183,37 @@ export function AzimuthalView({
       zoomDamp: 1,
     });
 
-    // Draw terminator line (if terminator layer is enabled)
+    // Draw terminator line (if terminator layer is enabled). The shared
+    // layer's screenPx damping is meant to counteract the ctx.scale(zoom,
+    // zoom) transform above so the terminator's width stays visually
+    // constant across zoom levels -- unlike every other azimuthal layer
+    // here (zoomDamp: 1), which scales with that canvas transform instead.
+    // Dedicated projection instance so this one divergence doesn't change
+    // `projection`'s damping for the borders passes below (#1091 PR 8).
     if (layers.terminator) {
-      drawTerminator(ctx, displayTime, center.lat, center.lon);
+      const terminatorProjection = createAzimuthalProjection({
+        centerLat: center.lat,
+        centerLon: center.lon,
+        centerX: CENTER,
+        centerY: CENTER,
+        radius: RADIUS,
+        zoomScale: zoom,
+        zoomDamp: zoom,
+      });
+      drawTerminatorLayer(
+        ctx,
+        displayTime,
+        terminatorProjection,
+        {
+          highViz: highVizSpots,
+          dashed: labelOptions.terminatorDashed,
+          // Zoom is applied by the ctx.scale transform above, not by
+          // project(), so it stays out of the scope; the layer's sample
+          // count (which does follow zoom) is already part of its key.
+          cacheScope: `${center.lat}|${center.lon}`,
+        },
+        terminatorGeometryRef,
+      );
     }
 
     // Draw night lights (city lights on dark side)
@@ -2408,14 +2251,12 @@ export function AzimuthalView({
       layers.terminator &&
       (labelOptions.borders || labelOptions.stateBorders)
     ) {
-      drawAzimuthalNightBoostedBorders(
+      drawNightBoostedBordersLayer(
         ctx,
         displayTime,
-        center.lat,
-        center.lon,
-        labelOptions.borders,
-        labelOptions.stateBorders,
         projection,
+        AZIMUTHAL_LAYER_PROFILE,
+        { country: labelOptions.borders, states: labelOptions.stateBorders },
       );
     }
 

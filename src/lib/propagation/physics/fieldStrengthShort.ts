@@ -148,8 +148,10 @@ import {
 import type { PropagationLayer, PropagationMode } from "./modeTypes";
 import type { ResolvedModeSet } from "./modeSet";
 import {
+  DEGENERATE_ANGLE_RAD,
   routeMidpoint,
   type ResolvedRoute,
+  type UnitVector,
 } from "@/lib/propagation/geometry/route";
 
 /** The constant of equation (17), dB. */
@@ -271,7 +273,11 @@ export interface ShortPathFieldStrengthInputs {
   readonly otherLossesDb?: number;
   /** See `absorptionLoss.ts` deviation 2. Defaults to the text's 300 km. */
   readonly penetrationReflectionHeightKm?: number;
-  /** See deviation 1. The elevation of this mode at its basic MUF, radians. */
+  /**
+   * See deviation 1. The elevation of this mode at its basic MUF, radians.
+   * Consulted only for modes above their basic MUF; at or below it the
+   * operating-frequency ray path already is the one the text names.
+   */
   readonly basicMufElevationRad?: (mode: PropagationMode) => number | null;
 }
 
@@ -284,6 +290,19 @@ function powerSumDb(valuesDb: readonly number[]): number | null {
   return (
     10 * Math.log10(valuesDb.reduce((total, db) => total + 10 ** (db / 10), 0))
   );
+}
+
+/** `a` and `b` differ by more than `DEGENERATE_ANGLE_RAD` in some component. */
+function unitVectorsDiffer(a: UnitVector, b: UnitVector): boolean {
+  return (
+    Math.abs(a.x - b.x) > DEGENERATE_ANGLE_RAD ||
+    Math.abs(a.y - b.y) > DEGENERATE_ANGLE_RAD ||
+    Math.abs(a.z - b.z) > DEGENERATE_ANGLE_RAD
+  );
+}
+
+function formatUnitVector(v: UnitVector): string {
+  return `(${v.x.toFixed(9)}, ${v.y.toFixed(9)}, ${v.z.toFixed(9)})`;
 }
 
 /**
@@ -343,6 +362,45 @@ export function shortPathFieldStrength(
     basicMufElevationRad,
   } = inputs;
 
+  // `route` and `modes` are independent inputs the caller assembles
+  // separately; every penetration and control point below is found on
+  // `route`, so a mode set resolved for a different route would silently
+  // relocate every sample this function takes. `groundDistanceKm` alone does
+  // not identify a route: two geographically different circuits can share a
+  // ground distance, so the origin and tangent the mode set was sampled along
+  // are checked too, each within `DEGENERATE_ANGLE_RAD`, the same tolerance
+  // `resolveRoute` uses to tell two points apart on this sphere.
+  const distanceMismatch =
+    Math.abs(modeSet.groundDistanceKm - route.groundDistanceKm) > 1e-6;
+  const originMismatch = unitVectorsDiffer(modeSet.routeOrigin, route.origin);
+  const tangentMismatch = unitVectorsDiffer(
+    modeSet.routeTangent,
+    route.tangent,
+  );
+  if (distanceMismatch || originMismatch || tangentMismatch) {
+    const mismatches: string[] = [];
+    if (distanceMismatch) {
+      mismatches.push(
+        `modeSet.groundDistanceKm ${String(modeSet.groundDistanceKm)} does ` +
+          `not match route.groundDistanceKm ${String(route.groundDistanceKm)}`,
+      );
+    }
+    if (originMismatch) {
+      mismatches.push(
+        `modeSet.routeOrigin ${formatUnitVector(modeSet.routeOrigin)} does ` +
+          `not match route.origin ${formatUnitVector(route.origin)}`,
+      );
+    }
+    if (tangentMismatch) {
+      mismatches.push(
+        `modeSet.routeTangent ${formatUnitVector(modeSet.routeTangent)} does ` +
+          `not match route.tangent ${formatUnitVector(route.tangent)}`,
+      );
+    }
+    throw new RangeError(
+      `modes was resolved for a different route: ${mismatches.join("; ")}.`,
+    );
+  }
   if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
     throw new RangeError(
       `monthIndex must be an integer 0..11, received ${String(monthIndex)}.`,
@@ -357,6 +415,14 @@ export function shortPathFieldStrength(
     throw new RangeError(
       `transmitterPowerDbKw must be finite, received ` +
         `${String(transmitterPowerDbKw)}.`,
+    );
+  }
+  // Equation (20) scales the absorption by (1 + 0.0067 R12); R12 is a
+  // smoothed sunspot number and is never negative, and a NaN here would
+  // reach every field strength and power below.
+  if (!Number.isFinite(ssn) || ssn < 0) {
+    throw new RangeError(
+      `ssn must be finite and non-negative, received ${String(ssn)}.`,
     );
   }
 
@@ -428,9 +494,19 @@ export function shortPathFieldStrength(
       );
     }
 
-    const frozen = basicMufElevationRad?.(mode) ?? null;
-    if (frozen === null) operatingRayPathModes += 1;
-    else frozenRayPathModes += 1;
+    // The rule after equation (23) applies to "frequencies above the basic
+    // MUF" only; at or below it the operating-frequency ray path IS the
+    // basic-MUF-or-lower ray path (`absorptionRayPathFrequencyMHz` returns f
+    // there), so the caller's basic-MUF elevation is not consulted and the
+    // mode is neither frozen nor a substitution.
+    const aboveBasicMuf = frequencyMHz > mode.basicMufMHz;
+    const frozen = aboveBasicMuf
+      ? (basicMufElevationRad?.(mode) ?? null)
+      : null;
+    if (aboveBasicMuf) {
+      if (frozen === null) operatingRayPathModes += 1;
+      else frozenRayPathModes += 1;
+    }
 
     const absorption = absorptionLoss({
       route,
@@ -480,8 +556,25 @@ export function shortPathFieldStrength(
       elevationRad,
       elevationDeg: (elevationRad * 180) / Math.PI,
     };
+    // Gt and Grw enter equations (17) and (43) directly. A fixed gain is
+    // checked here on its first mode and a per-mode callback's return on
+    // every mode, because "at the required azimuth angle and elevation
+    // angle" (equation (17)) means the callback may legitimately answer
+    // differently for each one.
     const transmitterGainDbi = gainDbi(transmitterGain, context);
+    if (!Number.isFinite(transmitterGainDbi)) {
+      throw new RangeError(
+        `transmitterGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(transmitterGainDbi)}.`,
+      );
+    }
     const receiverGainDbi = gainDbi(receiverGain, context);
+    if (!Number.isFinite(receiverGainDbi)) {
+      throw new RangeError(
+        `receiverGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(receiverGainDbi)}.`,
+      );
+    }
 
     const fieldStrengthDbuVPerM =
       FIELD_STRENGTH_CONSTANT_DB +
@@ -546,8 +639,8 @@ export function shortPathFieldStrength(
       `The absorption ray path was taken at the operating frequency for ` +
         `${String(operatingRayPathModes)} of ` +
         `${String(operatingRayPathModes + frozenRayPathModes)} evaluated ` +
-        `modes. Section 5.2.2 holds it at the basic MUF above the basic MUF; ` +
-        `supply basicMufElevationRad to apply that rule.`,
+        `modes above their basic MUF. Section 5.2.2 holds it at the basic ` +
+        `MUF there; supply basicMufElevationRad to apply that rule.`,
     );
   }
   if (unevaluatedModes.length > 0) {

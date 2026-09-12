@@ -5,14 +5,20 @@
  * firesLayer.ts's glow-radius-scale and core-alpha constants), not here. */
 export interface MapLayerProfile {
   readonly id: "flat" | "azimuthal";
-  fires: {
+  readonly fires: {
     /** Floor for a fire dot's core radius, on-screen px. */
-    minRadiusPx: number;
+    readonly minRadiusPx: number;
     /** Cap for the same. */
-    maxRadiusPx: number;
+    readonly maxRadiusPx: number;
     /** MW of fire radiative power per px of core radius. */
-    frpPerRadiusPx: number;
-    glowAlpha: number;
+    readonly frpPerRadiusPx: number;
+    readonly glowAlpha: number;
+  };
+  readonly quakes: {
+    /** Cap for a quake marker's core radius, on-screen px. */
+    readonly maxRadiusPx: number;
+    /** On-screen px of radius growth per unit of magnitude above the baseline. */
+    readonly pxPerMagnitude: number;
   };
 }
 
@@ -24,6 +30,10 @@ export const FLAT_LAYER_PROFILE: MapLayerProfile = {
     frpPerRadiusPx: 80,
     glowAlpha: 0.2,
   },
+  quakes: {
+    maxRadiusPx: 20,
+    pxPerMagnitude: 3,
+  },
 };
 
 export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
@@ -33,5 +43,9 @@ export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
     maxRadiusPx: 5,
     frpPerRadiusPx: 100,
     glowAlpha: 0.25,
+  },
+  quakes: {
+    maxRadiusPx: 15,
+    pxPerMagnitude: 2.5,
   },
 };

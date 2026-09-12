@@ -66,7 +66,6 @@ import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
-import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import {
@@ -77,6 +76,7 @@ import {
 import { createAzimuthalProjection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
+import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1436,70 +1436,6 @@ function drawAzimuthalNightBoostedBorders(
 }
 
 /**
- * Draw earthquake markers on azimuthal projection
- */
-function drawAzEarthquakes(
-  ctx: CanvasRenderingContext2D,
-  earthquakes: EarthquakeEvent[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const eq of earthquakes) {
-    const point = azimuthalProject(eq.lat, eq.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    // Size based on magnitude
-    const radius = Math.max(3, Math.min(15, (eq.magnitude - 1) * 2.5));
-
-    // Color by magnitude
-    let color: string;
-    if (eq.magnitude >= 7) color = "#ff2020";
-    else if (eq.magnitude >= 5) color = "#ff8800";
-    else if (eq.magnitude >= 4) color = "#ffcc00";
-    else color = "#88cc44";
-
-    // Outer glow
-    ctx.globalAlpha = 0.15;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Inner circle
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Outline
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Label for M5+
-    if (eq.magnitude >= 5) {
-      ctx.globalAlpha = 1;
-      ctx.font = "bold 7px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeText(`M${eq.magnitude.toFixed(1)}`, sx, sy - radius - 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, sx, sy - radius - 2);
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
  * Draw weather alert markers on azimuthal projection
  */
 function drawAzWeatherAlerts(
@@ -2855,7 +2791,12 @@ export function AzimuthalView({
 
     // Hazard layers
     if (layers.earthquakes && earthquakeData.length > 0) {
-      drawAzEarthquakes(ctx, earthquakeData, center.lat, center.lon);
+      drawEarthquakesLayer(
+        ctx,
+        earthquakeData,
+        projection,
+        AZIMUTHAL_LAYER_PROFILE,
+      );
     }
     if (layers.weather && weatherAlerts.length > 0) {
       drawAzWeatherAlerts(ctx, weatherAlerts, center.lat, center.lon);

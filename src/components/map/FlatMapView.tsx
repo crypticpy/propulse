@@ -177,7 +177,6 @@ import {
   LIGHTNING_COLOR_STRONG,
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
-import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import type { WsprSpot } from "@/lib/api/wspr";
@@ -226,6 +225,7 @@ import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
 import { createEquirectangularProjection } from "@/lib/map/projection";
 import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
+import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1080,77 +1080,6 @@ function drawAurora(
   }
 
   // Restore context state
-  ctx.restore();
-}
-
-/**
- * Draw earthquake markers on the 2D map
- * Renders recent earthquakes as magnitude-scaled colored circles with glow
- */
-function drawEarthquakes(
-  ctx: CanvasRenderingContext2D,
-  earthquakes: EarthquakeEvent[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const eq of earthquakes) {
-    const { x, y } = latLonToCanvas(eq.lat, eq.lon, width, height);
-
-    // Size based on magnitude (M2.5-M9 mapped to 3-20px radius)
-    const radius = Math.max(3, Math.min(20, (eq.magnitude - 1) * 3)) / zoomDamp;
-
-    // Color based on magnitude
-    let color: string;
-    if (eq.magnitude >= 7)
-      color = "#ff2020"; // Major: red
-    else if (eq.magnitude >= 5)
-      color = "#ff8800"; // Strong: orange
-    else if (eq.magnitude >= 4)
-      color = "#ffcc00"; // Moderate: yellow
-    else color = "#88cc44"; // Light: green-yellow
-
-    // Outer glow ring
-    ctx.globalAlpha = 0.15;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Inner filled circle
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Outline
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1 / zoomDamp;
-    ctx.stroke();
-
-    // Magnitude label for M5+
-    if (eq.magnitude >= 5) {
-      const fontSize = Math.max(1, Math.round(7 / zoomDamp));
-      ctx.globalAlpha = 1;
-      ctx.font = `bold ${fontSize}px monospace`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.lineWidth = 2 / zoomDamp;
-      ctx.strokeText(
-        `M${eq.magnitude.toFixed(1)}`,
-        x,
-        y - radius - 2 / zoomDamp,
-      );
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2 / zoomDamp);
-    }
-  }
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -5825,13 +5754,7 @@ export function FlatMapView({
 
     // Draw earthquake markers
     if (layers.earthquakes && earthquakeData.length > 0) {
-      drawEarthquakes(
-        ctx,
-        earthquakeData,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      drawEarthquakesLayer(ctx, earthquakeData, projection, FLAT_LAYER_PROFILE);
     }
 
     // Draw weather alert markers

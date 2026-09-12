@@ -5,6 +5,7 @@
  * → red (moderate) → dark red (major). Renderless component.
  */
 
+import { ATMOS_RIVER_STATUS_HEX as FLOOD_COLORS } from "@/lib/colors/palettes/weather";
 import { useEffect } from "react";
 import type maplibregl from "maplibre-gl";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
@@ -16,14 +17,6 @@ interface RiverGaugeLayer2DProps {
 
 const SOURCE_ID = "river-gauges";
 const LAYER_ID = "river-gauge-markers";
-
-const FLOOD_COLORS: Record<RiverGauge["floodStatus"], string> = {
-  normal: "#3b82f6",
-  action: "#eab308",
-  minor: "#f97316",
-  moderate: "#ef4444",
-  major: "#dc2626",
-};
 
 function gaugesToGeoJSON(gauges: RiverGauge[]): GeoJSON.FeatureCollection {
   return {

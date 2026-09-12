@@ -16,9 +16,10 @@
  * model: they are pure, they assume inputs the boundary has already checked,
  * and they deliberately do not re-validate.
  *
- * Within-month foF2 decile variability ("P1239-3 Decile Factors") is deferred
- * to #1102: the reference consumes it in `MUFVariability`, which is a circuit
- * concern rather than a point climatology.
+ * Within-month foF2 decile variability ("P1239-3 Decile Factors") is shipped
+ * as its own asset and accessor by `decileFactors.ts` (#1102). It stops at the
+ * two factors: the circuit MUF deciles the reference forms from them in
+ * `MUFVariability` are #954.
  */
 
 export {
@@ -35,6 +36,29 @@ export {
   PROVIDER_VERSION,
   type IonosphereProvider,
 } from "./provider";
+
+export {
+  DECILE_ASSET_SHA256,
+  DECILE_ASSET_URL,
+  loadDecileFactorAsset,
+  resetDecileFactorAssetCache,
+  type DecileByteSource,
+  type DecileFactorTable,
+} from "./assets/decileLoader";
+
+export {
+  foF2DecileFactorsFrom,
+  foF2Season,
+  r12Range,
+  resolveFoF2DecileFactors,
+  FOF2_SEASONS,
+  LATITUDE_STEP_DEG,
+  R12_RANGES,
+  type DecileFactorQuery,
+  type FoF2DecileFactors,
+  type FoF2Season,
+  type R12Range,
+} from "./decileFactors";
 
 export {
   ASSET_SHA256,

@@ -16,10 +16,13 @@ because that module rewrites the whole manifest from scratch and needs both the
 pinned reference build and a live SILSO fetch to do so. This one merges a
 single ``decile_factors`` block into the existing manifest and needs neither.
 
-One reproducible command:
+One reproducible command (the prettier pass is part of it: rewriting the
+manifest through json.dumps respells Python-style float exponents such as
+1e-06, and the repository keeps this file prettier-formatted):
 
     python3 -m ml.propagation_validation.ionosphere_decile_factors \
-        --cache /tmp/prop07b-cache --emit
+        --cache /tmp/prop07b-cache --emit \
+      && npx prettier --write src/lib/propagation/ionosphere/assets/manifest.json
 """
 
 from __future__ import annotations

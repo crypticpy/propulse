@@ -276,7 +276,11 @@ export function distanceBlend(
       );
     }
     const xShort = 10 ** (shortPathDb / BLEND_DB_PER_DECADE);
-    const xLong = haveLong ? 10 ** (longPathDb / BLEND_DB_PER_DECADE) : null;
+    if (!Number.isFinite(xShort) || xShort <= 0) {
+      return unsupported("out_of_domain", "equation (42) has an unrepresentable endpoint diagnostic.", regime, D);
+    }
+    const otherLinear = haveLong ? 10 ** (longPathDb / BLEND_DB_PER_DECADE) : null;
+    const xLong = otherLinear !== null && Number.isFinite(otherLinear) && otherLinear > 0 ? otherLinear : null;
     return {
       kind: "resolved",
       regime,
@@ -307,7 +311,11 @@ export function distanceBlend(
       );
     }
     const xLong = 10 ** (longPathDb / BLEND_DB_PER_DECADE);
-    const xShort = haveShort ? 10 ** (shortPathDb / BLEND_DB_PER_DECADE) : null;
+    if (!Number.isFinite(xLong) || xLong <= 0) {
+      return unsupported("out_of_domain", "equation (42) has an unrepresentable endpoint diagnostic.", regime, D);
+    }
+    const otherLinear = haveShort ? 10 ** (shortPathDb / BLEND_DB_PER_DECADE) : null;
+    const xShort = otherLinear !== null && Number.isFinite(otherLinear) && otherLinear > 0 ? otherLinear : null;
     return {
       kind: "resolved",
       regime,

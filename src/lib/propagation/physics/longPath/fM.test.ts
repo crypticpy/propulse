@@ -799,3 +799,11 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     }
   });
 });
+
+it("keeps the mean of finite gyrofrequencies finite", () => {
+  const result = resolved(longPathMuf({
+    route: stretched(EASTBOUND, 8095.11), utcHour: 12,
+    sample: () => ({ ...FLAT_STATE, gyrofrequency300kmMHz: Number.MAX_VALUE }),
+  }));
+  expect(result.gyrofrequencyMHz).toBe(Number.MAX_VALUE);
+});

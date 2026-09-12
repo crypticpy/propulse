@@ -359,7 +359,8 @@ export function longPathBasicMufMHz(
  * Every division here has a strictly positive denominator on any circuit the
  * caller reaches, because fBM is a sum of positive frequencies; `longPathMuf`
  * rejects a non-positive fBM as `out_of_domain` before calling this, so the
- * cube root and the two ratios cannot produce a NaN or an infinity.
+ * caller also checks derived finiteness: finite positive operands can still
+ * overflow the ratios or the final product.
  */
 export function kFactor(
   basicMufMHz: number,
@@ -733,8 +734,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     basicMufMHz: Math.min(near.basicMufMHz, far.basicMufMHz),
     fMMHz: Math.min(near.operationalMufMHz, far.operationalMufMHz),
     gyrofrequencyMHz:
-      (near.hours[utcHour].state.gyrofrequency300kmMHz +
-        far.hours[utcHour].state.gyrofrequency300kmMHz) /
-      2, // equation (39): "mean of the values ... at both control points"
+      near.hours[utcHour].state.gyrofrequency300kmMHz / 2 +
+      far.hours[utcHour].state.gyrofrequency300kmMHz / 2, // equation (39): "mean of the values ... at both control points"
   };
 }

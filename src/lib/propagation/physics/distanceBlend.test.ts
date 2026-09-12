@@ -343,3 +343,7 @@ it.each([40000, -40000])(
     ).toBe("unsupported");
   },
 );
+
+it.each([7000, 9000])("rejects unrepresentable endpoint diagnostics at %s km", (distance) => {
+  expect(distanceBlend({ groundDistanceKm: distance, shortPathDb: 40000, longPathDb: 40000 }).kind).toBe("unsupported");
+});

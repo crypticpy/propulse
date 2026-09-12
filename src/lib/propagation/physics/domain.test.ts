@@ -101,14 +101,20 @@ describe("an admitted request", () => {
     // Contract M06. The route is on the admission, so the solver has no reason
     // to resolve a second one and no way to disagree with itself about the
     // path length or the azimuth.
-    const result = ask({});
+    const request: CircuitRequest = { ...BASE };
+    const result = circuitDomain(request);
     expect(result.kind).toBe("admitted");
     if (result.kind !== "admitted") return;
     expect(result.route.kind).toBe("resolved");
     expect(result.route.direction).toBe("short");
     expect(result.route.groundDistanceKm).toBeGreaterThan(7000);
     expect(result.route.groundDistanceKm).toBeLessThan(8500);
-    expect(result.request).toBe(result.request);
+    // F7: the admitted record is a frozen, field-by-field copy of what was
+    // checked, not the caller's own object, so mutating the caller's request
+    // after admission cannot change what the solver reads.
+    expect(result.request).toEqual(request);
+    expect(result.request).not.toBe(request);
+    expect(Object.isFrozen(result.request)).toBe(true);
   });
 
   it("honours a long-path request", () => {
@@ -252,19 +258,30 @@ describe("the route", () => {
   });
 
   it.each([
-    ["a number", 42],
-    ["a string", "30.3,-97.7"],
-    ["an array", [30.3, -97.7]],
-  ])("refuses an endpoint that is %s instead of throwing", (_label, value) => {
-    refusedWith(
-      { transmitter: value as unknown as CircuitRequest["transmitter"] },
-      "unsupported_coordinates",
-    );
-    refusedWith(
-      { receiver: value as unknown as CircuitRequest["receiver"] },
-      "unsupported_coordinates",
-    );
-  });
+    ["a number", 42, "42"],
+    ["a string", "30.3,-97.7", "30.3,-97.7"],
+    ["an array", [30.3, -97.7], "[array]"],
+  ])(
+    "refuses an endpoint that is %s instead of throwing",
+    (_label, value, described) => {
+      // The detail must be the container guard's own text (the value's
+      // describeValue rendering), not the finiteness guard's "undefined,
+      // undefined": removing `isPlainObject(point)` from checkEndpoints
+      // would still refuse these rows (latitudeDeg/longitudeDeg read off a
+      // number, a string or an array are all `undefined`), so only a detail
+      // assertion tells the two guards apart.
+      let detail = refusedWith(
+        { transmitter: value as unknown as CircuitRequest["transmitter"] },
+        "unsupported_coordinates",
+      );
+      expect(detail).toContain(described);
+      detail = refusedWith(
+        { receiver: value as unknown as CircuitRequest["receiver"] },
+        "unsupported_coordinates",
+      );
+      expect(detail).toContain(described);
+    },
+  );
 });
 
 describe("the request itself", () => {
@@ -451,18 +468,23 @@ describe("the receiver", () => {
   });
 
   it.each([
-    ["null", null],
-    ["undefined", undefined],
-    ["a number", 42],
-    ["a string", "residential"],
-    ["an array", ["residential"]],
+    ["null", null, "null"],
+    ["undefined", undefined, "undefined"],
+    ["a number", 42, "42"],
+    ["a string", "residential", "residential"],
+    ["an array", ["residential"], "[array]"],
   ])(
     "refuses a man-made noise setting that is %s instead of throwing",
-    (_label, value) => {
-      refusedWith(
+    (_label, value, described) => {
+      // As with the endpoint guard above: assert the container guard's own
+      // detail text, so deleting `isPlainObject(setting)` from
+      // checkManMadeNoise is caught by every row, not just the two (null,
+      // undefined) whose property read throws on its own.
+      const detail = refusedWith(
         { manMadeNoise: value as unknown as CircuitRequest["manMadeNoise"] },
         "unsupported_noise_environment",
       );
+      expect(detail).toContain(described);
     },
   );
 

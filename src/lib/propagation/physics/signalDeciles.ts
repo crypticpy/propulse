@@ -198,8 +198,14 @@ export interface SignalDecilesInputs {
 /**
  * Table 2 of P.842-5: the day-to-day decile deviations of the wanted signal.
  *
- * Never throws and never clamps. A basic MUF that is not a positive finite
- * number has no ratio to look up, and that is reported rather than replaced.
+ * Never clamps, and never throws for any `ResolvedRoute` `geometry/route.ts`
+ * produced: the route's fields are finite by that function's own
+ * postcondition, which is what `scanFootnoteSpan` relies on (it reads
+ * `route.groundDistanceKm` and `route.origin`/`route.tangent` with no
+ * finiteness check of its own, and `geomagneticLatitudeDeg` throws
+ * `RangeError` on a non-finite latitude or longitude). A basic MUF that is
+ * not a positive finite number has no ratio to look up, and that is reported
+ * rather than replaced.
  */
 export function signalDayToDayDeciles(
   inputs: SignalDecilesInputs,

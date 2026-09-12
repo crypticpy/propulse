@@ -355,14 +355,24 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
     );
   }
 
-  const endpoints = checkEndpoints(request);
+  // Every field below is read off `request` exactly once, into a local, and
+  // every check and every refusal message below reads the local rather than
+  // going back to `request`. A second independent read of the same field can
+  // return a different value from a getter or a Proxy, which is the shape of
+  // bug this guards against: a value that was validated is not necessarily
+  // the value that gets used, or the value that ends up in the admitted
+  // record F7 builds below.
+  const transmitter = request.transmitter;
+  const receiver = request.receiver;
+  const endpoints = checkEndpoints(transmitter, receiver);
   if (endpoints !== null) return endpoints;
 
-  const pathDirection = checkPathDirection(request.pathDirection);
-  if (pathDirection !== null) return pathDirection;
+  const pathDirection = request.pathDirection;
+  const pathDirectionRefusal = checkPathDirection(pathDirection);
+  if (pathDirectionRefusal !== null) return pathDirectionRefusal;
 
-  const route = resolveRoute(request.transmitter, request.receiver, {
-    direction: request.pathDirection ?? "short",
+  const route = resolveRoute(transmitter, receiver, {
+    direction: pathDirection ?? "short",
   });
   if (route.kind !== "resolved") {
     return refuse(
@@ -383,30 +393,33 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
     );
   }
 
-  if (!isInteger(request.month, MIN_MONTH, MAX_MONTH)) {
+  const month = request.month;
+  if (!isInteger(month, MIN_MONTH, MAX_MONTH)) {
     return refuse(
       "unsupported_month",
-      `the month is ${describeValue(request.month)}; the CCIR numerical map is a set of ` +
+      `the month is ${describeValue(month)}; the CCIR numerical map is a set of ` +
         `monthly coefficient blocks and ${MODEL_ID} reads integer months ` +
         `${describeValue(MIN_MONTH)} to ${describeValue(MAX_MONTH)}.`,
     );
   }
-  if (!isInteger(request.utcHour, MIN_UTC_HOUR, MAX_UTC_HOUR)) {
+  const utcHour = request.utcHour;
+  if (!isInteger(utcHour, MIN_UTC_HOUR, MAX_UTC_HOUR)) {
     return refuse(
       "unsupported_utc_hour",
-      `the UTC hour is ${describeValue(request.utcHour)}; ${MODEL_ID} reads integer ` +
+      `the UTC hour is ${describeValue(utcHour)}; ${MODEL_ID} reads integer ` +
         `hours ${describeValue(MIN_UTC_HOUR)} to ${describeValue(MAX_UTC_HOUR)}.`,
     );
   }
 
+  const frequencyMHz = request.frequencyMHz;
   if (
-    !Number.isFinite(request.frequencyMHz) ||
-    request.frequencyMHz < MIN_FREQUENCY_MHZ ||
-    request.frequencyMHz > MAX_FREQUENCY_MHZ
+    !Number.isFinite(frequencyMHz) ||
+    frequencyMHz < MIN_FREQUENCY_MHZ ||
+    frequencyMHz > MAX_FREQUENCY_MHZ
   ) {
     return refuse(
       "unsupported_frequency_band",
-      `the frequency is ${describeValue(request.frequencyMHz)} MHz; P.533-14 recommends ` +
+      `the frequency is ${describeValue(frequencyMHz)} MHz; P.533-14 recommends ` +
         `its method "for the prediction of sky-wave propagation at frequencies ` +
         `between 2 and 30 MHz", so the declared domain of ${MODEL_ID} is ` +
         `${describeValue(MIN_FREQUENCY_MHZ)} to ${describeValue(MAX_FREQUENCY_MHZ)} MHz inclusive. ` +
@@ -414,14 +427,11 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
     );
   }
 
-  if (
-    !Number.isFinite(request.r12) ||
-    request.r12 < MIN_R12 ||
-    request.r12 > MAX_R12_IN_DOMAIN
-  ) {
+  const r12 = request.r12;
+  if (!Number.isFinite(r12) || r12 < MIN_R12 || r12 > MAX_R12_IN_DOMAIN) {
     return refuse(
       "unsupported_solar_index",
-      `R12 is ${describeValue(request.r12)}; the CCIR numerical maps are fitted up to ` +
+      `R12 is ${describeValue(r12)}; the CCIR numerical maps are fitted up to ` +
         `R12 ${describeValue(MAX_R12_IN_DOMAIN)}, so the declared domain is ` +
         `${describeValue(MIN_R12)} to ${describeValue(MAX_R12_IN_DOMAIN)}. The provider would clip a ` +
         "higher value and report the clip; answering a question the caller did " +
@@ -429,32 +439,72 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
     );
   }
 
-  if (!Number.isFinite(request.bandwidthHz) || request.bandwidthHz <= 0) {
+  // No upper bound: bandwidthHz enters only as equation (45)'s 10 log10 b,
+  // which is finite for every positive finite double, so there is no
+  // magnitude a ceiling would protect against.
+  const bandwidthHz = request.bandwidthHz;
+  if (!Number.isFinite(bandwidthHz) || bandwidthHz <= 0) {
     return refuse(
       "unsupported_bandwidth",
-      `the noise bandwidth is ${describeValue(request.bandwidthHz)} Hz; equation (45)'s ` +
+      `the noise bandwidth is ${describeValue(bandwidthHz)} Hz; equation (45)'s ` +
         "10 log10 b needs a positive finite bandwidth.",
     );
   }
 
-  const powerBudget = checkPowerBudget(request);
+  const transmitterPowerDbKw = request.transmitterPowerDbKw;
+  const transmitterGainDbi = request.transmitterGainDbi;
+  const receiverGainDbi = request.receiverGainDbi;
+  const otherLossesDb = request.otherLossesDb;
+  const powerBudget = checkPowerBudget({
+    transmitterPowerDbKw,
+    transmitterGainDbi,
+    receiverGainDbi,
+    otherLossesDb,
+  });
   if (powerBudget !== null) return powerBudget;
 
-  const noise = checkManMadeNoise(request.manMadeNoise);
+  const manMadeNoise = request.manMadeNoise;
+  const noise = checkManMadeNoise(manMadeNoise);
   if (noise !== null) return noise;
+
+  // The admitted record is a frozen, field-by-field copy of what was
+  // checked above, not the caller's own object (F7): every check ran
+  // against the object's state at check time, and the validated-ness of a
+  // request is not a property of the request. A caller that mutates its
+  // own object after admission must not be able to change what the solver
+  // reads. The nested endpoint and noise objects are copied too, for the
+  // same reason.
+  const admittedRequest: CircuitRequest = Object.freeze({
+    transmitter: { ...transmitter },
+    receiver: { ...receiver },
+    frequencyMHz,
+    month,
+    utcHour,
+    r12,
+    bandwidthHz,
+    manMadeNoise: { ...manMadeNoise } as ManMadeNoiseSetting,
+    pathDirection,
+    transmitterPowerDbKw,
+    transmitterGainDbi,
+    receiverGainDbi,
+    otherLossesDb,
+  });
 
   return {
     kind: "admitted",
     route,
-    request,
+    request: admittedRequest,
     declaredDomain: DECLARED_DOMAIN,
   };
 }
 
-function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
+function checkEndpoints(
+  transmitter: GeodeticPoint,
+  receiver: GeodeticPoint,
+): RefusedCircuitRequest | null {
   const ends: readonly (readonly [string, GeodeticPoint])[] = [
-    ["transmitter", request.transmitter],
-    ["receiver", request.receiver],
+    ["transmitter", transmitter],
+    ["receiver", receiver],
   ];
   for (const [name, point] of ends) {
     if (!isPlainObject(point)) {
@@ -504,23 +554,45 @@ function checkPathDirection(
   return null;
 }
 
+/** The four optional fields of the power budget, already read once off the request. */
+interface PowerBudgetFields {
+  readonly transmitterPowerDbKw: number | undefined;
+  readonly transmitterGainDbi: number | undefined;
+  readonly receiverGainDbi: number | undefined;
+  readonly otherLossesDb: number | undefined;
+}
+
 /**
  * The four optional fields of the power budget, none of which solveCircuit's
  * own leaves check: `operationalMuf.ts` throws `eirpDbW must be finite` and
  * `fieldStrengthShort.ts`'s equations (43) and (44) would carry a NaN or an
  * infinity through the whole loss budget rather than fail loudly. A request
  * this module admits must never reach either, so the check is here instead.
+ *
+ * Takes the already-read local values rather than the request itself, so
+ * that a field already read once by the caller (`circuitDomain`) is not read
+ * a second time off `request` here.
  */
 function checkPowerBudget(
-  request: CircuitRequest,
+  fields: PowerBudgetFields,
 ): RefusedCircuitRequest | null {
-  const fields: readonly (readonly [string, number | undefined, string])[] = [
-    ["the transmitter power", request.transmitterPowerDbKw, "dB(1 kW)"],
-    ["the transmitter gain", request.transmitterGainDbi, "dBi"],
-    ["the receiver gain", request.receiverGainDbi, "dBi"],
-    ["the other losses", request.otherLossesDb, "dB"],
+  const {
+    transmitterPowerDbKw,
+    transmitterGainDbi,
+    receiverGainDbi,
+    otherLossesDb,
+  } = fields;
+  const finiteChecks: readonly (readonly [
+    string,
+    number | undefined,
+    string,
+  ])[] = [
+    ["the transmitter power", transmitterPowerDbKw, "dB(1 kW)"],
+    ["the transmitter gain", transmitterGainDbi, "dBi"],
+    ["the receiver gain", receiverGainDbi, "dBi"],
+    ["the other losses", otherLossesDb, "dB"],
   ];
-  for (const [name, value, unit] of fields) {
+  for (const [name, value, unit] of finiteChecks) {
     if (value === undefined) continue;
     if (!Number.isFinite(value)) {
       return refuse(
@@ -532,10 +604,10 @@ function checkPowerBudget(
       );
     }
   }
-  if (request.otherLossesDb !== undefined && request.otherLossesDb < 0) {
+  if (otherLossesDb !== undefined && otherLossesDb < 0) {
     return refuse(
       "unsupported_power_budget",
-      `the other losses are ${describeValue(request.otherLossesDb)} dB; ` +
+      `the other losses are ${describeValue(otherLossesDb)} dB; ` +
         "otherLossesDb is a loss added to the budget by equation (44), so it " +
         "cannot be negative.",
     );
@@ -550,28 +622,28 @@ function checkPowerBudget(
   ])[] = [
     [
       "the transmitter power",
-      request.transmitterPowerDbKw,
+      transmitterPowerDbKw,
       "dB(1 kW)",
       MIN_TRANSMITTER_POWER_DB_KW,
       MAX_TRANSMITTER_POWER_DB_KW,
     ],
     [
       "the transmitter gain",
-      request.transmitterGainDbi,
+      transmitterGainDbi,
       "dBi",
       MIN_ANTENNA_GAIN_DBI,
       MAX_ANTENNA_GAIN_DBI,
     ],
     [
       "the receiver gain",
-      request.receiverGainDbi,
+      receiverGainDbi,
       "dBi",
       MIN_ANTENNA_GAIN_DBI,
       MAX_ANTENNA_GAIN_DBI,
     ],
     [
       "the other losses",
-      request.otherLossesDb,
+      otherLossesDb,
       "dB",
       MIN_OTHER_LOSSES_DB,
       MAX_OTHER_LOSSES_DB,

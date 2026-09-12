@@ -247,6 +247,21 @@ describe("deviation 3: a path shorter than 2 000 km", () => {
   });
 });
 
+describe("deviation 4: |Gn|, not signed Gn", () => {
+  it("reads the high block on a path whose footnote span is entirely south of the geomagnetic equator", () => {
+    // Wellington to Cape Town: the footnote span's peak signed geomagnetic
+    // latitude is about -86.4 degrees at around 4 922 km, never positive.
+    // The pinned reference tests the signed value and would never select the
+    // ">= 60" block for a southern-only span; this module tests |Gn| and
+    // does, which is deviation 4 made visible rather than merely asserted.
+    const scan = scanFootnoteSpan(route(-41.29, 174.78, -33.92, 18.42));
+    expect(scan.block).toBe("at_or_above_60_deg");
+    expect(scan.peakAbsGeomagneticLatitudeDeg).toBeGreaterThan(
+      HIGH_LATITUDE_THRESHOLD_DEG,
+    );
+  });
+});
+
 describe("Table 2 through a path", () => {
   // Nairobi to Singapore, which never leaves the "< 60" block, so what this
   // block tests is the row selection and nothing else.
@@ -290,6 +305,22 @@ describe("Table 2 through a path", () => {
       pathBasicMufMHz: 14.1,
     });
     expect(noFrequency.kind).toBe("unsupported");
+  });
+
+  it("throws on a route whose fields are not finite, which resolveRoute never produces", () => {
+    // The docstring's "never throws" is qualified to any ResolvedRoute
+    // geometry/route.ts actually produced: scanFootnoteSpan reads
+    // route.groundDistanceKm and route.origin/route.tangent with no
+    // finiteness check of its own, and geomagneticLatitudeDeg throws
+    // RangeError on a non-finite latitude or longitude. This pins that real
+    // behaviour rather than the wider guarantee the docstring used to state.
+    expect(() =>
+      signalDayToDayDeciles({
+        route: { ...path, origin: { x: Number.NaN, y: 0, z: 0 } },
+        frequencyMHz: 14,
+        pathBasicMufMHz: 20,
+      }),
+    ).toThrow(RangeError);
   });
 });
 

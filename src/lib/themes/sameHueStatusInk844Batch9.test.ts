@@ -145,18 +145,6 @@ const BATCH9_SITES: Batch9Site[] = [
     token: "plasma-orange",
   },
   {
-    file: "src/components/dx/DXSpotList/DXSpotList.tsx",
-    what: "the alert-match count badge",
-    snippet: `bg-alert-red/20 text-su-text border border-alert-red/30`,
-    token: "alert-red",
-  },
-  {
-    file: "src/components/dx/DXSpotList/DXSpotList.tsx",
-    what: 'the "NEW MULT" row badge',
-    snippet: `bg-caution-amber/20 text-su-text text-xs font-bold leading-none uppercase tracking-wider`,
-    token: "caution-amber",
-  },
-  {
     file: "src/components/dx/SkedScheduler.tsx",
     what: "the selected mode chip in the sked form",
     snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,

@@ -65,10 +65,8 @@ import {
   CivCmd,
   CIV_CONTROLLER_ADDR,
   ICOM_MODELS,
-  ScopeMode,
   rawSmeterToDbm,
 } from "./civ/types.js";
-import { decodeBcdFrequency } from "./civ/codec.js";
 import { CivSession } from "./civ/session.js";
 import type { RigStatus } from "./types.js";
 import type { CivSpectrumLine } from "./civ.js";
@@ -95,24 +93,10 @@ type SmeterHandler = (dbm: number) => void;
 type ErrorHandler = (error: string) => void;
 type SpectrumHandler = (line: CivSpectrumLine) => void;
 
-// ─── Spectrum Assembly ────────────────────────────────────────────────────────
-
-interface LineAssembly {
-  scopeMode: ScopeMode;
-  scopeIndex: number;
-  startFreqHz: number;
-  endFreqHz: number;
-  seqMax: number;
-  lastSeq: number;
-  pixels: number[];
-  lastUpdateMs: number;
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_POLL_INTERVAL = 200;
 const MAX_CONSECUTIVE_ERRORS = 10;
-const ASSEMBLY_TIMEOUT_MS = 500;
 const OPTIONAL_POLL_INTERVAL_CYCLES = 5;
 
 // ─── IcomSerialBackend ────────────────────────────────────────────────────────
@@ -130,11 +114,6 @@ export class IcomSerialBackend {
   // Last known state for change detection
   private lastStatus: RigStatus | null = null;
   private lastSmeterDbm: number | null = null;
-
-  // Spectrum assembly
-  private assembly: LineAssembly | null = null;
-  private assemblyTimer: ReturnType<typeof setTimeout> | null = null;
-  private spectrumEnabled = false;
 
   // Audio capture (resolved from USB audio device)
   private audioCapture: AudioCapture | null = null;
@@ -176,11 +155,7 @@ export class IcomSerialBackend {
         },
       },
       {
-        isSpectrumEnabled: () => this.spectrumEnabled,
-        onScopeHeader: (scopeData, scopeIndex, seqMax) =>
-          this.handleScopeHeader(scopeData, scopeIndex, seqMax),
-        onScopePixels: (scopeData, seq, seqMax) =>
-          this.handleScopePixels(scopeData, seq, seqMax),
+        onSpectrumLine: (line) => this.emitSpectrumLine(line),
         onUnsolicitedFrequency: (frequency) => {
           if (!this.lastStatus) return;
           this.lastStatus = { ...this.lastStatus, frequency };
@@ -261,7 +236,7 @@ export class IcomSerialBackend {
   /** Stop the backend: close serial, stop polling, stop audio */
   stop(): void {
     this.stopPolling();
-    this.stopSpectrumInternal();
+    this.session.resetSpectrum();
     this.stopAudio();
     this.pollInFlight = false;
 
@@ -521,7 +496,7 @@ export class IcomSerialBackend {
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
-    this.spectrumEnabled = true;
+    this.session.setSpectrumEnabled(true);
     console.log(
       `[icom-serial] Starting spectrum for addr 0x${this.addr.radio.toString(16)}`,
     );
@@ -551,8 +526,7 @@ export class IcomSerialBackend {
   }
 
   async stopSpectrum(): Promise<void> {
-    this.spectrumEnabled = false;
-    this.stopSpectrumInternal();
+    this.session.setSpectrumEnabled(false);
     // Disable data output first, then scope display
     await this.session.sendAndWaitOk(
       stopScopeDataOutput(this.addr),
@@ -947,128 +921,6 @@ export class IcomSerialBackend {
         port.write(cmd);
       });
     });
-  }
-
-  // ── Internal: Spectrum Assembly ───────────────────────────────────────────
-
-  private handleScopeHeader(
-    scopeData: Buffer,
-    scopeIndex: number,
-    seqMax: number,
-  ): void {
-    if (scopeData.length < 15) return;
-
-    const scopeMode = scopeData[3] as ScopeMode;
-    const startFreqHz = decodeBcdFrequency(scopeData, 4);
-    const endFreqHz = decodeBcdFrequency(scopeData, 9);
-
-    this.assembly = {
-      scopeMode,
-      scopeIndex,
-      startFreqHz,
-      endFreqHz,
-      seqMax,
-      lastSeq: 1,
-      pixels: [],
-      lastUpdateMs: Date.now(),
-    };
-
-    if (seqMax === 1) {
-      for (let i = 15; i < scopeData.length; i++) {
-        this.assembly.pixels.push(scopeData[i]);
-      }
-      this.emitCompleteLine();
-      return;
-    }
-
-    this.resetAssemblyTimeout();
-  }
-
-  private handleScopePixels(
-    scopeData: Buffer,
-    seq: number,
-    _seqMax: number,
-  ): void {
-    if (!this.assembly) return;
-
-    if (seq !== this.assembly.lastSeq + 1) {
-      this.assembly = null;
-      return;
-    }
-
-    this.assembly.lastSeq = seq;
-    this.assembly.lastUpdateMs = Date.now();
-
-    for (let i = 3; i < scopeData.length; i++) {
-      this.assembly.pixels.push(scopeData[i]);
-    }
-
-    if (seq === this.assembly.seqMax) {
-      this.emitCompleteLine();
-    } else {
-      this.resetAssemblyTimeout();
-    }
-  }
-
-  private emitCompleteLine(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-      this.assemblyTimer = null;
-    }
-
-    if (!this.assembly || this.assembly.pixels.length === 0) {
-      this.assembly = null;
-      return;
-    }
-
-    const { scopeMode, scopeIndex, startFreqHz, endFreqHz, pixels } =
-      this.assembly;
-
-    let centerHz: number;
-    let spanHz: number;
-
-    if (scopeMode === ScopeMode.Center) {
-      centerHz = startFreqHz;
-      spanHz = endFreqHz * 2;
-    } else {
-      centerHz = (startFreqHz + endFreqHz) / 2;
-      spanHz = endFreqHz - startFreqHz;
-    }
-
-    if (spanHz <= 0) {
-      this.assembly = null;
-      return;
-    }
-
-    const line: CivSpectrumLine = {
-      centerHz,
-      spanHz,
-      pixels: new Uint8Array(pixels),
-      scopeMode,
-      scopeIndex,
-    };
-
-    this.assembly = null;
-    this.emitSpectrumLine(line);
-  }
-
-  private resetAssemblyTimeout(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-    }
-    this.assemblyTimer = setTimeout(() => {
-      this.assemblyTimer = null;
-      this.assembly = null;
-    }, ASSEMBLY_TIMEOUT_MS);
-  }
-
-  private stopSpectrumInternal(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-      this.assemblyTimer = null;
-    }
-    this.assembly = null;
-    this.spectrumEnabled = false;
   }
 
   // ── Internal: Event Emission ──────────────────────────────────────────────

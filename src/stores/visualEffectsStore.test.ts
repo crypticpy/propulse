@@ -2,9 +2,18 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const key = "propulse-visual-effects";
 const defaults = {
-  level: "subtle", celebrations: true, animatedBadges: true, particles: true, glow: true,
+  level: "subtle",
+  celebrations: true,
+  animatedBadges: true,
+  particles: true,
+  glow: true,
+  showRankBadge: true,
+  showAchievements: true,
 };
-const envelope = (state = defaults) => JSON.stringify({ version: 1, state });
+const envelope = (
+  state: Record<string, unknown> = defaults,
+  version = 2,
+) => JSON.stringify({ version, state });
 async function fresh() {
   vi.resetModules();
   return (await import("./visualEffectsStore")).useVisualEffectsStore;
@@ -18,23 +27,67 @@ it("defaults calmly and persists only explicit local choices, retaining capped t
   store.getState().setEffect("particles", false);
   store.getState().setLevel("off");
   expect(JSON.parse(localStorage.getItem(key)!)).toEqual({
-    version: 1, state: { ...defaults, level: "off", particles: false },
+    version: 2,
+    state: { ...defaults, level: "off", particles: false },
   });
   const reloaded = await fresh();
   expect(reloaded.getState()).toMatchObject({ level: "off", particles: false });
   reloaded.getState().setLevel("full");
   expect(reloaded.getState().particles).toBe(false);
   reloaded.getState().reset();
-  expect(reloaded.getState()).toMatchObject(defaults);
+  expect(reloaded.getState()).toMatchObject({
+    level: "subtle",
+    glow: true,
+    showRankBadge: true,
+    showAchievements: true,
+  });
+});
+
+it("persists presentation choices separately from decorative effects and restores them without rank side effects", async () => {
+  const store = await fresh();
+  store.getState().setPresentation("showRankBadge", false);
+  store.getState().setPresentation("showAchievements", false);
+  expect(JSON.parse(localStorage.getItem(key)!)).toEqual({
+    version: 2,
+    state: { ...defaults, showRankBadge: false, showAchievements: false },
+  });
+  const reloaded = await fresh();
+  expect(reloaded.getState()).toMatchObject({
+    showRankBadge: false,
+    showAchievements: false,
+    level: "subtle",
+  });
+  reloaded.getState().resetPresentation();
+  expect(reloaded.getState()).toMatchObject({
+    showRankBadge: true,
+    showAchievements: true,
+  });
+  expect(reloaded.getState().level).toBe("subtle");
+});
+
+it("migrates version 1 envelopes to version 2 with presentation defaults", async () => {
+  const v1 = {
+    level: "full",
+    celebrations: false,
+    animatedBadges: true,
+    particles: false,
+    glow: true,
+  };
+  localStorage.setItem(key, envelope(v1, 1));
+  expect((await fresh()).getState()).toMatchObject({
+    ...v1,
+    showRankBadge: true,
+    showAchievements: true,
+  });
 });
 
 it.each([
   "broken", "null", "[]", "{}",
-  JSON.stringify({ version: 2, state: defaults }),
+  JSON.stringify({ version: 3, state: defaults }),
   envelope({ ...defaults, level: "loud" }),
-  JSON.stringify({ version: 1, state: { ...defaults, glow: "false" } }),
-  JSON.stringify({ version: 1, state: { ...defaults, unexpected: true } }),
-  JSON.stringify({ version: 1, state: { level: "full" } }),
+  JSON.stringify({ version: 2, state: { ...defaults, glow: "false" } }),
+  JSON.stringify({ version: 2, state: { ...defaults, unexpected: true } }),
+  JSON.stringify({ version: 2, state: { level: "full" } }),
 ])("uses defaults without destroying malformed/unknown data: %s", async (raw) => {
   localStorage.setItem(key, raw);
   expect((await fresh()).getState()).toMatchObject(defaults);
@@ -45,9 +98,9 @@ it("syncs cross-tab choices, removal and clear without write-back; ignores unrel
   const store = await fresh();
   const write = vi.spyOn(localStorage, "setItem");
   window.dispatchEvent(new StorageEvent("storage", {
-    key, newValue: envelope({ ...defaults, level: "full", glow: false }),
+    key, newValue: envelope({ ...defaults, level: "full", glow: false, showRankBadge: false }),
   }));
-  expect(store.getState()).toMatchObject({ level: "full", glow: false });
+  expect(store.getState()).toMatchObject({ level: "full", glow: false, showRankBadge: false });
   window.dispatchEvent(new StorageEvent("storage", { key: "other", newValue: "bad" }));
   expect(store.getState().level).toBe("full");
   window.dispatchEvent(new StorageEvent("storage", { key, newValue: null }));

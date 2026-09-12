@@ -134,7 +134,7 @@ export function ChainSelector({
                     <span className="flex-1 min-w-0 truncate text-sm">
                       {chain.name}
                     </span>
-                    <span className="shrink-0 text-[10px] text-su-muted">
+                    <span className="shrink-0 text-xs text-su-muted">
                       {chain.nodes.length} node
                       {chain.nodes.length !== 1 ? "s" : ""}
                     </span>

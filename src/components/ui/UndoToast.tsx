@@ -381,7 +381,7 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
               <p className="text-sm text-su-text line-clamp-2">{message}</p>
 
               {/* Keyboard hint */}
-              <p className="text-[10px] text-su-muted mt-1 font-mono">
+              <p className="text-xs text-su-muted mt-1 font-mono">
                 {isUndo
                   ? "Ctrl+Shift+Z to redo"
                   : isRedo

@@ -139,7 +139,7 @@ export function PhaseIndicator({
 
             {/* Keyboard shortcut hint */}
             <span
-              className="absolute top-0.5 right-1 text-[11px] leading-none text-su-muted font-mono pointer-events-none bg-su-line/20 rounded px-0.5"
+              className="absolute top-0.5 right-1 text-xs leading-none text-su-muted font-mono pointer-events-none bg-su-line/20 rounded px-0.5"
               aria-hidden="true"
             >
               {index + 1}

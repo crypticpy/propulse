@@ -6,6 +6,7 @@ import { bandFrequencyStepClassifier } from "@/lib/hamclock/engineComparison";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
+import { declaredMirrorHeightStandin } from "@/lib/utils/rayTrace";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
 import { getMUFAtLocation } from "@/lib/api/muf";
@@ -32,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   reliability: vi.fn(),
   setBandFocus: vi.fn(),
   setSpotFilters: vi.fn(),
+  mirrorHeight: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -52,6 +54,9 @@ vi.mock("@/hooks/useStationCastContext", () => ({
 }));
 vi.mock("@/hooks/useNowCastBandPredictions", () => ({
   useNowCastBandPredictions: mocks.nowCast,
+}));
+vi.mock("@/hooks/useMirrorHeight", () => ({
+  useMirrorHeight: mocks.mirrorHeight,
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
@@ -108,6 +113,22 @@ const AUSTIN = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 const LONDON = { lat: 51.5, lon: -0.13, name: "London", grid: "IO91wm" };
+
+const DECLARED_STANDIN = declaredMirrorHeightStandin("no_provider_supplied");
+/** A modelled height near the stand-in, so the hop count does not move and the
+ * only thing under test is the caption. */
+const MODELLED_MIRROR_HEIGHT = {
+  kind: "modelled" as const,
+  heightKm: 305.2,
+  m3000F2: 3.098,
+  providerId: "ccir-numerical-map",
+  providerVersion: "1.0.0",
+  artifactHash: `sha256:${"a".repeat(64)}`,
+  validAt: "2026-09-05T18:00:00.000Z",
+  coordinates: { latitude: 30.27, longitude: -97.74 },
+  stateDigest: `sha256:${"b".repeat(64)}`,
+  assumptions: ["R12 came from the bundled climatology."],
+};
 
 function bandEntry(overrides: {
   band: string;
@@ -175,6 +196,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-05T18:00:00Z"));
   mocks.location.mockReturnValue(AUSTIN);
   mocks.sfi.mockReturnValue(140);
+  mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
   mocks.mufSeries.mockReturnValue(null);
   mocks.kIndex.mockReturnValue({ data: [{ kp_index: 2 }], isLoading: false });
   mocks.solarFlux.mockReturnValue({ data: [{ flux: 140 }], isLoading: false });
@@ -689,5 +711,38 @@ describe("BestBandReport keeps NowCast on the ladder's own path (finding 7)", ()
     expect(mocks.nowCast).toHaveBeenCalled();
     const call = mocks.nowCast.mock.calls[0][0] as { target: unknown };
     expect(call.target).toEqual({ grid: "PM95", lat: 35.68, lon: 139.69 });
+  });
+});
+
+describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
+  async function hopsCaption(): Promise<string> {
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+    // The engine strip carries a caption of its own, so this reads the one
+    // inside the HOPS pane rather than the first in the dialog.
+    const caption = dialog.querySelector(
+      ".hcr-cols--hops .hcr-bandtable-caption",
+    );
+    expect(caption).toBeTruthy();
+    return caption?.textContent ?? "";
+  }
+
+  it("labels the hops caption when the trace ran on the 300 km stand-in", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
+
+    expect(await hopsCaption()).toContain("300 km assumed");
+  });
+
+  it("drops the label once a modelled height backs the trace, and traces on it", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
+
+    expect(await hopsCaption()).not.toContain("assumed");
+    // The provenance reached the engine rather than only the caption.
+    const call = rayTraceMocks.traceRayPath.mock.calls.at(-1);
+    expect(call?.[0].mirrorHeight).toEqual(MODELLED_MIRROR_HEIGHT);
   });
 });

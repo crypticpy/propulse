@@ -417,3 +417,100 @@ describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings
     expect(result.losses.absorptionDb).toBe(summed);
   });
 });
+
+describe("PROP-03 (#1108): the mirror height names its own source", () => {
+  const MODELLED = {
+    kind: "modelled" as const,
+    heightKm: 412.5,
+    m3000F2: 2.53,
+    providerId: "ccir-numerical-map",
+    providerVersion: "1.0.0",
+    artifactHash: `sha256:${"a".repeat(64)}`,
+    validAt: "2026-06-21T18:00:00.000Z",
+    coordinates: { latitude: 40.7, longitude: -74 },
+    stateDigest: `sha256:${"b".repeat(64)}`,
+    assumptions: ["R12 came from the bundled climatology."],
+  };
+
+  it("a result always carries a mirrorHeight provenance, including the no-path branch", () => {
+    // Supported: a real circuit.
+    expect(trace("short").mirrorHeight.kind).toBe("declared_standin");
+
+    // Ambiguous geometry: antipodal endpoints determine no great circle.
+    const ambiguous = traceRayPath({
+      startLat: 40,
+      startLon: -74,
+      endLat: -40,
+      endLon: 106,
+      frequencyMHz: 14,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+    });
+    expect(ambiguous.support.kind).toBe("ambiguous_geometry");
+    expect(ambiguous.mirrorHeight.kind).toBe("declared_standin");
+    expect(ambiguous.mirrorHeight.heightKm).toBe(DECLARED_MIRROR_HEIGHT_KM);
+
+    // Geometrically unsupported: the one branch a caller cannot reach today.
+    geometryMocks.hopGeometry.mockImplementationOnce(() => ({
+      kind: "unsupported" as const,
+      reason: "below_horizon" as const,
+      detail: "stub: the mirror cannot reach this hop length",
+      elevationAngleRad: -0.1,
+    }));
+    const unsupported = trace("short");
+    expect(unsupported.support.kind).toBe("geometrically_unsupported");
+    expect(unsupported.mirrorHeight.kind).toBe("declared_standin");
+  });
+
+  it("a supplied mirror height is reported as supplied and a missing one as the declared stand-in", () => {
+    const missing = trace("short");
+    expect(missing.mirrorHeight).toEqual({
+      kind: "declared_standin",
+      heightKm: DECLARED_MIRROR_HEIGHT_KM,
+      reason: "no_provider_supplied",
+      detail: expect.stringContaining("300 km"),
+    });
+    // The prose assumption and the structured field say the same thing.
+    expect(missing.assumptions[0]).toBe(
+      missing.mirrorHeight.kind === "declared_standin"
+        ? missing.mirrorHeight.detail
+        : "",
+    );
+
+    // A bare number: used, and reported as the caller's, with no claim about
+    // where the caller got it.
+    const bare = traceRayPath({
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: TOKYO.lat,
+      endLon: TOKYO.lon,
+      frequencyMHz: 14.074,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+      mirrorHeightKm: 250,
+    });
+    expect(bare.mirrorHeight.kind).toBe("caller_supplied");
+    expect(bare.mirrorHeight.heightKm).toBe(250);
+
+    // A provenance: used for the height and stored verbatim.
+    const modelled = traceRayPath({
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: TOKYO.lat,
+      endLon: TOKYO.lon,
+      frequencyMHz: 14.074,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+      mirrorHeight: MODELLED,
+    });
+    expect(modelled.mirrorHeight).toEqual(MODELLED);
+    // The height was used, not merely recorded: 412.5 km reaches farther per
+    // hop than 300 km, so the same circuit needs no more hops than before.
+    expect(modelled.hops.length).toBeLessThanOrEqual(missing.hops.length);
+    expect(modelled.virtualSlantRangeKm).not.toBe(missing.virtualSlantRangeKm);
+    expect(modelled.assumptions[0]).toContain("412.5");
+  });
+});

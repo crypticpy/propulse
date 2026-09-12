@@ -25,9 +25,11 @@
  *     `mirrorHeightKm` the assumption names that value and claims nothing
  *     else; when it does not, the declared 300 km stand-in is used and said
  *     to be a stand-in. The correct source is `mirrorHeightFromM3000F2` fed
- *     by the #953 climatology provider, which is asynchronous and not yet
- *     wired into this synchronous entry point. The previous stand-in, a
- *     `250 + 100 (1 - cos z)` heuristic, had no physical basis and is gone.
+ *     by the #953 climatology provider, which is asynchronous: a caller that
+ *     has resolved it above this entry point passes `mirrorHeight`, and
+ *     `RayTraceResult.mirrorHeight` then names that source rather than the
+ *     stand-in. The previous stand-in, a `250 + 100 (1 - cos z)` heuristic,
+ *     had no physical basis and is gone.
  *  2. The modified magnetic dip that selects the diurnal absorption exponent
  *     is computed here, by `modifiedDipAngle`, from the centred-dipole
  *     geomagnetic latitude rather than a field model at 100 km. This module
@@ -78,26 +80,125 @@ const MAX_HOPS = 12;
  */
 export const DECLARED_MIRROR_HEIGHT_KM = 300;
 
+/** Why a trace fell back to the declared 300 km stand-in. Never absent. */
+export type MirrorHeightStandinReason =
+  | "no_provider_supplied"
+  | "provider_asset_unavailable"
+  | "provider_query_rejected";
+
 /**
- * What the trace actually used for the mirror height, said as a fact about
- * the input rather than about the module's default.
+ * Where the mirror reflection height came from. Never absent from a result.
+ *
+ * The three variants are the three honest answers: a climatology solved it
+ * (`modelled`), the caller handed the engine a number and the engine claims
+ * nothing about it (`caller_supplied`), or nobody supplied one and the module's
+ * declared stand-in was used, with the reason (`declared_standin`).
+ * `mirrorHeight.ts` is the leaf that produces the first and the last.
  */
-function mirrorHeightAssumption(
+export type MirrorHeightProvenance =
+  | {
+      readonly kind: "modelled";
+      readonly heightKm: number;
+      /** hr = min(1490 / M(3000)F2 - 176, 500); the M(3000)F2 it was solved from. */
+      readonly m3000F2: number;
+      readonly providerId: string;
+      readonly providerVersion: string;
+      /** `sha256:` of the coefficient asset the state was built from. */
+      readonly artifactHash: string;
+      /** The instant the climatology was read at. */
+      readonly validAt: string;
+      /** The place it was read at. */
+      readonly coordinates: {
+        readonly latitude: number;
+        readonly longitude: number;
+      };
+      /**
+       * `ionosphereStateDigest` of the state this height came from, or the
+       * literal `"unknown"` when no digest could be formed, matching
+       * `ContextSnapshot.sourceVersion`. Never an empty string.
+       */
+      readonly stateDigest: string;
+      /** The state's own assumption list, carried, not summarised. */
+      readonly assumptions: readonly string[];
+    }
+  | {
+      readonly kind: "caller_supplied";
+      readonly heightKm: number;
+      readonly detail: string;
+    }
+  | {
+      readonly kind: "declared_standin";
+      readonly heightKm: typeof DECLARED_MIRROR_HEIGHT_KM;
+      readonly reason: MirrorHeightStandinReason;
+      /** Why the modelled value was not used. Never an empty string. */
+      readonly detail: string;
+    };
+
+/**
+ * The one sentence every stand-in is described by, so the prose assumption and
+ * the structured provenance can never drift into two different explanations.
+ */
+const STANDIN_CAUSE: Readonly<Record<MirrorHeightStandinReason, string>> = {
+  no_provider_supplied:
+    "the caller supplied none: the #953 climatology provider that supplies " +
+    "M(3000)F2 is asynchronous and is not wired into this synchronous entry " +
+    "point yet",
+  provider_asset_unavailable:
+    "the #953 climatology provider's coefficient asset could not be loaded",
+  provider_query_rejected:
+    "the #953 climatology provider rejected the query for this place and " +
+    "instant",
+};
+
+/** The declared stand-in, labelled with why it was reached. */
+export function declaredMirrorHeightStandin(
+  reason: MirrorHeightStandinReason,
+): Extract<MirrorHeightProvenance, { kind: "declared_standin" }> {
+  return {
+    kind: "declared_standin",
+    heightKm: DECLARED_MIRROR_HEIGHT_KM,
+    reason,
+    detail:
+      `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
+      `stand-in, taken because ${STANDIN_CAUSE[reason]}.`,
+  };
+}
+
+/** A bare number from the caller: used, and not dressed up as a model output. */
+function callerSuppliedMirrorHeight(
   mirrorHeightKm: number,
-  supplied: boolean,
-): string {
-  if (supplied) {
-    return (
+): Extract<MirrorHeightProvenance, { kind: "caller_supplied" }> {
+  return {
+    kind: "caller_supplied",
+    heightKm: mirrorHeightKm,
+    detail:
       `Mirror reflection height is the caller-supplied ${String(mirrorHeightKm)} km. ` +
-      "This engine makes no claim about where that value came from."
+      "This engine makes no claim about where that value came from.",
+  };
+}
+
+/** What the trace actually used for the mirror height, as one sentence. */
+function mirrorHeightAssumption(provenance: MirrorHeightProvenance): string {
+  if (provenance.kind === "modelled") {
+    return (
+      `Mirror reflection height is the modelled ${provenance.heightKm.toFixed(1)} km, ` +
+      `solved from M(3000)F2 = ${provenance.m3000F2.toFixed(3)} read from ` +
+      `${provenance.providerId} ${provenance.providerVersion} at ${provenance.validAt}.`
     );
   }
-  return (
-    `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
-    "stand-in, taken because the caller supplied none: the #953 climatology " +
-    "provider that supplies M(3000)F2 is asynchronous and is not wired into " +
-    "this synchronous entry point yet."
-  );
+  return provenance.detail;
+}
+
+/**
+ * Which of the three the caller asked for. A provenance wins over a bare
+ * number: it carries the height as well as its source.
+ */
+function mirrorHeightOf(params: RayTraceInput): MirrorHeightProvenance {
+  if (params.mirrorHeight !== undefined) return params.mirrorHeight;
+  if (params.mirrorHeightKm !== undefined) {
+    return callerSuppliedMirrorHeight(params.mirrorHeightKm);
+  }
+  return declaredMirrorHeightStandin("no_provider_supplied");
 }
 
 const DIP_ASSUMPTION =
@@ -123,9 +224,16 @@ export interface RayTraceInput {
   pathMode?: "short" | "long";
   /**
    * Mirror reflection height, km. Defaults to the declared 300 km constant.
-   * Supply `mirrorHeightFromM3000F2(m3000F2)` when a real M(3000)F2 is known.
+   * Supply `mirrorHeightFromM3000F2(m3000F2)` when a real M(3000)F2 is known,
+   * or `mirrorHeight` when its source can be named too.
    */
   mirrorHeightKm?: number;
+  /**
+   * Mirror reflection height with its source, from `resolveMirrorHeight`. When
+   * present it both sets the height and is carried onto the result verbatim,
+   * and it takes precedence over `mirrorHeightKm`.
+   */
+  mirrorHeight?: MirrorHeightProvenance;
 }
 
 /** The itemised loss budget. The parts sum exactly to `totalPathLossDb`. */
@@ -208,6 +316,8 @@ export interface RayTraceResult {
   absorptionPassCount: number;
   /** Everything this result stands in for rather than models. */
   assumptions: readonly string[];
+  /** Where the mirror reflection height came from. Never absent. */
+  mirrorHeight: MirrorHeightProvenance;
 }
 
 export type PathViability =
@@ -514,13 +624,11 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     sfi,
     kp,
     pathMode = "short",
-    mirrorHeightKm = DECLARED_MIRROR_HEIGHT_KM,
   } = params;
 
-  const assumptions = [
-    mirrorHeightAssumption(mirrorHeightKm, params.mirrorHeightKm !== undefined),
-    DIP_ASSUMPTION,
-  ];
+  const mirrorHeight = mirrorHeightOf(params);
+  const mirrorHeightKm = mirrorHeight.heightKm;
+  const assumptions = [mirrorHeightAssumption(mirrorHeight), DIP_ASSUMPTION];
   const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
   if (!isResolved(route)) {
     return emptyResult(
@@ -532,6 +640,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       pathMode,
       frequencyMHz,
       assumptions,
+      mirrorHeight,
     );
   }
 
@@ -563,6 +672,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       pathMode,
       frequencyMHz,
       assumptions,
+      mirrorHeight,
       totalDistanceKm,
     );
   }
@@ -716,6 +826,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     elevationAngleDeg: (geometry.elevationAngleRad * 180) / Math.PI,
     absorptionPassCount,
     assumptions: [...assumptions, ...hopAbsorptions[0].assumptions],
+    mirrorHeight,
   };
 }
 
@@ -755,6 +866,7 @@ function emptyResult(
   pathMode: "short" | "long",
   frequencyMHz: number,
   assumptions: readonly string[],
+  mirrorHeight: MirrorHeightProvenance,
   totalDistanceKm = 0,
 ): RayTraceResult {
   const losses: RayPathLosses = {
@@ -782,6 +894,7 @@ function emptyResult(
     elevationAngleDeg: 0,
     absorptionPassCount: 0,
     assumptions,
+    mirrorHeight,
   };
 }
 

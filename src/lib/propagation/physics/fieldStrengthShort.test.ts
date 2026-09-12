@@ -568,6 +568,41 @@ describe("the absorption ray path above the basic MUF", () => {
     );
   });
 
+  it("does not consult the caller's elevation at or below the basic MUF", () => {
+    // 3000 km at 14 MHz mixes modes on both sides of their basic MUF. The
+    // rule after equation (23) applies above it only, so the callback is
+    // consulted for exactly those modes and the others keep the
+    // operating-frequency ray path untouched.
+    const set = resolvedSet(3000, 14);
+    const above = set.supportedModes
+      .filter((m) => 14 > m.basicMufMHz)
+      .map((m) => m.label);
+    const atOrBelow = new Set(
+      set.supportedModes.filter((m) => 14 <= m.basicMufMHz).map((m) => m.label),
+    );
+    expect(atOrBelow.size).toBeGreaterThan(0);
+    const asIs = shortPathFieldStrength(inputs(set));
+    const consulted: string[] = [];
+    const withCallback = shortPathFieldStrength(
+      inputs(set, {
+        basicMufElevationRad: (mode: PropagationMode) => {
+          consulted.push(mode.label);
+          return (mode.elevationRad ?? 0) * 1.2;
+        },
+      }),
+    );
+    expect(consulted).toEqual(above);
+    withCallback.contributingModes.forEach((record, i) => {
+      if (!atOrBelow.has(record.label)) return;
+      expect(record.basicTransmissionLoss?.absorptionDb).toBe(
+        asIs.contributingModes[i].basicTransmissionLoss?.absorptionDb,
+      );
+    });
+    expect(withCallback.assumptions.join(" ")).not.toContain(
+      "absorption ray path was taken at the operating frequency",
+    );
+  });
+
   it("declares the substitution when the caller supplies none", () => {
     const result = shortPathFieldStrength(inputs(resolvedSet(3000, 30)));
     expect(result.assumptions.join(" ")).toContain(
@@ -610,6 +645,17 @@ describe("domain checks", () => {
     ).toThrow(RangeError);
   });
 
+  it("rejects a non-finite or negative sunspot number", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { ssn: Number.NaN })),
+    ).toThrow(RangeError);
+    expect(() => shortPathFieldStrength(inputs(set, { ssn: -1 }))).toThrow(
+      RangeError,
+    );
+    expect(() => shortPathFieldStrength(inputs(set, { ssn: 0 }))).not.toThrow();
+  });
+
   it("rejects a non-finite hour or transmitter power", () => {
     const set = resolvedSet(3000, 14);
     expect(() =>
@@ -620,5 +666,37 @@ describe("domain checks", () => {
         inputs(set, { transmitterPowerDbKw: Number.POSITIVE_INFINITY }),
       ),
     ).toThrow(RangeError);
+  });
+
+  it("rejects a non-finite fixed antenna gain", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: Number.NaN })),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { receiverGain: Number.POSITIVE_INFINITY }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: 0 })),
+    ).not.toThrow();
+  });
+
+  it("rejects a non-finite antenna gain returned by a per-mode callback", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { transmitterGain: () => Number.NaN }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { receiverGain: () => Number.NEGATIVE_INFINITY }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: () => 0 })),
+    ).not.toThrow();
   });
 });

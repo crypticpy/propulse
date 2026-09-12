@@ -8,7 +8,7 @@
  * racing a dialog beneath it.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
 import Cropper from "react-easy-crop";
 import type { Area, Point } from "react-easy-crop";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
@@ -67,6 +67,12 @@ function ensureCropStyles() {
   style.id = CROP_STYLE_ID;
   style.textContent = CROP_SLIDER_CSS;
   document.head.appendChild(style);
+}
+
+function saveFailureMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err) return err;
+  return "Could not save the cropped photo. Try again or cancel to keep your current photo.";
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -180,11 +186,13 @@ export function ImageCropDialog({
   title = "Crop Photo",
 }: ImageCropDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const saveErrorId = useId();
 
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Reset state when dialog opens with new image
   useEffect(() => {
@@ -193,6 +201,7 @@ export function ImageCropDialog({
       setZoom(1);
       setCroppedAreaPixels(null);
       setSaving(false);
+      setSaveError(null);
     }
   }, [open, imageSrc]);
 
@@ -236,6 +245,7 @@ export function ImageCropDialog({
   const handleSave = useCallback(async () => {
     if (!croppedAreaPixels || saving) return;
     setSaving(true);
+    setSaveError(null);
 
     try {
       const { blob, width, height } = await getCroppedBlob(
@@ -251,6 +261,7 @@ export function ImageCropDialog({
       onClose();
     } catch (err) {
       console.error("[ImageCropDialog] Failed to crop/store image:", err);
+      setSaveError(saveFailureMessage(err));
       setSaving(false);
     }
   }, [
@@ -304,6 +315,14 @@ export function ImageCropDialog({
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
+          mediaProps={{
+            onError: () => {
+              setCroppedAreaPixels(null);
+              setSaveError(
+                "Could not decode the selected photo. Cancel and choose another image.",
+              );
+            },
+          }}
           style={{
             containerStyle: {
               borderRadius: "0.5rem",
@@ -335,6 +354,22 @@ export function ImageCropDialog({
         </label>
       </div>
 
+      {saveError && (
+        <div
+          id={saveErrorId}
+          role="alert"
+          aria-live="assertive"
+          className="mx-5 mt-2 rounded-lg border border-alert-red/20 bg-alert-red/10 px-3 py-2"
+        >
+          <p className="text-sm font-medium text-su-text">{saveError}</p>
+          <p className="mt-1 text-xs text-su-muted">
+            {croppedAreaPixels
+              ? "Your crop is unchanged. Try Save again or cancel to keep your current photo."
+              : "Your current photo is unchanged."}
+          </p>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex items-center justify-end gap-3 px-5 pt-3 pb-5">
         <button
@@ -352,6 +387,7 @@ export function ImageCropDialog({
           type="button"
           onClick={handleSave}
           disabled={saving || !croppedAreaPixels}
+          aria-describedby={saveError ? saveErrorId : undefined}
           className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
                      bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text
                      border border-plasma-orange/30

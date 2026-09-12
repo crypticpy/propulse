@@ -288,4 +288,56 @@ describe("basicTransmissionLossDb", () => {
       basicTransmissionLossDb({ ...terms, virtualSlantRangeKm: -1 }),
     ).toThrow(RangeError);
   });
+
+  it("rejects a non-finite term, because a direct caller bypasses the leaf that computed it", () => {
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, absorptionDb: Number.NaN }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({
+        ...terms,
+        aboveMufDb: Number.POSITIVE_INFINITY,
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, groundReflectionDb: Number.NaN }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, auroralDb: Number.NaN }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, otherLossesDb: Number.NaN }),
+    ).toThrow(RangeError);
+  });
+
+  it("accepts a zero term at every position, which is a valid loss of none", () => {
+    expect(() =>
+      basicTransmissionLossDb({
+        ...terms,
+        absorptionDb: 0,
+        aboveMufDb: 0,
+        groundReflectionDb: 0,
+        auroralDb: 0,
+        otherLossesDb: 0,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a negative term, because none of this codebase's producers emit one", () => {
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, absorptionDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, aboveMufDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, groundReflectionDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, auroralDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, otherLossesDb: -0.01 }),
+    ).toThrow(RangeError);
+  });
 });

@@ -143,6 +143,29 @@ describe("penetrationPoints", () => {
     expect(result.detail).toContain("300.0 km");
   });
 
+  it("rejects a reflection height at or below the 90 km penetration layer", () => {
+    for (const reflectionHeightKm of [90, 89.9, 0, -1, Number.NaN]) {
+      expect(() =>
+        penetrationPoints({ route: MEDIUM, hopCount: 2, reflectionHeightKm }),
+      ).toThrow(RangeError);
+    }
+    // 90.5 km reaches about 2144 km in one hop, so MEDIUM's 1874 km
+    // three-hop hops are inside it.
+    const justAbove = penetrationPoints({
+      route: MEDIUM,
+      hopCount: 3,
+      reflectionHeightKm: 90.5,
+    });
+    expect(justAbove.kind).toBe("points");
+    if (justAbove.kind !== "points") throw new Error("expected points");
+    // Entry precedes exit and the crossings stay inside the hop.
+    expect(justAbove.points[0].fraction).toBeGreaterThan(0);
+    expect(justAbove.points[1].fraction).toBeGreaterThan(
+      justAbove.points[0].fraction,
+    );
+    expect(justAbove.points[1].fraction).toBeLessThan(1);
+  });
+
   it("lets a caller state a different reflection height", () => {
     // The reference's own reading, deviation 2: the mode's height, here
     // 500 km, which does reach a 4466 km hop where 300 km does not.
@@ -209,6 +232,13 @@ describe("modifiedDipDegAt", () => {
   it("rejects a non-finite coordinate", () => {
     expect(() => modifiedDipDegAt(Number.NaN, 0)).toThrow(RangeError);
     expect(() => modifiedDipDegAt(0, Number.NaN)).toThrow(RangeError);
+  });
+
+  it("rejects a non-positive or non-finite height", () => {
+    expect(() => modifiedDipDegAt(40, -74, 0)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, -100)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, Number.NaN)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, 100)).not.toThrow();
   });
 });
 
@@ -405,5 +435,135 @@ describe("absorptionLoss", () => {
     expect(() =>
       absorptionLoss({ ...base, rayPathElevationRad: Number.NaN }),
     ).toThrow(RangeError);
+  });
+
+  it("rejects a non-finite or negative sunspot number, exported leaf and all", () => {
+    // This leaf is exported directly by `physics/index.ts`, so a caller that
+    // never goes through `fieldStrengthShort.ts` must still be caught here.
+    expect(() => absorptionLoss({ ...base, ssn: Number.NaN })).toThrow(
+      RangeError,
+    );
+    expect(() => absorptionLoss({ ...base, ssn: -1 })).toThrow(RangeError);
+    expect(() => absorptionLoss({ ...base, ssn: 0 })).not.toThrow();
+  });
+
+  it("rejects a non-finite or non-positive foEMHz from the sampler", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, foEMHz: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({ ...base, sample: () => ({ ...UNIFORM, foEMHz: 0 }) }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, foEMHz: 0.1 }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a zenith angle from the sampler outside 0..180", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: -1 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: 181 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithNoonAngleDeg: 181 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          ...UNIFORM,
+          zenithAngleDeg: 0,
+          zenithNoonAngleDeg: 180,
+        }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a modified dip from the sampler outside -90..90, when supplied", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: 91 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: -90 }),
+      }),
+    ).not.toThrow();
+    // Omitting it entirely still works: `modifiedDipDegAt` supplies one.
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          foEMHz: 3.4,
+          zenithAngleDeg: 30,
+          zenithNoonAngleDeg: 20,
+        }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a non-finite or negative gyrofrequency from the sampler, and accepts zero on the dip equator", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          ...UNIFORM,
+          longitudinalGyrofrequencyMHz: Number.NaN,
+        }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: -0.1 }),
+      }),
+    ).toThrow(RangeError);
+    // fL = |fH sin(dip)| is exactly zero on the magnetic dip equator, and
+    // equation (20)'s (f + fL)^2 stays finite there.
+    const equator = absorptionLoss({
+      ...base,
+      sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0 }),
+    });
+    expect(equator.kind).toBe("absorption");
+    if (equator.kind !== "absorption") throw new Error("expected absorption");
+    expect(Number.isFinite(equator.lossDb)).toBe(true);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0.1 }),
+      }),
+    ).not.toThrow();
   });
 });

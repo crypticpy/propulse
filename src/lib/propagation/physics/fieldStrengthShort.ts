@@ -271,7 +271,11 @@ export interface ShortPathFieldStrengthInputs {
   readonly otherLossesDb?: number;
   /** See `absorptionLoss.ts` deviation 2. Defaults to the text's 300 km. */
   readonly penetrationReflectionHeightKm?: number;
-  /** See deviation 1. The elevation of this mode at its basic MUF, radians. */
+  /**
+   * See deviation 1. The elevation of this mode at its basic MUF, radians.
+   * Consulted only for modes above their basic MUF; at or below it the
+   * operating-frequency ray path already is the one the text names.
+   */
   readonly basicMufElevationRad?: (mode: PropagationMode) => number | null;
 }
 
@@ -359,6 +363,14 @@ export function shortPathFieldStrength(
         `${String(transmitterPowerDbKw)}.`,
     );
   }
+  // Equation (20) scales the absorption by (1 + 0.0067 R12); R12 is a
+  // smoothed sunspot number and is never negative, and a NaN here would
+  // reach every field strength and power below.
+  if (!Number.isFinite(ssn) || ssn < 0) {
+    throw new RangeError(
+      `ssn must be finite and non-negative, received ${String(ssn)}.`,
+    );
+  }
 
   const frequencyMHz = modeSet.frequencyMHz;
   const midPathHours = midPathLocalTimeHours(
@@ -428,9 +440,19 @@ export function shortPathFieldStrength(
       );
     }
 
-    const frozen = basicMufElevationRad?.(mode) ?? null;
-    if (frozen === null) operatingRayPathModes += 1;
-    else frozenRayPathModes += 1;
+    // The rule after equation (23) applies to "frequencies above the basic
+    // MUF" only; at or below it the operating-frequency ray path IS the
+    // basic-MUF-or-lower ray path (`absorptionRayPathFrequencyMHz` returns f
+    // there), so the caller's basic-MUF elevation is not consulted and the
+    // mode is neither frozen nor a substitution.
+    const aboveBasicMuf = frequencyMHz > mode.basicMufMHz;
+    const frozen = aboveBasicMuf
+      ? (basicMufElevationRad?.(mode) ?? null)
+      : null;
+    if (aboveBasicMuf) {
+      if (frozen === null) operatingRayPathModes += 1;
+      else frozenRayPathModes += 1;
+    }
 
     const absorption = absorptionLoss({
       route,
@@ -480,8 +502,25 @@ export function shortPathFieldStrength(
       elevationRad,
       elevationDeg: (elevationRad * 180) / Math.PI,
     };
+    // Gt and Grw enter equations (17) and (43) directly. A fixed gain is
+    // checked here on its first mode and a per-mode callback's return on
+    // every mode, because "at the required azimuth angle and elevation
+    // angle" (equation (17)) means the callback may legitimately answer
+    // differently for each one.
     const transmitterGainDbi = gainDbi(transmitterGain, context);
+    if (!Number.isFinite(transmitterGainDbi)) {
+      throw new RangeError(
+        `transmitterGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(transmitterGainDbi)}.`,
+      );
+    }
     const receiverGainDbi = gainDbi(receiverGain, context);
+    if (!Number.isFinite(receiverGainDbi)) {
+      throw new RangeError(
+        `receiverGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(receiverGainDbi)}.`,
+      );
+    }
 
     const fieldStrengthDbuVPerM =
       FIELD_STRENGTH_CONSTANT_DB +
@@ -546,8 +585,8 @@ export function shortPathFieldStrength(
       `The absorption ray path was taken at the operating frequency for ` +
         `${String(operatingRayPathModes)} of ` +
         `${String(operatingRayPathModes + frozenRayPathModes)} evaluated ` +
-        `modes. Section 5.2.2 holds it at the basic MUF above the basic MUF; ` +
-        `supply basicMufElevationRad to apply that rule.`,
+        `modes above their basic MUF. Section 5.2.2 holds it at the basic ` +
+        `MUF there; supply basicMufElevationRad to apply that rule.`,
     );
   }
   if (unevaluatedModes.length > 0) {

@@ -212,6 +212,20 @@ export function penetrationPoints(
     hopCount,
     reflectionHeightKm = PENETRATION_REFLECTION_HEIGHT_KM,
   } = inputs;
+  // The crossings exist only when the ray climbs through the penetration
+  // layer on its way to the reflection height. At exactly 90 km the entry and
+  // exit coincide, and below it `hopGeometry` would place each hop's entry
+  // after its exit, so the override must sit strictly above the layer.
+  if (
+    !Number.isFinite(reflectionHeightKm) ||
+    reflectionHeightKm <= PENETRATION_HEIGHT_KM
+  ) {
+    throw new RangeError(
+      `reflectionHeightKm must be finite and above the ` +
+        `${String(PENETRATION_HEIGHT_KM)} km penetration height, received ` +
+        `${String(reflectionHeightKm)}.`,
+    );
+  }
   const geometry = hopGeometry({
     groundDistanceKm: route.groundDistanceKm,
     hopCount,
@@ -265,6 +279,11 @@ export function modifiedDipDegAt(
     throw new RangeError(
       `latitudeDeg and longitudeDeg must be finite, received ` +
         `${String(latitudeDeg)}, ${String(longitudeDeg)}.`,
+    );
+  }
+  if (!Number.isFinite(heightKm) || heightKm <= 0) {
+    throw new RangeError(
+      `heightKm must be positive and finite, received ${String(heightKm)}.`,
     );
   }
   const latRad = latitudeDeg * DEG_TO_RAD;
@@ -336,6 +355,73 @@ export type AbsorptionLossResult =
   AbsorptionLoss | Extract<PenetrationPointsResult, { kind: "unsupported" }>;
 
 /**
+ * Validates one penetration point's sampled state before it becomes a
+ * `DRegionCrossing`.
+ *
+ * `sample` is the caller's, not P.533-14's: a climatology provider or a
+ * ray-trace engine supplies it, and `dRegion.ts`'s own arithmetic has no
+ * floor on these fields. In particular equation (21)'s `cos(0.881 chi)^p` is
+ * `NaN` for a `chi` outside the range where the base stays non-negative, so a
+ * bad zenith angle here would otherwise surface as a silent `NaN` several
+ * calls downstream instead of naming which point and which field produced it.
+ */
+function validateSampledState(
+  point: PenetrationPoint,
+  state: PenetrationPointState,
+): void {
+  const where = `absorption sample at penetration point ${String(point.index)}`;
+  if (!Number.isFinite(state.foEMHz) || state.foEMHz <= 0) {
+    throw new RangeError(
+      `${where}: foEMHz must be positive and finite, received ` +
+        `${String(state.foEMHz)}.`,
+    );
+  }
+  if (
+    !Number.isFinite(state.zenithAngleDeg) ||
+    state.zenithAngleDeg < 0 ||
+    state.zenithAngleDeg > 180
+  ) {
+    throw new RangeError(
+      `${where}: zenithAngleDeg must be finite and within 0..180, received ` +
+        `${String(state.zenithAngleDeg)}.`,
+    );
+  }
+  if (
+    !Number.isFinite(state.zenithNoonAngleDeg) ||
+    state.zenithNoonAngleDeg < 0 ||
+    state.zenithNoonAngleDeg > 180
+  ) {
+    throw new RangeError(
+      `${where}: zenithNoonAngleDeg must be finite and within 0..180, ` +
+        `received ${String(state.zenithNoonAngleDeg)}.`,
+    );
+  }
+  if (
+    state.modifiedDipDeg !== undefined &&
+    (!Number.isFinite(state.modifiedDipDeg) ||
+      state.modifiedDipDeg < -90 ||
+      state.modifiedDipDeg > 90)
+  ) {
+    throw new RangeError(
+      `${where}: modifiedDipDeg must be finite and within -90..90, ` +
+        `received ${String(state.modifiedDipDeg)}.`,
+    );
+  }
+  // Zero is legitimate: fL = |fH sin(dip)| vanishes on the magnetic dip
+  // equator, and equation (20)'s (f + fL)^2 divisor stays well defined there.
+  if (
+    state.longitudinalGyrofrequencyMHz !== undefined &&
+    (!Number.isFinite(state.longitudinalGyrofrequencyMHz) ||
+      state.longitudinalGyrofrequencyMHz < 0)
+  ) {
+    throw new RangeError(
+      `${where}: longitudinalGyrofrequencyMHz must be non-negative and ` +
+        `finite, received ${String(state.longitudinalGyrofrequencyMHz)}.`,
+    );
+  }
+}
+
+/**
  * Li for one mode, dB.
  *
  * The angle of incidence at 110 km comes from the mode's own elevation, and
@@ -372,6 +458,15 @@ export function absorptionLoss(
         `${String(rayPathElevationRad)}.`,
     );
   }
+  // Equation (20) scales the absorption by (1 + 0.0067 R12); R12 is a
+  // smoothed sunspot number and is never negative. This leaf is exported
+  // directly by `physics/index.ts`, so a caller reaching it without going
+  // through `fieldStrengthShort.ts`'s own check must be caught here too.
+  if (!Number.isFinite(ssn) || ssn < 0) {
+    throw new RangeError(
+      `ssn must be finite and non-negative, received ${String(ssn)}.`,
+    );
+  }
 
   const located = penetrationPoints({
     route,
@@ -387,6 +482,7 @@ export function absorptionLoss(
 
   const crossings: DRegionCrossing[] = located.points.map((point) => {
     const state = sample(point);
+    validateSampledState(point, state);
     return {
       latitudeDeg: point.point.latitudeDeg,
       monthIndex,

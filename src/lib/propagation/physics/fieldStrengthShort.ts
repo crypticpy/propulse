@@ -271,7 +271,11 @@ export interface ShortPathFieldStrengthInputs {
   readonly otherLossesDb?: number;
   /** See `absorptionLoss.ts` deviation 2. Defaults to the text's 300 km. */
   readonly penetrationReflectionHeightKm?: number;
-  /** See deviation 1. The elevation of this mode at its basic MUF, radians. */
+  /**
+   * See deviation 1. The elevation of this mode at its basic MUF, radians.
+   * Consulted only for modes above their basic MUF; at or below it the
+   * operating-frequency ray path already is the one the text names.
+   */
   readonly basicMufElevationRad?: (mode: PropagationMode) => number | null;
 }
 
@@ -428,9 +432,19 @@ export function shortPathFieldStrength(
       );
     }
 
-    const frozen = basicMufElevationRad?.(mode) ?? null;
-    if (frozen === null) operatingRayPathModes += 1;
-    else frozenRayPathModes += 1;
+    // The rule after equation (23) applies to "frequencies above the basic
+    // MUF" only; at or below it the operating-frequency ray path IS the
+    // basic-MUF-or-lower ray path (`absorptionRayPathFrequencyMHz` returns f
+    // there), so the caller's basic-MUF elevation is not consulted and the
+    // mode is neither frozen nor a substitution.
+    const aboveBasicMuf = frequencyMHz > mode.basicMufMHz;
+    const frozen = aboveBasicMuf
+      ? (basicMufElevationRad?.(mode) ?? null)
+      : null;
+    if (aboveBasicMuf) {
+      if (frozen === null) operatingRayPathModes += 1;
+      else frozenRayPathModes += 1;
+    }
 
     const absorption = absorptionLoss({
       route,
@@ -546,8 +560,8 @@ export function shortPathFieldStrength(
       `The absorption ray path was taken at the operating frequency for ` +
         `${String(operatingRayPathModes)} of ` +
         `${String(operatingRayPathModes + frozenRayPathModes)} evaluated ` +
-        `modes. Section 5.2.2 holds it at the basic MUF above the basic MUF; ` +
-        `supply basicMufElevationRad to apply that rule.`,
+        `modes above their basic MUF. Section 5.2.2 holds it at the basic ` +
+        `MUF there; supply basicMufElevationRad to apply that rule.`,
     );
   }
   if (unevaluatedModes.length > 0) {

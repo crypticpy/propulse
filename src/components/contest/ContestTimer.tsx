@@ -254,8 +254,8 @@ const OffTimeWarningBanner = memo(function OffTimeWarningBanner({
     <div
       className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
         isCritical
-          ? "bg-alert-red/20 border border-alert-red/50 text-alert-red"
-          : "bg-yellow-500/15 border border-yellow-500/40 text-yellow-400"
+          ? "bg-alert-red/20 border border-alert-red/50 text-su-text"
+          : "bg-caution-amber/15 border border-caution-amber/40 text-su-text"
       }`}
     >
       {/* Warning icon */}

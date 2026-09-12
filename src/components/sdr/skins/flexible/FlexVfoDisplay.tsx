@@ -181,7 +181,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
           {modeUpper && (
             <span
               className={`
-                px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border
+                px-1.5 py-0.5 rounded text-xs font-bold font-mono border
                 ${getModeTextClass(modeUpper)} ${getModeBgClass(modeUpper)}
               `}
             >
@@ -212,7 +212,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
         {onVfoSwap ? (
           <button
             onClick={onVfoSwap}
-            className="pointer-events-auto text-[10px] font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer"
+            className="pointer-events-auto text-xs font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer"
             style={{ color: accentColor }}
             title="Switch VFO"
           >
@@ -220,7 +220,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
           </button>
         ) : (
           <span
-            className="text-[10px] font-bold tracking-wider"
+            className="text-xs font-bold tracking-wider"
             style={{ color: accentColor }}
           >
             VFO {vfo ?? "A"}
@@ -263,7 +263,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
         {/* Size toggle button */}
         <button
           onClick={cycleSize}
-          className="pointer-events-auto text-[8px] font-bold text-su-muted hover:text-su-text transition-colors px-0.5"
+          className="pointer-events-auto text-xs font-bold text-su-muted hover:text-su-text transition-colors px-0.5"
           title={isMax ? "Collapse to normal" : "Expand to max"}
         >
           {isMax ? "\u25B4" : "\u25BE"}
@@ -299,7 +299,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
 
         {/* CW speed — only in CW modes */}
         {isCw && cwSpeed != null && (
-          <span className="text-[9px] font-mono text-signal-green/80">
+          <span className="text-xs font-mono text-signal-green/80">
             {cwSpeed} WPM
           </span>
         )}
@@ -334,19 +334,19 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
       {(ritActive || xitActive || (ifShift != null && ifShift !== 0)) && (
         <div className="flex items-center gap-2 mt-0.5">
           {ritActive && (
-            <span className="text-[9px] font-mono text-plasma-orange">
+            <span className="text-xs font-mono text-plasma-orange">
               RIT {rit.offsetHz >= 0 ? "+" : ""}
               {rit.offsetHz}
             </span>
           )}
           {xitActive && (
-            <span className="text-[9px] font-mono text-cosmic-cyan">
+            <span className="text-xs font-mono text-cosmic-cyan">
               XIT {xit.offsetHz >= 0 ? "+" : ""}
               {xit.offsetHz}
             </span>
           )}
           {ifShift != null && ifShift !== 0 && (
-            <span className="text-[9px] font-mono text-nebula-blue">
+            <span className="text-xs font-mono text-nebula-blue">
               IF {ifShift >= 0 ? "+" : ""}
               {ifShift}
             </span>
@@ -356,7 +356,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
 
       {/* ── Bottom info row ──────────────────────────────────────────── */}
       {bandwidth && !slicePanels && (
-        <div className="mt-0.5 text-[10px] font-mono text-su-muted tracking-wide">
+        <div className="mt-0.5 text-xs font-mono text-su-muted tracking-wide">
           BW {bandwidth}
         </div>
       )}
@@ -386,7 +386,7 @@ function TxMeterBar({
       {/* Power */}
       {powerW != null && (
         <div className="flex items-center gap-1 flex-1">
-          <span className="text-[8px] font-semibold text-su-muted w-6">
+          <span className="text-xs font-semibold text-su-muted w-6">
             PWR
           </span>
           <div className="flex-1 h-1.5 bg-su-line/10 rounded-full overflow-hidden">
@@ -395,7 +395,7 @@ function TxMeterBar({
               style={{ width: `${Math.min(100, (powerW / 100) * 100)}%` }}
             />
           </div>
-          <span className="text-[9px] font-mono text-alert-red/80 w-8 text-right">
+          <span className="text-xs font-mono text-alert-red/80 w-8 text-right">
             {powerW.toFixed(0)}W
           </span>
         </div>
@@ -404,9 +404,9 @@ function TxMeterBar({
       {/* SWR */}
       {swr != null && (
         <div className="flex items-center gap-1">
-          <span className="text-[8px] font-semibold text-su-muted">SWR</span>
+          <span className="text-xs font-semibold text-su-muted">SWR</span>
           <span
-            className={`text-[9px] font-mono font-semibold ${
+            className={`text-xs font-mono font-semibold ${
               swr > 3
                 ? "text-alert-red"
                 : swr > 2
@@ -422,7 +422,7 @@ function TxMeterBar({
       {/* ALC */}
       {alc != null && (
         <div className="flex items-center gap-1">
-          <span className="text-[8px] font-semibold text-su-muted">ALC</span>
+          <span className="text-xs font-semibold text-su-muted">ALC</span>
           <div className="w-8 h-1.5 bg-su-line/10 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-[width] duration-75 ${

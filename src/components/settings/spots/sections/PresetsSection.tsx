@@ -75,7 +75,7 @@ function CatalogRow({
             asserts every ACTIVITY_PRESET_IDS/DISPLAY_PRESET_IDS entry renders
             as text, so a catalog entry that's deferred from the UI fails the
             test. text-xs/full text-su-muted meets the DS-16 legibility floor
-            (was text-[10px] text-su-muted/70). */}
+            (was sub-floor 10px muted helper). */}
         <span className="font-mono text-xs text-su-muted">{recipe.id}</span>
       </button>
     </div>

@@ -178,7 +178,7 @@
   border-radius: var(--su-radius-control);
   padding: 0.5rem 1rem;
   background: transparent;
-  color: var(--su-text) !important;
+  color: var(--su-treatment-ink, var(--su-text)) !important;
   font-size: calc(0.9375rem * var(--su-text-scale));
   font-weight: 500;
   line-height: 1.4;
@@ -187,6 +187,9 @@
   text-align: center;
 }
 .su-button--primary {
+  font-weight: 600;
+}
+.su-button--primary:not(.su-treatment) {
   background: var(--su-accent);
   border-color: var(--su-accent-edge);
   color: var(--su-on-accent) !important;
@@ -196,7 +199,7 @@
   border-color: transparent;
   color: var(--su-info) !important;
 }
-.su-button--danger {
+.su-button--danger:not(.su-treatment) {
   border-color: var(--su-danger);
   color: var(--su-danger) !important;
 }
@@ -206,7 +209,7 @@
   flex-shrink: 0;
 }
 @media (hover: hover) {
-  .su-button:not(:disabled):hover,
+  .su-button:not(.su-treatment):not(:disabled):hover,
   .su-equipment-tile:hover {
     box-shadow: inset 0 0 0 999px
       color-mix(in srgb, var(--su-text) 7%, transparent);
@@ -435,29 +438,13 @@
 .su-disclosure-content {
   padding: 0.5rem var(--su-inset) var(--su-inset);
 }
-.su-tone-neutral {
-  --su-tone: var(--su-muted);
-}
-.su-tone-info {
-  --su-tone: var(--su-info);
-}
-.su-tone-success {
-  --su-tone: var(--su-success);
-}
-.su-tone-warning {
-  --su-tone: var(--su-warning);
-}
-.su-tone-danger {
-  --su-tone: var(--su-danger);
-}
 .su-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid color-mix(in srgb, var(--su-tone) 55%, transparent);
-  background: color-mix(in srgb, var(--su-tone) 6%, var(--su-panel));
+  border: 1px solid var(--su-treatment-edge);
   border-radius: 0.4rem;
-  color: var(--su-tone);
+  color: var(--su-treatment-ink);
   padding: 0.15rem 0.5rem;
   font-size: calc(0.875rem * var(--su-text-scale));
   line-height: 1.6;
@@ -468,12 +455,11 @@
   gap: 0.75rem;
   align-items: flex-start;
   padding: 1rem;
-  border: 1px solid color-mix(in srgb, var(--su-tone) 65%, transparent);
+  border: 1px solid var(--su-treatment-edge);
   border-radius: var(--su-radius-control);
-  background: color-mix(in srgb, var(--su-tone) 4%, var(--su-panel));
 }
 .su-notice > svg {
-  color: var(--su-tone);
+  color: var(--su-treatment-ink);
   margin-top: 0.2rem;
 }
 .su-notice-title {

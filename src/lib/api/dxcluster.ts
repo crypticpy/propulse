@@ -192,6 +192,17 @@ function extractModeFromComment(comment: string): string | undefined {
 }
 
 /**
+ * Normalize an ITU continent code from a feed ("eu" -> "EU"), dropping blanks.
+ * Shared by the CSV and JSON branches so an unknown-prefix spot gets the same
+ * continent-centroid fallback in `resolveMapSpotSelection` either way.
+ */
+function normalizeContinent(raw: unknown): string | undefined {
+  return typeof raw === "string" && raw.trim()
+    ? raw.trim().toUpperCase()
+    : undefined;
+}
+
+/**
  * Parse HamQTH CSV (caret-delimited) text into DXSpot array.
  *
  * Each line has fields separated by `^`:
@@ -214,6 +225,10 @@ function parseHamQTHCSV(text: string): DXSpot[] {
     const comment = fields[3]?.trim() || "";
     const timeStr = fields[4]?.trim() || "";
     const bandRaw = fields[8]?.trim() || "";
+    // Field 7 is the DX continent. Dropping it left an unknown-prefix CSV
+    // spot with no continent centroid to fall back to, so Set Target
+    // announced "cannot be located" for a spot the feed had located.
+    const continent = normalizeContinent(fields[7]);
 
     // Skip header rows or clearly invalid lines
     if (!spotter || !dx || spotter === "Spotter") continue;
@@ -263,6 +278,7 @@ function parseHamQTHCSV(text: string): DXSpot[] {
       comment,
       time,
       band,
+      continent,
     });
   }
 
@@ -360,6 +376,7 @@ export async function fetchClusterFeed(
         : getBandFromFrequency(frequency),
       spotterGrid: item.spotterGrid as string | undefined,
       dxGrid: item.dxGrid as string | undefined,
+      continent: normalizeContinent(item.continent),
     };
   });
   const spots = parsed.filter((spot): spot is DXSpot => spot !== null);

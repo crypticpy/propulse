@@ -11,6 +11,13 @@
 
 import { useState, useMemo } from "react";
 import type { WasState, SlotStatus } from "@/lib/awards/types";
+import {
+  statusBg,
+  statusText,
+  statusLabel,
+  STATUS_OPTIONS,
+  SlotDetailPanel,
+} from "@/components/awards/shared";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -21,138 +28,6 @@ interface WasMapProps {
   confirmedCount: number;
   neededCount: number;
 }
-
-// ─── Status Styling ────────────────────────────────────────────────────────
-
-function statusBg(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "bg-signal-green/20 border-signal-green/50";
-    case "worked_unconfirmed":
-      return "bg-caution-yellow/20 border-caution-yellow/50";
-    case "needed":
-      return "bg-su-panel/40 border-su-line/40";
-  }
-}
-
-function statusText(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "text-signal-green";
-    case "worked_unconfirmed":
-      return "text-caution-yellow";
-    case "needed":
-      return "text-su-muted";
-  }
-}
-
-function statusLabel(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "Confirmed";
-    case "worked_unconfirmed":
-      return "Worked";
-    case "needed":
-      return "Needed";
-  }
-}
-
-// ─── State Detail Modal ────────────────────────────────────────────────────
-
-interface StateDetailProps {
-  slot: WasState;
-  onClose: () => void;
-}
-
-function StateDetail({ slot, onClose }: StateDetailProps) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Details for ${slot.name}`}
-    >
-      <div
-        className="bg-void-black border border-su-line/40 rounded-xl p-5 w-full max-w-sm mx-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-su-text">{slot.name}</h3>
-            <span className="text-sm text-su-muted font-mono">{slot.abbr}</span>
-          </div>
-          <span
-            className={`px-2 py-0.5 rounded text-xs font-medium ${statusBg(slot.status)} ${statusText(slot.status)} border`}
-          >
-            {statusLabel(slot.status)}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <span className="text-su-muted">QSOs</span>
-            <p className="text-su-text">{slot.qsoCount}</p>
-          </div>
-          <div>
-            <span className="text-su-muted">Status</span>
-            <p className={statusText(slot.status)}>
-              {statusLabel(slot.status)}
-            </p>
-          </div>
-        </div>
-
-        {slot.bands.length > 0 && (
-          <div className="mt-3">
-            <span className="text-su-muted text-sm">Bands</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {slot.bands.map((b) => (
-                <span
-                  key={b}
-                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
-                >
-                  {b}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {slot.modes.length > 0 && (
-          <div className="mt-3">
-            <span className="text-su-muted text-sm">Modes</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {slot.modes.map((m) => (
-                <span
-                  key={m}
-                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
-                >
-                  {m}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-4 w-full py-2 rounded-lg bg-su-panel text-su-muted hover:bg-su-input transition-colors text-sm"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Filter Options ────────────────────────────────────────────────────────
-
-const STATUS_OPTIONS: Array<{ label: string; value: SlotStatus | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Confirmed", value: "confirmed" },
-  { label: "Worked", value: "worked_unconfirmed" },
-  { label: "Needed", value: "needed" },
-];
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
@@ -260,9 +135,7 @@ export function WasMap({
               {slot.abbr}
             </div>
             <div className="text-[10px] text-su-muted truncate leading-tight mt-0.5">
-              {slot.name.length > 8
-                ? slot.name.slice(0, 7) + "\u2026"
-                : slot.name}
+              {slot.name.length > 8 ? slot.name.slice(0, 7) + "…" : slot.name}
             </div>
             {slot.qsoCount > 0 && (
               <div className="text-[9px] text-su-muted mt-0.5">
@@ -281,8 +154,22 @@ export function WasMap({
 
       {/* Detail modal */}
       {selectedSlot && (
-        <StateDetail
-          slot={selectedSlot}
+        <SlotDetailPanel
+          title={selectedSlot.name}
+          subtitle={selectedSlot.abbr}
+          subtitleClassName="text-sm text-su-muted font-mono"
+          status={selectedSlot.status}
+          fields={[
+            { label: "QSOs", value: selectedSlot.qsoCount },
+            {
+              label: "Status",
+              value: statusLabel(selectedSlot.status),
+              tone: "status",
+            },
+          ]}
+          bands={selectedSlot.bands}
+          modes={selectedSlot.modes}
+          ariaLabel={`Details for ${selectedSlot.name}`}
           onClose={() => setSelectedSlot(null)}
         />
       )}

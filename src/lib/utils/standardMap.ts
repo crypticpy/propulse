@@ -20,7 +20,12 @@ const STANDARD_MAP_PALETTES: Record<ThemeId, StandardMapPalette> = {
 const standardMapCanvasCache = new Map<string, HTMLCanvasElement>();
 const STANDARD_MAP_CACHE_LIMIT = 2;
 
-function addWrappedRingPath(
+/**
+ * Trace a lat/lon ring onto an equirectangular canvas, unwrapping the
+ * anti-meridian and drawing up to three wrapped copies. Shared by the
+ * cached standard-map painter and the flat map's live layers (#1091).
+ */
+export function addWrappedRingPath(
   ctx: CanvasRenderingContext2D,
   ring: [number, number][],
   width: number,

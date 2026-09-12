@@ -32,7 +32,11 @@ function toPublicProfile(row: Record<string, unknown>): PublicProfile {
       ? (row.social_links as { type: string; url: string }[])
       : undefined,
     statsCache: (row.stats_cache as Record<string, unknown>) ?? undefined,
-    visibilitySettings: undefined,
+    // Carry the owner's disclosure settings through: every surface that shows
+    // a followed operator's grid runs them past `isSectionVisibleToViewer`.
+    visibilitySettings:
+      (row.visibility_settings as PublicProfile["visibilitySettings"]) ??
+      undefined,
     lastActiveAt: (row.last_active_at as string) ?? undefined,
   };
 }
@@ -48,12 +52,104 @@ function toActivityEvent(row: Record<string, unknown>): ActivityEvent {
   };
 }
 
+/**
+ * Whether the viewer counts as a friend of `profileId`: this app's friend
+ * relation is "the viewer follows them". Deliberately tri-state — until the
+ * following set is known to belong to the signed-in account the answer is
+ * `unknown`, and callers keep friends-only content closed on `unknown` the
+ * same as on `stranger`.
+ */
+export type ViewerFriendship = "friend" | "stranger" | "unknown";
+
+/**
+ * Whether the cached `following` set describes the signed-in account. A
+ * refresh in flight for the same account still counts: the set in hand is that
+ * account's last known answer, and dropping it mid-refresh is what made the
+ * viewer flash as a stranger on every remount (#995 round 5).
+ */
+export function followSetBelongsToViewer(
+  followingLoadedForUserId: string | null,
+  authUserId: string | null,
+): boolean {
+  return !!authUserId && followingLoadedForUserId === authUserId;
+}
+
+/**
+ * Whether the follow set could not be loaded for this viewer and the gated
+ * controls should offer a retry rather than sit disabled forever.
+ */
+export function followLoadFailedForViewer(
+  followingLoadError: { userId: string } | null,
+  authUserId: string | null,
+): boolean {
+  return !!authUserId && followingLoadError?.userId === authUserId;
+}
+
+export function viewerFriendship(
+  following: PublicProfile[],
+  followingLoadedForUserId: string | null,
+  authUserId: string | null,
+  profileId: string,
+): ViewerFriendship {
+  if (!followSetBelongsToViewer(followingLoadedForUserId, authUserId)) {
+    return "unknown";
+  }
+  return following.some((profile) => profile.id === profileId)
+    ? "friend"
+    : "stranger";
+}
+
+/**
+ * Which `fetchFollowing` call owns the answer. Two overlapping loads for the
+ * same account both used to commit: when the newer succeeded and the older
+ * then failed, the older's stale view of the cache wiped the good set and
+ * recorded a retry error. Only the latest call may write now.
+ *
+ * A generation counter rather than promise dedupe: dedupe would also make a
+ * retry a no-op while the failing request is still in flight, and "the latest
+ * answer wins" is the rule we actually want. It is also directly testable by
+ * interleaving two calls.
+ */
+let followingFetchGeneration = 0;
+
+/**
+ * Supersede every in-flight `fetchFollowing`. Any local write to the follow
+ * set makes the answers already on the wire older than the truth: a refresh
+ * that read the follow row before an unfollow would otherwise land afterwards
+ * and resurrect it, reopening friends-only content. Called by every writer of
+ * `following`, which then converges by re-reading the server.
+ */
+function supersedeFollowingLoads(): void {
+  followingFetchGeneration += 1;
+}
+
 // ── Store ───────────────────────────────────────────────────────────────
 
 interface SocialStore {
   // State
   followers: PublicProfile[];
   following: PublicProfile[];
+  /**
+   * Which auth user the `following` set was loaded for, or null when nothing
+   * is loaded. A follow relation is an account-scoped fact: without this tag
+   * account B inherits account A's cached relationships and sees their
+   * friends-only sections.
+   */
+  followingLoadedForUserId: string | null;
+  /**
+   * A refresh is in flight for the account the cache is already tagged to.
+   * The set stays readable while it runs; actions that would write a follow
+   * row wait for it, so the button never offers "Follow" for a relation that
+   * may already exist.
+   */
+  isRefreshingFollowing: boolean;
+  /**
+   * The last failed `fetchFollowing`, tagged with the account it was for. A
+   * failure with no cached set leaves the relation unknown, which disables
+   * every follow control; without this the mount had no way back. The UI
+   * turns the gated control into a spelled-out retry.
+   */
+  followingLoadError: { userId: string; at: number } | null;
   feed: ActivityEvent[];
   isLoadingFollowers: boolean;
   isLoadingFeed: boolean;
@@ -65,12 +161,17 @@ interface SocialStore {
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   fetchFeed: (append?: boolean) => Promise<void>;
+  /** Drop the following set at an account boundary (called by authStore). */
+  clearFollowing: () => void;
   reset: () => void;
 }
 
 const initialState = {
   followers: [] as PublicProfile[],
   following: [] as PublicProfile[],
+  followingLoadedForUserId: null as string | null,
+  isRefreshingFollowing: false,
+  followingLoadError: null as { userId: string; at: number } | null,
   feed: [] as ActivityEvent[],
   isLoadingFollowers: false,
   isLoadingFeed: false,
@@ -134,7 +235,49 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
 
-    set({ isLoadingFollowers: true });
+    // The set in hand belongs to whoever it was loaded for. Only a set
+    // belonging to someone else (or to nobody) is dropped up front, so the
+    // viewer-is-friend question answers "unknown" while another account's
+    // answer is in flight. A refresh for the SAME account keeps its set and
+    // its tag: clearing there made every remount flash the viewer as a
+    // stranger, hiding friends-only content and offering "Follow" for a
+    // relation that already exists.
+    supersedeFollowingLoads();
+    const generation = followingFetchGeneration;
+    const cacheBelongsToUser = get().followingLoadedForUserId === userId;
+    set(
+      cacheBelongsToUser
+        ? {
+            isRefreshingFollowing: true,
+            isLoadingFollowers: true,
+            followingLoadError: null,
+          }
+        : {
+            following: [],
+            followingLoadedForUserId: null,
+            isRefreshingFollowing: true,
+            isLoadingFollowers: true,
+            followingLoadError: null,
+          },
+    );
+
+    /** A failure is only recoverable state for the user it was fetched for. */
+    const failed = () => ({
+      ...(cacheBelongsToUser
+        ? {}
+        : { following: [], followingLoadedForUserId: null }),
+      followingLoadError: { userId, at: Date.now() },
+      isRefreshingFollowing: false,
+      isLoadingFollowers: false,
+    });
+
+    /**
+     * A result is only ours if the signed-in user has not changed since AND
+     * no later fetch has superseded this one.
+     */
+    const stillCurrent = () =>
+      useAuthStore.getState().user?.id === userId &&
+      generation === followingFetchGeneration;
 
     try {
       const supabase = getSupabase();
@@ -144,8 +287,23 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         .select("following_id")
         .eq("follower_id", userId);
 
-      if (followsError || !follows?.length) {
-        set({ following: [], isLoadingFollowers: false });
+      if (!stillCurrent()) return;
+
+      if (followsError) {
+        // A failed refresh is not an answer. Keep this account's last known
+        // set rather than demoting it to "unknown" on a transient error.
+        set(failed());
+        return;
+      }
+
+      if (!follows?.length) {
+        set({
+          following: [],
+          followingLoadedForUserId: userId,
+          isRefreshingFollowing: false,
+          isLoadingFollowers: false,
+          followingLoadError: null,
+        });
         return;
       }
 
@@ -156,8 +314,10 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         .select("*")
         .in("id", followingIds);
 
+      if (!stillCurrent()) return;
+
       if (profilesError || !profiles) {
-        set({ following: [], isLoadingFollowers: false });
+        set(failed());
         return;
       }
 
@@ -165,10 +325,14 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
         following: profiles.map((p) =>
           toPublicProfile(p as unknown as Record<string, unknown>),
         ),
+        followingLoadedForUserId: userId,
+        isRefreshingFollowing: false,
         isLoadingFollowers: false,
+        followingLoadError: null,
       });
     } catch {
-      set({ isLoadingFollowers: false });
+      if (!stillCurrent()) return;
+      set(failed());
     }
   },
 
@@ -179,23 +343,37 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId || userId === targetUserId) return;
 
+    // The write makes every load already on the wire stale, whatever its
+    // outcome: they answered from before it.
+    supersedeFollowingLoads();
+
     try {
       const supabase = getSupabase();
 
-      const { error } = await supabase.from("follows").insert({
-        follower_id: userId,
-        following_id: targetUserId,
-      });
+      // (follower_id, following_id) is the primary key, so a second attempt
+      // at a follow the viewer already has would fail on it. Following is
+      // idempotent by nature: upsert and ignore the duplicate instead.
+      const { error } = await supabase.from("follows").upsert(
+        {
+          follower_id: userId,
+          following_id: targetUserId,
+        },
+        { onConflict: "follower_id,following_id", ignoreDuplicates: true },
+      );
 
       if (error) {
         console.error("[socialStore] followUser error:", error.message);
+        // The load this write superseded is gone either way, so re-read
+        // rather than leaving the set frozen at a guess.
+        await get().fetchFollowing();
         return;
       }
 
-      // Refresh following list
+      // Converge on the server's answer rather than an optimistic one.
       await get().fetchFollowing();
     } catch (err) {
       console.error("[socialStore] followUser exception:", err);
+      await get().fetchFollowing();
     }
   },
 
@@ -205,6 +383,8 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
     if (!isSupabaseConfigured) return;
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
+
+    supersedeFollowingLoads();
 
     try {
       const supabase = getSupabase();
@@ -217,15 +397,23 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
       if (error) {
         console.error("[socialStore] unfollowUser error:", error.message);
+        // Nothing optimistic has been written yet (the removal follows a
+        // successful delete), so there is nothing to revert; re-read to
+        // replace the load this write superseded.
+        await get().fetchFollowing();
         return;
       }
 
-      // Optimistically remove from following list
+      // Remove it locally so the UI answers immediately, then converge: the
+      // fetch below is the one that decides, and any load older than this
+      // write has already been superseded.
       set((state) => ({
         following: state.following.filter((p) => p.id !== targetUserId),
       }));
+      await get().fetchFollowing();
     } catch (err) {
       console.error("[socialStore] unfollowUser exception:", err);
+      await get().fetchFollowing();
     }
   },
 
@@ -290,5 +478,18 @@ export const useSocialStore = create<SocialStore>()((set, get) => ({
 
   // ── Reset ─────────────────────────────────────────────────────────
 
-  reset: () => set(initialState),
+  clearFollowing: () => {
+    supersedeFollowingLoads();
+    set({
+      following: [],
+      followingLoadedForUserId: null,
+      isRefreshingFollowing: false,
+      followingLoadError: null,
+    });
+  },
+
+  reset: () => {
+    supersedeFollowingLoads();
+    set(initialState);
+  },
 }));

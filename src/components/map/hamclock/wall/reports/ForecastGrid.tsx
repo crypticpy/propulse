@@ -16,8 +16,8 @@ export function ForecastGrid({ matrix, start, selectedBand, selectedHour, onSele
     <HamClockSegmented hideLabel label="Forecast UTC day" value={day} options={["0", "1"].map(value => ({ value, label: iso(start + Number(value) * 24).slice(0, 10) + " UTC" }))}
       onChange={value => onSelect(selectedBand, start + Number(value) * 24 + ((selectedHour - start) % 24 + 24) % 24)} />
     <div className="hcr-forecast-grid" role="group" aria-label="Choose forecast band and UTC hour">
-      <span />{visibleHours.map(hour => <span key={hour}>{iso(hour).slice(11, 13)}</span>)}
-      {WALL_FORECAST_BANDS.map(band => <Fragment key={band}><span>{band.toUpperCase()}</span>{visibleHours.map(hour => {
+      <span />{visibleHours.map(hour => <span key={hour} className="hcr-forecast-grid-hour">{iso(hour).slice(11, 13)}</span>)}
+      {WALL_FORECAST_BANDS.map(band => <Fragment key={band}><span className="hcr-forecast-grid-band">{band.toUpperCase()}</span>{visibleHours.map(hour => {
         const score = matrix.get(`${band}:${hour}`);
         return <button key={hour} type="button" className={wallScoreTone(score ?? null)} aria-pressed={band === selectedBand && hour === selectedHour}
           aria-label={`${band} ${iso(hour).slice(0, 16)} UTC: ${score?.toFixed(0) ?? "unavailable"}`} onClick={() => onSelect(band, hour)}>{score?.toFixed(0) ?? "—"}</button>;

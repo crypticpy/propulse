@@ -14,6 +14,7 @@ import {
   calculateBandConditions,
   getEnhancedBandConditions,
 } from "@/lib/utils/bands";
+import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 
 /** Physics condition word -> 0..1 score, per the E4 spec */
 export const CONDITION_SCORE: Record<string, number> = {
@@ -66,6 +67,7 @@ export function pathPhysicsScores(
   kp: number,
   sfi: number,
   date: Date,
+  noiseEnvironment?: NoiseEnvironment,
 ): Map<string, number> {
   const scores = new Map<string, number>();
   const conditions = getEnhancedBandConditions(
@@ -76,6 +78,10 @@ export function pathPhysicsScores(
     kp,
     sfi,
     date,
+    undefined,
+    undefined,
+    undefined,
+    noiseEnvironment,
   );
   for (const condition of conditions) {
     const score = PATH_STATUS_SCORE[condition.status];
@@ -95,6 +101,13 @@ export interface BandPhysicsScoreInputs {
   /** Current target (first saved target by convention); absent = v1 fallback */
   target?: LatLon;
   date: Date;
+  /**
+   * The station's ITU-R P.372 noise category, from the settings store. Omitting
+   * it does not mean "no noise": it resolves to the declared default
+   * (residential) inside the signal model, so a rural or city operator saw a
+   * band verdict computed against someone else's noise floor (#948 finding 4).
+   */
+  noiseEnvironment?: NoiseEnvironment;
 }
 
 /**
@@ -110,10 +123,18 @@ export function bandPhysicsScores({
   home,
   target,
   date,
+  noiseEnvironment,
 }: BandPhysicsScoreInputs): Map<string, number> {
   const scores = stationPhysicsScores(kp, sfi, isDaylight);
   if (home && target) {
-    for (const [band, score] of pathPhysicsScores(home, target, kp, sfi, date)) {
+    for (const [band, score] of pathPhysicsScores(
+      home,
+      target,
+      kp,
+      sfi,
+      date,
+      noiseEnvironment,
+    )) {
       if (scores.has(band)) {
         scores.set(band, score);
       }

@@ -30,6 +30,31 @@ Object.defineProperty(globalThis, "localStorage", {
   value: createTestStorage(),
 });
 
+/**
+ * jsdom does not implement the `CSS` namespace object, so `CSS.escape` is
+ * missing. user-event's native radio-group arrow-key walk calls it to build a
+ * `input[type="radio"][name="…"]` selector, and throws without it — which makes
+ * every keyboard test against a native radio group unrunnable. React's `useId`
+ * produces names containing `:`, so a real escape is needed, not identity.
+ */
+const cssNamespace = (globalThis as { CSS?: { escape?: unknown } }).CSS;
+if (typeof cssNamespace?.escape !== "function") {
+  Object.defineProperty(globalThis, "CSS", {
+    configurable: true,
+    value: {
+      escape: (value: string) => {
+        const escaped = String(value).replace(
+          /[^a-zA-Z0-9_\u00a0-\uffff-]/g,
+          (character) => `\\${character}`,
+        );
+        return /^\d/.test(escaped)
+          ? `\\3${escaped[0]} ${escaped.slice(1)}`
+          : escaped;
+      },
+    },
+  });
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

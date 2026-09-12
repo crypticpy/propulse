@@ -32,6 +32,9 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
   const viewMode = useMapStore((s) => s.viewMode);
   const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
+  const hasSatelliteTracks = useMapStore(
+    (s) => Object.keys(s.satelliteTracks).length > 0,
+  );
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode = uiPrefs.spotColorMode ?? "mode";
   // Session state, not component state: this legend renders inside the map
@@ -46,8 +49,16 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
         viewMode,
         replayEnabled,
         replaySpotCount,
+        hasSatelliteTracks,
       }),
-    [layers, replayEnabled, replaySpotCount, spotColorMode, viewMode],
+    [
+      layers,
+      replayEnabled,
+      replaySpotCount,
+      spotColorMode,
+      viewMode,
+      hasSatelliteTracks,
+    ],
   );
 
   if (specs.length === 0) return null;

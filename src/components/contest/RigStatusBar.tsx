@@ -286,7 +286,6 @@ export function RigStatusBar({
             className={`
               px-2 py-1 text-xs font-bold uppercase rounded
               bg-alert-red/20 border border-alert-red/50 text-alert-red
-              animate-pulse
             `}
           >
             TX

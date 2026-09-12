@@ -38,8 +38,8 @@ const VARIANT_CLASSES = {
 // ─── Size mapping ────────────────────────────────────────────────────────────
 
 const SIZE_CLASSES = {
-  xs: "px-1 py-0 text-[8px] leading-[14px]",
-  sm: "px-1.5 py-0 text-[9px] leading-[16px]",
+  xs: "px-1 py-0 text-xs leading-[14px]",
+  sm: "px-1.5 py-0 text-xs leading-[16px]",
 } as const;
 
 // ─── Component ───────────────────────────────────────────────────────────────

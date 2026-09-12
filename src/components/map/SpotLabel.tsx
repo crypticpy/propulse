@@ -358,7 +358,7 @@ export function SpotLabel({
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
-    size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-sm px-2 py-1";
+    size === "sm" ? "text-xs px-1.5 py-0.5" : "text-sm px-2 py-1";
 
   // Hover handlers — always enabled so labels in a stack are navigable,
   // even spotter labels that don't have an onHover detail callback.
@@ -520,9 +520,8 @@ export function SpotLabel({
       {callsign}
       {frequency && (
         <span
-          className="ml-1"
+          className="ml-1 text-xs"
           style={{
-            fontSize: "0.9em",
             opacity: isHovered || selected ? 0.9 : 0.75,
           }}
         >
@@ -531,9 +530,8 @@ export function SpotLabel({
       )}
       {badge && (
         <span
-          className="ml-1 rounded-sm px-1 py-px"
+          className="ml-1 rounded-sm px-1 py-px text-xs"
           style={{
-            fontSize: "0.72em",
             color: inkOnFill(underlineColor),
             backgroundColor: underlineColor,
           }}

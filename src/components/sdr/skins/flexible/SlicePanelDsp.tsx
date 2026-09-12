@@ -85,7 +85,7 @@ export function SlicePanelDsp({
             type="button"
             onClick={btn.onClick}
             disabled={!canControl}
-            className={`px-2 py-1.5 text-[10px] font-bold uppercase rounded border transition-all
+            className={`px-2 py-1.5 text-xs font-bold uppercase rounded border transition-all
               disabled:cursor-not-allowed ${
                 btn.active
                   ? "bg-signal-green/20 border-signal-green/30 text-signal-green shadow-[0_0_6px_rgba(0,255,136,0.15)]"
@@ -101,7 +101,7 @@ export function SlicePanelDsp({
       {hasFineControls ? <button
         type="button"
         onClick={() => setShowAdvanced((open) => !open)}
-        className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
+        className="px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
       >
         {showAdvanced ? "Hide DSP Fine Controls" : "Show DSP Fine Controls"}
       </button> : null}
@@ -110,7 +110,7 @@ export function SlicePanelDsp({
         <div className="space-y-2 pt-0.5">
           {supportsAgc && agcEnabled && (
             <div className="space-y-0.5">
-              <div className="text-[9px] text-su-muted uppercase tracking-wider">
+              <div className="text-xs text-su-muted uppercase tracking-wider">
                 AGC Speed
               </div>
               <div className="grid grid-cols-4 gap-0.5">
@@ -120,7 +120,7 @@ export function SlicePanelDsp({
                     type="button"
                     onClick={() => onAgcModeChange(a.mode)}
                     disabled={!canControl}
-                    className={`px-1 py-1 text-[9px] font-bold rounded border transition-colors
+                    className={`px-1 py-1 text-xs font-bold rounded border transition-colors
                       disabled:cursor-not-allowed ${
                         agcMode === a.mode
                           ? "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan"
@@ -136,10 +136,10 @@ export function SlicePanelDsp({
 
           {supportsSquelch ? <div className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Squelch
               </span>
-              <span className="text-[10px] font-mono text-su-muted">
+              <span className="text-xs font-mono text-su-muted">
                 {Math.round(squelchLevel * 100)}%
               </span>
             </div>

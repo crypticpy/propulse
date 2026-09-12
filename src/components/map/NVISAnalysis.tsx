@@ -110,7 +110,7 @@ function FrequencyBar({
       />
 
       {/* Frequency labels */}
-      <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono text-su-muted">
+      <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-mono text-su-muted">
         <span>2</span>
         <span>4</span>
         <span>6</span>
@@ -238,7 +238,7 @@ export function NVISAnalysis({
               optimal={analysis.optimalFrequency}
               f0F2={analysis.f0F2}
             />
-            <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 bg-purple-500/60 rounded" />
                 <span className="text-su-muted">Usable</span>

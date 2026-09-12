@@ -236,12 +236,12 @@ function DiscoveredDaemonRow({
                 >
                   <div className="min-w-0">
                     <div className="text-xs text-su-text font-medium truncate">{device.name}</div>
-                    <div className="text-[11px] text-su-muted font-mono truncate">
+                    <div className="text-xs text-su-muted font-mono truncate">
                       {device.device_id}
                     </div>
                   </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                    className={`text-xs px-1.5 py-0.5 rounded border ${
                       device.type === "sdr"
                         ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
                         : "bg-plasma-orange/10 border-plasma-orange/30 text-su-text"
@@ -362,7 +362,7 @@ export function DevicePicker({
           </div>
         )}
 
-        <div className="text-[11px] text-su-muted">
+        <div className="text-xs text-su-muted">
           Tip: remote access is best via VPN (Tailscale/WireGuard). For LAN
           discovery to work, the daemon must bind to <code>0.0.0.0</code>, mDNS
           must be enabled, and an auth token should be configured. Do not expose

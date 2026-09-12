@@ -371,7 +371,7 @@ const StatDisplay = memo(function StatDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
+      <span className="text-xs uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <div className="flex items-center">
@@ -383,7 +383,7 @@ const StatDisplay = memo(function StatDisplay({
         {trend && <TrendIndicator trend={trend} />}
       </div>
       {subValue && (
-        <span className="text-[9px] text-su-muted font-mono">{subValue}</span>
+        <span className="text-xs text-su-muted font-mono">{subValue}</span>
       )}
     </div>
   );
@@ -417,7 +417,7 @@ const RateDisplay = memo(function RateDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
+      <span className="text-xs uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <div className="flex items-center">
@@ -426,7 +426,7 @@ const RateDisplay = memo(function RateDisplay({
         </span>
         <TrendIndicator trend={trend} />
       </div>
-      <span className="text-[9px] text-su-muted font-mono">60m: {rate60}</span>
+      <span className="text-xs text-su-muted font-mono">60m: {rate60}</span>
     </div>
   );
 });
@@ -443,7 +443,7 @@ const DeltaDisplay = memo(function DeltaDisplay({
   if (!delta) {
     return (
       <div className="flex flex-col items-center">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
+        <span className="text-xs uppercase tracking-wider text-su-muted mb-0.5">
           Last
         </span>
         <span className="font-mono text-su-muted text-sm">--</span>
@@ -455,7 +455,7 @@ const DeltaDisplay = memo(function DeltaDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
+      <span className="text-xs uppercase tracking-wider text-su-muted mb-0.5">
         Last
       </span>
       <div className="flex items-center gap-1">
@@ -510,7 +510,7 @@ const DeltaDisplay = memo(function DeltaDisplay({
           </>
         )}
       </div>
-      <span className="text-[9px] text-su-muted font-mono truncate max-w-[60px]">
+      <span className="text-xs text-su-muted font-mono truncate max-w-[60px]">
         {delta.callsign}
       </span>
     </div>

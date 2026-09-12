@@ -19,8 +19,8 @@ export function ChainWarningBanner({ warnings }: ChainWarningBannerProps) {
           key={warning.code}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
             warning.severity === "warning"
-              ? "bg-caution-amber/10 text-caution-amber border border-caution-amber/20"
-              : "bg-nebula-blue/10 text-nebula-blue border border-nebula-blue/20"
+              ? "bg-caution-amber/10 text-su-text border border-caution-amber/20"
+              : "bg-nebula-blue/10 text-su-text border border-nebula-blue/20"
           }`}
         >
           {/* Icon: triangle for warning, info circle for info */}

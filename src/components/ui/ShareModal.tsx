@@ -348,7 +348,7 @@ export function ShareModal({
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === tab.id
-                  ? "text-plasma-orange border-plasma-orange bg-plasma-orange/5"
+                  ? "text-su-text border-plasma-orange bg-plasma-orange/5"
                   : "text-su-muted border-transparent hover:text-su-text hover:bg-su-line/10"
               }`}
             >
@@ -381,7 +381,7 @@ export function ShareModal({
                     onClick={handleCopyLink}
                     className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                       copied
-                        ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
+                        ? "bg-signal-green/20 text-su-text border border-signal-green/50"
                         : "bg-plasma-orange/15 text-su-text border border-plasma-orange/50 hover:bg-plasma-orange/20"
                     }`}
                   >

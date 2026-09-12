@@ -330,8 +330,8 @@ export function EquipmentDetailModal({
                              focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-green/50
                              ${
                                isActive
-                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green"
-                                 : "bg-signal-green/10 border border-signal-green/20 text-signal-green hover:bg-signal-green/20"
+                                 ? "bg-signal-green/20 border border-signal-green/40 text-su-text"
+                                 : "bg-signal-green/10 border border-signal-green/20 text-su-text hover:bg-signal-green/20"
                              }`}
                 >
                   {isActive ? (

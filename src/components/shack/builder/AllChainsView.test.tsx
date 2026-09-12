@@ -17,8 +17,12 @@ vi.mock("./BuilderCanvas", () => ({
     onSelectNode: (index: number) => void;
   }) => (
     <>
+      <button onClick={() => onAddEquipmentAtPosition(0)}>Add at start</button>
       <button onClick={() => onAddEquipmentAtPosition(1)}>
         Add in first gap
+      </button>
+      <button onClick={() => onAddEquipmentAtPosition(2)}>
+        Add after feedline
       </button>
       <button onClick={() => onSelectNode(0)}>Inspect first radio</button>
     </>
@@ -29,10 +33,12 @@ vi.mock("./AddEquipmentPanel", () => ({
   AddEquipmentPanel: ({
     automaticPlacement,
     position,
+    validTypes,
     onAdd,
   }: {
     automaticPlacement?: boolean;
     position: number;
+    validTypes: { label: string }[];
     onAdd: (type: string, id: string) => void;
   }) => (
     <div>
@@ -41,7 +47,15 @@ vi.mock("./AddEquipmentPanel", () => ({
           ? "Automatic placement"
           : `Position ${position + 1}`}
       </p>
+      <ul aria-label="Insertable equipment">
+        {validTypes.map((type) => (
+          <li key={type.label}>{type.label}</li>
+        ))}
+      </ul>
       <button onClick={() => onAdd("radio", "extra")}>Add fixture radio</button>
+      <button onClick={() => onAdd("accessory", "band-pass")}>
+        Add fixture filter
+      </button>
     </div>
   ),
 }));
@@ -61,6 +75,10 @@ const chain: StationChain = {
 };
 beforeEach(() => {
   vi.useFakeTimers();
+  // jsdom does not implement scrollIntoView; AllChainsView calls it from a
+  // real-timer effect in the "focuses Configure" test below, which can fire
+  // after the test body returns and throw an uncaught exception otherwise.
+  Element.prototype.scrollIntoView = vi.fn();
   useShackStore.setState({
     ...initial,
     stationChains: [structuredClone(chain)],
@@ -108,6 +126,75 @@ it("labels toolbar placement as automatic and leaves a failed selection open wit
   );
 });
 
+it("offers filter and tuner in an explicit feedline–antenna gap and inserts there", () => {
+  useShackStore.setState({
+    stationChains: [
+      {
+        ...chain,
+        nodes: [
+          chain.nodes[0],
+          { type: "feedline_run", feedlineRunId: "run-1" },
+          chain.nodes[2],
+        ],
+        feedlineRuns: [
+          { id: "run-1", feedlineId: "cable", inlineComponentIds: [] },
+        ],
+      },
+    ],
+  });
+  view();
+  fireEvent.click(screen.getByRole("button", { name: "Add after feedline" }));
+  expect(screen.getByText("Position 3")).toBeTruthy();
+  expect(
+    within(screen.getByRole("list", { name: "Insertable equipment" }))
+      .getByText("Filter")
+      .textContent,
+  ).toBe("Filter");
+  expect(screen.getByText("Tuner")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Add fixture filter" }));
+  expect(useShackStore.getState().stationChains[0].nodes).toEqual([
+    chain.nodes[0],
+    { type: "feedline_run", feedlineRunId: "run-1" },
+    { type: "accessory", accessoryId: "band-pass" },
+    chain.nodes[2],
+  ]);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+it.each([
+  { control: "Add at start", positionLabel: "Position 1", index: 0 },
+  { control: "Add in first gap", positionLabel: "Position 2", index: 1 },
+])(
+  "keeps canvas gap $control at its requested index",
+  ({ control, positionLabel, index }) => {
+    view();
+    fireEvent.click(screen.getByRole("button", { name: control }));
+    expect(screen.getByText(positionLabel)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add fixture radio" }));
+    expect(useShackStore.getState().stationChains[0].nodes[index]).toEqual({
+      type: "radio",
+      radioId: "extra",
+    });
+  },
+);
+it("inserts from the path list at the named before/after gap and focuses Configure", async () => {
+  vi.useRealTimers();
+  view();
+  fireEvent.click(screen.getByRole("button", { name: "Path list" }));
+  fireEvent.click(
+    screen.getAllByRole("button", { name: "Insert after Radio unavailable" })[0],
+  );
+  expect(screen.getByText("Position 2")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Add fixture filter" }));
+  expect(useShackStore.getState().stationChains[0].nodes[1]).toEqual({
+    type: "accessory",
+    accessoryId: "band-pass",
+  });
+  await vi.waitFor(() =>
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Configure Accessory unavailable" }),
+    ),
+  );
+});
 it("replaces the inspector with removal confirmation so one Escape cancels without removing equipment", () => {
   view();
   fireEvent.click(screen.getByRole("button", { name: "Inspect first radio" }));
@@ -150,4 +237,17 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(
     chain.nodes.slice(1),
   );
+});
+
+it("describes Ground connections as recorded bonds only (#373)", () => {
+  view();
+  const button = screen.getByRole("button", { name: "Ground connections" });
+  expect(button.getAttribute("aria-describedby")).toBe(
+    "ground-connections-hint",
+  );
+  expect(
+    screen.getByText(/Unrecorded radios are not drawn as earthed/),
+  ).toBeTruthy();
+  fireEvent.click(button);
+  expect(button.getAttribute("aria-pressed")).toBe("true");
 });

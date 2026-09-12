@@ -33,7 +33,7 @@ export interface AddEquipmentPanelProps {
   position: number;
   /** Toolbar placement follows signal order; explicit gaps retain their position. */
   automaticPlacement?: boolean;
-  /** Valid equipment type options for this position (from getValidEquipmentTypes) */
+  /** Representable path categories — same catalog as drag and list insert. */
   validTypes: EquipmentTypeOption[];
   /** Called when user selects equipment to add */
   onAdd: (nodeType: string, equipmentId: string) => void;

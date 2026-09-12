@@ -304,7 +304,14 @@ export interface ChokeComponent extends InlineComponentBase {
 
 export interface BalunComponent extends InlineComponentBase {
   componentType: "balun";
-  ratio: "1:1" | "4:1" | "6:1" | "9:1" | "1:1_current" | "4:1_current";
+  ratio:
+    | "1:1"
+    | "4:1"
+    | "6:1"
+    | "9:1"
+    | "1:1_current"
+    | "4:1_current"
+    | "6:1_current";
   maxPowerWatts?: number;
   bands?: string[];
 }

@@ -100,7 +100,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     id: "weather",
     title: "Weather & Emergency",
     shortLabel: "Weather",
-    left: ["weather", "alerts"],
+    left: ["weather", "alerts", "rim"],
     right: ["emcomm", "moon"],
   },
   {

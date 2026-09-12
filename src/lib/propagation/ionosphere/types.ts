@@ -204,7 +204,8 @@ export type IonosphereQuantity =
   | "foEs"
   | "dRegionElectronDensity"
   | "collisionFrequency"
-  | "longitudinalGyrofrequency";
+  | "longitudinalGyrofrequency"
+  | "foF2DecileFactors";
 
 /**
  * `reference` reproduces ITU-R P.533-14 exactly: integer month, integer UTC

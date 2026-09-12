@@ -3,7 +3,7 @@
  *
  * Pure presentational component with variant-based coloring. Renders as
  * `<button>` when onClick is provided, otherwise `<span>`. Supports
- * optional icon and pulse animation.
+ * optional icon.
  */
 
 import type { ReactNode } from "react";
@@ -15,14 +15,6 @@ export interface RadioBadgeProps {
   label: string;
   /** Color variant. Default "default". */
   variant?: "default" | "danger" | "success" | "warning" | "accent";
-  /**
-   * Apply animate-pulse to the badge. Deprecated: Tailwind's pulse fades
-   * the WHOLE element (including the label text) to 50% opacity at the
-   * trough, which halves the contrast of the label against its tint for
-   * half of every cycle (#847, same defect as the `Badge` `storm` variant
-   * in #827). No-op until a decorative-only pulse cue is designed.
-   */
-  pulse?: boolean;
   /** Optional icon rendered before the label. */
   icon?: ReactNode;
   /** Click handler. When provided, renders as interactive button. */
@@ -55,9 +47,6 @@ const SIZE_CLASSES = {
 export function RadioBadge({
   label,
   variant = "default",
-  // `pulse` is accepted for API compatibility but intentionally unused --
-  // see the prop's doc comment.
-  pulse: _pulse = false,
   icon,
   onClick,
   size = "sm",

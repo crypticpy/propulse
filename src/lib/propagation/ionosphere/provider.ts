@@ -186,6 +186,17 @@ export const CAPABILITIES: Readonly<
     status: "supported",
     note: "|fH sin(dip)| at 100 km from the P.1239 section 2 field expansion, MHz",
   },
+  foF2DecileFactors: {
+    status: "supported",
+    note:
+      "ITU-R P.1239-3 Tables 2 and 3, within-the-month lower and upper decile " +
+      "multipliers of the median foF2, dimensionless. Read through " +
+      "`resolveFoF2DecileFactors` in `decileFactors.ts` rather than `state()`: " +
+      "the factors come from a second asset that is fetched and verified on " +
+      "first use, and they are indexed by local time, season and R12 range " +
+      "rather than by the instant and position a state is built from. Until " +
+      "that asset resolves the accessor answers `unknown` with the reason.",
+  },
 });
 
 export interface IonosphereProvider {

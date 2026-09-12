@@ -50,4 +50,27 @@ describe("WasMap", () => {
     ).toBeGreaterThanOrEqual(2);
     expect(within(dialog).getByText("TX").className).toContain("font-mono");
   });
+
+  it("closes on Escape and restores focus to the clicked state cell", () => {
+    render(
+      <WasMap
+        slots={SLOTS}
+        totalStates={50}
+        workedCount={1}
+        confirmedCount={1}
+        neededCount={49}
+      />,
+    );
+
+    const cell = screen.getByTitle("Texas — Confirmed");
+    cell.focus();
+    fireEvent.click(cell);
+    expect(
+      screen.getByRole("dialog", { name: /Details for Texas/ }),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(cell);
+  });
 });

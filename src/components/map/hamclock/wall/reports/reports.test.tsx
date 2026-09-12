@@ -11,6 +11,10 @@ import { BandActivityTile } from "../tiles/BandActivityTile";
 import { BandActivityReport } from "./BandActivityReport";
 import { DxTargetReport } from "./DxTargetReport";
 import { WeatherReport } from "./WeatherReport";
+import {
+  assertReportDoesNotOverflow,
+  withReportLayout,
+} from "./assertReportDoesNotOverflow";
 
 let capturedRuntime: ScopedViewRuntime | null = null;
 
@@ -412,4 +416,30 @@ it.each(["rest", "bridge"] as const)("TOP DX uses its own %s source timestamp an
     expect(screen.getByText(/12:00 UTC/)).toBeTruthy();
     expect(screen.queryByText("SPOTS · 60 MIN")).toBeNull();
   } finally { useDXStore.setState(previous); }
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the Weather report body or boxes", () => {
+    mocks.weather.mockReturnValue({
+      weather: {
+        temperature: 25,
+        windSpeed: 10,
+        windDirection: 180,
+        humidity: 40,
+        pressure: 1012,
+        precipitationProbability: 5,
+        precipitation: 0,
+        weatherCode: 0,
+        isDay: true,
+      },
+      isLoading: false,
+      error: null,
+      hasLocation: true,
+    });
+    mocks.alerts.mockReturnValue({ alerts: [], isLoading: false, error: null });
+    render(<WeatherReport open onClose={vi.fn()} focus="weather" />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Weather");
+    });
+  });
 });

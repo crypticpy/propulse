@@ -7,6 +7,11 @@ export {
   statusText,
   statusLabel,
   STATUS_OPTIONS,
+  legendSwatchConfirmed,
+  legendSwatchWorked,
+  legendSwatchNeeded,
+  progressFillConfirmed,
+  progressFillWorked,
   type StatusFilterValue,
 } from "./status";
 export { SlotChipList, type SlotChipListProps } from "./SlotChipList";

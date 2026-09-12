@@ -197,7 +197,6 @@
     "HamClockInfoPanel": "src/components/map/hamclock/HamClockInfoPanel.tsx",
     "HamClockLayerChips": "src/components/map/hamclock/HamClockLayerChips.tsx",
     "HamClockModeSwitch": "src/components/map/hamclock/HamClockModeSwitch.tsx",
-    "HamClockMoonPanel": "src/components/map/hamclock/HamClockMoonPanel.tsx",
     "HamClockProjectionSwitch": "src/components/map/hamclock/HamClockProjectionSwitch.tsx",
     "HamClockButton": "src/components/map/hamclock/wall/controls/HamClockButton.tsx",
     "HamClockDialog": "src/components/map/hamclock/wall/controls/HamClockDialog.tsx",

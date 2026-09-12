@@ -137,19 +137,13 @@ export const ALL_EQUIPMENT_OPTIONS: EquipmentTypeOption[] = [
 ];
 
 /**
- * Get equipment types valid for insertion at a given position.
- * leftRank = rank of the node to the left (null if inserting at position 0)
- * rightRank = rank of the node to the right (null if inserting at end)
+ * Representable path equipment for explicit insertion (gap click, keyboard,
+ * list Insert before/after, and drag). Canonical rank is guidance for
+ * automatic toolbar placement and validateChain warnings — it must not hide
+ * a category the operator can already drop at the same gap.
  */
-export function getValidEquipmentTypes(
-  leftRank: number | null,
-  rightRank: number | null,
-): EquipmentTypeOption[] {
-  return ALL_EQUIPMENT_OPTIONS.filter((opt) => {
-    if (leftRank !== null && opt.rank < leftRank) return false;
-    if (rightRank !== null && opt.rank > rightRank) return false;
-    return true;
-  });
+export function getValidEquipmentTypes(): EquipmentTypeOption[] {
+  return ALL_EQUIPMENT_OPTIONS;
 }
 
 // ─── Chain Validation ──────────────────────────────────────────────────────

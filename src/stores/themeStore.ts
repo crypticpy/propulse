@@ -12,6 +12,7 @@ import {
   getTheme,
   getAccentPreset,
   applyThemeToDocument,
+  clampSaturation,
 } from "@/lib/themes";
 import { useSettingsStore } from "@/stores/settingsStore";
 
@@ -19,10 +20,13 @@ interface ThemeState {
   themeId: ThemeId;
   accentId: string;
   customPrimary: string | null;
+  /** Chroma scale for the five tone tokens. 0.8…1.4, default 1 (100 %). */
+  saturation: number;
 
   setTheme: (themeId: ThemeId) => void;
   setAccent: (accentId: string) => void;
   setCustomColors: (primary: string | null) => void;
+  setSaturation: (saturation: number) => void;
 }
 
 const STORAGE_KEY = "propulse-theme";
@@ -32,7 +36,9 @@ const STORAGE_KEY = "propulse-theme";
 // is no version field to bump. `customSecondary` (Settings' now-removed
 // "Secondary Color" control) is simply never read from the parsed blob below,
 // so a stale key left over in an old visitor's localStorage is inert — the
-// equivalent of a migration step dropping it, without needing one.
+// equivalent of a migration step dropping it, without needing one. `saturation`
+// is the same shape of migration: a missing key is `clampSaturation(undefined)`
+// which is 1, the pre-slider identity.
 function loadPersistedTheme(): Partial<ThemeState> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +59,15 @@ function persistTheme(state: Partial<ThemeState>) {
   }
 }
 
+function persistThemeState(state: ThemeState) {
+  persistTheme({
+    themeId: state.themeId,
+    accentId: state.accentId,
+    customPrimary: state.customPrimary,
+    saturation: state.saturation,
+  });
+}
+
 function applyCurrentTheme(state: ThemeState) {
   const theme = getTheme(state.themeId);
   let accent: AccentColor | undefined;
@@ -65,11 +80,13 @@ function applyCurrentTheme(state: ThemeState) {
 
   // Colour-blind mode is part of every theme write, not a later overlay: the
   // tone tokens it swaps are inline styles on <html>, so re-applying the theme
-  // without it would silently undo the swap.
+  // without it would silently undo the swap. Saturation is the same write so
+  // first paint never flashes the unscaled palette.
   applyThemeToDocument(
     theme,
     accent,
     useSettingsStore.getState().colorBlindMode ?? "none",
+    state.saturation,
   );
 }
 
@@ -80,9 +97,11 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     themeId: (persisted.themeId as ThemeId) || "dark",
     accentId: persisted.accentId || "plasma",
     customPrimary: persisted.customPrimary || null,
+    saturation: clampSaturation(persisted.saturation),
     setTheme: () => {},
     setAccent: () => {},
     setCustomColors: () => {},
+    setSaturation: () => {},
   };
 
   return {
@@ -91,33 +110,29 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     setTheme: (themeId) => {
       set({ themeId });
       const state = get();
-      persistTheme({
-        themeId,
-        accentId: state.accentId,
-        customPrimary: state.customPrimary,
-      });
+      persistThemeState(state);
       applyCurrentTheme(state);
     },
 
     setAccent: (accentId) => {
       set({ accentId, customPrimary: null });
       const state = get();
-      persistTheme({
-        themeId: state.themeId,
-        accentId,
-        customPrimary: null,
-      });
+      persistThemeState(state);
       applyCurrentTheme(state);
     },
 
     setCustomColors: (primary) => {
       set({ customPrimary: primary });
       const state = get();
-      persistTheme({
-        themeId: state.themeId,
-        accentId: state.accentId,
-        customPrimary: primary,
-      });
+      persistThemeState(state);
+      applyCurrentTheme(state);
+    },
+
+    setSaturation: (value) => {
+      const saturation = clampSaturation(value);
+      set({ saturation });
+      const state = get();
+      persistThemeState(state);
       applyCurrentTheme(state);
     },
   };
@@ -141,6 +156,7 @@ if (typeof window !== "undefined") {
           themeId: newState.themeId,
           accentId: newState.accentId,
           customPrimary: newState.customPrimary,
+          saturation: clampSaturation(newState.saturation),
         });
         applyCurrentTheme(useThemeStore.getState());
       } catch {
@@ -153,6 +169,7 @@ if (typeof window !== "undefined") {
 // Selectors
 export const selectThemeId = (state: ThemeState) => state.themeId;
 export const selectAccentId = (state: ThemeState) => state.accentId;
+export const selectSaturation = (state: ThemeState) => state.saturation;
 
 /**
  * Re-run applyThemeToDocument for the current theme/accent without changing

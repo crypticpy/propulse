@@ -4,6 +4,7 @@ import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore"
 import type { WallTileProps } from "../HamClockTile";
 import { recentContactsConfig } from "../config/recentContactsConfig";
 import { PskStationTile } from "./PskStationTile";
+import { RimTile } from "./RimTile";
 import { WsjtxTile } from "./WsjtxTile";
 import { ActivationsTile } from "./ActivationsTile";
 import { AlertsTile } from "./AlertsTile";
@@ -60,7 +61,8 @@ export type TileId =
   | "recentContacts"
   | "dxTarget"
   | "contests"
-  | "dxpeditions";
+  | "dxpeditions"
+  | "rim";
 
 export interface WallTile {
   title: string;
@@ -100,4 +102,5 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   dxTarget: { title: "DX target", Component: DxTargetTile },
   contests: { title: "Contests", Component: ContestsTile },
   dxpeditions: { title: "DXpeditions", Component: DxpeditionsTile },
+  rim: { title: "Radio impact", Component: RimTile },
 };

@@ -46,6 +46,23 @@ describe("scoped working copy", () => {
     expect(config.spots.paths.animate).toBe("all-displayed");
   });
 
+  it("keeps both path-appearance writes when they flush without a render between them", () => {
+    const handle = view();
+    const { result } = renderHook(() => useSpotsPreferences({ view: handle.view }));
+    const before = handle.runtime.getSnapshot().config.spots.paths.background;
+
+    act(() => {
+      result.current.patchPaths({ background: { travelSeconds: 3 } });
+      result.current.patchPaths({ background: { trailSeconds: 20 } });
+    });
+
+    const after = handle.runtime.getSnapshot().config.spots.paths.background;
+    expect(after.travelSeconds).toBe(3);
+    expect(after.trailSeconds).toBe(20);
+    expect(after.fadeSeconds).toBe(before.fadeSeconds);
+    expect(after.repeatSeconds).toBe(before.repeatSeconds);
+  });
+
   it("restores filter defaults without touching grouping, motion or the preset", () => {
     const handle = view();
     const { result } = renderHook(() => useSpotsPreferences({ view: handle.view }));

@@ -62,4 +62,27 @@ describe("DxccGrid", () => {
     expect(within(dialog).getByText("Modes")).toBeTruthy();
     expect(within(dialog).getByText("CW")).toBeTruthy();
   });
+
+  it("closes on Escape and restores focus to the clicked entity cell", () => {
+    render(
+      <DxccGrid
+        slots={SLOTS}
+        totalEntities={340}
+        workedCount={0}
+        confirmedCount={0}
+        neededCount={340}
+      />,
+    );
+
+    const cell = screen.getByTitle("Japan (JA) — Needed");
+    cell.focus();
+    fireEvent.click(cell);
+    expect(
+      screen.getByRole("dialog", { name: /Details for Japan/ }),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(cell);
+  });
 });

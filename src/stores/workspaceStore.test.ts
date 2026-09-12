@@ -44,6 +44,11 @@ const ONE_WEIGHT_RAIL_IDS = Object.values(WIDGET_REGISTRY)
   )
   .map((entry) => entry.id);
 
+const WORKSTATION_RAIL_BUDGET = canvasRulesFor("workstation").rails.reduce(
+  (n, rail) => n + rail.weightBudget,
+  0,
+);
+
 describe("workspaceStore", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -97,16 +102,17 @@ describe("workspaceStore", () => {
 
     it("refuses once every eligible rail is full, without evicting or spilling", () => {
       // Every weight-1, rail-eligible, non-hero registry entry — enough to
-      // exactly fill workstation's left(5) + right(6) + bottom(6) = 17 slots.
-      const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, 17);
-      expect(oneWeightIds).toHaveLength(17);
+      // exactly fill the workstation's declared rail budgets.
+      const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, WORKSTATION_RAIL_BUDGET);
+      expect(oneWeightIds).toHaveLength(WORKSTATION_RAIL_BUDGET);
+      expect(ONE_WEIGHT_RAIL_IDS.length).toBeGreaterThan(WORKSTATION_RAIL_BUDGET);
 
       for (const id of oneWeightIds) {
         expect(useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, id)).toEqual({ ok: true });
       }
       expect(activePage().widgetIds).toEqual(oneWeightIds);
 
-      const overflowId = ONE_WEIGHT_RAIL_IDS[17];
+      const overflowId = ONE_WEIGHT_RAIL_IDS[WORKSTATION_RAIL_BUDGET];
       const result = useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, overflowId);
       expect(result.ok).toBe(false);
       expect(result.ok === false && result.reason).toMatch(/full/i);
@@ -185,12 +191,13 @@ describe("workspaceStore", () => {
 
     it("refuses a reorder that would push the page over its rail budget (PR #676 review)", () => {
       // mapHero (weight 3) is hero first; cluster (weight 2) falls back to a
-      // rail. Fill the remaining 15 of the workstation's 17 rail slots so the
-      // rails are exactly full with cluster's 2 slots already counted.
+      // rail. Fill the remaining rail slots so the rails are exactly full
+      // with cluster's weight already counted.
       useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, "mapHero");
       useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, "cluster");
-      const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, 15);
-      expect(oneWeightIds).toHaveLength(15);
+      const remaining = WORKSTATION_RAIL_BUDGET - WIDGET_REGISTRY.cluster.weight;
+      const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, remaining);
+      expect(oneWeightIds).toHaveLength(remaining);
       for (const id of oneWeightIds) {
         expect(useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, id)).toEqual({ ok: true });
       }

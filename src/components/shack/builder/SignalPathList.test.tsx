@@ -38,11 +38,19 @@ beforeEach(() => {
     ],
   });
 });
-function Harness({ onSelect = vi.fn(), onSwap = vi.fn(), onRemove = vi.fn() }) {
+function Harness({
+  onSelect = vi.fn(),
+  onInsert = vi.fn(),
+  onSwap = vi.fn(),
+  onRemove = vi.fn(),
+}) {
   const current = useShackStore((s) => s.stationChains[0]);
   return (
     <StationProvider>
-      <SignalPathList chain={current} {...{ onSelect, onSwap, onRemove }} />
+      <SignalPathList
+        chain={current}
+        {...{ onSelect, onInsert, onSwap, onRemove }}
+      />
     </StationProvider>
   );
 }
@@ -143,7 +151,12 @@ describe("non-drag signal-path editing", () => {
     );
   });
   it("uses current ordered positions for configure, swap and confirmed removal requests", () => {
-    const callbacks = { onSelect: vi.fn(), onSwap: vi.fn(), onRemove: vi.fn() };
+    const callbacks = {
+      onSelect: vi.fn(),
+      onInsert: vi.fn(),
+      onSwap: vi.fn(),
+      onRemove: vi.fn(),
+    };
     render(<Harness {...callbacks} />);
     fireEvent.click(
       screen.getByRole("button", { name: "Configure Garden dipole" }),
@@ -157,4 +170,21 @@ describe("non-drag signal-path editing", () => {
     expect(callbacks.onRemove).toHaveBeenCalledWith(1, "Garden dipole");
     expect(useShackStore.getState().stationChains[0].nodes).toHaveLength(2);
   });
+  it.each([
+    { name: "Insert before Radio unavailable", position: 0 },
+    { name: "Insert after Radio unavailable", position: 1 },
+    { name: "Insert before Garden dipole", position: 1 },
+    { name: "Insert after Garden dipole", position: 2 },
+  ])(
+    "requests explicit insertion at $position via $name",
+    ({ name, position }) => {
+      const onInsert = vi.fn();
+      render(<Harness onInsert={onInsert} />);
+      fireEvent.click(screen.getByRole("button", { name }));
+      expect(onInsert).toHaveBeenCalledWith(position);
+      expect(useShackStore.getState().stationChains[0].nodes).toEqual(
+        chain.nodes,
+      );
+    },
+  );
 });

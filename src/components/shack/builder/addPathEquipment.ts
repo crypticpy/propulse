@@ -4,7 +4,11 @@ import { MAX_CHAIN_NODES, type ChainNode } from "@/types/stationChain";
 
 type Result = { ok: true } | { ok: false; error: string };
 
-/** UI command adapter. An omitted position means automatic category ordering. */
+/**
+ * UI command adapter shared by canvas drop, gap/list picker, and Add to path.
+ * An omitted position means automatic category ordering; an explicit position
+ * is the selected gap and is never rewritten to canonical rank order.
+ */
 export function addPathEquipment(
   chainId: string,
   nodeType: string,

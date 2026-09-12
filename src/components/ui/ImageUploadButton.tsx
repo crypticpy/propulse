@@ -9,7 +9,6 @@
 import { useState, useRef, useCallback } from "react";
 import { ImageCropDialog } from "@/components/ui/ImageCropDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { deleteImage } from "@/lib/db/imageStore";
 import { useImageUrl } from "@/hooks/useImageUrl";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -129,14 +128,9 @@ export function ImageUploadButton({
     setCropSrc(null);
   }, []);
 
-  // Remove current image
-  const handleRemove = useCallback(async () => {
+  // Detach from this context; store actions purge orphaned blobs.
+  const handleRemove = useCallback(() => {
     if (!imageId) return;
-    try {
-      await deleteImage(imageId);
-    } catch (err) {
-      console.error("[ImageUploadButton] Failed to delete image:", err);
-    }
     onImageChange(undefined);
   }, [imageId, onImageChange]);
 

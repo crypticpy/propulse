@@ -19,11 +19,11 @@ export function PathsMotionSection({ controller }: { controller: SpotsPreference
   const selectedValue = selected ?? background;
 
   const patchBackground = (patch: Partial<PathAppearance>) =>
-    controller.patchPaths({ background: { ...background, ...patch } });
+    controller.patchPaths({ background: patch });
 
   const patchSelected = (patch: Partial<PathAppearance>) => {
     if (selected === null) return;
-    controller.patchPaths({ selected: { ...selected, ...patch } });
+    controller.patchPaths({ selected: patch });
   };
 
   const sameAsBackgroundId = `${controller.instanceId}-paths-same-as-background`;

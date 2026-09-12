@@ -33,6 +33,16 @@ export interface RIMInput {
   operationalRepeaterRatio: number | null;
   nvisViable: boolean;
   alertMaxSeverityLevel: number; // 0=none, 1=Minor, 2=Moderate, 3=Severe, 4=Extreme
+
+  // Feed-success flags — distinguish a feed that succeeded with a quiet/empty
+  // result (e.g. no active alerts) from one that never answered, and let
+  // EmComm availability reflect what the scorer actually has rather than
+  // station coordinates alone (#916 review).
+  alertsFeedOk: boolean;
+  lightningFeedOk: boolean;
+  floodFeedOk: boolean;
+  repeatersFeedOk: boolean;
+  sfiFeedOk: boolean;
 }
 
 /** Weather-to-radio impact matrix entry */

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -247,5 +247,18 @@ describe("HamClockWall", () => {
     expect(
       screen.queryByRole("group", { name: "Layout density" }),
     ).toBeNull();
+  });
+
+  it("sets data-density from the display store", () => {
+    renderWall();
+    expect(document.querySelector(".hc-wall")?.getAttribute("data-density")).toBe(
+      "wall",
+    );
+    act(() => {
+      useHamClockDisplayStore.getState().setDensity("desk");
+    });
+    expect(document.querySelector(".hc-wall")?.getAttribute("data-density")).toBe(
+      "desk",
+    );
   });
 });

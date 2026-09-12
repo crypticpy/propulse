@@ -255,5 +255,32 @@
     "repository": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF.git",
     "commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
     "role": "verification only; no file from this tree is copied into Propulse, preserving the #952 redistribution policy"
+  },
+  "decile_factors": {
+    "asset": {
+      "path": "public/propagation/ionosphere/p1239-decile-factors-v1.bin",
+      "served_at": "/propagation/ionosphere/p1239-decile-factors-v1.bin",
+      "bytes": 65728,
+      "sha256": "sha256:61512a7c69f2bef4a8aa11de8270ad91188efbe1ea16dcd18b5f4b9d24c6663a",
+      "encoding": "64-byte header (magic PROPULSE-P1239-DECILES, uint32 schema, deciles, seasons, R12 ranges, latitudes, hours) then little-endian float64 ordered decile (lower, upper), season (winter, equinox, summer), R12 range (<50, 50..100, >100), latitude ascending 0..90 by 5, hour 0..23"
+    },
+    "model": {
+      "name": "foF2 within-the-month decile factors",
+      "recommendation": "ITU-R P.1239-3 Tables 2 and 3",
+      "quantity": "lower and upper decile factors for the within-the-month variation of foF2, dimensionless multipliers of the monthly median",
+      "consumed_by": "ITU-R P.533-14 section 3.6 within-the-month probability of ionospheric propagation support; the circuit MUF decile deviations are #954, not this leaf",
+      "axes": "2 deciles x 3 seasons x 3 R12 ranges x 19 latitudes (0..90 by 5 degrees) x 24 local-time hours"
+    },
+    "source": {
+      "origin": "ITU-R P.1239-3 Tables 2 and 3 as published in the ITU-R Study Group 3 reference distribution; the file's own header still reads P.1239-2, which is the edition the numbers were first tabulated in",
+      "repository": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF",
+      "commit": "1842db683f3f19146e60c77302f79172dfab0b7a",
+      "path": "P533/Data/P1239-3 Decile Factors.txt",
+      "url": "https://raw.githubusercontent.com/ITU-R-Study-Group-3/ITU-R-HF/1842db683f3f19146e60c77302f79172dfab0b7a/P533/Data/P1239-3%20Decile%20Factors.txt",
+      "sha256": "sha256:1ca1a014e11b2f33a7f8c7c47b824e5fd53dd3a9ff89f07bb257e02d33b20aa9",
+      "bytes": 73427,
+      "captured_at": "2026-09-12T04:38:25Z",
+      "capture_note": "The url is pinned to the immutable commit that last changed the file (2019-02-27), so a capture older than generated_at is still the same bytes. The text file is transcoded and is not redistributed, preserving the #952 policy."
+    }
   }
 }

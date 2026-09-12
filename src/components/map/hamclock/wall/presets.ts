@@ -72,7 +72,7 @@ const WEATHER_WALL_PRESET: WallPreset = {
   layout: layoutOf([
     {
       pageId: PAGE_ID.weather,
-      left: ["weather", "alerts"],
+      left: ["weather", "alerts", "rim"],
       right: ["emcomm", "moon"],
     },
     {

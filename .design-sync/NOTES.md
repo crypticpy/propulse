@@ -145,3 +145,8 @@
 - Sequence: after the 20-path delete, `_ds_sync.json` was rewritten with the four components stripped from `renderHashes`, `sourceHashes` and `sourceKeys` (238 / 714 / 238 entries) and uploaded alone, last, behind a fresh `_ds_needs_recompile` sentinel. `_ds_bundle.js` and the bundle `README.md` still come from the pre-removal build and mention the four names — a full rebuild clears that; not required for this close-out.
 - **propulsetecnologies `30f79cc2…` still owes:** the workspace README guideline + `guidelines/index.md`, the same 20-path delete pass, and the recomputed sidecar. Needs `/design-login` as that account.
 - The DesignSync tool is only available to the orchestrating session, not to sub-agents; pushes are done by the session itself.
+
+## 2026-09-10 B8 orphan tail (#888) — HamClockMoonPanel
+
+- Deleted orphan `HamClockMoonPanel` (src + test + `.design-sync/previews/HamClockMoonPanel.tsx`). Removed its `componentSrcMap` entry and `ds-entry.tsx` re-export. **Local `componentSrcMap` count is now 238** (was 239 on this `origin/main`). Moon tile/report keep `getMoonConditions`.
+- **Both mirrors still owe `delete_files` for `HamClockMoonPanel`:** propulsetecnologies `30f79cc2…` (already owed the four earlier names plus this fifth) and aboveearthproductions `b5bd52bb…` (already deleted the four; this adds `HamClockMoonPanel` as a fifth). Orchestrator-only — do not run DesignSync upload from a worker.

@@ -64,7 +64,7 @@ export function MonitoredRegionManager() {
           <span className="text-su-muted truncate">{r.name}</span>
           <button
             onClick={() => removeRegion(r.id)}
-            className="ml-1 text-su-muted hover:text-alert-red text-[10px] shrink-0"
+            className="ml-1 text-su-muted hover:text-alert-red text-xs shrink-0"
           >
             ✕
           </button>
@@ -86,7 +86,7 @@ export function MonitoredRegionManager() {
           <button
             onClick={handleAdd}
             disabled={isGeocoding || !inputValue.trim()}
-            className="px-2 py-1 rounded bg-su-line/10 text-[10px] text-su-muted hover:text-su-text hover:bg-su-line/20 disabled:opacity-30"
+            className="px-2 py-1 rounded bg-su-line/10 text-xs text-su-muted hover:text-su-text hover:bg-su-line/20 disabled:opacity-30"
           >
             {isGeocoding ? "..." : "+"}
           </button>
@@ -94,7 +94,7 @@ export function MonitoredRegionManager() {
       )}
 
       {regions.length === 0 && (
-        <p className="text-[10px] text-su-line text-center py-1">
+        <p className="text-xs text-su-line text-center py-1">
           Add cities to monitor RIM scores
         </p>
       )}

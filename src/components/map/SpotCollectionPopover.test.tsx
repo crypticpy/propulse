@@ -17,8 +17,8 @@
  * against an actual painted map — only the computed style values and the
  * class/row contract that produces scrolling vs. capping.
  */
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
@@ -84,6 +84,43 @@ function makeHost(width: number, height: number, left = 0, top = 0) {
     }) as DOMRect;
   document.body.appendChild(host);
   return host;
+}
+
+/** jsdom has no flex layout; stub the measured list-body slot the wall cap
+ * reads via ResizeObserver (#1065). */
+function stubWallListBodyMeasurement(
+  resolveHeight: (panel: HTMLElement) => number = settledWallListBodyHeight,
+) {
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+    function (this: HTMLElement) {
+      if (this.dataset.spotListBody === undefined) return 0;
+      const panel = this.closest('[role="dialog"]');
+      return panel instanceof HTMLElement ? resolveHeight(panel) : 0;
+    },
+  );
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      #cb: () => void;
+      constructor(cb: () => void) {
+        this.#cb = cb;
+      }
+      observe() {
+        queueMicrotask(() => this.#cb());
+      }
+      disconnect() {}
+    },
+  );
+}
+
+/** Approximates the row-only flex slot once "+N more" is on screen. */
+function settledWallListBodyHeight(panel: HTMLElement): number {
+  const maxHeight = Number.parseFloat(panel.style.maxHeight);
+  return (
+    maxHeight -
+    SPOT_COLLECTION_POPOVER_CHROME_HEIGHT -
+    SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT
+  );
 }
 
 describe("SpotCollectionPopover host-bounded height (#846)", () => {
@@ -176,7 +213,13 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
   });
 
   describe("on the HamClock wall (isWallCanvas prop)", () => {
-    it("caps rows and shows a +N more affordance instead of scrolling, announcing the capped count", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    it("caps rows and shows a +N more affordance instead of scrolling, announcing the capped count", async () => {
+      stubWallListBodyMeasurement();
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
@@ -187,9 +230,14 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
           spots={makeSpots(80)}
           portalTarget={host}
           onClose={() => {}}
-          onSpotSelect={() => {}}
-        />,
-      );
+        onSpotSelect={() => {}}
+      />,
+    );
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+        ).toBe(4);
+      });
       const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
       // 5, not 6: every spot in `makeSpots` carries a `dxGrid`, so each row
       // renders the three-line variant (72px, not 54px). Budgeting them all
@@ -226,7 +274,8 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       expect(screen.queryByText(/more$/)).toBeNull();
     });
 
-    it("caps rows via the isWallCanvas prop with no workspace override set, matching HamClockView's mount (#846/#871 round 3)", () => {
+    it("caps rows via the isWallCanvas prop with no workspace override set, matching HamClockView's mount (#846/#871 round 3)", async () => {
+      stubWallListBodyMeasurement();
       // The regression this proves: HamClockView never touches
       // `workspaceStore` (it is outside `WorkspacePage`), so a fix that
       // still depended on `canvasTypeOverride` would never actually cap
@@ -247,14 +296,17 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
       expect(useWorkspaceStore.getState().canvasTypeOverride).toBeNull();
-      expect(
-        screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(4);
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
+        ).toHaveLength(4);
+      });
       expect(screen.getByText("+76 more")).toBeTruthy();
       host.remove();
     });
 
-    it("derives the wall row cap from maxHeight instead of a fixed count (#879)", () => {
+    it("derives the wall row cap from maxHeight instead of a fixed count (#879)", async () => {
+      stubWallListBodyMeasurement();
       const host = makeHost(400, 260);
       render(
         <SpotCollectionPopover
@@ -269,14 +321,17 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
 
-      const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
-      expect(rows.length).toBeLessThan(4);
-      expect(rows.length).toBeGreaterThan(0);
+      await vi.waitFor(() => {
+        const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+        expect(rows.length).toBeLessThan(4);
+        expect(rows.length).toBeGreaterThan(0);
+      });
       expect(screen.getByText(/\+\d+ more/)).toBeTruthy();
       host.remove();
     });
 
-    it("keeps the +N more row outside the clipped list body (#879)", () => {
+    it("keeps the +N more row outside the clipped list body (#879)", async () => {
+      stubWallListBodyMeasurement();
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
@@ -291,6 +346,9 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
 
+      await vi.waitFor(() => {
+        expect(screen.getByText("+76 more")).toBeTruthy();
+      });
       const panel = screen.getByRole("dialog");
       const moreRow = screen.getByText("+76 more");
       const listBody = panel.querySelector(":scope > div:nth-child(2)");
@@ -304,6 +362,9 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
     });
 
     it("recomputes layout when the host rect changes (#879)", async () => {
+      let resolveListBodyHeight: (panel: HTMLElement) => number =
+        settledWallListBodyHeight;
+      stubWallListBodyMeasurement((panel) => resolveListBodyHeight(panel));
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
@@ -318,9 +379,11 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
 
-      expect(
-        screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
-      ).toHaveLength(4);
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
+        ).toHaveLength(4);
+      });
 
       host.getBoundingClientRect = () =>
         ({
@@ -336,6 +399,13 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         }) as DOMRect;
 
       window.dispatchEvent(new Event("resize"));
+      resolveListBodyHeight = (panel) =>
+        Number.parseFloat(panel.style.maxHeight) -
+        SPOT_COLLECTION_POPOVER_CHROME_HEIGHT -
+        SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       await vi.waitFor(() => {
         expect(
@@ -345,12 +415,13 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       host.remove();
     });
 
-    it("budgets the grid/comment third line so every rendered row fits the clipped body (#879)", () => {
+    it("budgets the grid/comment third line so every rendered row fits the clipped body (#879)", async () => {
+      stubWallListBodyMeasurement();
       // The wall body is `overflow-hidden`, so a row that does not fit is not
       // scrolled to, it is invisible -- while the aria label and the "+N more"
       // count still claim it. Every spot here carries a `dxGrid`, so each row
-      // is the three-line variant; the rendered count must fit the list budget
-      // at THAT height, not at the two-line height.
+      // is the three-line variant; the rendered count must fit the measured
+      // list body at THAT height, not at the two-line height.
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
@@ -365,20 +436,52 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
 
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+        ).toBeGreaterThan(0);
+      });
       const panel = screen.getByRole("dialog");
       const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+      const listBody = panel.querySelector("[data-spot-list-body]");
       const listBudget =
-        Number.parseFloat(panel.style.maxHeight) -
-        SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
-      const needed =
-        rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT +
-        SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
+        listBody instanceof HTMLElement ? listBody.clientHeight : 0;
+      const needed = rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT;
 
       expect(needed).toBeLessThanOrEqual(listBudget);
       host.remove();
     });
 
+    it("caps against the measured list body when the footer is taller (onMapTheseSpots, #1065)", async () => {
+      stubWallListBodyMeasurement(
+        (panel) =>
+          settledWallListBodyHeight(panel) - SPOT_COLLECTION_WALL_DETAIL_ROW_HEIGHT,
+      );
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+          onMapTheseSpots={() => {}}
+        />,
+      );
+
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+        ).toBe(3);
+      });
+      host.remove();
+    });
+
     it("re-derives the row cap when the text scale raises the root font size (#879 review round 3)", async () => {
+      stubWallListBodyMeasurement();
       // `:root[data-text-scale="xl"]` sets the document font size to 22px
       // (src/styles/globals.css), so every rem-sized row grows by ~37%. A
       // fixed-pixel budget kept rendering the 16px row count and the extra
@@ -397,6 +500,11 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
 
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+        ).toBeGreaterThan(0);
+      });
       const panel = screen.getByRole("dialog");
       const before = screen.getAllByRole("button", {
         name: /Select K\d+ABC/,
@@ -413,12 +521,10 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         });
 
         const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+        const listBody = panel.querySelector("[data-spot-list-body]");
         const listBudget =
-          Number.parseFloat(panel.style.maxHeight) -
-          SPOT_COLLECTION_POPOVER_CHROME_REM * 22;
-        const needed =
-          rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_REM * 22 +
-          SPOT_COLLECTION_WALL_MORE_ROW_REM * 22;
+          listBody instanceof HTMLElement ? listBody.clientHeight : 0;
+        const needed = rows.length * SPOT_COLLECTION_WALL_DETAIL_ROW_REM * 22;
         expect(needed).toBeLessThanOrEqual(listBudget);
       } finally {
         document.documentElement.removeAttribute("data-text-scale");
@@ -428,6 +534,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
     });
 
     it("measures the rendered rows and drops the count when they are taller than the estimate (#879 review round 4)", async () => {
+      stubWallListBodyMeasurement();
       // The badge line is `flex-wrap`: at a clamped width or a large text
       // scale a row is taller than any rem formula predicts, so the rendered
       // rows are measured and the real heights drive the cap. jsdom does no
@@ -458,11 +565,10 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
           const rows = screen.getAllByRole("button", {
             name: /Select K\d+ABC/,
           });
+          const listBody = panel.querySelector("[data-spot-list-body]");
           const listBudget =
-            Number.parseFloat(panel.style.maxHeight) -
-            SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
-          expect(rows.length * 140 + SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT).
-            toBeLessThanOrEqual(listBudget);
+            listBody instanceof HTMLElement ? listBody.clientHeight : 0;
+          expect(rows.length * 140).toBeLessThanOrEqual(listBudget);
         });
 
         const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
@@ -488,9 +594,13 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         host,
         host,
       );
-      const listBudget = maxHeight - SPOT_COLLECTION_POPOVER_CHROME_HEIGHT;
+      const listBudget =
+        maxHeight -
+        SPOT_COLLECTION_POPOVER_CHROME_HEIGHT -
+        SPOT_COLLECTION_WALL_MORE_ROW_HEIGHT;
+      stubWallListBodyMeasurement(() => listBudget);
       // Six short rows fit; the sixth measured tall never does.
-      const SHORT = Math.floor((listBudget - 40) / 6);
+      const SHORT = Math.floor(listBudget / 6);
       const TALL = listBudget;
       const measured = vi
         .spyOn(HTMLElement.prototype, "offsetHeight", "get")

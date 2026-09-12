@@ -199,7 +199,7 @@ export function QSOExportMenu() {
         <div className="absolute right-0 top-full mt-2 w-64 bg-deep-space border border-su-line/40 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
           {/* ADIF Section */}
           <div className="border-b border-su-line/20">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+            <div className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-su-muted">
               ADIF (.adi)
             </div>
             <MenuItem
@@ -223,7 +223,7 @@ export function QSOExportMenu() {
 
           {/* CSV Section */}
           <div className="border-b border-su-line/20">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+            <div className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-su-muted">
               CSV
             </div>
             <MenuItem
@@ -235,7 +235,7 @@ export function QSOExportMenu() {
 
           {/* Cabrillo Section */}
           <div>
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+            <div className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-su-muted">
               Cabrillo (.cbr)
             </div>
             <MenuItem

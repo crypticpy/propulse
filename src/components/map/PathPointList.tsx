@@ -25,7 +25,7 @@ export function PathPointList({
 
   if (points.length === 0) {
     return (
-      <p className="px-3 py-2 text-[11px] text-su-muted">
+      <p className="px-3 py-2 text-xs text-su-muted">
         No inspectable path points.
       </p>
     );
@@ -75,7 +75,7 @@ export function PathPointList({
               aria-selected={selected}
               tabIndex={selected || (!selectedId && point.id === points[0]?.id) ? 0 : -1}
               onClick={() => onSelect(point.id)}
-              className={`block w-full px-3 py-1.5 text-left text-[11px] ${
+              className={`block w-full px-3 py-1.5 text-left text-xs ${
                 selected
                   ? "bg-cyan-400/15 text-su-text"
                   : "text-su-muted hover:bg-su-line/10 hover:text-su-text"

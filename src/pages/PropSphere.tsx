@@ -49,6 +49,7 @@ import { SatelliteDetailModal } from "@/components/map/layers";
 import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
+import { FramedGlobeSatellitesPanel } from "@/components/map/FramedGlobeSatellitesPanel";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
 import { revealPropSpherePathAnalysis } from "@/components/map/openPathAnalysis";
 import { MapToolbarShell } from "@/components/map/MapToolbarShell";
@@ -915,7 +916,7 @@ export function PropSphere() {
                 {catActive && (
                   <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-su-line/10 border border-su-line/40">
                     <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-                    <span className="text-[10px] text-su-muted uppercase tracking-wider">
+                    <span className="text-xs text-su-muted uppercase tracking-wider">
                       S-Meter
                     </span>
                     <span className="text-xs font-mono font-medium text-su-text ml-auto">
@@ -1071,19 +1072,19 @@ export function PropSphere() {
                   />
                   {/* K-index */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-su-text/80 leading-none">
+                    <span className="text-xs text-su-text/80 leading-none">
                       K
                     </span>
-                    <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
+                    <span className="text-xs font-mono font-medium text-su-text/70 leading-none">
                       {miniKp ?? "–"}
                     </span>
                   </div>
                   {/* SFI */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-su-text/80 leading-none">
+                    <span className="text-xs text-su-text/80 leading-none">
                       SFI
                     </span>
-                    <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
+                    <span className="text-xs font-mono font-medium text-su-text/70 leading-none">
                       {miniSfi ?? "–"}
                     </span>
                   </div>
@@ -1300,6 +1301,10 @@ export function PropSphere() {
                 {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
                 {layers.issTracker && <ISSSkyTracker />}
 
+                {/* Persistent Satellites list — framed 3D globe (#1083).
+                    Pro mounts the same SatellitePanel from FullscreenPropSphere. */}
+                <FramedGlobeSatellitesPanel />
+
                 {/* Bottom-right corner column. PropSphere owns this corner:
                     the tilt slider, the simulated-time warning, the labels
                     panel and Lite's docked controls each anchored themselves
@@ -1334,14 +1339,14 @@ export function PropSphere() {
                           <div className="text-xs font-semibold">
                             Simulated Time
                           </div>
-                          <div className="text-[10px] opacity-80">
+                          <div className="text-xs opacity-80">
                             Viewing {timeOffset > 0 ? "+" : ""}
                             {timeOffset}h from now
                           </div>
                         </div>
                         <button
                           onClick={() => setTimeOffset(0)}
-                          className="ml-1 px-2 py-1 text-[10px] font-medium bg-su-input/50 hover:bg-su-input/70 rounded transition-colors"
+                          className="ml-1 px-2 py-1 text-xs font-medium bg-su-input/50 hover:bg-su-input/70 rounded transition-colors"
                           title="Return to live view"
                         >
                           Go Live
@@ -1441,7 +1446,7 @@ export function PropSphere() {
                               d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                             />
                           </svg>
-                          <span className="text-[11px] font-medium text-su-muted group-hover:text-su-text">
+                          <span className="text-xs font-medium text-su-muted group-hover:text-su-text">
                             Share
                           </span>
                         </button>
@@ -1449,7 +1454,7 @@ export function PropSphere() {
 
                       {/* Center: Time offset (compact) */}
                       <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-su-panel/90 backdrop-blur-md border border-su-line/40">
-                        <span className="text-[10px] uppercase tracking-wider text-su-muted">
+                        <span className="text-xs uppercase tracking-wider text-su-muted">
                           Time
                         </span>
                         <span className="text-sm font-mono text-su-text">
@@ -1458,7 +1463,7 @@ export function PropSphere() {
                         </span>
                         {timeOffset !== 0 && (
                           <span
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                            className={`text-xs font-mono px-1.5 py-0.5 rounded ${
                               timeOffset > 0
                                 ? "bg-plasma-orange/20 text-plasma-orange"
                                 : "bg-cosmic-cyan/20 text-cosmic-cyan"
@@ -1476,7 +1481,7 @@ export function PropSphere() {
                         <QuickLocationControl variant="icon" />
                         {catActive && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-su-panel/90 backdrop-blur-md border border-su-line/40">
-                            <span className="text-[10px] text-su-muted">S</span>
+                            <span className="text-xs text-su-muted">S</span>
                             <span className="text-xs font-mono font-medium text-signal-green">
                               {getSMeterText()}
                             </span>
@@ -1577,18 +1582,18 @@ export function PropSphere() {
                             fill="none"
                           />
                         </svg>
-                        <span className="text-[8px] text-su-text/80 leading-none">
+                        <span className="text-xs text-su-text/80 leading-none">
                           {formatBearing(miniPathMetrics.shortPath.bearing)}
                         </span>
                       </div>
                       {/* Distance */}
                       <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
+                        <span className="text-xs font-mono font-medium text-su-text/70 leading-none">
                           {miniPathMetrics.shortPath.distance < 1000
                             ? `${Math.round(miniPathMetrics.shortPath.distance)}`
                             : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
                         </span>
-                        <span className="text-[8px] text-su-text/80 leading-none">
+                        <span className="text-xs text-su-text/80 leading-none">
                           km
                         </span>
                       </div>
@@ -1605,7 +1610,7 @@ export function PropSphere() {
                       />
                     </>
                   ) : (
-                    <span className="text-[9px] text-su-text/80 [writing-mode:vertical-rl]">
+                    <span className="text-xs text-su-text/80 [writing-mode:vertical-rl]">
                       No target
                     </span>
                   )}

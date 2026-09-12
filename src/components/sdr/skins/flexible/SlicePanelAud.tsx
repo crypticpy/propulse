@@ -114,7 +114,7 @@ function DspSlider({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[9px] text-su-muted w-9 shrink-0">{label}</span>
+      <span className="text-xs text-su-muted w-9 shrink-0">{label}</span>
       <input
         type="range"
         min={min}
@@ -125,7 +125,7 @@ function DspSlider({
         disabled={disabled}
         className="flex-1 h-1 accent-plasma-orange disabled:opacity-40"
       />
-      <span className="text-[9px] font-mono text-su-muted w-12 text-right shrink-0">
+      <span className="text-xs font-mono text-su-muted w-12 text-right shrink-0">
         {displayValue}
       </span>
     </div>
@@ -148,7 +148,7 @@ function DspToggle({
       type="button"
       onClick={onToggle}
       disabled={disabled}
-      className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border transition-colors
+      className={`px-1.5 py-0.5 text-xs font-semibold rounded border transition-colors
         disabled:opacity-40 disabled:cursor-not-allowed ${
           active
             ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
@@ -162,7 +162,7 @@ function DspToggle({
 
 function Section({ title }: { title: string }) {
   return (
-    <div className="text-[8px] text-su-muted uppercase tracking-widest pt-1 pb-0.5 border-t border-su-line/20">
+    <div className="text-xs text-su-muted uppercase tracking-widest pt-1 pb-0.5 border-t border-su-line/20">
       {title}
     </div>
   );
@@ -250,7 +250,7 @@ export function SlicePanelAud({
 
       {/* Audio required note */}
       {!audioEnabled && (
-        <div className="text-[10px] text-su-muted italic py-1">
+        <div className="text-xs text-su-muted italic py-1">
           Start audio stream to use DSP
         </div>
       )}
@@ -469,7 +469,7 @@ export function SlicePanelAud({
           <button
             type="button"
             onClick={() => setShowFine((v) => !v)}
-            className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
+            className="px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           >
             {showFine ? "Hide Fine Controls" : "Show Fine Controls"}
           </button>
@@ -479,7 +479,7 @@ export function SlicePanelAud({
               {/* Expander fine */}
               {expanderEnabled && (
                 <>
-                  <div className="text-[8px] text-su-muted uppercase tracking-widest pt-0.5">
+                  <div className="text-xs text-su-muted uppercase tracking-widest pt-0.5">
                     Expander Fine
                   </div>
                   <DspSlider
@@ -518,7 +518,7 @@ export function SlicePanelAud({
               {/* Compressor fine */}
               {compressorEnabled && (
                 <>
-                  <div className="text-[8px] text-su-muted uppercase tracking-widest pt-0.5">
+                  <div className="text-xs text-su-muted uppercase tracking-widest pt-0.5">
                     Compressor Fine
                   </div>
                   <DspSlider
@@ -557,7 +557,7 @@ export function SlicePanelAud({
               {/* Taming fine */}
               {spectralTamingEnabled && (
                 <>
-                  <div className="text-[8px] text-su-muted uppercase tracking-widest pt-0.5">
+                  <div className="text-xs text-su-muted uppercase tracking-widest pt-0.5">
                     Taming Fine
                   </div>
                   <DspSlider
@@ -576,7 +576,7 @@ export function SlicePanelAud({
               {/* Leveler fine */}
               {levelerEnabled && (
                 <>
-                  <div className="text-[8px] text-su-muted uppercase tracking-widest pt-0.5">
+                  <div className="text-xs text-su-muted uppercase tracking-widest pt-0.5">
                     Leveler Fine
                   </div>
                   <DspSlider

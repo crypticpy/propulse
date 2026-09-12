@@ -386,7 +386,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
               key={tab.id}
               type="button"
               onClick={() => toggle(tab.id)}
-              className={`flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 px-2 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${
                 isActive
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan border-t-2 border-cosmic-cyan -mt-px"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/10"
@@ -463,7 +463,7 @@ function SlicePanelRxInline({
     <div className="space-y-2">
       {antennas.length > 0 && (
         <div className="space-y-1">
-          <div className="text-[9px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Antenna
           </div>
           <div className="flex flex-wrap gap-1">
@@ -475,7 +475,7 @@ function SlicePanelRxInline({
                   type="button"
                   onClick={() => onAntennaChange(antenna)}
                   disabled={!canControl}
-                  className={`px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors
+                  className={`px-1.5 py-0.5 text-xs font-semibold rounded border transition-colors
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
                         ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
@@ -492,7 +492,7 @@ function SlicePanelRxInline({
 
       {(preampStage || attStage) && (
         <div className="space-y-2">
-          <div className="text-[9px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Front End
           </div>
           {preampStage && (
@@ -521,7 +521,7 @@ function SlicePanelRxInline({
           <button
             type="button"
             onClick={() => setShowAdvanced((open) => !open)}
-            className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
+            className="px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           >
             {showAdvanced
               ? "Hide RX Fine Controls"
@@ -546,7 +546,7 @@ function SlicePanelRxInline({
       )}
 
       {stages.length === 0 && (
-        <div className="text-[10px] text-su-muted italic">
+        <div className="text-xs text-su-muted italic">
           No RX gain stages available
         </div>
       )}
@@ -607,7 +607,7 @@ function SlicePanelXRit({
         <button
           onClick={() => onRitToggle(!ritEnabled)}
           disabled={!canControl}
-          className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors shrink-0
+          className={`px-1.5 py-0.5 text-xs font-bold rounded border transition-colors shrink-0
             disabled:opacity-40 disabled:cursor-not-allowed ${
               ritEnabled
                 ? "bg-plasma-orange/20 border-plasma-orange/30 text-su-text"
@@ -626,7 +626,7 @@ function SlicePanelXRit({
           disabled={!canControl || !ritEnabled}
           className="flex-1 h-1 accent-plasma-orange disabled:opacity-30"
         />
-        <span className="text-[10px] font-mono text-su-muted w-14 text-right tabular-nums">
+        <span className="text-xs font-mono text-su-muted w-14 text-right tabular-nums">
           {ritOffset >= 0 ? "+" : ""}
           {ritOffset}
         </span>
@@ -634,7 +634,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onRitOffset(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
+            className="text-xs text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear RIT offset"
           >
             CLR
@@ -649,7 +649,7 @@ function SlicePanelXRit({
         <button
           onClick={() => onXitToggle(!xitEnabled)}
           disabled={!canControl}
-          className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors shrink-0
+          className={`px-1.5 py-0.5 text-xs font-bold rounded border transition-colors shrink-0
             disabled:opacity-40 disabled:cursor-not-allowed ${
               xitEnabled
                 ? "bg-cosmic-cyan/20 border-cosmic-cyan/30 text-cosmic-cyan"
@@ -668,7 +668,7 @@ function SlicePanelXRit({
           disabled={!canControl || !xitEnabled}
           className="flex-1 h-1 accent-cosmic-cyan disabled:opacity-30"
         />
-        <span className="text-[10px] font-mono text-su-muted w-14 text-right tabular-nums">
+        <span className="text-xs font-mono text-su-muted w-14 text-right tabular-nums">
           {xitOffset >= 0 ? "+" : ""}
           {xitOffset}
         </span>
@@ -676,7 +676,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onXitOffset(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
+            className="text-xs text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear XIT offset"
           >
             CLR
@@ -691,7 +691,7 @@ function SlicePanelXRit({
         <button
           onClick={() => onSplitToggle(!split)}
           disabled={!canControl}
-          className={`flex-1 px-2 py-1 text-[10px] font-bold uppercase rounded border transition-colors
+          className={`flex-1 px-2 py-1 text-xs font-bold uppercase rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               split
                 ? "bg-caution-amber/20 border-caution-amber/30 text-caution-amber"
@@ -706,7 +706,7 @@ function SlicePanelXRit({
       {/* IF Shift */}
       {supports("if_shift") && (
         <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-su-muted shrink-0 w-7">IF</span>
+        <span className="text-xs text-su-muted shrink-0 w-7">IF</span>
         <input
           type="range"
           min={-2000}
@@ -717,7 +717,7 @@ function SlicePanelXRit({
           disabled={!canControl}
           className="flex-1 h-1 accent-nebula-blue disabled:opacity-30"
         />
-        <span className="text-[10px] font-mono text-su-muted w-14 text-right tabular-nums">
+        <span className="text-xs font-mono text-su-muted w-14 text-right tabular-nums">
           {ifShift >= 0 ? "+" : ""}
           {ifShift} Hz
         </span>
@@ -725,7 +725,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onIfShift(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
+            className="text-xs text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear IF shift"
           >
             CLR
@@ -737,7 +737,7 @@ function SlicePanelXRit({
       {/* CW Speed — only shown in CW modes */}
       {isCw && supports("cw_speed") && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-su-muted shrink-0 w-7">WPM</span>
+          <span className="text-xs text-su-muted shrink-0 w-7">WPM</span>
           <input
             type="range"
             min={5}
@@ -748,7 +748,7 @@ function SlicePanelXRit({
             disabled={!canControl}
             className="flex-1 h-1 accent-signal-green disabled:opacity-30"
           />
-          <span className="text-[10px] font-mono text-su-muted w-8 text-right tabular-nums">
+          <span className="text-xs font-mono text-su-muted w-8 text-right tabular-nums">
             {cwSpeed}
           </span>
         </div>

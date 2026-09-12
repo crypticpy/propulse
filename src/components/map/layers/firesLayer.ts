@@ -7,12 +7,11 @@
  * constants (#1091).
  */
 
+import { FIRE_GLOW_COLOR, FIRE_CORE_COLOR } from "@/lib/colors/palettes/fire";
 import type { FireHotspot } from "@/lib/api/fires";
 import type { Projection } from "@/lib/map/projection";
 import type { MapLayerProfile } from "@/lib/map/mapLayerProfile";
 
-const FIRE_GLOW_COLOR = "#ff6600"; // same on both maps, so not a profile field; do NOT import from FireOverlay3D (pulls Three.js into the 2D bundle)
-const FIRE_CORE_COLOR = "#ff2200";
 const FIRE_GLOW_RADIUS_SCALE = 2; // outer glow radius as a multiple of the core radius; equal on both maps
 const FIRE_CORE_ALPHA = 0.7; // equal on both maps
 

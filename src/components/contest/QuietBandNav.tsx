@@ -71,7 +71,7 @@ export function QuietBandNav({ className = "" }: QuietBandNavProps) {
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
         <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-        <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
+        <span className="text-xs font-medium text-su-muted uppercase tracking-wide">
           Contest-free bands
         </span>
         <InfoIcon className="w-3 h-3 text-su-muted" />
@@ -109,7 +109,7 @@ export function QuietBandNav({ className = "" }: QuietBandNavProps) {
       </div>
 
       {/* Subtle explainer */}
-      <p className="mt-2 text-[10px] text-su-muted leading-relaxed">
+      <p className="mt-2 text-xs text-su-muted leading-relaxed">
         These bands have no active contest traffic. WARC bands (30m, 17m, 12m)
         are always contest-free.
       </p>

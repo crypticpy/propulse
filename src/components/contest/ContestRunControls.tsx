@@ -28,7 +28,7 @@ export function ContestRunControls({
         <button
           type="button"
           onClick={() => onRunModeChange("run")}
-          className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
             runMode === "run"
               ? "bg-su-line/20 text-su-text"
               : "text-su-muted hover:text-su-text hover:bg-su-line/10"
@@ -40,7 +40,7 @@ export function ContestRunControls({
         <button
           type="button"
           onClick={() => onRunModeChange("sp")}
-          className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
             runMode === "sp"
               ? "bg-su-line/20 text-su-text"
               : "text-su-muted hover:text-su-text hover:bg-su-line/10"

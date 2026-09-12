@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "quantity": "Tables 3, 4 and 5 of ITU-R P.533-14 section 5.3",
+  "description": "The three published tables the long-path reference frequencies need: the W, X and Y coefficients of the operational-MUF correction factor K (Table 3), the subsolar latitude for the middle of each month (Table 4), and the winter-anomaly factor at 60 degrees geographic latitude (Table 5).",
+  "provenance": {
+    "recommendation": "ITU-R P.533-14 (08/2019), Method for the prediction of the performance of HF circuits",
+    "tables": [
+      "Table 3, Values of W, X and Y used for the determination of the correction factor K (section 5.3.1)",
+      "Table 4, Subsolar latitude for the middle of the month (section 5.3.2)",
+      "Table 5, Values of the winter-anomaly factor Aw, at 60 degrees geographic latitude used in the equation for fL (section 5.3.2)"
+    ],
+    "pages": "Tables 3 and 4 on page 18 and Table 5 on page 19 of R-REC-P.533-14-201908-I!!PDF-E.pdf",
+    "transcribed_on": "2026-09-12",
+    "transcribed_from": "Read cell by cell off the published recommendation text. Thirty numbers in total: six in Table 3, twelve in Table 4 and twenty-four in Table 5. The module that reads this file pins its sha256, so an edit to any cell that does not also edit that constant fails the suite.",
+    "reference_divergence": "The pinned ITU reference build cd172be5 (MedianSkywaveFieldStrengthLong.c) carries Table 3 and Table 5 as C arrays and agrees with every cell here except one: its Table 5 Northern-hemisphere September entry is 0.00 where the published table prints 0.01. Its array is exactly antisymmetric under a six-month shift, which the published table is not. Table 4 has no counterpart in the reference at all, which computes a full solar declination instead of using the published mid-month approximation; see fL.ts deviation 1."
+  },
+  "table_3": {
+    "quantity": "W, X and Y of equation (32)",
+    "units": "dimensionless",
+    "note": "Section 5.3.1: \"The azimuth angle of the great-circle path is determined at the centre of the whole path; this angle is used to linearly interpolate the angle between the East-West and North-South values.\" The interpolation is linear in the angle, not in its cosine.",
+    "east_west": { "W": 0.1, "X": 1.2, "Y": 0.6 },
+    "north_south": { "W": 0.2, "X": 0.2, "Y": 0.4 }
+  },
+  "table_4": {
+    "quantity": "sx, the subsolar latitude for the middle of the month",
+    "units": "degrees",
+    "note": "Section 5.3.2: \"The solar declination, delta, can be approximated by the subsolar latitude for the middle of the month (sx) from Table 4.\" Index 0 is January.",
+    "subsolar_latitude_deg": [
+      -21.2, -12.7, -2.2, 9.7, 18.8, 23.3, 21.6, 14.1, 3.1, -8.4, -18.4, -23.3
+    ]
+  },
+  "table_5": {
+    "quantity": "Aw, the winter-anomaly factor at 60 degrees geographic latitude",
+    "units": "dimensionless",
+    "note": "Section 5.3.2: Aw is \"determined at the path midpoint, which is unity for geographic latitudes 0 to 30 degrees and at 90 degrees, and reaches the maximum values given in Table 5 at 60 degrees. The values at intermediate latitudes are determined through linear interpolation.\" The quantity that is unity outside the anomaly is the FACTOR (Aw + 1) of equation (33), not Aw itself; see fL.ts, which states why the sentence cannot be read the other way. Index 0 is January.",
+    "hemisphere": "Selected by the sign of the path mid-point's geographic latitude; the equator counts as northern.",
+    "northern": [
+      0.3, 0.15, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.03, 0.15, 0.3
+    ],
+    "southern": [0.0, 0.0, 0.0, 0.03, 0.15, 0.3, 0.3, 0.15, 0.03, 0.0, 0.0, 0.0]
+  }
+}

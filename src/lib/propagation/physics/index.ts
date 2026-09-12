@@ -6,8 +6,10 @@
  * screening frequency of section 4 and the mode set of section 5.2.1. Slice C:
  * the terms of the ray path basic transmission loss of section 5.2.2 and the
  * short-path median field strength and available receiver power of sections
- * 5.2.2 and 6. Later slices add the long-path method and the solver that ties
- * them together.
+ * 5.2.2 and 6. Slice D: the upper and lower reference frequencies and the
+ * median field strength of paths longer than 7 000 km (section 5.3) and the
+ * interpolation between the two methods (section 5.4). A later slice adds the
+ * solver that ties them together.
  *
  * Nothing here is wired to a consumer yet, and nothing here fetches an
  * ionosphere: a circuit passes in one sampling callback that answers for every
@@ -187,3 +189,97 @@ export {
   type ShortPathFieldStrengthInputs,
   type ShortPathPowerRange,
 } from "./fieldStrengthShort";
+
+export {
+  distanceReductionFactor,
+  f2FourThousandMufMHz,
+  f2ZeroMufMHz,
+  forwardAzimuthDegAt,
+  interpolateTable3,
+  kFactor,
+  localNoonUtcHour,
+  longPathBasicMufMHz,
+  longPathMuf,
+  FD_COEFFICIENTS,
+  FL_TABLES_SHA256,
+  K_CONSTANT,
+  LONG_PATH_MAX_HOP_COUNT,
+  LONG_PATH_MAX_HOP_KM,
+  LONG_PATH_MIN_ELEVATION_DEG,
+  LONG_PATH_MIRROR_HEIGHT_KM,
+  MAX_ROUTE_DISTANCE_KM,
+  type KFactorCoefficients,
+  type LongPathMufControlPoint,
+  type LongPathMufHour,
+  type LongPathMufInputs,
+  type LongPathMufResult,
+  type LongPathMufSampler,
+  type LongPathMufState,
+  type ResolvedLongPathMuf,
+  type UnsupportedLongPathMuf,
+} from "./longPath/fM";
+
+export {
+  applySunsetDecay,
+  longPathLuf,
+  nightLufMHz,
+  rawLufMHz,
+  solarHourAngleRad,
+  solarZenithCosine,
+  subsolarLatitudeDeg,
+  winterAnomalyFactor,
+  LUF_COEFFICIENT,
+  LUF_DECAY_EXPONENT,
+  LUF_DECAY_HOURS,
+  LUF_DECAY_PER_HOUR,
+  LUF_MAX_HOP_KM,
+  LUF_PATH_CONSTANT_KM,
+  LUF_PENETRATION_HEIGHT_KM,
+  LUF_REFLECTION_HEIGHT_KM,
+  LUF_SUNSPOT_COEFFICIENT,
+  NIGHT_LUF_DISTANCE_KM,
+  WINTER_ANOMALY_LATITUDES_DEG,
+  type LongPathLufInputs,
+  type LongPathLufResult,
+  type LufHour,
+  type LufPenetrationPoint,
+  type ResolvedLongPathLuf,
+  type UnsupportedLongPathLuf,
+} from "./longPath/fL";
+
+export {
+  etlDbuVPerM,
+  focusGainUnlimitedDb,
+  freeSpaceFieldStrengthDbuVPerM,
+  frequencyFactor,
+  longPathFieldStrength,
+  EIRP_REFERENCE_OFFSET_DB,
+  FREE_SPACE_FIELD_CONSTANT_DB,
+  LONG_PATH_INCLUDED_MECHANISMS,
+  LONG_PATH_MIN_DISTANCE_KM,
+  LONG_PATH_ONLY_DISTANCE_KM,
+  LY_DB,
+  MAX_FOCUS_GAIN_DB,
+  type LongPathFieldStrength,
+  type LongPathFieldStrengthInputs,
+  type LongPathFieldStrengthTerms,
+  type LongPathIncludedMechanism,
+  type LongPathRange,
+  type ResolvedLongPathFieldStrength,
+  type UnsupportedLongPathFieldStrength,
+} from "./fieldStrengthLong";
+
+export {
+  distanceBlend,
+  distanceBlendRegime,
+  interpolateDb,
+  BLEND_DB_PER_DECADE,
+  BLEND_MAX_DISTANCE_KM,
+  BLEND_MIN_DISTANCE_KM,
+  BLEND_SPAN_KM,
+  type DistanceBlendInputs,
+  type DistanceBlendRegime,
+  type DistanceBlendResult,
+  type ResolvedDistanceBlend,
+  type UnsupportedDistanceBlend,
+} from "./distanceBlend";

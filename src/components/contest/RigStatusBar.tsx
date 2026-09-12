@@ -205,7 +205,7 @@ export function RigStatusBar({
             ${isCATControlled ? "bg-signal-green shadow-[0_0_6px_#00ff88]" : "bg-su-line"}
           `}
         />
-        <span className="text-[9px] text-su-muted mt-0.5 uppercase tracking-wider">
+        <span className="text-xs text-su-muted mt-0.5 uppercase tracking-wider">
           {isCATControlled ? "CAT" : "MAN"}
         </span>
       </div>
@@ -270,7 +270,7 @@ export function RigStatusBar({
               SPLIT
             </span>
             {status?.txFrequency && (
-              <span className="text-[10px] text-su-muted font-mono">
+              <span className="text-xs text-su-muted font-mono">
                 TX: {formatFrequency(status.txFrequency)}
               </span>
             )}

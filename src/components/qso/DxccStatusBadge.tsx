@@ -159,7 +159,7 @@ export function DxccStatusBadge({
             className="
               inline-flex items-center
               px-1.5 py-0.5 rounded-full
-              text-[10px] font-bold uppercase tracking-wider
+              text-xs font-bold uppercase tracking-wider
               bg-caution-amber/15 text-caution-amber border border-caution-amber/30
               ml-1
             "
@@ -186,14 +186,14 @@ export function DxccStatusBadge({
             </p>
             {workedBands.length > 0 && status !== "new_entity" && (
               <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                <span className="text-[10px] text-su-muted uppercase tracking-wider mr-1">
+                <span className="text-xs text-su-muted uppercase tracking-wider mr-1">
                   Bands:
                 </span>
                 {workedBands.map((b) => (
                   <span
                     key={b}
                     className="
-                      text-[10px] font-mono px-1.5 py-0.5 rounded
+                      text-xs font-mono px-1.5 py-0.5 rounded
                       bg-su-line/10 text-su-muted
                     "
                   >
@@ -212,14 +212,14 @@ export function DxccStatusBadge({
           <p className="text-xs text-su-muted leading-relaxed">{tooltipText}</p>
           {workedBands.length > 0 && status !== "new_entity" && (
             <div className="mt-1 flex items-center gap-1 flex-wrap">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider mr-1">
+              <span className="text-xs text-su-muted uppercase tracking-wider mr-1">
                 Bands:
               </span>
               {workedBands.map((b) => (
                 <span
                   key={b}
                   className="
-                    text-[10px] font-mono px-1.5 py-0.5 rounded
+                    text-xs font-mono px-1.5 py-0.5 rounded
                     bg-su-line/10 text-su-muted
                   "
                 >

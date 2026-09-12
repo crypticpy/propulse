@@ -132,7 +132,7 @@ export function FavoriteFreqList({
 
           {/* Mode pill */}
           {f.mode && (
-            <span className="shrink-0 rounded-full bg-su-line/10 border border-su-line/40 px-1.5 py-0.5 text-[10px] text-su-muted">
+            <span className="shrink-0 rounded-full bg-su-line/10 border border-su-line/40 px-1.5 py-0.5 text-xs text-su-muted">
               {f.mode}
             </span>
           )}
@@ -173,7 +173,7 @@ export function FavoriteFreqList({
         <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-su-line/20">
           {/* Frequency input */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-su-muted">
+            <label className="text-xs uppercase tracking-widest text-su-muted">
               Freq (MHz)
             </label>
             <input
@@ -188,14 +188,14 @@ export function FavoriteFreqList({
 
           {/* Auto-detected band */}
           {frequency && (
-            <span className="text-[10px] text-su-muted pb-1">
+            <span className="text-xs text-su-muted pb-1">
               {detectedBand !== "?" ? detectedBand : "—"}
             </span>
           )}
 
           {/* Mode select */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-su-muted">
+            <label className="text-xs uppercase tracking-widest text-su-muted">
               Mode
             </label>
             <select
@@ -213,7 +213,7 @@ export function FavoriteFreqList({
 
           {/* Notes input */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-su-muted">
+            <label className="text-xs uppercase tracking-widest text-su-muted">
               Notes
             </label>
             <input
@@ -240,7 +240,7 @@ export function FavoriteFreqList({
 
       {/* Max reached */}
       {editable && freqs.length >= MAX_FREQS && (
-        <p className="text-[10px] text-su-muted italic pt-1">
+        <p className="text-xs text-su-muted italic pt-1">
           Maximum of {MAX_FREQS} frequencies reached
         </p>
       )}

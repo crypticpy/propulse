@@ -49,7 +49,7 @@ export function TickerCrawlSettingsDialog({
                 stories are shown only once.
               </p>
             </div>
-            <span className="shrink-0 font-mono text-[10px] text-su-muted">
+            <span className="shrink-0 font-mono text-xs text-su-muted">
               {feeds.length}/{MAX_FEEDS}
             </span>
           </div>
@@ -75,13 +75,13 @@ export function TickerCrawlSettingsDialog({
                     <span className="block truncate text-sm text-su-text">
                       {feed.label}
                     </span>
-                    <span className="block truncate font-mono text-[9px] text-su-muted">
+                    <span className="block truncate font-mono text-xs text-su-muted">
                       {feed.url}
                     </span>
                   </span>
                 </label>
 
-                <label className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-su-muted">
+                <label className="flex items-center gap-2 text-xs uppercase tracking-wide text-su-muted">
                   Newer than
                   <select
                     value={feed.crawlMaxAgeHours}

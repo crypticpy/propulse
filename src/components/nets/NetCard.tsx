@@ -83,7 +83,7 @@ export function NetCard({ net, isLive }: NetCardProps) {
       {/* Next session pill + location badge */}
       <div className="flex items-center gap-2 flex-wrap mb-2">
         {nextSession ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-nebula-blue/10 text-nebula-blue text-xs">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-nebula-blue/10 text-su-text text-xs">
             <svg
               className="w-3 h-3"
               fill="none"
@@ -137,7 +137,9 @@ export function NetCard({ net, isLive }: NetCardProps) {
 
         {/* Newcomer-friendly indicator */}
         {net.newcomerFriendly && (
-          <span className="text-xs text-signal-green">Newcomer Friendly</span>
+          <span className="text-xs bg-signal-green/15 text-su-text rounded-full px-2 py-0.5">
+            Newcomer Friendly
+          </span>
         )}
       </div>
     </button>

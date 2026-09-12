@@ -27,13 +27,13 @@ export function HelpFeatureCompare({
           {feature}
         </span>
         <div className="flex items-start gap-2 pl-1">
-          <span className="shrink-0 text-[10px] font-semibold text-su-muted uppercase tracking-wider w-10 mt-0.5">
+          <span className="shrink-0 text-xs font-semibold text-su-muted uppercase tracking-wider w-10 mt-0.5">
             Free
           </span>
           <span className="text-xs text-su-muted">{free}</span>
         </div>
         <div className="flex items-start gap-2 pl-1">
-          <span className="shrink-0 text-[10px] font-semibold text-aurora-purple uppercase tracking-wider w-10 mt-0.5">
+          <span className="shrink-0 text-xs font-semibold text-aurora-purple uppercase tracking-wider w-10 mt-0.5">
             Pro
           </span>
           <span className="text-xs text-aurora-purple">{pro}</span>

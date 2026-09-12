@@ -150,10 +150,10 @@ function PastDueBanner({
   isLoading: boolean;
 }) {
   return (
-    <div className="p-4 bg-caution-amber/10 border border-caution-amber/30 rounded-xl space-y-3">
+    <div className="p-4 bg-caution-amber/10 border border-caution-amber/30 rounded-xl space-y-3 text-su-text">
       <div className="flex items-start gap-3">
         <svg
-          className="w-5 h-5 text-caution-amber flex-shrink-0 mt-0.5"
+          className="w-5 h-5 flex-shrink-0 mt-0.5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -166,7 +166,7 @@ function PastDueBanner({
           />
         </svg>
         <div>
-          <p className="text-sm font-medium text-caution-amber">
+          <p className="text-sm font-medium">
             Payment issue
           </p>
           <p className="text-xs text-su-muted mt-1">
@@ -179,7 +179,7 @@ function PastDueBanner({
         onClick={onManage}
         disabled={isLoading}
         className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                   bg-caution-amber/20 text-caution-amber hover:bg-caution-amber/30
+                   bg-caution-amber/20 text-su-text hover:bg-caution-amber/20
                    border border-caution-amber/30 transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -262,7 +262,7 @@ function ProTierView({
       {/* Plan badge + status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="px-3 py-1 rounded-full bg-plasma-orange/20 border border-plasma-orange/30 text-sm font-semibold text-plasma-orange shadow-[0_0_12px_rgba(255,140,50,0.15)]">
+          <div className="px-3 py-1 rounded-full bg-plasma-orange/20 border border-plasma-orange/30 text-sm font-semibold text-su-text shadow-[0_0_12px_rgba(255,140,50,0.15)]">
             Pro
           </div>
           {!isPastDue && (

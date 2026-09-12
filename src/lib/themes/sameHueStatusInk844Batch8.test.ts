@@ -223,3 +223,17 @@ describe("#844 batch 8 status-tint sites ship --su-text ink", () => {
     },
   );
 });
+
+
+it("independently retains both preset error banners", () => {
+  const source = readFileSync(resolve(REPO_ROOT, "src/components/shack/PresetBuilder.tsx"), "utf8");
+  const banner = 'className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm"';
+  expect(source.split(banner)).toHaveLength(3);
+});
+
+
+it.each(["EquipmentCard.tsx", "EquipmentCardMd.tsx"])("%s uses the theme surface beneath neutral badge ink", (file) => {
+  const source = readFileSync(resolve(REPO_ROOT, "src/components/shack", file), "utf8");
+  expect(source).toContain('"bg-su-panel rounded');
+  expect(source).not.toContain("bg-[#0f1420]");
+});

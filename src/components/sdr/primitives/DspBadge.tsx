@@ -26,8 +26,8 @@ export interface DspBadgeProps {
 // ─── Size mapping ────────────────────────────────────────────────────────────
 
 const SIZE_CLASSES = {
-  xs: "px-0.5 py-0 text-xs leading-[14px]",
-  sm: "px-1 py-0 text-xs leading-[16px]",
+  xs: "px-0.5 py-0 text-xs leading-tight",
+  sm: "px-1 py-0 text-xs leading-tight",
 } as const;
 
 // ─── Active color mapping ────────────────────────────────────────────────────

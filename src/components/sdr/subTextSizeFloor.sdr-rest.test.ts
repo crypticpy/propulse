@@ -79,20 +79,6 @@ const ALLOWLIST: AllowlistEntry[] = [
       "band-edge frequency markers on the overlay — tabular mono scale labels at edge positions.",
   },
   {
-    file: "src/components/sdr/PassbandDetail.tsx",
-    match:
-      "absolute top-1 left-2 text-[8px] text-su-muted/80 uppercase tracking-wider pointer-events-none select-none",
-    reason:
-      "non-interactive zoom/FFT hint overlay on the passband canvas — decorative chrome, not body copy.",
-  },
-  {
-    file: "src/components/sdr/skins/fate/FateWaterfallStrip.tsx",
-    match:
-      "absolute top-1 left-2 text-[9px] text-su-text/80 uppercase tracking-wider pointer-events-none select-none",
-    reason:
-      "non-interactive waterfall title overlay on the canvas — decorative chrome, not body copy.",
-  },
-  {
     file: "src/components/sdr/BandScope.tsx",
     match:
       "absolute left-2 right-2 bottom-1 flex justify-between text-[10px] text-su-muted font-mono pointer-events-none",
@@ -112,6 +98,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
+    if (hasAlternateFloorSize(line)) sites.push({ file, line: index + 1, text: line });
     for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
       for (const match of line.matchAll(re)) {
         if (Number(match[1]) < 12) {
@@ -153,4 +140,38 @@ describe("sub-text-xs sizing stays at the floor in SDR (#808 batch 9 rest)", () 
       ).toBe(true);
     }
   });
+});
+
+function hasAlternateFloorSize(line: string): boolean {
+  const values = [
+    ...line.matchAll(
+      /text-\[(?:length:)?([^\]]+)\]|fontSize:\s*["']([^"']+)["']/g,
+    ),
+  ];
+  return values.some((match) => {
+    const value = match[1] ?? match[2];
+    if (/[a-z][a-z0-9-]*\s*\(/i.test(value)) return true;
+    const size = /^(\d*\.?\d+)(px|rem|em|pt)$/.exec(value);
+    if (!size) return false;
+    const factor = { px: 1, rem: 16, em: 16, pt: 4 / 3 }[size[2]]!;
+    return Number(size[1]) * factor <= 12;
+  });
+}
+it("detects equivalent alternate and fixed-floor font sizes", () => {
+  for (const token of [
+    "text-[12px]",
+    "text-[.6rem]",
+    "text-[9pt]",
+    "text-[length:0.7em]",
+    "text-[calc(0.75rem-2px)]",
+    'fontSize: "0.6rem"',
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(true);
+  for (const token of [
+    "text-xs",
+    "text-[1rem]",
+    "text-[#abcdef]",
+    "text-[14px]",
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(false);
 });

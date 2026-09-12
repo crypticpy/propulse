@@ -110,7 +110,12 @@ describe("LayersPopover viewport clamp", () => {
 
     const { trigger, popover } = openPopover();
     const submenu = popover.querySelector<HTMLElement>("[data-layers-submenu]");
-    expect(parseFloat(submenu?.style.minHeight ?? "0")).toBeGreaterThan(180);
+    // The outer panel owns the stable, viewport-capped height. The submenu
+    // must not impose a minimum that defeats that cap on a short viewport.
+    expect(
+      parseFloat((popover.firstElementChild as HTMLElement).style.height),
+    ).toBeGreaterThan(11.25);
+    expect(submenu?.style.minHeight).toBe("");
 
     // Trigger in the map header band: naive placement leaves little room
     // below; the old ResizeObserver path would shift the popover up when

@@ -19,7 +19,7 @@ import type { IngestionField } from "./CallsignLookupSuggestions";
 export interface IdentityImportDraft {
   operatorName?: string;
   grid?: string;
-  license?: LicenseInfo;
+  license?: Partial<LicenseInfo>;
   bio?: string;
   imageUrl?: string;
   lat?: number;
@@ -127,7 +127,6 @@ export function identityFieldsDirty(
 export function buildLookupImport(
   result: IngestionResult,
   selectedFields: Set<IngestionField>,
-  currentLicense: LicenseInfo | undefined,
   callsign: string,
 ): {
   operatorName?: string;
@@ -149,33 +148,19 @@ export function buildLookupImport(
     importDraft.grid = result.grid;
   }
 
-  if (selectedFields.has("licenseClass") || selectedFields.has("country")) {
-    const country =
-      selectedFields.has("country") && result.country
-        ? mapLookupCountry(result.country)
-        : (currentLicense?.country ?? ("US" as LicenseCountry));
-    const cls =
-      selectedFields.has("licenseClass") && result.licenseClass
-        ? mapLookupLicenseClass(result.licenseClass)
-        : (currentLicense?.class ?? ("GENERAL" as LicenseClass));
-
-    importDraft.license = {
-      country,
-      class: cls,
-      expirationDate:
-        selectedFields.has("licenseClass") && result.expiryDate
-          ? result.expiryDate
-          : (currentLicense?.expirationDate ?? null),
-      grantDate:
-        selectedFields.has("licenseClass") && result.grantDate
-          ? result.grantDate
-          : currentLicense?.grantDate,
-      licenseId:
-        selectedFields.has("licenseId") && result.licenseId
-          ? result.licenseId
-          : currentLicense?.licenseId,
-    };
+  const license: Partial<LicenseInfo> = {};
+  if (selectedFields.has("country") && result.country) {
+    license.country = mapLookupCountry(result.country);
   }
+  if (selectedFields.has("licenseClass")) {
+    if (result.licenseClass) license.class = mapLookupLicenseClass(result.licenseClass);
+    if (result.expiryDate) license.expirationDate = result.expiryDate;
+    if (result.grantDate) license.grantDate = result.grantDate;
+  }
+  if (selectedFields.has("licenseId") && result.licenseId) {
+    license.licenseId = result.licenseId;
+  }
+  if (Object.keys(license).length > 0) importDraft.license = license;
 
   if (selectedFields.has("bio") && result.bio) {
     importDraft.bio = result.bio;
@@ -222,13 +207,22 @@ export function overlayStationLookupCoords(
 export function commitIdentityImportRecords(
   draft: IdentityImportDraft,
   profile: {
+    license?: LicenseInfo;
     setLicense: (license: LicenseInfo) => void;
     setBio: (bio: string) => void;
     setProfileImageUrl: (url: string) => void;
     setLastIngestedCallsign: (callsign: string) => void;
   },
 ): void {
-  if (draft.license) profile.setLicense(draft.license);
+  if (draft.license) {
+    profile.setLicense({
+      country: "US",
+      class: "GENERAL",
+      expirationDate: null,
+      ...profile.license,
+      ...draft.license,
+    });
+  }
   if (draft.bio !== undefined) profile.setBio(draft.bio);
   if (draft.imageUrl !== undefined) profile.setProfileImageUrl(draft.imageUrl);
   if (draft.lastIngestedCallsign) {

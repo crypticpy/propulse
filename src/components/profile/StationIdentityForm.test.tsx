@@ -262,6 +262,36 @@ describe("identity lookup draft (#353)", () => {
     expect(committed().lon).toBe(HOME_COORDS.lon);
   });
 
+  it("preserves newer unselected license fields when saving an applied class", () => {
+    render(<IdentityDraftHost />);
+    for (const name of [/Name/, /Bio/, /Photo/, /Country/]) setBox(name, false);
+    setBox(/License/, true);
+    fireEvent.click(screen.getByRole("button", { name: /Apply selected fields/i }));
+    act(() => useProfileStore.setState({
+      license: { ...seedLicense, country: "CA", licenseId: "new-concurrent-id" },
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+    expect(committed().license).toMatchObject({
+      country: "CA", licenseId: "new-concurrent-id", class: "EXTRA",
+    });
+    expect(committed().licenseClass).toBe("EXTRA");
+  });
+
+  it("preserves a concurrent license class when only country is imported", () => {
+    render(<IdentityDraftHost />);
+    for (const name of [/Name/, /Bio/, /Photo/, /License/]) setBox(name, false);
+    setBox(/Country/, true);
+    fireEvent.click(screen.getByRole("button", { name: /Apply selected fields/i }));
+    act(() => useProfileStore.getState().setLicense({
+      ...seedLicense, country: "CA", class: "EXTRA", licenseId: "country-only-id",
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+    expect(committed().license).toMatchObject({
+      country: "US", class: "EXTRA", licenseId: "country-only-id",
+    });
+    expect(committed().licenseClass).toBe("EXTRA");
+  });
+
   it("shows Save for a photo-only Apply without writing the image URL yet", () => {
     render(<IdentityDraftHost />);
     setBox(/Name/, false);
@@ -373,7 +403,6 @@ describe("lookup draft helpers (#353)", () => {
     const built = buildLookupImport(
       LOOKUP,
       new Set(["licenseClass"]),
-      seedLicense,
       "w0test",
     );
     expect(built.operatorName).toBeUndefined();

@@ -112,7 +112,6 @@ export function StationIdentityForm({
       const built = buildLookupImport(
         result,
         selectedFields,
-        useProfileStore.getState().license,
         callsign,
       );
       if (built.operatorName) setOperatorName(built.operatorName);

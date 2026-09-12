@@ -635,6 +635,18 @@ describe("the auroral loss reaches equation (18)", () => {
 });
 
 describe("domain checks", () => {
+  it("rejects a mode set resolved for a different route", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, {}, routeOfLength(4000))),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, {}, routeOfLength(set.groundDistanceKm)),
+      ),
+    ).not.toThrow();
+  });
+
   it("rejects a month index outside 0 to 11", () => {
     const set = resolvedSet(3000, 14);
     expect(() =>

@@ -347,6 +347,17 @@ export function shortPathFieldStrength(
     basicMufElevationRad,
   } = inputs;
 
+  // `route` and `modes` are independent inputs the caller assembles
+  // separately; every penetration and control point below is found on
+  // `route`, so a mode set resolved for a different route would silently
+  // relocate every sample this function takes.
+  if (Math.abs(modeSet.groundDistanceKm - route.groundDistanceKm) > 1e-6) {
+    throw new RangeError(
+      `modes was resolved for a different route: modeSet.groundDistanceKm ` +
+        `${String(modeSet.groundDistanceKm)} does not match ` +
+        `route.groundDistanceKm ${String(route.groundDistanceKm)}.`,
+    );
+  }
   if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
     throw new RangeError(
       `monthIndex must be an integer 0..11, received ${String(monthIndex)}.`,

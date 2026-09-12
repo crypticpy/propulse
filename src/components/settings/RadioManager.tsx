@@ -1171,7 +1171,7 @@ export function RadioManager({
           {sectionCount ?? userRadios.length}
         </span>
         {customRadios.length > 0 ? (
-          <span className="text-[11px] text-su-muted">
+          <span className="text-xs text-su-muted">
             {customRadios.length} reusable custom definition
             {customRadios.length === 1 ? "" : "s"}
           </span>
@@ -1832,12 +1832,12 @@ export function RadioManager({
                         <div className="text-sm font-semibold text-su-text truncate">
                           {r.manufacturer} {r.model}
                           {hasTestedSpecs(r) && (
-                            <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                            <span className="ml-2 text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
                               Tested
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-su-muted truncate">
+                        <div className="text-xs text-su-muted truncate">
                           {r.maxPower}W &bull; Tier: {r.tier} &bull; Bands:{" "}
                           {r.bands.slice(0, 4).join(", ")}
                           {r.bands.length > 4 ? "\u2026" : ""}

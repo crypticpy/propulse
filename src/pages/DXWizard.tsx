@@ -156,7 +156,7 @@ export function DXWizard() {
                         <div className="text-sm text-su-text">
                           {nextWindow.label}
                         </div>
-                        <div className="text-[10px] text-su-muted font-mono mt-1">
+                        <div className="text-xs text-su-muted font-mono mt-1">
                           Peak SNR ≈ {nextWindow.window.peakSnr} dB ·{" "}
                           {String(nextWindow.window.peakHour).padStart(2, "0")}
                           :00Z
@@ -218,7 +218,7 @@ function TargetCard({
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-su-text">1) Target Station</h3>
-        <span className="text-[10px] text-su-muted inline-flex items-center gap-1">
+        <span className="text-xs text-su-muted inline-flex items-center gap-1">
           grid / coordinates / location
           <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
         </span>
@@ -295,7 +295,7 @@ function TargetCard({
                       <div className="text-sm text-su-text font-medium truncate">
                         {rt.name ?? grid}
                       </div>
-                      <div className="text-[10px] text-su-muted font-mono">
+                      <div className="text-xs text-su-muted font-mono">
                         {rt.grid ?? grid} ({rt.lat.toFixed(2)},{" "}
                         {rt.lon.toFixed(2)})
                       </div>
@@ -357,7 +357,7 @@ function TargetCard({
             </div>
             {session.target.lookupSources &&
               session.target.lookupSources.length > 0 && (
-                <div className="text-[10px] text-su-muted mt-1">
+                <div className="text-xs text-su-muted mt-1">
                   via {session.target.lookupSources.join(" + ")}
                 </div>
               )}
@@ -378,7 +378,7 @@ function OperatorCard({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-su-text">2) Operator Profile</h3>
         {session.station && (
-          <div className="text-[10px] text-su-muted font-mono inline-flex items-center gap-1">
+          <div className="text-xs text-su-muted font-mono inline-flex items-center gap-1">
             {session.station.callsign} • {session.station.grid}
             <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
           </div>
@@ -472,11 +472,11 @@ function OperatorCard({
                 )
               : "Select a radio…"}
             {session.selectedRadioId === null && (
-              <span className="ml-2 text-[10px] text-su-muted">(active)</span>
+              <span className="ml-2 text-xs text-su-muted">(active)</span>
             )}
           </button>
           {session.selectedRadio && (
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               Max power: {session.selectedRadio.maxPower}W • Modes:{" "}
               {session.selectedRadio.modes.slice(0, 4).join(", ")}
               {session.selectedRadio.modes.length > 4 ? "…" : ""}
@@ -506,7 +506,7 @@ function OperatorCard({
               {session.txPowerCeilingWatts}W
             </div>
           </div>
-          <div className="text-[10px] text-su-muted mt-1">
+          <div className="text-xs text-su-muted mt-1">
             Ceiling is also capped by band plan limits for your license/mode.
           </div>
         </div>
@@ -528,7 +528,7 @@ function OptimizeAndStationCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-su-text">Optimize for</div>
-          <div className="text-[10px] text-su-muted">
+          <div className="text-xs text-su-muted">
             {contestActive
               ? "Contest weekend — Balance prefers quieter spectrum"
               : "Propagation ranking (contest re-rank when contests run)"}
@@ -558,7 +558,7 @@ function OptimizeAndStationCard({
         </div>
       </div>
       {session.shackSummary && (
-        <div className="text-[10px] text-su-muted font-mono">
+        <div className="text-xs text-su-muted font-mono">
           Station: {session.shackSummary.name}
           {session.shackSummary.erpWatts != null &&
             ` · ERP ≈ ${session.shackSummary.erpWatts}W`}
@@ -595,7 +595,7 @@ function ActionsCard({
         </Link>
       </div>
       {session.actionMessage && (
-        <div className="text-[10px] text-signal-green mt-2">
+        <div className="text-xs text-signal-green mt-2">
           {session.actionMessage}
         </div>
       )}
@@ -700,13 +700,13 @@ function Metric({
 }) {
   return (
     <div className="bg-su-line/10 rounded-xl p-3">
-      <div className="text-[10px] text-su-muted uppercase tracking-wide">
+      <div className="text-xs text-su-muted uppercase tracking-wide">
         {label}
       </div>
       <div className="text-sm font-mono font-bold text-su-text mt-0.5 truncate">
         {value}
       </div>
-      {sub && <div className="text-[10px] text-su-muted mt-0.5">{sub}</div>}
+      {sub && <div className="text-xs text-su-muted mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -766,7 +766,7 @@ function ResultsCard({
         <h3 className="text-sm font-semibold text-su-text">3) Recommendations</h3>
         {realityCheck && (
           <span
-            className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${
+            className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${
               realityCheck.label === "Confirmed"
                 ? "text-signal-green border-signal-green/40 bg-signal-green/10"
                 : realityCheck.label === "Surprise Open"
@@ -781,12 +781,12 @@ function ResultsCard({
         )}
       </div>
       {realityCheck && (
-        <div className="text-[10px] text-su-muted">{realityCheck.detail}</div>
+        <div className="text-xs text-su-muted">{realityCheck.detail}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-su-line/10 rounded-xl p-4">
-          <div className="text-[10px] text-su-muted uppercase tracking-wide">
+          <div className="text-xs text-su-muted uppercase tracking-wide">
             Band
           </div>
           <div
@@ -794,16 +794,16 @@ function ResultsCard({
           >
             {best.band}
           </div>
-          <div className="text-[10px] text-su-muted mt-1">{best.frequency}</div>
+          <div className="text-xs text-su-muted mt-1">{best.frequency}</div>
         </div>
         <div className="bg-su-line/10 rounded-xl p-4">
-          <div className="text-[10px] text-su-muted uppercase tracking-wide">
+          <div className="text-xs text-su-muted uppercase tracking-wide">
             Required TX Power
           </div>
           <div className="text-2xl font-mono font-bold text-plasma-orange">
             {best.requiredWatts}W
           </div>
-          <div className="text-[10px] text-su-muted mt-1">
+          <div className="text-xs text-su-muted mt-1">
             Ceiling: {best.ceilingWatts}W{" "}
             {!best.withinCeiling && (
               <span className="text-alert-red">• exceeds</span>
@@ -811,19 +811,19 @@ function ResultsCard({
           </div>
         </div>
         <div className="bg-su-line/10 rounded-xl p-4">
-          <div className="text-[10px] text-su-muted uppercase tracking-wide">
+          <div className="text-xs text-su-muted uppercase tracking-wide">
             Target Frequency
           </div>
           <div className="text-lg font-mono font-bold text-su-text">
             {formatKHz(best.freqsKHz[0])}
           </div>
-          <div className="text-[10px] text-su-muted mt-1">Mode: {mode}</div>
+          <div className="text-xs text-su-muted mt-1">Mode: {mode}</div>
         </div>
       </div>
 
       <div className="bg-su-line/10 rounded-xl p-4 border border-su-line/40">
         <div className="text-xs text-su-muted">{best.notes}</div>
-        <div className="mt-2 text-[10px] text-su-muted font-mono">
+        <div className="mt-2 text-xs text-su-muted font-mono">
           Est. SNR <InfoTip content={SIGNAL_TOOLTIPS.snr} /> @{txPowerWatts}W:{" "}
           {best.snrEstimate} dB
           {bestMarginDb !== null && (
@@ -846,7 +846,7 @@ function ResultsCard({
             </>
           )}
           {recommendation.antennaGainDbi !== 0 && (
-            <span className="text-su-muted text-[10px] font-mono ml-1">
+            <span className="text-su-muted text-xs font-mono ml-1">
               • Ant: {recommendation.antennaGainDbi > 0 ? "+" : ""}
               {recommendation.antennaGainDbi.toFixed(1)} dBi
             </span>
@@ -865,12 +865,12 @@ function ResultsCard({
             ))}
           </div>
           {best.legalMaxWatts !== null && (
-            <div className="mt-2 text-[10px] text-su-muted">
+            <div className="mt-2 text-xs text-su-muted">
               Band plan max: {best.legalMaxWatts}W
             </div>
           )}
           {best.contestImpact && best.contestImpact !== "clear" && (
-            <div className="mt-2 text-[10px] text-caution-amber">
+            <div className="mt-2 text-xs text-caution-amber">
               Contest: {best.contestImpact}
               {best.contestDescription ? ` — ${best.contestDescription}` : ""}
             </div>
@@ -974,7 +974,7 @@ function AllBandsList({
                 <div className="text-xs text-su-muted capitalize">
                   {band.status}
                 </div>
-                <div className="text-[10px] text-su-muted font-mono">
+                <div className="text-xs text-su-muted font-mono">
                   {band.snrEstimate} dB
                   {cand
                     ? ` · ${cand.requiredWatts}W${cand.withinCeiling ? "" : " !"}`

@@ -194,14 +194,14 @@ export function DataSourceError({
       {!compact && (error.isUpstream || countdown !== null) && (
         <div className="flex items-center justify-between mt-2 ml-6">
           {error.isUpstream ? (
-            <span className="text-[10px] text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
+            <span className="text-xs text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               upstream issue
             </span>
           ) : (
             <span />
           )}
           {countdown !== null && (
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               Auto-retry in {countdown}s
             </span>
           )}

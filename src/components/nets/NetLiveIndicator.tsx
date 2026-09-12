@@ -11,7 +11,7 @@ interface NetLiveIndicatorProps {
 
 export function NetLiveIndicator({ size = "md" }: NetLiveIndicatorProps) {
   const dotSize = size === "sm" ? "h-2 w-2" : "h-2.5 w-2.5";
-  const textSize = size === "sm" ? "text-[10px]" : "text-xs";
+  const textSize = "text-xs";
 
   return (
     <div className="inline-flex items-center gap-1.5">

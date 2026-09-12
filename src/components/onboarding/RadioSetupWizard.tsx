@@ -427,15 +427,15 @@ function StepProgressBar({ current }: { current: WizardStep }) {
   const currentIdx = STEP_ORDER.indexOf(current);
 
   return (
-    <div className="flex items-center justify-center gap-0 px-8 pt-6 pb-2">
+    <div className="grid grid-cols-4 items-start gap-1 px-3 sm:px-8 pt-6 pb-2">
       {STEP_LABELS.map((s, i) => {
         const isCompleted = i < currentIdx;
         const isActive = i === currentIdx;
 
         return (
-          <div key={s.key} className="flex items-center">
+          <div key={s.key} className="relative min-w-0">
             {/* Dot + label */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center min-w-0">
               <div className="relative">
                 {isActive && (
                   <div className="absolute inset-0 w-3 h-3 rounded-full bg-plasma-orange/40 animate-ping" />
@@ -451,7 +451,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
                 />
               </div>
               <span
-                className={`text-xs mt-1.5 font-medium transition-colors duration-300 ${
+                className={`text-xs mt-1.5 text-center break-words font-medium transition-colors duration-300 ${
                   isCompleted
                     ? "text-signal-green"
                     : isActive
@@ -466,7 +466,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
             {/* Connecting line (not after last) */}
             {i < STEP_LABELS.length - 1 && (
               <div
-                className={`w-12 sm:w-16 h-px mx-2 mb-4 transition-colors duration-300 ${
+                className={`absolute top-1.5 left-[calc(50%+0.75rem)] w-[calc(100%-1.5rem)] h-px transition-colors duration-300 ${
                   i < currentIdx ? "bg-signal-green" : "bg-su-line/20"
                 }`}
               />

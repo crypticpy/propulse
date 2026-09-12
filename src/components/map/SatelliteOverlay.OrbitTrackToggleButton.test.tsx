@@ -18,7 +18,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
   it("shows 'Map orbit' when untracked and maps the track via setSatelliteTrack", () => {
     render(<OrbitTrackToggleButton noradId={25544} name="ISS (ZARYA)" />);
 
-    const button = screen.getByRole("button", { name: "Map orbit" });
+    const button = screen.getByRole("button", { name: "Map orbit for ISS (ZARYA)" });
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(useMapStore.getState().satelliteTracks["25544"]).toBeUndefined();
 
@@ -39,7 +39,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
 
     render(<OrbitTrackToggleButton noradId={25544} name="ISS (ZARYA)" />);
 
-    const button = screen.getByRole("button", { name: "Clear orbit" });
+    const button = screen.getByRole("button", { name: "Clear orbit for ISS (ZARYA)" });
     expect(button.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(button);
@@ -49,7 +49,7 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
 
   it("is a real, keyboard-reachable button (type=button, no href/role hack)", () => {
     render(<OrbitTrackToggleButton noradId={43137} name="NOAA 19" />);
-    const button = screen.getByRole("button", { name: "Map orbit" });
+    const button = screen.getByRole("button", { name: "Map orbit for NOAA 19" });
     expect(button.tagName).toBe("BUTTON");
     expect(button.getAttribute("type")).toBe("button");
   });
@@ -61,14 +61,14 @@ describe("SatelliteOverlay OrbitTrackToggleButton (#994 PR B)", () => {
         <OrbitTrackToggleButton noradId={7530} name="STARLINK-1007" />
       </div>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Map orbit for STARLINK-1007" }));
     expect(useMapStore.getState().satelliteTracks["7530"]).toBeDefined();
     expect(parentClicked).toBe(false);
   });
 
   it("passes its name through to setSatelliteTrack so an eviction can name the right bird (#994 PR B round 3 Codex thread 3)", () => {
     render(<OrbitTrackToggleButton noradId={57166} name="IO-117" />);
-    fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Map orbit for IO-117" }));
     expect(useMapStore.getState().satelliteTracks["57166"]?.name).toBe(
       "IO-117",
     );

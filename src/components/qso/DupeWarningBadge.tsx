@@ -79,7 +79,7 @@ export function DupeWarningBadge({
             <span
               key={b}
               className="
-                text-[10px] font-mono px-1.5 py-0.5 rounded
+                text-xs font-mono px-1.5 py-0.5 rounded
                 bg-caution-amber/10 text-caution-amber/80
               "
             >

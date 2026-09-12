@@ -34,7 +34,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { SignalPathList } from "./SignalPathList";
-import { addPathEquipment } from "./addPathEquipment";
+import {
+  addPathEquipment,
+  isInlineRunSelectionResult,
+} from "./addPathEquipment";
 import type { StationChain } from "@/types/stationChain";
 import type { AccessoryCategory } from "@/types/shack";
 import { getValidEquipmentTypes, validateChain } from "@/lib/chainOrdering";
@@ -103,6 +106,11 @@ function ExpandedChainBody({
     nodeIndex: number;
     nodeType: string;
   } | null>(null);
+  const [inlineRunPicker, setInlineRunPicker] = useState<{
+    equipmentId: string;
+    position?: number;
+    runOptions: Array<{ id: string; name: string }>;
+  } | null>(null);
 
   // ---- Store actions --------------------------------------------------------
   const removeNodeFromChain = useShackStore((s) => s.removeNodeFromChain);
@@ -144,13 +152,28 @@ function ExpandedChainBody({
 
   // ---- Drop equipment from drawer -------------------------------------------
   const handleDropEquipment = useCallback(
-    (nodeType: string, equipmentId: string, position?: number) => {
+    (
+      nodeType: string,
+      equipmentId: string,
+      position?: number,
+      feedlineRunId?: string,
+    ) => {
       const result = addPathEquipment(
         chain.id,
         nodeType,
         equipmentId,
         position,
+        feedlineRunId,
       );
+      if (isInlineRunSelectionResult(result)) {
+        setInlineRunPicker({
+          equipmentId,
+          position,
+          runOptions: result.runOptions,
+        });
+        setActionError(null);
+        return result;
+      }
       setActionError(result.ok ? null : result.error);
       return result;
     },
@@ -301,11 +324,14 @@ function ExpandedChainBody({
         </Inline>
       </div>
 
-      {actionError && !addEquipmentState && !swapState && (
-        <Notice tone="danger" title="Change not saved" live>
-          {actionError}
-        </Notice>
-      )}
+      {actionError &&
+        !addEquipmentState &&
+        !swapState &&
+        !inlineRunPicker && (
+          <Notice tone="danger" title="Change not saved" live>
+            {actionError}
+          </Notice>
+        )}
       <div className="sw-editing-grid">
         <div className="sw-main-editor">
           {/* Chain validation warnings */}
@@ -412,6 +438,51 @@ function ExpandedChainBody({
             }}
             onCancel={() => setAddEquipmentState(null)}
           />
+        </Dialog>
+      )}
+
+      {inlineRunPicker && (
+        <Dialog
+          open
+          onClose={() => setInlineRunPicker(null)}
+          title="Choose cable run"
+        >
+          <p className="text-sm text-su-muted mb-4">
+            Select which cable run should receive this inline component.
+          </p>
+          <div className="space-y-2">
+            {inlineRunPicker.runOptions.map((run) => (
+              <Button
+                key={run.id}
+                variant="secondary"
+                className="w-full justify-start"
+                onClick={() => {
+                  const result = addPathEquipment(
+                    chain.id,
+                    "inline",
+                    inlineRunPicker.equipmentId,
+                    inlineRunPicker.position,
+                    run.id,
+                  );
+                  setInlineRunPicker(null);
+                  setActionError(
+                    result.ok
+                      ? null
+                      : "error" in result
+                        ? result.error
+                        : null,
+                  );
+                }}
+              >
+                {run.name}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button variant="quiet" onClick={() => setInlineRunPicker(null)}>
+              Cancel
+            </Button>
+          </div>
         </Dialog>
       )}
 

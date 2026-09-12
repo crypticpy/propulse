@@ -263,16 +263,21 @@ describe("raw accent ink on an accent tint has no safe alpha (#803)", () => {
   });
 
   it("is not rescued by --su-accent-text either", () => {
-    // #3b82f6 (the Ocean Blue preset) clears 4.5 against the dark panel, so
-    // --su-accent-text resolves to the accent itself and the tint eats it.
-    const ink = (stationTokens("dark", "#3b82f6") as Record<string, string>)[
-      "--su-accent-text"
-    ];
-    expect(ink).toBe("#3b82f6");
+    // The brand default clears 4.5 on every guaranteed surface (#811), so
+    // --su-accent-text resolves to the accent itself and the tint still eats it.
+    const ink = (stationTokens("dark", DEFAULT_ACCENT_HEX) as Record<
+      string,
+      string
+    >)["--su-accent-text"];
+    expect(ink).toBe(DEFAULT_ACCENT_HEX);
     expect(
       stationContrast(
         ink,
-        compositeOnSurface("#3b82f6", 0.2, stationPalettes.dark.panel),
+        compositeOnSurface(
+          DEFAULT_ACCENT_HEX,
+          0.2,
+          stationPalettes.dark.panel,
+        ),
       ),
     ).toBeLessThan(AA);
   });

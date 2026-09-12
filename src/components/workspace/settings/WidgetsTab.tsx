@@ -182,11 +182,15 @@ export function WidgetsTab() {
             const state = workspace.rails.find((r) => r.side === rail.side);
             if (!state) return null;
             const label = `${rail.side.charAt(0).toUpperCase()}${rail.side.slice(1)} rail`;
+            const orientationLabel =
+              railOrientation(rail.side) === "vertical"
+                ? "Side"
+                : `${rail.side.charAt(0).toUpperCase()}${rail.side.slice(1)}`;
             return (
               <HamClockToggleRow
                 key={rail.side}
                 label={label}
-                detail={`${railOrientation(rail.side) === "vertical" ? "Side" : "Bottom"} rail, ${rail.weightBudget} slot budget`}
+                detail={`${orientationLabel} rail, ${rail.weightBudget} slot budget`}
                 checked={!state.collapsed}
                 onChange={(on) => setRailCollapsed(rail.side, !on)}
               />

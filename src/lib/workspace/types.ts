@@ -36,8 +36,8 @@ export type WidgetDensity = "wall" | "glance" | "work";
  */
 export type PhoneSize = "full" | "half" | "third" | "none";
 
-/** Which side of a page a rail occupies. Left/right are vertical; bottom is horizontal. */
-export type RailSide = "left" | "right" | "bottom";
+/** Which side of a page a rail occupies. Left/right are vertical; top and bottom are horizontal. */
+export type RailSide = "left" | "right" | "bottom" | "top";
 
 /** Orientation a rail side implies, used to match a widget's `aspect` preference. */
 export type RailOrientation = "vertical" | "horizontal";
@@ -134,10 +134,11 @@ export interface CanvasRules {
   /** Densities eligible to dock into ANY rail on this canvas. */
   railDensities: readonly WidgetDensity[];
   /**
-   * How setting one rail's `width` affects the opposite (left/right) rail.
-   * `"fixed"` = no adjustment happens (wall is view-only; tablet has one
-   * rail with no opposite; phone has none). `"opposite-collapses"` = setting
-   * a side to `"wide"` collapses the opposite side (workstation).
+   * How setting one rail's `width` affects the opposite rail.
+   * `"fixed"` = no adjustment happens (wall is view-only; tablet's rails do
+   * not collapse each other; phone has none). `"opposite-collapses"` =
+   * setting a side to `"wide"` collapses its pair (workstation: left↔right,
+   * top↔bottom). A vertical rail never collapses a horizontal one.
    */
   railWidthPolicy: "fixed" | "opposite-collapses";
   /** Minimum interactive tap target. `null` = read at a distance, no pointer (wall). */

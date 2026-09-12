@@ -28,16 +28,16 @@ const opacity: SettingSpec<number> = {
   scope: "map",
   label: "NVIS opacity",
   defaultValue: 0.35,
-  control: { kind: "range", min: 0, max: 1, step: 0.05 },
+  control: { kind: "range", min: 0.1, max: 0.8, step: 0.05 },
   parse: (value) =>
     typeof value === "number" &&
     Number.isFinite(value) &&
-    value >= 0 &&
-    value <= 1
+    value >= 0.1 &&
+    value <= 0.8
       ? { ok: true, value }
       : {
           ok: false,
-          issue: { code: "opacity", message: "Use a number from 0 to 1." },
+          issue: { code: "opacity", message: "Use a number from 0.1 to 0.8." },
         },
 };
 
@@ -125,7 +125,7 @@ describe("appearance setting patches", () => {
     const patch = parseSettingPatch(opacity, { opacity: 0.373 }, "opacity");
     expect(resolveSettingPatch(0.7, patch).value).toBe(0.373);
     expect(resetSetting(opacity)).toBe(0.35);
-    for (const value of [NaN, Infinity, -Infinity, -0.1, 1.1, "0.5"]) {
+    for (const value of [NaN, Infinity, -Infinity, 0, 0.09, 0.81, 1.1, "0.5"]) {
       const outcome = resolveSettingPatch(
         0.7,
         parseSettingPatch(opacity, { opacity: value }, "opacity"),
@@ -140,12 +140,12 @@ describe("appearance setting patches", () => {
       ...opacity,
       parse: (input) =>
         typeof input === "number" && Number.isFinite(input)
-          ? { ok: true, value: Math.max(0, Math.min(1, input)) }
+          ? { ok: true, value: Math.max(0.1, Math.min(0.8, input)) }
           : opacity.parse(input),
     };
     expect(
       parseSettingPatch(clampOpacity, { opacity: 1.4 }, "opacity"),
-    ).toEqual({ status: "valid", value: 1 });
+    ).toEqual({ status: "valid", value: 0.8 });
   });
 
   it("retains option order, domain scope and narrow parsed types", () => {

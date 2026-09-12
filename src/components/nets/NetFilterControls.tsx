@@ -144,9 +144,9 @@ export function NetFilterControls({
   return (
     <div className="space-y-3">
       {/* Always-visible search row */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Search input */}
-        <div className="relative flex-1">
+        <div className="relative flex-1" style={{ minWidth: "12rem" }}>
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-su-muted"
             fill="none"
@@ -292,8 +292,8 @@ export function NetFilterControls({
       </div>
 
       {/* Sort row — always visible */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs uppercase tracking-widest text-su-muted mr-1">
             Sort
           </span>

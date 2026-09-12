@@ -36,6 +36,11 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { azimuthalProject } from "@/lib/utils/azimuthal";
 import { CANVAS_SIZE } from "@/lib/webgl/AzimuthalRenderer";
+import {
+  createCanvasRecorder,
+  makeStubRect,
+  StubResizeObserver,
+} from "@/components/map/layers/canvasRecorder.test-helper";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { FireHotspot } from "@/lib/api/fires";
 import type { LightningStrike } from "@/lib/api/lightning";
@@ -155,66 +160,17 @@ vi.mock("@/hooks/useLightning", () => ({
   useLightning: () => ({ strikes: [STRIKE], isLoading: false, error: null }),
 }));
 
-interface CanvasOp {
-  name: string;
-  args: number[];
-  strArgs: unknown[];
-}
-
-const ops: CanvasOp[] = [];
-
-const STUB_RECT: DOMRect = {
-  x: 0,
-  y: 0,
-  top: 0,
-  left: 0,
-  right: 600,
-  bottom: 600,
+// Same recorder technique as `FlatMapView.earthquakes.test.tsx`. AzimuthalView
+// also owns a WebGL globe canvas (`AzimuthalRenderer`); the recorder's proxy
+// answers every `getContext()` call the same way regardless of context id, so
+// the WebGL init path resolves harmlessly (`initialize()` awaits an image
+// load and never throws synchronously) while the 2D overlay canvas we care
+// about records its real draw calls.
+const STUB_RECT = makeStubRect(600, 600);
+const { ops, installCanvasRecorder } = createCanvasRecorder({
   width: 600,
   height: 600,
-  toJSON: () => ({}),
-};
-
-class StubResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-/**
- * Same recorder technique as `FlatMapView.earthquakes.test.tsx`. AzimuthalView
- * also owns a WebGL globe canvas (`AzimuthalRenderer`); this proxy answers
- * every `getContext()` call the same way regardless of context id, so the
- * WebGL init path resolves harmlessly (`initialize()` awaits an image load
- * and never throws synchronously) while the 2D overlay canvas we care about
- * records its real draw calls.
- */
-function installCanvasRecorder() {
-  ops.length = 0;
-  const context = new Proxy(
-    {},
-    {
-      get: (_target, prop: string) => {
-        if (prop === "canvas") return { width: 600, height: 600 };
-        return (...args: unknown[]) => {
-          ops.push({ name: prop, args: args.map(Number), strArgs: args });
-          if (prop === "measureText") return { width: 10 };
-          if (
-            prop === "createLinearGradient" ||
-            prop === "createRadialGradient"
-          ) {
-            return { addColorStop: () => {} };
-          }
-          if (prop === "getImageData")
-            return { data: new Uint8ClampedArray(4) };
-          return undefined;
-        };
-      },
-      set: () => true,
-    },
-  );
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => context) as never;
-}
+});
 
 function Wrap({ children }: { children: ReactNode }) {
   const client = new QueryClient({

@@ -163,7 +163,7 @@ const BandPills = memo(function BandPills({ bands }: { bands: string[] }) {
         return (
           <span
             key={band}
-            className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+            className={`px-1.5 py-0.5 rounded text-xs font-mono ${
               isWarc
                 ? "bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/30"
                 : "bg-void/60 text-su-muted border border-su-line/40"
@@ -183,7 +183,7 @@ const ModePills = memo(function ModePills({ modes }: { modes: string[] }) {
       {modes.map((mode) => (
         <span
           key={mode}
-          className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-plasma-orange/15 text-su-text border border-plasma-orange/25"
+          className="px-1.5 py-0.5 rounded text-xs font-medium bg-plasma-orange/15 text-su-text border border-plasma-orange/25"
         >
           {mode}
         </span>
@@ -256,7 +256,7 @@ const ContestEntryCard = memo(function ContestEntryCard({
         <p className="text-xs text-su-muted font-mono">
           {formatUtcRange(entry.startUtc, entry.endUtc)}
         </p>
-        <p className="text-[11px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Local: {formatDateRange(entry.startUtc, entry.endUtc)}
         </p>
       </div>
@@ -283,7 +283,7 @@ const ContestEntryCard = memo(function ContestEntryCard({
           {entry.tags.slice(0, 5).map((tag) => (
             <span
               key={tag}
-              className="px-1.5 py-0.5 rounded text-[10px] text-su-muted bg-su-line/10"
+              className="px-1.5 py-0.5 rounded text-xs text-su-muted bg-su-line/10"
             >
               #{tag}
             </span>
@@ -294,7 +294,7 @@ const ContestEntryCard = memo(function ContestEntryCard({
             href={entry.rulesUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-nebula-blue hover:text-nebula-blue/80 hover:underline"
+            className="text-xs text-nebula-blue hover:text-nebula-blue/80 hover:underline"
           >
             Official Rules
           </a>
@@ -364,7 +364,7 @@ const WeekTimeline = memo(function WeekTimeline({
           {dayLabels.map((label, i) => (
             <div
               key={i}
-              className="flex-1 text-center text-[10px] text-su-muted border-r border-su-line/20 last:border-r-0 pb-1"
+              className="flex-1 text-center text-xs text-su-muted border-r border-su-line/20 last:border-r-0 pb-1"
             >
               {label}
             </div>
@@ -400,7 +400,7 @@ const WeekTimeline = memo(function WeekTimeline({
                   }}
                   title={`${c.name}: ${formatUtcRange(c.startUtc, c.endUtc)}`}
                 >
-                  <span className="text-[9px] text-su-text/80 truncate font-medium">
+                  <span className="text-xs text-su-text/80 truncate font-medium">
                     {c.name}
                   </span>
                 </div>

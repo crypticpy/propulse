@@ -70,6 +70,9 @@ export function DraggableEquipmentCard({
       "application/x-equipment",
       JSON.stringify({ type, id }),
     );
+    if (type === "inline") {
+      e.dataTransfer.setData("application/x-equipment-inline", "1");
+    }
     e.dataTransfer.effectAllowed = "move";
     setIsDragging(true);
     onDragStart?.();
@@ -102,13 +105,13 @@ export function DraggableEquipmentCard({
             {name}
           </span>
           {inUse && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-su-line/20 text-su-muted border border-su-line/20">
+            <span className="shrink-0 px-1.5 py-0.5 text-xs font-semibold rounded-full bg-su-line/20 text-su-muted border border-su-line/20">
               In Use
             </span>
           )}
         </div>
         {subLabel && (
-          <p className="text-[10px] text-su-muted truncate mt-0.5">
+          <p className="text-xs text-su-muted truncate mt-0.5">
             {subLabel}
           </p>
         )}

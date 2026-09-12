@@ -426,7 +426,7 @@ export function NetFilterControls({
               aria-pressed={filters.newcomerFriendly === true}
               className={`${pillBase} ${
                 filters.newcomerFriendly === true
-                  ? "bg-signal-green/20 text-signal-green border-signal-green/40"
+                  ? "bg-signal-green/20 text-su-text border-signal-green/40"
                   : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >

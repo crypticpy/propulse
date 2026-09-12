@@ -373,7 +373,7 @@ export function Contest() {
             {/* Band/Mode quick-select display */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-su-line/40">
               {catActive && (
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-signal-green/20 text-signal-green border border-signal-green/30">
+                <span className="px-1.5 py-0.5 text-xs font-bold rounded bg-signal-green/20 text-signal-green border border-signal-green/30">
                   CAT
                 </span>
               )}

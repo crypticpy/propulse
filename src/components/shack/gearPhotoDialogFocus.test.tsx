@@ -185,4 +185,31 @@ describe("gear photo nested dialogs (#328)", () => {
     });
     expect(document.body.style.overflow).toBe("hidden");
   });
+
+  it("keeps the body scroll lock after the crop dialog is dismissed and the hero card remains open", async () => {
+    renderHeroWithPhoto();
+
+    fireEvent.click(screen.getByRole("button", { name: "Change photo" }));
+    const fileInput = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["photo"], "photo.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: "Crop Photo" })).toBeTruthy();
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Crop Photo" })).toBeNull();
+    });
+
+    expect(screen.getByRole("dialog", { name: "HF transceiver" })).toBeTruthy();
+    expect(document.body.style.overflow).toBe("hidden");
+  });
 });

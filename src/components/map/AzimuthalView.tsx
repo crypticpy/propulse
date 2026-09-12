@@ -2307,7 +2307,12 @@ export function AzimuthalView({
         spotDotScale,
         false,
         {
+          // Same watch treatment as the Spots branch so dimming does not
+          // depend on Spots also being on (Codex round 2 on #1290).
+          watchDimming: watchEnabled && matchedSpotIds.size > 0,
+          watchMatchedIds: matchedSpotIds,
           ageFade: labelOptions.spotPathAgeFade,
+          groupedMembers,
           cacheScope: spotArcsCacheScope,
         },
       );

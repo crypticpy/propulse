@@ -283,6 +283,19 @@ describe("AzimuthalView shared spotArcsLayer binding", () => {
     expect(alphas.some((a) => Math.abs(a - 0.3) < 1e-6)).toBe(true);
   });
 
+  it("dims the unmatched trace with Spot Traces on and Spots off (Codex round 2 on #1290)", async () => {
+    useMapStore.setState({
+      layers: { ...originalLayers, spots: false, spotTraces: true },
+    });
+    useWatchStore.setState({
+      enabled: true,
+      matchedSpotIds: new Set([MATCHED_SPOT.id]),
+    });
+    await mount();
+    const alphas = strokeAlphasForColor(SPOT_COLOR);
+    expect(alphas.some((a) => Math.abs(a - 0.3) < 1e-6)).toBe(true);
+  });
+
   it("does not dim any arc when no watch is active", async () => {
     useWatchStore.setState({ enabled: false, matchedSpotIds: new Set() });
     await mount();

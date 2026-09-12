@@ -106,8 +106,10 @@ npm run hooks:install
 
 `ghr` and `ghb` below are `~/.config/propulse-reader/ghr` and
 `~/.config/propulse-bot/ghb`, `gh` authenticated as the read and write Apps;
-see AGENTS.md's "GitHub API budget" section. `gh project …` commands keep
-plain `gh`, the owner token.
+see AGENTS.md's "GitHub API budget" section. Neither directory is on PATH, so
+either spell the full path or run
+`export PATH="$HOME/.config/propulse-reader:$HOME/.config/propulse-bot:$PATH"`
+once per shell. `gh project …` commands keep plain `gh`, the owner token.
 
 Finding open PRs that touch your files:
 

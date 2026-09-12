@@ -67,7 +67,7 @@ export function DupeIndicator({
       className={`
         inline-flex items-center gap-1.5 px-2 py-1
         bg-alert-red/20 border-2 border-alert-red/60 rounded
-        text-alert-red font-bold text-sm uppercase tracking-wider
+        text-su-text font-bold text-sm uppercase tracking-wider
         high-contrast:border-alert-red high-contrast:bg-alert-red/30
         ${className}
       `}

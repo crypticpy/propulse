@@ -176,7 +176,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/atmos/WeatherAlertToast.tsx",
     what: "CRITICAL badge",
-    anchor: "text-alert-red bg-alert-red/20 flex-shrink-0",
+    anchor: "text-su-text bg-alert-red/20 flex-shrink-0",
   },
   {
     file: "src/components/alerts/SpotAlertToast.tsx",
@@ -191,7 +191,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/dx/DXSpotList/DXSpotList.tsx",
     what: "alert-match-count badge",
-    anchor: "bg-alert-red/20 text-alert-red border border-alert-red/30",
+    anchor: "bg-alert-red/20 text-su-text border border-alert-red/30",
   },
   {
     file: "src/components/contest/ContestCalendar.tsx",
@@ -217,7 +217,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/qso/ConflictBadge.tsx",
     what: "sync-conflict count badge",
-    anchor: "text-caution-amber transition-colors",
+    anchor: "text-su-text transition-colors hover:bg-caution-amber/20",
   },
   {
     file: "src/components/qso/LotwSyncButton.tsx",
@@ -228,7 +228,7 @@ const AUDITED_SITES: AuditedSite[] = [
     file: "src/components/contest/DupeIndicator.tsx",
     what: "DUPE badge",
     anchor:
-      "text-alert-red font-bold text-sm uppercase tracking-wider high-contrast:border-alert-red high-contrast:bg-alert-red/30",
+      "text-su-text font-bold text-sm uppercase tracking-wider high-contrast:border-alert-red high-contrast:bg-alert-red/30",
   },
   {
     file: "src/components/contest/RigStatusBar.tsx",
@@ -248,7 +248,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/contest/ContestTimer.tsx",
     what: "off-time warning badge",
-    anchor: "bg-alert-red/20 border border-alert-red/50 text-alert-red",
+    anchor: "bg-alert-red/20 border border-alert-red/50 text-su-text",
   },
   {
     file: "src/components/kiosk/KioskChrome.tsx",
@@ -263,7 +263,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/contest/ContestOneLineEntry.tsx",
     what: "inline DUP badge",
-    anchor: "bg-alert-red/20 text-alert-red border-2 border-alert-red/50",
+    anchor: "bg-alert-red/20 text-su-text border-2 border-alert-red/50",
   },
   {
     file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",

@@ -305,7 +305,7 @@ function WeatherAlertToastItem({
                 {alert.title}
               </h4>
               {isCritical && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-alert-red bg-alert-red/20 flex-shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-su-text bg-alert-red/20 flex-shrink-0">
                   CRITICAL
                 </span>
               )}

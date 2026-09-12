@@ -412,12 +412,12 @@ export function FateDecodeRow({
           {d.parsedCallsign ?? ""}
         </span>
         {d.foxCallsign && d.parsedCallsign && (
-          <span className="shrink-0 bg-amber-500/20 text-amber-400 text-xs font-bold px-1 rounded leading-normal">
+          <span className="shrink-0 bg-amber-500/20 text-su-text text-xs font-bold px-1 rounded leading-normal">
             FOX
           </span>
         )}
         {isNewEntity && d.parsedCallsign && (
-          <span className="shrink-0 bg-caution-amber/20 text-caution-amber text-xs px-1 rounded font-bold leading-normal">
+          <span className="shrink-0 bg-caution-amber/20 text-su-text text-xs px-1 rounded font-bold leading-normal">
             DXCC
           </span>
         )}
@@ -768,7 +768,7 @@ export function FateBandActivity({
           onClick={() => onCqFilterChange(!showCqOnly)}
           className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
             showCqOnly
-              ? "bg-signal-green/15 text-signal-green"
+              ? "bg-signal-green/15 text-su-text"
               : "text-su-muted hover:text-su-text"
           }`}
         >
@@ -791,11 +791,11 @@ export function FateBandActivity({
 
       {/* DXpedition banner — shown when a Fox is detected */}
       {detectedFoxCallsign && (
-        <div className="bg-amber-500/10 border-b border-amber-400/20 px-3 py-1 text-xs text-amber-400 font-mono shrink-0 flex items-center gap-1.5">
+        <div className="bg-amber-500/10 border-b border-amber-400/20 px-3 py-1 text-xs text-su-text font-mono shrink-0 flex items-center gap-1.5">
           <span className="text-xs">{"\uD83E\uDD8A"}</span>
           <span>
             DXpedition detected:{" "}
-            <span className="font-bold text-amber-300">
+            <span className="font-bold text-su-text">
               {detectedFoxCallsign}
             </span>
           </span>

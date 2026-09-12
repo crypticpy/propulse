@@ -566,7 +566,7 @@ export function ContestOneLineEntry({
             <span
               className="
                 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
-                bg-alert-red/20 text-alert-red border-2 border-alert-red/50
+                bg-alert-red/20 text-su-text border-2 border-alert-red/50
               "
               role="alert"
               aria-live="assertive"
@@ -594,7 +594,7 @@ export function ContestOneLineEntry({
             <span
               className="
                 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
-                bg-signal-green/20 text-signal-green border-2 border-signal-green/50
+                bg-signal-green/20 text-su-text border-2 border-signal-green/50
               "
               role="status"
               aria-live="polite"

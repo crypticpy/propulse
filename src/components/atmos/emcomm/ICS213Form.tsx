@@ -101,7 +101,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       </div>
 
       {/* Date/Time + Priority row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div>
           <label className="block text-xs text-su-muted mb-1">Date/Time</label>
           <input
@@ -113,7 +113,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
         </div>
         <div>
           <label className="block text-xs text-su-muted mb-1">Priority</label>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {PRIORITIES.map((p) => (
               <button
                 key={p}

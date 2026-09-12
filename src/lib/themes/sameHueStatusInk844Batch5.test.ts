@@ -30,7 +30,8 @@ type StatusToken =
   | "caution-amber"
   | "alert-red"
   | "plasma-orange"
-  | "nebula-blue";
+  | "nebula-blue"
+  | "cosmic-cyan";
 
 type StationPalette = (typeof stationPalettes)[ThemeId];
 
@@ -90,6 +91,8 @@ function statusTintHex(
       return (stationTokens(theme, DEFAULT_ACCENT_HEX) as Record<string, string>)[
         "--su-accent"
       ];
+    case "cosmic-cyan":
+      return palette.info;
     case "nebula-blue":
       return palette.panel;
   }
@@ -120,6 +123,12 @@ function assertNoSameHueInkOnTint(
 }
 
 const BATCH5_SITES: Batch5Site[] = [
+  { file: "src/components/map/ProToolbarRibbon.tsx", what: "the VHF preset", snippet: `vhf: "bg-cosmic-cyan/20 text-su-text border-cosmic-cyan/40"`, token: "cosmic-cyan" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the signal-green license class", snippet: `return "bg-signal-green/20 text-su-text border-signal-green/30"`, token: "signal-green" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the plasma-orange license class", snippet: `return "bg-plasma-orange/20 text-su-text border-plasma-orange/30"`, token: "plasma-orange" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the caution-amber license class", snippet: `return "bg-caution-amber/20 text-su-text border-caution-amber/30"`, token: "caution-amber" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the nebula-blue license class", snippet: `return "bg-nebula-blue/20 text-su-text border-nebula-blue/30"`, token: "nebula-blue" },
+
   {
     file: "src/components/map/ProToolbarRibbon.tsx",
     what: "the dx-hunter preset active style",
@@ -171,7 +180,7 @@ const BATCH5_SITES: Batch5Site[] = [
   {
     file: "src/components/map/WatchPopover.tsx",
     what: "the save-watch confirm button",
-    snippet: `rounded-lg bg-signal-green/20 text-su-text text-xs font-medium`,
+    snippet: `rounded-lg bg-signal-green/15 text-su-text text-xs font-medium`,
     token: "signal-green",
   },
   {
@@ -183,7 +192,7 @@ const BATCH5_SITES: Batch5Site[] = [
   {
     file: "src/components/map/layers/SatMatchPanel.tsx",
     what: "the Find Passes search button",
-    snippet: `bg-nebula-blue/20 text-su-text border border-nebula-blue/30`,
+    snippet: `bg-nebula-blue/15 text-su-text border border-nebula-blue/30`,
     token: "nebula-blue",
   },
   {
@@ -221,6 +230,8 @@ describe("#844 batch 5 status-tint sites ship --su-text ink", () => {
         source.includes(site.snippet),
         `${site.file} no longer contains:\n${site.snippet}`,
       ).toBe(true);
+      const matchedLine = source.split("\n").find((line) => line.includes(site.snippet))!;
+      expect(deriveStatusAlpha(matchedLine, site.token)).toBeLessThanOrEqual(TINT_CAP);
       assertNoSameHueInkOnTint(source, site.what, site.token);
       const alpha = deriveStatusAlpha(site.snippet, site.token);
       if (Number.isFinite(alpha) && alpha > 0) {

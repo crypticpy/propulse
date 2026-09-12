@@ -799,7 +799,7 @@ export function WatchPopover() {
                   type="button"
                   onClick={handleSave}
                   disabled={!saveName.trim()}
-                  className="px-2 py-1 rounded-lg bg-signal-green/20 text-su-text text-xs font-medium hover:bg-signal-green/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="px-2 py-1 rounded-lg bg-signal-green/15 text-su-text text-xs font-medium hover:bg-signal-green/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Save
                 </button>

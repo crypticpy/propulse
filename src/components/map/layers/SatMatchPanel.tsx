@@ -182,7 +182,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
         <button
           onClick={handleSearch}
           disabled={!canSearch || loading}
-          className="px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-nebula-blue/20 text-su-text border border-nebula-blue/30 hover:bg-nebula-blue/30 active:bg-nebula-blue/40"
+          className="px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-nebula-blue/15 text-su-text border border-nebula-blue/30 hover:bg-nebula-blue/20 hover:underline active:bg-nebula-blue/20"
         >
           {loading ? "Searching..." : "Find Passes"}
         </button>

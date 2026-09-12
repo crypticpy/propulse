@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FramedGlobeSatellitesPanel } from "./FramedGlobeSatellitesPanel";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { useMapStore } from "@/stores/mapStore";
 
 vi.mock("./SatellitePanel", () => ({
@@ -36,6 +37,21 @@ describe("FramedGlobeSatellitesPanel (#1083)", () => {
     expect(document.getElementById("floating-panel-satellites")).not.toBeNull();
     expect(screen.getByText("Satellites")).toBeTruthy();
     expect(screen.getByText("Satellite panel stub")).toBeTruthy();
+  });
+
+  it("escapes the map Card's clipped containing block and stays below drawers", () => {
+    setMap({ satellites: true });
+    const { container } = render(
+      <div style={{ overflow: "hidden", backdropFilter: "blur(12px)" }}>
+        <FramedGlobeSatellitesPanel />
+      </div>,
+    );
+    const panel = document.getElementById("floating-panel-satellites")!;
+    expect(panel).not.toBeNull();
+    expect(container.contains(panel)).toBe(false);
+    expect(document.body.contains(panel)).toBe(true);
+    expect(Number(panel.style.zIndex)).toBe(MAP_PAGE_CHROME_Z.interactiveChrome);
+    expect(Number(panel.style.zIndex)).toBeLessThan(MAP_PAGE_CHROME_Z.activityDrawer);
   });
 
   it("also mounts in lite 3D globe when the satellites layer is on", () => {

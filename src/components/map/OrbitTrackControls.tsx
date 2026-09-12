@@ -50,6 +50,7 @@ export function OrbitTrackToggleButton({
       type="button"
       onClick={handleToggleTrack}
       aria-pressed={isTracked}
+      aria-label={`${isTracked ? "Clear orbit" : "Map orbit"} for ${name}`}
       className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
         isTracked
           ? "bg-su-accent/15 text-su-accent border border-su-accent/40 hover:bg-su-accent/25"

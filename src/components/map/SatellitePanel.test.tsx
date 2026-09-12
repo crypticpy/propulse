@@ -81,7 +81,7 @@ describe("SatellitePanel row Map orbit (#1083)", () => {
     renderPanel();
 
     expect(screen.getByText("SO-124")).toBeTruthy();
-    const toggle = screen.getByRole("button", { name: "Map orbit" });
+    const toggle = screen.getByRole("button", { name: "Map orbit for SO-124" });
     expect(toggle.tagName).toBe("BUTTON");
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
     expect(screen.queryByText("Orbit mapped")).toBeNull();
@@ -101,7 +101,7 @@ describe("SatellitePanel row Map orbit (#1083)", () => {
 
     renderPanel();
 
-    fireEvent.click(screen.getByRole("button", { name: "Map orbit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Map orbit for SO-124" }));
 
     expect(selectSatellite).not.toHaveBeenCalled();
     expect(useMapStore.getState().satelliteTracks["56207"]).toEqual({
@@ -110,7 +110,7 @@ describe("SatellitePanel row Map orbit (#1083)", () => {
       showFootprint: false,
       name: "SO-124",
     });
-    expect(screen.getByRole("button", { name: "Clear orbit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear orbit for SO-124" })).toBeTruthy();
     expect(screen.getByText("Orbit mapped")).toBeTruthy();
   });
 
@@ -131,9 +131,9 @@ describe("SatellitePanel row Map orbit (#1083)", () => {
 
     renderPanel();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear orbit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear orbit for SO-124" }));
 
     expect(useMapStore.getState().satelliteTracks["56207"]).toBeUndefined();
-    expect(screen.getByRole("button", { name: "Map orbit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Map orbit for SO-124" })).toBeTruthy();
   });
 });

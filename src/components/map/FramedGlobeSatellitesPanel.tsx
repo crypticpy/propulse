@@ -8,6 +8,8 @@
  */
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { FloatingPanel } from "@/components/layout/FloatingPanel";
 import { SatellitePanel } from "./SatellitePanel";
 import { useMapStore } from "@/stores/mapStore";
@@ -37,7 +39,9 @@ export function FramedGlobeSatellitesPanel() {
   if (layoutMode === "pro" || layoutMode === "hamclock") return null;
   if (viewMode !== "globe" || !satellitesOn) return null;
 
-  return (
+  // Fixed coordinates must resolve against the viewport, not the filtered
+  // and clipped map Card that contains this component in the React tree.
+  return createPortal(
     <FloatingPanel
       id="satellites"
       title="Satellites"
@@ -48,10 +52,11 @@ export function FramedGlobeSatellitesPanel() {
       minTop={72}
       collapsed={collapsed}
       onCollapse={() => setCollapsed((open) => !open)}
-      zIndex={40}
+      zIndex={MAP_PAGE_CHROME_Z.interactiveChrome}
       icon={SATELLITES_ICON}
     >
       <SatellitePanel className="!bg-transparent !border-0 h-full" />
-    </FloatingPanel>
+    </FloatingPanel>,
+    document.body,
   );
 }

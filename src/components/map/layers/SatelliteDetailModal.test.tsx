@@ -164,7 +164,7 @@ describe("SatelliteDetailModal", () => {
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
 
-      const toggle = screen.getByRole("button", { name: "Map orbit" });
+      const toggle = screen.getByRole("button", { name: "Map orbit for TEST-SAT-1" });
       expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
       const user = userEvent.setup();
@@ -195,7 +195,7 @@ describe("SatelliteDetailModal", () => {
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
 
-      const toggle = screen.getByRole("button", { name: "Clear orbit" });
+      const toggle = screen.getByRole("button", { name: "Clear orbit for TEST-SAT-1" });
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
 
       const user = userEvent.setup();
@@ -215,7 +215,7 @@ describe("SatelliteDetailModal", () => {
       ).toBeNull();
 
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: "Map orbit" }));
+      await user.click(screen.getByRole("button", { name: "Map orbit for TEST-SAT-1" }));
 
       expect(
         await screen.findByRole("radio", { name: "2 orbits" }),

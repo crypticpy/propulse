@@ -96,6 +96,24 @@ export interface AdmittedForecast extends Admitted {
   readonly forecastIssuedMs: number;
 }
 
+/**
+ * Histories keyed by a source the ledger never declared.
+ *
+ * The census walks the ledger, so a key nothing looks up supplies nothing and
+ * the source it was meant to fill reads absent. A caller who misspells a key
+ * would be told the source produced no record, which is a different and
+ * untrue fact (M11).
+ */
+export class ContextHistoryError extends Error {
+  override readonly name = "ContextHistoryError";
+
+  constructor(readonly sourceIds: readonly string[]) {
+    super(
+      `histories name sources the PROP-05 ledger never declares: ${sourceIds.join(", ")}; an undeclared source supplies nothing, and reporting it absent would hide the misspelling (M11)`,
+    );
+  }
+}
+
 export interface AdmissionOptions {
   /**
    * The product kind the consuming branch reads. Defaults to the kind the

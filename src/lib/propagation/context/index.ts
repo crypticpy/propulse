@@ -31,6 +31,7 @@ export {
 export {
   admitRecord,
   ContextDeclarationError,
+  ContextHistoryError,
   ContextStampError,
   ContextVariableError,
   type Admitted,

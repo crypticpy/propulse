@@ -4,6 +4,7 @@ import resultCases from "@/lib/propagation/contracts/fixtures/result.cases.json"
 import { parseResult } from "@/lib/propagation/contracts/result";
 
 import { recordsFromSnapshotRow, type SolarSnapshotRow } from "./adapters";
+import { ContextHistoryError } from "./admission";
 import {
   DISABLED_CAPABILITIES,
   getLedgerEntry,
@@ -479,6 +480,28 @@ describe("buildContextSnapshot: a declared driver never silently disappears", ()
       if (driver === undefined || driver.origin !== "absent") continue;
       expect(driver.reason.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("a histories key is checked against the ledger", () => {
+  it("throws naming a misspelled source instead of reporting it absent", async () => {
+    // The census walks the ledger, so a key nothing looks up would never be
+    // admitted and the source it was meant to supply would read absent: the
+    // caller would be told there was no forecast rather than that they
+    // misspelled its name.
+    const histories = {
+      ...historiesFrom(ROW),
+      kp_forecats: [],
+    };
+    await expect(snapshot({ histories })).rejects.toThrow(ContextHistoryError);
+    await expect(snapshot({ histories })).rejects.toThrow(/kp_forecats/);
+  });
+
+  it("accepts a declared key that supplied nothing", async () => {
+    const built = await snapshot({
+      histories: { ...historiesFrom(ROW), kp_forecast: [] },
+    });
+    expect(built.sources.kp_forecast).toMatchObject({ state: "absent" });
   });
 });
 

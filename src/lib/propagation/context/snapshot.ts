@@ -23,7 +23,10 @@ import {
   LEDGER_VERSION,
   SOURCE_LEDGER,
 } from "@/lib/propagation/context/ledger";
-import { admitRecord } from "@/lib/propagation/context/admission";
+import {
+  admitRecord,
+  ContextHistoryError,
+} from "@/lib/propagation/context/admission";
 import {
   eligibleAsOf,
   inactiveBarrierAsOf,
@@ -234,6 +237,13 @@ export async function buildContextSnapshot(
   // which is also what makes the frozen result immutable in fact rather than
   // by convention: freezing the caller's own records instead would reach back
   // out of this function and make an input immutable as a side effect.
+  // A key the census never looks up supplies nothing, so a misspelled source
+  // would be reported absent as though it had produced no record.
+  const undeclared = Object.keys(options.histories)
+    .filter((sourceId) => !CENSUS_SOURCE_IDS.includes(sourceId))
+    .sort();
+  if (undeclared.length > 0) throw new ContextHistoryError(undeclared);
+
   const owned: ContextSnapshotOptions = {
     ...options,
     histories: structuredClone(options.histories),

@@ -75,6 +75,15 @@
  * the reference does; `basicMuf.test.ts` pins both the value and the sign of
  * that term so the choice is visible rather than buried.
  *
+ * WHICH dmax THE OUTER POINTS USE. On a path longer than dmax the lowest-order
+ * F2(dmax)MUF is evaluated at T + d0/2 and R - d0/2 with each point's own
+ * foF2, foE, M(3000)F2 and gyrofrequency but with the mid-path dmax (restricted
+ * to 4000 km). Table 1 defines dmax as "calculated at the mid-path control
+ * point", and section 3.5.2.2 lifts that only for Mn and Mn0, where dmax "is
+ * recalculated at the control point". The reference does the same:
+ * `MUFBasic.c` passes `path->dmax` to both outer points and calls `Calcdmax()`
+ * per point only inside the Mn/Mn0 scaling. `basicMuf.test.ts` pins it.
+ *
  * NO IONOSPHERE IS FETCHED HERE. The circuit hands in one `sample` callback
  * that answers for any point on the route, which is this codebase's form of
  * the mathematical contract's M03 requirement that the portable state callback
@@ -394,7 +403,11 @@ function solveF2(
         basicMufMHz: f2BasicMufMHz(midState, D / n, dmaxKm),
       });
     }
-    return { lowestOrderHopCount: n0, basicMufMHz: modes[0].basicMufMHz, modes };
+    return {
+      lowestOrderHopCount: n0,
+      basicMufMHz: modes[0].basicMufMHz,
+      modes,
+    };
   }
 
   // Sections 3.5.1.2 and 3.5.2.2: the two Table 1a control points.
@@ -464,9 +477,7 @@ function solveE(context: SolveContext): LayerBasicMuf | null {
       layer: "E",
     });
     if (selection.kind !== "points") return null;
-    foEMHz = basicMufFoEMHz(
-      selection.points.map((site) => at(site).foEMHz),
-    );
+    foEMHz = basicMufFoEMHz(selection.points.map((site) => at(site).foEMHz));
   }
 
   const modes: BasicMufMode[] = [];

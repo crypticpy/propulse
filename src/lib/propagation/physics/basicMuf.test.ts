@@ -20,7 +20,7 @@ import {
   type ControlPointSampler,
   type MufControlPointState,
 } from "./basicMuf";
-import { MAX_DMAX_KM } from "./controlPoints";
+import { basicMufDmaxKm, MAX_DMAX_KM } from "./controlPoints";
 
 /**
  * Every expected number in this file was computed from the published P.533-14
@@ -100,8 +100,12 @@ describe("mode existence at the reference's 3 degree floor", () => {
   it("chooses the lowest order from that hop, not from the horizon", () => {
     // 1800 km needs two E hops at the 3 degree floor (1800 > 1775.58) even
     // though a single 1800 km hop is above the horizon at 110 km.
-    expect(lowestOrderHopCount(1500, E_LAYER_MIRROR_HEIGHT_KM, MAX_E_MODES)).toBe(1);
-    expect(lowestOrderHopCount(1800, E_LAYER_MIRROR_HEIGHT_KM, MAX_E_MODES)).toBe(2);
+    expect(
+      lowestOrderHopCount(1500, E_LAYER_MIRROR_HEIGHT_KM, MAX_E_MODES),
+    ).toBe(1);
+    expect(
+      lowestOrderHopCount(1800, E_LAYER_MIRROR_HEIGHT_KM, MAX_E_MODES),
+    ).toBe(2);
     expect(
       maximumHopGroundDistanceKm(E_LAYER_MIRROR_HEIGHT_KM),
     ).toBeGreaterThan(1800);
@@ -226,9 +230,7 @@ describe("section 3.3: the lower foE of the two Table 1a control points", () => 
     expect(result.e?.basicMufMHz).toBeCloseTo(10.91613975068902, PRECISION);
     // The higher foE would have given 14.10...; taking it would be section 4's
     // screening rule, not section 3.3's.
-    expect(result.e?.basicMufMHz).toBeLessThan(
-      (3.1 / 2.4) * 10.91613975068902,
-    );
+    expect(result.e?.basicMufMHz).toBeLessThan((3.1 / 2.4) * 10.91613975068902);
   });
 });
 
@@ -265,6 +267,38 @@ describe("sections 3.5.1.2 and 3.5.2.2: paths longer than dmax", () => {
     expect(result.f2?.basicMufMHz).toBeCloseTo(
       f2BasicMufMHz({ ...outer, foF2MHz: 6 }, 3000, MAX_DMAX_KM),
       PRECISION,
+    );
+  });
+
+  it("evaluates F2(dmax)MUF at each outer point with the mid-path dmax", () => {
+    // The outer points are given an ionosphere whose own restricted dmax is
+    // below 4000 km (foF2/foE = 2, M(3000)F2 = 4 gives B = 4.189 and
+    // dmax = 3443 km). Table 1 defines dmax as "calculated at the mid-path
+    // control point", and section 3.5.2.2 says dmax "is recalculated at the
+    // control point" only for Mn and Mn0, so the lowest-order value keeps the
+    // mid-path dmax (4000 km here) and the outer point's own ionosphere. The
+    // reference agrees: MUFBasic.c passes path->dmax to both outer points.
+    const mid = outer;
+    const edge = state({
+      foF2MHz: 6,
+      m3000F2: 4,
+      foEMHz: 3,
+      gyrofrequency300kmMHz: 1.2,
+    });
+    const edgeDmaxKm = basicMufDmaxKm(edge.m3000F2, edge.foF2MHz, edge.foEMHz);
+    expect(edgeDmaxKm).toBeLessThan(MAX_DMAX_KM);
+    const sample: ControlPointSampler = (_point, label) =>
+      label === "M" ? mid : edge;
+    const result = basicMuf({ route, sample });
+    if (result.kind !== "resolved") throw new Error(result.detail);
+    expect(result.dmaxKm).toBe(MAX_DMAX_KM);
+    expect(result.f2?.basicMufMHz).toBeCloseTo(
+      f2BasicMufMHz(edge, 3000, MAX_DMAX_KM),
+      PRECISION,
+    );
+    expect(result.f2?.basicMufMHz).not.toBeCloseTo(
+      f2BasicMufMHz(edge, 3000, edgeDmaxKm),
+      6,
     );
   });
 

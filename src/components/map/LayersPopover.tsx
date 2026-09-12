@@ -1352,12 +1352,17 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                   (22px root). Horizontal padding is 0.625rem each side, so
                   the content slot is 13.25rem. A 4.5rem label, 1rem of
                   slider gutters, and a 2.25rem value chip leave 5.5rem of
-                  track instead of an undraggable sliver. Placement already
-                  clamps to the viewport (HW-23), so the wider xl box still
-                  fits phone, tablet, workstation, and wall. */}
+                  track instead of an undraggable sliver. Placement (HW-23)
+                  only translates the box — it never shrinks it — so below
+                  the `sm` breakpoint the fixed 168px category column plus a
+                  319px xl submenu (487px, before the 8px viewport margins
+                  and borders) would overflow a phone. `min(14.5rem,
+                  calc(100vw-192px))` caps the submenu so category column +
+                  submenu + margins/borders (168 + 16 + ~8) always fits;
+                  `sm:` restores the full 14.5rem once there is room. */}
               <div
                 data-layers-submenu=""
-                className="w-[14.5rem] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5"
+                className="w-[min(14.5rem,calc(100vw-192px))] sm:w-[14.5rem] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5"
               >
                 {/* Category header */}
                 <div className="text-xs uppercase tracking-wider text-su-text/80 font-semibold mb-1.5 px-1">

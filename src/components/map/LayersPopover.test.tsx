@@ -127,6 +127,19 @@ describe("LayersPopover viewport clamp", () => {
     expect(submenu?.className).not.toContain("w-[232px]");
   });
 
+  it("caps the submenu below `sm` so a phone at lg/xl text scale can't overflow", () => {
+    // The fixed 168px category column plus an uncapped 14.5rem submenu is
+    // 487px at xl (22px root) — wider than a 390px phone. `min()` caps the
+    // submenu to what's left of the viewport; `sm:` restores the full
+    // 14.5rem once there is room for it (placement only translates the box,
+    // it never shrinks it, so the CSS itself has to fit on screen).
+    const { popover } = openPopover();
+    const submenu = popover.querySelector("[data-layers-submenu]");
+    expect(submenu).not.toBeNull();
+    expect(submenu?.className).toContain("w-[min(14.5rem,calc(100vw-192px))]");
+    expect(submenu?.className).toContain("sm:w-[14.5rem]");
+  });
+
   it.each([
     {
       name: "phone",
@@ -134,6 +147,18 @@ describe("LayersPopover viewport clamp", () => {
       height: 844,
       boxWidth: 400,
       boxHeight: 420,
+    },
+    {
+      // The scenario the min()-cap targets: a 390px phone with the
+      // submenu at its uncapped xl width (168px category + 319px
+      // submenu = 487px). The position clamp still has to keep the box
+      // from going off the left/top edge even though it's wider than
+      // the viewport.
+      name: "phone xl",
+      width: 390,
+      height: 844,
+      boxWidth: 487,
+      boxHeight: 500,
     },
     {
       name: "tablet",

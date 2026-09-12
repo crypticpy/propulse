@@ -807,7 +807,7 @@ export function GridResearchPanel({
   const [selectedCallsign, setSelectedCallsign] = useState<string | null>(null);
 
   // Fetch research data for the grid
-  const researchData = useGridResearch(grid);
+  const researchData = useGridResearch(grid, undefined, visible);
 
   // Reset to the requested entry point when a new grid/operator is opened.
   useEffect(() => {

@@ -890,8 +890,8 @@ export function EquipmentHeroCard({
                              transition-all duration-200 min-h-[44px]
                              focus:outline-none focus-visible:ring-2
                              ${
-                               isActive
-                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
+                                 isActive
+                                   ? "bg-signal-green/20 border border-signal-green/40 text-su-text focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
                                  : "bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text hover:border-su-line/50 focus-visible:ring-su-line/60"
                              }`}
                 >

@@ -691,6 +691,30 @@ def require_reference_build(source: Path) -> ReferenceBuild:
     return build
 
 
+# Manifest blocks owned by sibling generators. This module rebuilds every block
+# it owns from scratch on ``--emit``; the blocks below belong to other modules
+# (``ionosphere_decile_factors.py`` for ``decile_factors``, #1102) and must
+# survive a refresh of the CCIR asset or the SILSO series, or the TypeScript
+# loaders that import ``manifest.json`` stop compiling.
+SIDECAR_MANIFEST_BLOCKS = ("decile_factors",)
+
+
+def carry_over_sidecar_blocks(existing: dict | None, manifest: dict) -> dict:
+    """Return ``manifest`` with each sidecar block of ``existing`` copied in.
+
+    Blocks this module owns are always taken from ``manifest``; a sidecar block
+    is taken from ``existing`` when present there and left absent otherwise, so
+    a first ``--emit`` on a fresh tree writes exactly what it always did.
+    """
+    if not existing:
+        return manifest
+    merged = dict(manifest)
+    for key in SIDECAR_MANIFEST_BLOCKS:
+        if key in existing:
+            merged[key] = existing[key]
+    return merged
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/prop07-cache"))
@@ -840,6 +864,12 @@ def main() -> int:
     }
     if args.emit:
         MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        existing = (
+            json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+            if MANIFEST_PATH.exists()
+            else None
+        )
+        manifest = carry_over_sidecar_blocks(existing, manifest)
         MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         print(f"asset {len(asset)} bytes sha256:{asset_digest}")
     return 0
@@ -888,6 +918,38 @@ class ReferenceBuildGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(RuntimeError, "absent"):
                 require_reference_build(Path(tmp) / "ITU-R-HF")
+
+
+class SidecarManifestBlockTests(unittest.TestCase):
+    """``--emit`` must not drop the blocks other generators own (#1102).
+
+    The failure this guards is order-dependent: running the decile generator
+    and then refreshing the CCIR asset used to leave ``manifest.decile_factors``
+    undefined, and ``decileLoader.ts`` imports it at compile time.
+    """
+
+    def test_decile_factors_survive_a_base_regeneration(self):
+        existing = {
+            "schema_version": 1,
+            "asset": {"sha256": "sha256:old"},
+            "decile_factors": {"asset": {"sha256": "sha256:deciles"}},
+        }
+        fresh = {"schema_version": 1, "asset": {"sha256": "sha256:new"}}
+        merged = carry_over_sidecar_blocks(existing, fresh)
+        self.assertEqual(merged["asset"], {"sha256": "sha256:new"})
+        self.assertEqual(
+            merged["decile_factors"], {"asset": {"sha256": "sha256:deciles"}}
+        )
+        self.assertNotIn("decile_factors", fresh)
+
+    def test_a_fresh_tree_writes_the_manifest_unchanged(self):
+        fresh = {"schema_version": 1, "asset": {"sha256": "sha256:new"}}
+        self.assertEqual(carry_over_sidecar_blocks(None, fresh), fresh)
+        self.assertEqual(carry_over_sidecar_blocks({}, fresh), fresh)
+        self.assertNotIn(
+            "decile_factors",
+            carry_over_sidecar_blocks({"asset": {}}, fresh),
+        )
 
 
 class FetchCaptureTimeTests(unittest.TestCase):

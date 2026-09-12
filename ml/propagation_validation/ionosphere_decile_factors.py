@@ -12,9 +12,12 @@ Nothing from the ITU tree is redistributed: the .txt is read, the numbers are
 re-encoded into the Propulse binary, and the .txt itself is never committed.
 
 This is a sibling of ``ionosphere_coefficients.py`` rather than a section of it
-because that module rewrites the whole manifest from scratch and needs both the
-pinned reference build and a live SILSO fetch to do so. This one merges a
+because that module rebuilds every block it owns from scratch and needs both
+the pinned reference build and a live SILSO fetch to do so. This one merges a
 single ``decile_factors`` block into the existing manifest and needs neither.
+The two can run in either order: the base generator carries an existing
+``decile_factors`` block over (``SIDECAR_MANIFEST_BLOCKS``), and this one
+touches nothing else.
 
 One reproducible command (the prettier pass is part of it: rewriting the
 manifest through json.dumps respells Python-style float exponents such as

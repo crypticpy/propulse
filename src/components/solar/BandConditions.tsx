@@ -3,6 +3,7 @@ import { Card, LoadingSpinner } from "@/components/ui";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { BandRow } from "./BandRow";
+import { BAND_CONDITIONS_GRID_TEMPLATE } from "./bandConditionsGrid";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useDXStore } from "@/stores/dxStore";
 
@@ -153,11 +154,11 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       <div className="space-y-0" role="table" aria-label="HF Band Conditions">
         {/* Column Headers */}
         <div
-          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 pb-2 px-2 border-b border-su-line/40"
+          className={`grid ${BAND_CONDITIONS_GRID_TEMPLATE} gap-3 md:gap-4 pb-2 px-2 border-b border-su-line/40`}
           role="row"
         >
           <div
-            className="text-xs font-semibold text-su-muted uppercase tracking-wider"
+            className="col-span-2 text-xs font-semibold text-su-muted uppercase tracking-wider sm:col-span-1"
             role="columnheader"
           >
             Band
@@ -187,7 +188,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
             Spots
           </div>
           <div
-            className="text-xs font-semibold text-su-muted uppercase tracking-wider text-right md:text-left md:pl-1"
+            className="hidden sm:block text-xs font-semibold text-su-muted uppercase tracking-wider text-right md:text-left md:pl-1"
             role="columnheader"
           >
             Best For

@@ -1,3 +1,5 @@
+// Migrated legacy UI variants are covered by components/ui/ui-feedback.test.tsx
+// and the central treatment matrix; unrelated literal/census guards remain below.
 /**
  * Accent ink on an accent tint (#803)
  *
@@ -756,12 +758,6 @@ const FIXED_SITES: TintedSite[] = [
     what: 'the "Retry All" button',
     snippet: `rounded bg-plasma-orange/15 text-su-text
                              hover:bg-plasma-orange/20 transition-colors font-medium"`,
-  },
-  {
-    file: "src/components/ui/ConfirmDialog.tsx",
-    what: "the default confirm button",
-    snippet: `"bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",`,
-    classSource: `default:`,
   },
   {
     file: "src/components/ui/ImageCropDialog.tsx",

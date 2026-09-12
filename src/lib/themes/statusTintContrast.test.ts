@@ -1,3 +1,5 @@
+// Migrated legacy UI variants are covered by components/ui/ui-feedback.test.tsx
+// and the central treatment matrix; unrelated literal/census guards remain below.
 /**
  * Status ink (warning/danger) on a same-hue status tint (#827)
  *
@@ -96,14 +98,6 @@ const SURFACES: SurfaceSpec[] = [
   },
 ];
 
-/**
- * A site that structurally always renders inside its own `bg-su-line/10`
- * glass layer before the page background -- `PanelCard`'s header badges sit
- * inside `PanelCard`'s own root (`bg-su-line/10 backdrop-blur-md ... rounded-2xl`
- * in `PanelCard.tsx`), never on bare panel/canvas directly.
- */
-const LINE_GLASS_SURFACES: SurfaceSpec[] = SURFACES.slice(2);
-
 type Tint = "amber" | "red";
 
 /** Tailwind token each tint role resolves to. */
@@ -148,75 +142,6 @@ function deriveAlpha(snippet: string, tint: Tint): number {
  * and the `src/components/ui` clause of the census guard below.
  */
 const FIXED_SITES: TintedSite[] = [
-  {
-    file: "src/components/ui/ConfirmDialog.tsx",
-    what: "the destructive confirm button",
-    snippet: `"bg-alert-red/20 hover:bg-alert-red/30 text-su-text border border-alert-red/30",`,
-    tint: "red",
-    surfaces: SURFACES,
-  },
-  {
-    file: "src/components/ui/ConfirmDialog.tsx",
-    what: "the warning confirm button",
-    snippet: `"bg-caution-amber/20 hover:bg-caution-amber/30 text-su-text border border-caution-amber/30",`,
-    tint: "amber",
-    surfaces: SURFACES,
-  },
-  {
-    file: "src/components/ui/Badge.tsx",
-    what: "the Badge `fair` variant",
-    snippet: `"bg-caution-amber/20",
-        "text-su-text",
-        "border",
-        "border-caution-amber/30",`,
-    tint: "amber",
-    surfaces: SURFACES,
-  },
-  {
-    file: "src/components/ui/Badge.tsx",
-    what: "the Badge `poor` variant",
-    snippet: `"bg-alert-red/20",
-        "text-su-text",
-        "border",
-        "border-alert-red/30",`,
-    tint: "red",
-    surfaces: SURFACES,
-  },
-  {
-    file: "src/components/ui/Badge.tsx",
-    what: "the Badge `storm` variant",
-    // Not reachable from any in-app call site today, but mounted via
-    // `.design-sync/previews/Badge.tsx` (`<Badge status="storm">`), which the
-    // design-system alignment rule re-grades on every fix -- the same
-    // correction #795 made for SpotBadge's `verified` variant.
-    snippet: `"bg-alert-red/30",
-        "text-su-text",
-        "border",
-        "border-alert-red/50",
-      ],`,
-    tint: "red",
-    surfaces: SURFACES,
-  },
-  {
-    file: "src/components/ui/PanelCard.tsx",
-    what: "the PanelCard `warning` badge color",
-    // Mounted only via `.design-sync/previews/PanelCard.tsx` (a `color:
-    // "warning"` badge); no in-app `<PanelCard` call site exists.
-    snippet: `warning: { bg: "bg-caution-amber/20", text: "text-su-text" },`,
-    tint: "amber",
-    surfaces: LINE_GLASS_SURFACES,
-  },
-  {
-    file: "src/components/ui/PanelCard.tsx",
-    what: "the PanelCard `danger` badge color",
-    // Not mounted anywhere today (no in-app call site and no design-sync
-    // preview passes `color: "danger"`); fixed anyway per the #795/#803
-    // precedent of fixing every variant a shared primitive defines, not just
-    // the ones currently exercised.
-    snippet: `danger: { bg: "bg-alert-red/20", text: "text-su-text" },`,
-    tint: "red",
-    surfaces: LINE_GLASS_SURFACES,
-  },
   {
     file: "src/components/ui/OfflineIndicator.tsx",
     what: "the offline banner",

@@ -65,14 +65,24 @@
  * which is equation (13) at the 297.68 km equation (2) height. Both numbers are
  * on this record, under names that say which is which.
  *
- * ONE CONSEQUENCE, MEASURED AND NOT DESIGNED AWAY. The two heights are
+ * ONE CASE THE RECOMMENDATION DOES NOT ADDRESS. The two heights are
  * independent, so a hop the equation (2) height reflects can be longer than the
- * section 5.1 height reaches. On golden case G11 (6322.24 km, 2F2, selection
- * height 311.00 km, section 5.1 height 195.22 km) that happens: the mode is
- * selected and `elevationDeg` is -0.21, with `virtualSlantRangeKm` null. The
- * recommendation's equation (13) is an arctangent with no floor, so a negative
- * angle is what it gives; a consumer must handle a null slant range on a
- * `supported` mode rather than assume one.
+ * section 5.1 height reaches. Equation (13) is an arctangent with no floor, so
+ * it returns a negative angle there, and equation (19) returns nothing at all.
+ * P.533-14 says what to do with neither, and the reference never meets the case
+ * because it reports the equation (2) elevation. Such a mode is labelled
+ * `geometrically_unsupported` with the reason
+ * `mirror_height_cannot_close_hop`, its `elevationRad`, `elevationDeg` and
+ * `virtualSlantRangeKm` are `null` rather than a negative angle nobody can
+ * point an antenna at, and its `selection...` fields stay populated so the
+ * record still shows why section 5.2.1 selected it. Slice C then excludes it
+ * the way contract M07 already has it exclude every unsupported mode.
+ *
+ * It happens once on the golden corpus: G11 (6322.24 km, 2F2, selection height
+ * 311.00 km, section 5.1 height 195.22 km) is the one circuit where the
+ * reference's own dominant mode is not supported at its own section 5.1 height.
+ * That is declared in the parity fixture, and it is a consequence of the
+ * reading above rather than a parity failure.
  *
  * STATUS. Mathematical contract M07 names four states. Slice B produces three
  * of them; `above_basic_muf_with_loss` is slice C's, because it needs the
@@ -118,9 +128,18 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
 /**
  * Which criterion a `geometrically_unsupported` mode failed.
  *
+ *  - `mirror_height_cannot_close_hop`: equation (13) at `mirrorHeightKm`, the
+ *    section 5.1 height this mode's elevation is defined at, is at or below the
+ *    horizon. There is no elevation and no slant range, so all three are
+ *    `null`. This is the one reason that nulls them, and it is tested before
+ *    every other criterion so that the invariant holds exactly. An F2 mode can
+ *    reach it while section 5.2.1 selects it, because selection happens at the
+ *    other height; an E mode can only reach it if 110 km cannot close its hop,
+ *    which is the same statement as `no_reflection` would have made.
  *  - `no_reflection`: the take-off elevation of equation (13) at
  *    `selectionMirrorHeightKm` is at or below the horizon, so a mirror at
- *    section 5.2.1's selection height cannot close a hop this long.
+ *    section 5.2.1's selection height cannot close a hop this long. The mode
+ *    still has an elevation, at the section 5.1 height, and reports it.
  *  - `below_minimum_elevation`: `selectionElevationDeg` is positive but under
  *    `MIN_ELEVATION_DEG`, the 3 degree floor the reference applies when it
  *    chooses the lowest-order mode. Section 3.5.1.1 puts that floor on the
@@ -134,6 +153,7 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
  *    mode only one "with hop length up to 2 000 km".
  */
 export type ModeUnsupportedReason =
+  | "mirror_height_cannot_close_hop"
   | "no_reflection"
   | "below_minimum_elevation"
   | "hop_exceeds_dmax"
@@ -161,15 +181,20 @@ export interface PropagationMode {
    */
   readonly mirrorHeightKm: number;
   /**
-   * Equation (13) at `mirrorHeightKm`, radians.
+   * Equation (13) at `mirrorHeightKm`, radians, or `null` where that height
+   * does not reach this mode's hop.
    *
-   * Zero or negative where the section 5.1 height does not reach this mode's
-   * hop, which can happen on a `supported` mode because section 5.2.1 selects
-   * at the other height. See the module header's G11 note.
+   * INVARIANT, shared with `elevationDeg` and `virtualSlantRangeKm`: the three
+   * are `null` together and only when `status` is `geometrically_unsupported`
+   * with `unsupportedReason` `mirror_height_cannot_close_hop`. A mode with any
+   * other status, or any other reason, reports all three.
    */
-  readonly elevationRad: number;
-  /** The same angle in degrees. The angle a consumer points an antenna at. */
-  readonly elevationDeg: number;
+  readonly elevationRad: number | null;
+  /**
+   * The same angle in degrees, and the angle a consumer points an antenna at.
+   * `null` under the invariant on `elevationRad`.
+   */
+  readonly elevationDeg: number | null;
   /**
    * Equation (11) fs, MHz, or `null` where section 4 does not evaluate it.
    *
@@ -180,7 +205,7 @@ export interface PropagationMode {
    * record used to carry has been folded away because it was the same number.
    *
    * `null` for every E mode, for every F2 mode on a path longer than 4000 km,
-   * and for an F2 mode whose section 5.1 height does not reach its hop. `null` is not "zero": the reference's initialised 0.0 compares
+   * and for a mode with no elevation to take it at. `null` is not "zero": the reference's initialised 0.0 compares
    * below every operating frequency and so admits the mode, which is the same
    * outcome as not testing it, but it is a different claim and a report should
    * not print 0 MHz as a screening frequency.
@@ -190,12 +215,10 @@ export interface PropagationMode {
   readonly basicMufMHz: number;
   /**
    * Equation (19) virtual slant range of the whole n-hop circuit, km, at
-   * `mirrorHeightKm`, or `null` where the section 5.1 height does not reach
-   * this mode's hop.
+   * `mirrorHeightKm`, or `null` under the invariant on `elevationRad`.
    *
    * This is the length free-space spreading is computed over, so it is a
-   * product number and it moves with the section 5.1 height. It can be `null`
-   * on a `supported` mode; see the module header's G11 note.
+   * product number and it moves with the section 5.1 height.
    */
   readonly virtualSlantRangeKm: number | null;
   /**

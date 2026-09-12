@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { maximumHopGroundDistanceKm } from "@/lib/propagation/geometry/hop";
 import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
 import {
   resolveRoute,
@@ -92,6 +93,34 @@ const BASE_STATE: ModeControlPointState = {
   foEMHz: 1.8,
   gyrofrequency300kmMHz: 1.2,
   r12: 50,
+};
+
+/** The same overrides at every control point Table 1 can name. */
+function uniform(
+  overrides: StateOverrides,
+): Partial<Record<ControlPointLabel, StateOverrides>> {
+  const labels: readonly ControlPointLabel[] = [
+    "M",
+    "T + 1000",
+    "R - 1000",
+    "T + d0/2",
+    "R - d0/2",
+  ];
+  return Object.fromEntries(labels.map((label) => [label, overrides]));
+}
+
+/**
+ * A state whose section 5.1 height is far below its equation (2) height.
+ *
+ * M(3000)F2 = 2.5 puts equation (2) at 1490/2.5 - 176 = 420 km. foF2/foE = 4 is
+ * above 3.33 and xr = 5/12 is below 1, so section 5.1 takes case (b), whose
+ * A2 + B2 b lands near 200 km on a hop this long. A 200 km mirror does not
+ * reach 3300 km; a 420 km one does.
+ */
+const LOW_SECTION_5_1_STATE: StateOverrides = {
+  foF2MHz: 12,
+  foEMHz: 3,
+  m3000F2: 2.5,
 };
 
 /** A sampler that answers a different state per control-point label. */
@@ -231,8 +260,8 @@ describe("equation (13): the elevation of each mode", () => {
     );
     // Radians and degrees are the same angle, not two answers.
     const oneE = modeNamed(set, "1E");
-    expect((oneE.elevationRad * 180) / Math.PI).toBeCloseTo(
-      oneE.elevationDeg,
+    expect(((oneE.elevationRad as number) * 180) / Math.PI).toBeCloseTo(
+      oneE.elevationDeg as number,
       12,
     );
   });
@@ -298,11 +327,14 @@ describe("equation (13): the elevation of each mode", () => {
         Math.abs(mode.mirrorHeightKm - mode.selectionMirrorHeightKm),
       ).toBeGreaterThan(1);
       expect(
-        Math.abs(mode.elevationDeg - (mode.selectionElevationDeg as number)),
+        Math.abs(
+          (mode.elevationDeg as number) -
+            (mode.selectionElevationDeg as number),
+        ),
       ).toBeGreaterThan(0.5);
       // Radians and degrees are the same angle, not two answers.
-      expect((mode.elevationRad * 180) / Math.PI).toBeCloseTo(
-        mode.elevationDeg,
+      expect(((mode.elevationRad as number) * 180) / Math.PI).toBeCloseTo(
+        mode.elevationDeg as number,
         12,
       );
     }
@@ -369,7 +401,7 @@ describe("section 4: screening, and contract M07's labelling", () => {
     // equation (12) is taken at `elevationRad` and the record carries no second
     // screening elevation to disagree with it.
     expect(oneF2.screeningFrequencyMHz as number).toBeCloseTo(
-      screeningFrequencyMHz(1.8, oneF2.elevationRad),
+      screeningFrequencyMHz(1.8, oneF2.elevationRad as number),
       12,
     );
     // And that angle is not the selection angle, so the identity above is a
@@ -410,7 +442,7 @@ describe("section 4: screening, and contract M07's labelling", () => {
       );
       // Still a full record: a report has to be able to say how short of the
       // screening frequency the band was.
-      expect(mode.elevationDeg).toBeGreaterThan(0);
+      expect(mode.elevationDeg as number).toBeGreaterThan(0);
       expect(mode.virtualSlantRangeKm).not.toBeNull();
       expect(mode.basicMufMHz).toBeGreaterThan(0);
     }
@@ -518,6 +550,93 @@ describe("the 3 degree elevation floor, on the height selection uses", () => {
       "5F2",
       "6F2",
     ]);
+  });
+});
+
+describe("when the section 5.1 height cannot close a selected hop", () => {
+  it("labels the mode and reports no elevation rather than a negative one", () => {
+    // The two heights are independent, so section 5.2.1 can select a mode at
+    // the equation (2) height whose hop is longer than the section 5.1 height
+    // reaches. Equation (13) is an arctangent with no floor, so it returns a
+    // negative angle there and equation (19) returns nothing at all; the
+    // recommendation does not address the case and the reference never meets
+    // it, because it reports the equation (2) elevation. Constructed here:
+    // D = 6600 km with `LOW_SECTION_5_1_STATE` at every control point, so the
+    // equation (2) height is 420 km and n0 = 2 (6600/2 = 3300 km, inside
+    // dhmax(420) = 3749.0 km), while the section 5.1 height is near 200 km.
+    const { sample } = samplerByLabel(uniform(LOW_SECTION_5_1_STATE));
+    const set = resolved(
+      modeSet({ route: routeOfLength(6600), frequencyMHz: 5, sample }),
+    );
+    const twoF2 = modeNamed(set, "2F2");
+
+    // The condition, stated in terms a reader can check against the leaf
+    // rather than against this module: the selection height reaches this hop
+    // and the section 5.1 height does not.
+    expect(
+      maximumHopGroundDistanceKm(twoF2.selectionMirrorHeightKm),
+    ).toBeGreaterThan(twoF2.hopGroundDistanceKm);
+    expect(maximumHopGroundDistanceKm(twoF2.mirrorHeightKm)).toBeLessThan(
+      twoF2.hopGroundDistanceKm,
+    );
+
+    expect(twoF2.status).toBe("geometrically_unsupported");
+    expect(twoF2.unsupportedReason).toBe("mirror_height_cannot_close_hop");
+    // No elevation is reported at all, rather than a negative one: there is no
+    // angle, and a consumer that pointed an antenna at -0.2 degrees would be
+    // acting on a number the recommendation never produced.
+    expect(twoF2.elevationRad).toBeNull();
+    expect(twoF2.elevationDeg).toBeNull();
+    expect(twoF2.virtualSlantRangeKm).toBeNull();
+    // And the record still says why section 5.2.1 selected it.
+    expect(twoF2.selectionElevationDeg as number).toBeGreaterThan(
+      MIN_ELEVATION_DEG,
+    );
+    expect(twoF2.selectionSlantRangeKm).not.toBeNull();
+    expect(twoF2.selectionMirrorHeightKm).toBeCloseTo(420, PRECISION);
+
+    // The mode is labelled, not dropped, and the higher orders are unaffected.
+    expect(set.modes).toContain(twoF2);
+    expect(set.supportedModes).not.toContain(twoF2);
+    expect(modeNamed(set, "3F2").status).toBe("supported");
+    expect(modeNamed(set, "3F2").elevationDeg).not.toBeNull();
+  });
+
+  it("is the only thing that nulls an elevation", () => {
+    // The invariant `modeTypes.ts` states: the three product fields are null
+    // exactly on a `geometrically_unsupported` mode with this reason. Checked
+    // over every case this file builds, so a future branch that returns a null
+    // for some other reason is caught here.
+    const routes: readonly [number, number][] = [
+      [1500, 20],
+      [3000, 6],
+      [5000, 20],
+      [5400, 20],
+      [6600, 5],
+    ];
+    for (const [groundDistanceKm, frequencyMHz] of routes) {
+      const { sample } = samplerByLabel(uniform(LOW_SECTION_5_1_STATE));
+      const set = resolved(
+        modeSet({
+          route: routeOfLength(groundDistanceKm),
+          frequencyMHz,
+          sample,
+        }),
+      );
+      for (const mode of set.modes) {
+        const nulled =
+          mode.elevationRad === null ||
+          mode.elevationDeg === null ||
+          mode.virtualSlantRangeKm === null;
+        expect(mode.elevationRad === null).toBe(nulled);
+        expect(mode.elevationDeg === null).toBe(nulled);
+        expect(mode.virtualSlantRangeKm === null).toBe(nulled);
+        if (nulled) {
+          expect(mode.status).toBe("geometrically_unsupported");
+          expect(mode.unsupportedReason).toBe("mirror_height_cannot_close_hop");
+        }
+      }
+    }
   });
 });
 

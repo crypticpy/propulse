@@ -57,7 +57,7 @@
       "slant_range_km": 1277.7
     },
     "sign": "The difference has no sign: the section 5.1 height is above the equation (2) height on six of the fourteen circuits and below it on eight, so the product elevation is sometimes steeper and sometimes shallower than the oracle's.",
-    "below_horizon_case": "G11 (6322.24 km, 2F2). The two heights are independent, so a hop the equation (2) height reflects at 3.71 degrees can be longer than the 195.22 km section 5.1 height reaches: equation (13) gives -0.21 degrees and equation (19) gives nothing, so this mode is selected by section 5.2.1 with elevationDeg negative and virtualSlantRangeKm null. It is the only such mode in the corpus, and slice C has to handle it.",
+    "below_horizon_case": "G11 (6322.24 km, 2F2), and the recommendation does not address it. The two heights are independent, so a hop that the equation (2) height reflects at 3.71 degrees can be longer than the 195.22 km section 5.1 height reaches: equation (13) returns an angle at or below zero and equation (19) returns nothing. The pinned reference never meets this case, because it reports the equation (2) elevation, so there is no reference reading to follow. The mode is kept and labelled: status geometrically_unsupported with unsupportedReason mirror_height_cannot_close_hop, elevationRad, elevationDeg and virtualSlantRangeKm null rather than a negative angle, and selectionMirrorHeightKm, selectionElevationDeg and selectionSlantRangeKm still populated so the record still shows why section 5.2.1 selected it. G11 is the one circuit in this corpus where the reference's dominant mode is therefore not supported at its own section 5.1 height. That is declared here and is not a parity failure; slice C excludes unsupported modes under the M07 rule it already has. Every case carries reading.section_5_1_closes_hop, false on G11 alone, so the per-case test reads the label out of the fixture instead of hard-coding a case id.",
     "cases": [
       {
         "case_id": "G01",
@@ -194,9 +194,9 @@
         "dominant_mode": "2F2",
         "section_5_1_height_km": 195.221,
         "selection_height_km": 311.003,
-        "product_elevation_deg": -0.2065,
+        "product_elevation_deg": null,
         "golden_elevation_deg": 3.71,
-        "elevation_delta_deg": -3.9165,
+        "elevation_delta_deg": null,
         "last_selected_mode": "6F2",
         "product_slant_range_km": 7100.85,
         "golden_slant_range_km": 7471.7,
@@ -341,7 +341,8 @@
         "section_5_1_branch": "5.1b",
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -374,7 +375,8 @@
         "section_5_1_branch": "5.1c",
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -407,7 +409,8 @@
         "section_5_1_branch": "5.1b",
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -440,7 +443,8 @@
         "section_5_1_branch": "5.1a",
         "reference_branch_a_height_km": 219.931,
         "published_branch_a_height_km": 273.962,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -473,7 +477,8 @@
         "section_5_1_branch": "5.1c",
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -506,7 +511,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -539,7 +545,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -572,7 +579,8 @@
         "section_5_1_branch": "5.1a",
         "reference_branch_a_height_km": 404.817,
         "published_branch_a_height_km": 454.516,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -605,7 +613,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -638,7 +647,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -671,7 +681,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": false
       }
     },
     {
@@ -704,7 +715,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -737,7 +749,8 @@
         "section_5_1_branch": null,
         "reference_branch_a_height_km": null,
         "published_branch_a_height_km": null,
-        "screening_evaluated": false
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
       }
     },
     {
@@ -770,7 +783,8 @@
         "section_5_1_branch": "5.1a",
         "reference_branch_a_height_km": 219.931,
         "published_branch_a_height_km": 273.962,
-        "screening_evaluated": true
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
       }
     }
   ]

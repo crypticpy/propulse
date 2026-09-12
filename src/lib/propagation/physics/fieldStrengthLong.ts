@@ -241,9 +241,7 @@ export interface LongPathFieldStrengthInputs {
 export function freeSpaceFieldStrengthDbuVPerM(
   virtualSlantRangeKm: number,
 ): number {
-  return (
-    FREE_SPACE_FIELD_CONSTANT_DB - 20 * Math.log10(virtualSlantRangeKm)
-  ); // equation (40)
+  return FREE_SPACE_FIELD_CONSTANT_DB - 20 * Math.log10(virtualSlantRangeKm); // equation (40)
 }
 
 /**
@@ -421,6 +419,16 @@ export function longPathFieldStrength(
     focusGainDb,
     lyDb: LY_DB,
   });
+
+  if (![unlimited, focusGainDb, e0, factor, etl].every(Number.isFinite)) {
+    return unsupported(
+      "out_of_domain",
+      "equations (39) to (41) did not produce finite field-strength terms.",
+      D,
+      muf,
+      luf,
+    );
+  }
 
   const assumptions: string[] = [];
   if (inputs.transmitterPowerDbKw === undefined) {

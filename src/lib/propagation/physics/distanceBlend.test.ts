@@ -137,7 +137,9 @@ describe("equation (42)", () => {
   });
 
   it("matches a transcription of the published form at every weight", () => {
-    for (const groundDistanceKm of [7000, 7250, 7454.96, 8095.11, 8697.26, 9000]) {
+    for (const groundDistanceKm of [
+      7000, 7250, 7454.96, 8095.11, 8697.26, 9000,
+    ]) {
       for (const [es, el] of [
         [-0.7307, -3.5501],
         [1.2347, -1.0404],
@@ -151,10 +153,7 @@ describe("equation (42)", () => {
           byHand(groundDistanceKm, es, el),
           9,
         );
-        expect(result.weight).toBeCloseTo(
-          (groundDistanceKm - 7000) / 2000,
-          12,
-        );
+        expect(result.weight).toBeCloseTo((groundDistanceKm - 7000) / 2000, 12);
       }
     }
   });
@@ -331,3 +330,16 @@ describe("what section 5.4 refuses rather than guesses", () => {
     }
   });
 });
+
+it.each([40000, -40000])(
+  "rejects unrepresentable linear blend values from %s dB",
+  (value) => {
+    expect(
+      distanceBlend({
+        groundDistanceKm: 8000,
+        shortPathDb: value,
+        longPathDb: value,
+      }).kind,
+    ).toBe("unsupported");
+  },
+);

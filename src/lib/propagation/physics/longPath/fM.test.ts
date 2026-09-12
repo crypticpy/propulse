@@ -74,7 +74,10 @@ function route(tx: GeodeticPoint, rx: GeodeticPoint): ResolvedRoute {
  * both are overridden together; overriding one alone would make the route
  * sampler and the azimuth disagree about where the receiver is.
  */
-function stretched(base: ResolvedRoute, groundDistanceKm: number): ResolvedRoute {
+function stretched(
+  base: ResolvedRoute,
+  groundDistanceKm: number,
+): ResolvedRoute {
   return {
     ...base,
     groundDistanceKm,
@@ -665,6 +668,28 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     expect(result.reason).toBe("out_of_domain");
     expect(result.detail).toContain("foF2MHz");
     expect(result.detail).toContain("07 UTC");
+  });
+
+  it.each([
+    ["f4 overflow", () => ({ ...FLAT_STATE, foF2MHz: Number.MAX_VALUE })],
+    [
+      "K overflow",
+      (_point: unknown, _label: unknown, hour: number) => ({
+        foF2MHz: hour === 12 ? 1e300 : 1e-300,
+        m3000F2: 3,
+        gyrofrequency300kmMHz: 0,
+      }),
+    ],
+  ])("declines finite samples producing %s", (_name, sample) => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample,
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toMatch(/finite/);
   });
 
   it("declines a non-positive sampled foF2 before it can produce a non-positive basic MUF", () => {

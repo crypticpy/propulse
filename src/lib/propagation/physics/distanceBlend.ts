@@ -355,6 +355,19 @@ export function distanceBlend(
   }
 
   const blended = interpolateDb(D, shortPathDb, longPathDb);
+  if (
+    ![blended.xShort, blended.xLong, blended.xInterpolated, blended.db].every(
+      Number.isFinite,
+    ) ||
+    blended.xInterpolated <= 0
+  ) {
+    return unsupported(
+      "out_of_domain",
+      "equation (42) did not produce a finite representable blend.",
+      regime,
+      D,
+    );
+  }
   return {
     kind: "resolved",
     regime,

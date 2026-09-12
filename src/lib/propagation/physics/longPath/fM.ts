@@ -489,7 +489,10 @@ function divideIntoHops(groundDistanceKm: number):
       readonly hopsAddedForElevation: number;
     }
   | { readonly kind: "none"; readonly detail: string } {
-  let hopCount = Math.max(1, Math.ceil(groundDistanceKm / LONG_PATH_MAX_HOP_KM));
+  let hopCount = Math.max(
+    1,
+    Math.ceil(groundDistanceKm / LONG_PATH_MAX_HOP_KM),
+  );
   const firstHopCount = hopCount;
   while (hopCount <= LONG_PATH_MAX_HOP_COUNT) {
     const geometry = hopGeometry({
@@ -646,17 +649,26 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     const hours: LongPathMufHour[] = [];
     for (let hour = 0; hour < HOURS_PER_DAY; hour += 1) {
       const state = sample(controlPoint.point, controlPoint.label, hour);
-      const complaint = invalidSampledStateDetail(state, controlPoint.label, hour);
+      const complaint = invalidSampledStateDetail(
+        state,
+        controlPoint.label,
+        hour,
+      );
       if (complaint !== null) {
         return unsupported("out_of_domain", complaint, D);
       }
-      hours.push({
-        utcHour: hour,
-        state,
-        f4MHz: f2FourThousandMufMHz(state),
-        fzMHz: f2ZeroMufMHz(state),
-        basicMufMHz: longPathBasicMufMHz(state, fD),
-      });
+      const f4MHz = f2FourThousandMufMHz(state);
+      const fzMHz = f2ZeroMufMHz(state);
+      const basicMufMHz = longPathBasicMufMHz(state, fD);
+      if (![f4MHz, fzMHz, basicMufMHz].every(Number.isFinite)) {
+        return unsupported(
+          "out_of_domain",
+          `equation (29) did not produce finite MUF values at ${controlPoint.label} ` +
+            `for ${String(hour).padStart(2, "0")} UTC.`,
+          D,
+        );
+      }
+      hours.push({ utcHour: hour, state, f4MHz, fzMHz, basicMufMHz });
     }
 
     const noonUtcHour = localNoonUtcHour(controlPoint.point.longitudeDeg);
@@ -682,6 +694,14 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       minimumBasicMufMHz,
       coefficients,
     );
+    const operationalMufMHz = k * basicMufMHz; // equation (31)
+    if (!Number.isFinite(k) || !Number.isFinite(operationalMufMHz)) {
+      return unsupported(
+        "out_of_domain",
+        `equations (31) and (32) did not produce finite K and fM values at ${controlPoint.label}.`,
+        D,
+      );
+    }
     points.push({
       site: controlPoint,
       hours,
@@ -690,7 +710,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       noonUtcHour,
       minimumBasicMufMHz,
       kFactor: k,
-      operationalMufMHz: k * basicMufMHz, // equation (31)
+      operationalMufMHz,
     });
   }
 

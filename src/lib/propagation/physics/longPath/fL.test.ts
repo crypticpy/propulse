@@ -56,7 +56,10 @@ function route(tx: GeodeticPoint, rx: GeodeticPoint): ResolvedRoute {
   return resolved;
 }
 
-function stretched(base: ResolvedRoute, groundDistanceKm: number): ResolvedRoute {
+function stretched(
+  base: ResolvedRoute,
+  groundDistanceKm: number,
+): ResolvedRoute {
   return {
     ...base,
     groundDistanceKm,
@@ -229,10 +232,9 @@ describe("equations (34) and (35), the solar zenith angle", () => {
       Math.cos(latitude * DEG_TO_RAD) *
         Math.cos(declination * DEG_TO_RAD) *
         Math.cos(eta);
-    expect(solarZenithCosine(latitude, longitude, declination, utc)).toBeCloseTo(
-      byHand,
-      12,
-    );
+    expect(
+      solarZenithCosine(latitude, longitude, declination, utc),
+    ).toBeCloseTo(byHand, 12);
   });
 
   it("is negative where the sun is below the horizon", () => {
@@ -240,9 +242,9 @@ describe("equations (34) and (35), the solar zenith angle", () => {
     expect(solarZenithCosine(0, 0, 0, 0)).toBeCloseTo(-1, 12);
     // And the polar night: 80 north in December, every hour of the day.
     for (let hour = 0; hour < 24; hour += 1) {
-      expect(solarZenithCosine(80, 0, subsolarLatitudeDeg(11), hour)).toBeLessThan(
-        0,
-      );
+      expect(
+        solarZenithCosine(80, 0, subsolarLatitudeDeg(11), hour),
+      ).toBeLessThan(0);
     }
   });
 });
@@ -668,4 +670,10 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
       expect(Number.isFinite(value)).toBe(true);
     }
   });
+});
+
+it("rejects finite inputs that overflow the LUF equation", () => {
+  expect(
+    call({ r12: Number.MAX_VALUE, virtualSlantRangeKm: 9499999 }).kind,
+  ).toBe("unsupported");
 });

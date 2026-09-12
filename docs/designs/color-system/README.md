@@ -180,3 +180,24 @@ This slice does not certify adjacent Edit/Delete actions, rank artwork, export
 QR graphics or the whole equipment card. Those keep their existing ownership
 under the broader UI/domain migration. Preserved hue PR branches remain intact
 until final epic reconciliation records their verified supersession.
+
+## Shared feedback migration (COLOR-04 / #1283)
+
+Legacy `ui/Badge`, PanelCard's inline badges and ConfirmDialog actions now
+consume the central subtle treatment. Badge excellent/good use success,
+fair uses warning, poor/storm use danger, active uses info and quiet retains
+purple identity. Panel badges use neutral/success/warning/danger. Confirmation
+variants use danger/warning/accent; cancellation uses neutral. Existing public
+props, callbacks and border widths remain with their components.
+
+The consolidated rendered suite covers every mapping and the full recipe
+binding, including storm's non-pulsing text, forwarded refs, numeric zero,
+keyboard/collapse behavior and confirmation focus/dismissal. It replaces exactly
+seven historical status snippet rows, one quiet-purple row and one default
+confirmation accent row; generic source scanners and numerical floors remain.
+
+ConfirmDialog bridges optional provider tokens to its actual alertdialog panel
+and leaves unscoped document inheritance intact. Its dialog stack remains owned
+by AccessibleDialog. PanelCard status dots, highlight/glow variants and its
+separate HelpModal portal remain outside this badge migration. Those retained
+controls and the preserved hue drafts remain in the wider epic reconciliation.

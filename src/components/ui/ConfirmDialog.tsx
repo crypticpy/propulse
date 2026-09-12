@@ -1,4 +1,9 @@
 import { useId } from "react";
+import {
+  stationTreatmentClasses,
+  type StationTreatmentTone,
+} from "@/lib/themes/treatments";
+import { useOptionalStationTheme } from "@/components/station-ui/context";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 export interface ConfirmDialogProps {
@@ -12,22 +17,13 @@ export interface ConfirmDialogProps {
   variant?: "destructive" | "warning" | "default";
 }
 
-const confirmStyles: Record<
+const confirmTones: Record<
   NonNullable<ConfirmDialogProps["variant"]>,
-  string
+  StationTreatmentTone
 > = {
-  // Same-hue ink on a same-hue tint fails the 4.5:1 floor once the dialog's
-  // own composited surface is accounted for (#827): danger ink on its own
-  // /20 tint measures 4.61:1 on Light (a hair above the floor) and warning
-  // ink measures 4.22:1 (below it). Keep the tint as the identity cue; draw
-  // the label in --su-text, same treatment as Badge's `quiet` variant
-  // (#791/#795) and the `default` variant below (#803).
-  destructive:
-    "bg-alert-red/20 hover:bg-alert-red/30 text-su-text border border-alert-red/30",
-  warning:
-    "bg-caution-amber/20 hover:bg-caution-amber/30 text-su-text border border-caution-amber/30",
-  default:
-    "bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",
+  destructive: "danger",
+  warning: "warning",
+  default: "accent",
 };
 
 /**
@@ -57,6 +53,7 @@ export function ConfirmDialog({
   variant = "destructive",
 }: ConfirmDialogProps) {
   const messageId = useId();
+  const stationTheme = useOptionalStationTheme();
   return (
     <AccessibleDialog
       open={open}
@@ -65,22 +62,24 @@ export function ConfirmDialog({
       size="md"
       role="alertdialog"
       describedBy={messageId}
+      panelProps={{ style: stationTheme?.tokens }}
     >
       <div className="flex flex-col gap-4">
-        <p id={messageId} className="text-sm text-su-muted">{message}</p>
-        <div className="flex items-center justify-end gap-3">
+        <p id={messageId} className="text-sm text-su-muted">
+          {message}
+        </p>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                       bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
+            className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${stationTreatmentClasses({ tone: "neutral", treatment: "subtle", interactive: true })}`}
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${confirmStyles[variant]}`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${stationTreatmentClasses({ tone: confirmTones[variant], treatment: "subtle", interactive: true })}`}
           >
             {confirmLabel}
           </button>

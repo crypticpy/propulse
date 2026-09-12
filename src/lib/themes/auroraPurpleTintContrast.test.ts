@@ -1,3 +1,5 @@
+// Migrated legacy UI variants are covered by components/ui/ui-feedback.test.tsx
+// and the central treatment matrix; unrelated literal/census guards remain below.
 /**
  * aurora-purple ink on aurora-purple tints (#791)
  *
@@ -82,12 +84,6 @@ interface SurfaceSpec {
   backdrop: (palette: StationPalette) => string;
 }
 
-/** A site confirmed to render directly on the station background. */
-const BARE_SURFACES: SurfaceSpec[] = [
-  { name: "panel", backdrop: (palette) => palette.panel },
-  { name: "canvas", backdrop: (palette) => palette.canvas },
-];
-
 /**
  * A site that renders inside a `bg-su-line/10` glass layer (`Card`'s default
  * surface, or `SpotRow`'s zebra/hover striping) before the page background.
@@ -133,15 +129,6 @@ const SITES: TintedSite[] = [
     // but renders in SpotRow's zebra/hover striping (bg-su-line/10) the
     // moment a call site passes type="verified" -- measure the real stack.
     surfaces: LINE_GLASS_SURFACES,
-  },
-  {
-    file: "src/components/ui/Badge.tsx",
-    what: "the Badge `quiet` variant",
-    snippet: `"bg-aurora-purple/20",
-        "text-su-text",`,
-    ink: "text",
-    alpha: 0.2,
-    surfaces: BARE_SURFACES,
   },
   {
     file: "src/components/dashboard/MetarCard.tsx",

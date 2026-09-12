@@ -1,16 +1,37 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildFrame, encodeBcdFrequency } from "./codec.js";
 import {
+  buildFrame,
+  encodeBcdFrequency,
+  encodeBcdLevel,
+  encodeBcdOffset,
+} from "./codec.js";
+import {
+  ASSEMBLY_TIMEOUT_MS,
   CivSession,
   COMMAND_TIMEOUT_MS,
+  OPTIONAL_POLL_INTERVAL_CYCLES,
   type CivSessionHandlers,
   type CivTransport,
 } from "./session.js";
-import { CivCmd, CIV_NG, CIV_OK } from "./types.js";
+import {
+  CivCmd,
+  CIV_FUNC_SUB,
+  CIV_LEVEL_SUB,
+  CIV_METER_SUB,
+  CIV_NG,
+  CIV_OK,
+  CIV_SCOPE_SUB,
+  rawSmeterToDbm,
+  ScopeMode,
+  type CivAddress,
+  type CivSpectrumLine,
+} from "./types.js";
+import type { RigStatus } from "../types.js";
 
 const RADIO = 0x94;
 const CONTROLLER = 0xe0;
+const ADDR: CivAddress = { radio: RADIO, controller: CONTROLLER };
 
 /** A frame from the radio back to the controller. */
 function fromRadio(command: number, data?: number[] | Buffer): Buffer {
@@ -29,11 +50,69 @@ function tick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+/** Wait out a real timer (the session uses real timeouts, not fake ones). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** CI-V counts sequences in BCD: 11 travels as 0x11. */
+function bcd(value: number): number {
+  return Math.floor(value / 10) * 16 + (value % 10);
+}
+
+/**
+ * The first frame of a scope sweep. After the sub-command byte the radio sends
+ * scope index, sequence, max sequence, scope mode, the two 5-byte BCD band
+ * edges, one reserved byte, then the first pixel run.
+ */
+function scopeHeader(options: {
+  seqMax: number;
+  startHz: number;
+  endHz: number;
+  pixels?: number[];
+  scopeMode?: ScopeMode;
+  scopeIndex?: number;
+}): Buffer {
+  return fromRadio(
+    CivCmd.SCOPE_DATA,
+    Buffer.concat([
+      Buffer.from([
+        CIV_SCOPE_SUB.WAVE_DATA,
+        options.scopeIndex ?? 0x00,
+        bcd(1),
+        bcd(options.seqMax),
+        options.scopeMode ?? ScopeMode.Fixed,
+      ]),
+      encodeBcdFrequency(options.startHz),
+      encodeBcdFrequency(options.endHz),
+      Buffer.from([0x00]), // reserved byte the assembler skips
+      Buffer.from(options.pixels ?? []),
+    ]),
+  );
+}
+
+/** A continuation frame of a scope sweep: header fields, then pixels. */
+function scopePixels(
+  seq: number,
+  seqMax: number,
+  pixels: number[],
+  scopeIndex = 0x01,
+): Buffer {
+  return fromRadio(
+    CivCmd.SCOPE_DATA,
+    Buffer.concat([
+      Buffer.from([CIV_SCOPE_SUB.WAVE_DATA, scopeIndex, bcd(seq), bcd(seqMax)]),
+      Buffer.from(pixels),
+    ]),
+  );
+}
+
 class FakeTransport implements CivTransport {
   readonly logTag = "civ-test";
   ready = true;
   writeError: Error | null = null;
   readonly writes: Buffer[] = [];
+  reply: ((frame: Buffer) => void) | null = null;
 
   isReady(): boolean {
     return this.ready;
@@ -42,20 +121,13 @@ class FakeTransport implements CivTransport {
   write(frame: Buffer, done: (err?: Error | null) => void): void {
     this.writes.push(Buffer.from(frame));
     done(this.writeError);
+    if (!this.writeError) this.reply?.(frame);
   }
 }
 
-interface ScopeHeaderEvent {
-  kind: "header";
-  scopeData: Buffer;
-  scopeIndex: number;
-  seqMax: number;
-}
-interface ScopePixelsEvent {
-  kind: "pixels";
-  scopeData: Buffer;
-  seq: number;
-  seqMax: number;
+interface SpectrumLineEvent {
+  kind: "line";
+  line: CivSpectrumLine;
 }
 interface FrequencyEvent {
   kind: "frequency";
@@ -65,8 +137,7 @@ interface ModeEvent {
   kind: "mode";
   mode: string;
 }
-type SessionEvent =
-  ScopeHeaderEvent | ScopePixelsEvent | FrequencyEvent | ModeEvent;
+type SessionEvent = SpectrumLineEvent | FrequencyEvent | ModeEvent;
 
 interface Harness {
   session: CivSession;
@@ -74,27 +145,30 @@ interface Harness {
   events: SessionEvent[];
   /** Deliver bytes from the radio, as the transport would. */
   receive(...frames: Buffer[]): void;
+  /** Just the assembled spectrum lines, in order. */
+  lines(): CivSpectrumLine[];
 }
 
 function harness(options: { spectrumEnabled?: boolean } = {}): Harness {
   const transport = new FakeTransport();
   const events: SessionEvent[] = [];
   const handlers: CivSessionHandlers = {
-    isSpectrumEnabled: () => options.spectrumEnabled ?? false,
-    onScopeHeader: (scopeData, scopeIndex, seqMax) =>
-      events.push({ kind: "header", scopeData, scopeIndex, seqMax }),
-    onScopePixels: (scopeData, seq, seqMax) =>
-      events.push({ kind: "pixels", scopeData, seq, seqMax }),
+    onSpectrumLine: (line) => events.push({ kind: "line", line }),
     onUnsolicitedFrequency: (hz) => events.push({ kind: "frequency", hz }),
     onUnsolicitedMode: (mode) => events.push({ kind: "mode", mode }),
   };
-  const session = new CivSession(transport, handlers);
+  const session = new CivSession(transport, handlers, ADDR);
+  if (options.spectrumEnabled) session.setSpectrumEnabled(true);
   return {
     session,
     transport,
     events,
     receive: (...frames: Buffer[]) =>
       session.handleIncomingData(Buffer.concat(frames)),
+    lines: () =>
+      events
+        .filter((event): event is SpectrumLineEvent => event.kind === "line")
+        .map((event) => event.line),
   };
 }
 
@@ -395,28 +469,12 @@ test("an unknown mode byte is dropped rather than reported", () => {
   assert.deepEqual(h.events, []);
 });
 
-test("scope frames are split into header and pixel runs when the scope is on", () => {
-  const h = harness({ spectrumEnabled: true });
-  // data = [sub, scopeIndex, seq(BCD), seqMax(BCD), ...payload]
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x11, 0xaa]));
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x02, 0x11, 0xbb]));
-
-  assert.equal(h.events.length, 2);
-  const header = h.events[0] as ScopeHeaderEvent;
-  assert.equal(header.kind, "header");
-  assert.equal(header.scopeIndex, 0x01);
-  assert.equal(header.seqMax, 11);
-  assert.equal(header.scopeData[0], 0x01, "sub-command byte is stripped");
-
-  const pixels = h.events[1] as ScopePixelsEvent;
-  assert.equal(pixels.kind, "pixels");
-  assert.equal(pixels.seq, 2);
-  assert.equal(pixels.seqMax, 11);
-});
-
 test("scope frames are ignored while the scope is off", () => {
   const h = harness({ spectrumEnabled: false });
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x11, 0xaa]));
+  h.receive(
+    scopeHeader({ seqMax: 2, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(2, 2, [1, 2, 3]),
+  );
   assert.deepEqual(h.events, []);
 });
 
@@ -433,6 +491,171 @@ test("an unsolicited frame arriving mid-command does not steal the response", as
   assert.ok(frame);
   assert.equal(frame.command, CivCmd.READ_MODE);
   assert.deepEqual(h.events, [{ kind: "frequency", hz: 50_313_000 }]);
+});
+
+// ─── Scope assembly ───────────────────────────────────────────────────────────
+
+test("a sweep assembles into one line across its header and pixel frames", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(2, 3, [3, 4]),
+    scopePixels(3, 3, [5, 6]),
+  );
+
+  assert.equal(h.events.length, 1, "one line, not one event per frame");
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 14_050_000);
+  assert.equal(line.spanHz, 100_000);
+  assert.deepEqual(Array.from(line.pixels), [3, 4, 5, 6]);
+  assert.equal(line.scopeMode, ScopeMode.Fixed);
+  assert.equal(line.scopeIndex, 0x00);
+});
+
+test("a multi-frame header contributes no pixels of its own", () => {
+  const h = harness({ spectrumEnabled: true });
+  // Only a seqMax-of-1 header carries pixels; in a run the pixel frames do.
+  h.receive(
+    scopeHeader({
+      seqMax: 2,
+      startHz: 14_000_000,
+      endHz: 14_100_000,
+      pixels: [1, 2],
+    }),
+    scopePixels(2, 2, [3, 4]),
+  );
+
+  const [line] = h.lines();
+  assert.deepEqual(Array.from(line.pixels), [3, 4]);
+});
+
+test("a single-frame sweep emits from the header alone", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      startHz: 7_000_000,
+      endHz: 7_200_000,
+      pixels: [10, 20, 30],
+    }),
+  );
+
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 7_100_000);
+  assert.equal(line.spanHz, 200_000);
+  assert.deepEqual(Array.from(line.pixels), [10, 20, 30]);
+});
+
+test("centre mode reads the edges as centre and half-span", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      scopeMode: ScopeMode.Center,
+      startHz: 14_074_000,
+      endHz: 25_000,
+      pixels: [7],
+    }),
+  );
+
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 14_074_000);
+  assert.equal(line.spanHz, 50_000);
+});
+
+test("a sweep with no span is dropped", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      startHz: 14_000_000,
+      endHz: 14_000_000,
+      pixels: [1, 2],
+    }),
+  );
+  assert.deepEqual(h.events, []);
+});
+
+test("a header too short to carry the band edges is dropped", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x03, 0x01]));
+  h.receive(scopePixels(2, 3, [1, 2]));
+  assert.deepEqual(h.events, []);
+});
+
+test("an out-of-order pixel frame drops the partial line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(3, 3, [5, 6]), // sequence 2 never arrived
+    scopePixels(2, 3, [3, 4]), // too late: the assembly is gone
+  );
+  assert.deepEqual(h.events, [], "no line is emitted from a gapped sweep");
+
+  // The next sweep still assembles.
+  h.receive(
+    scopeHeader({ seqMax: 2, startHz: 21_000_000, endHz: 21_100_000 }),
+    scopePixels(2, 2, [2]),
+  );
+  assert.equal(h.lines().length, 1);
+});
+
+test("a sweep that stalls mid-run is discarded after the assembly timeout", async () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  await delay(ASSEMBLY_TIMEOUT_MS + 50);
+
+  // The rest of the sweep finally turns up; the partial line is long gone.
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, []);
+});
+
+test("disabling the scope mid-assembly drops the partial line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  h.session.setSpectrumEnabled(false);
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, [], "frames after the stop are dropped");
+
+  // Re-enabling must not resurrect the half-built line.
+  h.session.setSpectrumEnabled(true);
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, []);
+});
+
+test("resetSpectrum drops scope state when the link closes", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 2, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  h.session.resetSpectrum();
+  h.receive(scopePixels(2, 2, [2]));
+  assert.deepEqual(h.events, []);
+});
+
+test("a second header before the first completes starts a fresh line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 3,
+      startHz: 14_000_000,
+      endHz: 14_100_000,
+      pixels: [1, 2],
+    }),
+    // The radio restarts the sweep: a new header, a shorter run.
+    scopeHeader({ seqMax: 2, startHz: 21_000_000, endHz: 21_200_000 }),
+    scopePixels(2, 2, [8]),
+  );
+
+  assert.equal(h.events.length, 1);
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 21_100_000, "the second header's edges win");
+  assert.deepEqual(
+    Array.from(line.pixels),
+    [8],
+    "the abandoned sweep contributes no pixels",
+  );
 });
 
 // ─── Framing ──────────────────────────────────────────────────────────────────
@@ -457,4 +680,326 @@ test("resetParser drops a half-received frame", async () => {
   h.session.handleIncomingData(response.subarray(4));
 
   assert.deepEqual(h.events, []);
+});
+
+// ─── Polling ─────────────────────────────────────────────────────────────────
+
+interface RadioState {
+  frequencyHz: number;
+  modeByte: number;
+  ptt: boolean;
+  smeterRaw: number;
+  split: boolean;
+  ritEnabled: boolean;
+  ritOffsetHz: number;
+  xitEnabled: boolean;
+  anf: boolean;
+  qsk: boolean;
+  vox: boolean;
+  agcMode: number;
+  cwSpeed: number;
+  ifShiftRaw: number;
+  powerRaw: number;
+  swrRaw: number;
+  alcRaw: number;
+  silent: Set<string>;
+}
+
+function defaultRadio(overrides: Partial<RadioState> = {}): RadioState {
+  return {
+    frequencyHz: 14_074_000,
+    modeByte: 0x01, // USB
+    ptt: false,
+    smeterRaw: 120,
+    split: false,
+    ritEnabled: false,
+    ritOffsetHz: 0,
+    xitEnabled: false,
+    anf: false,
+    qsk: false,
+    vox: false,
+    agcMode: 2,
+    cwSpeed: 20,
+    ifShiftRaw: 128,
+    powerRaw: 0,
+    swrRaw: 0,
+    alcRaw: 0,
+    silent: new Set<string>(),
+    ...overrides,
+  };
+}
+
+function cmdSubKey(cmd: number, sub?: number): string {
+  return sub === undefined ? `${cmd}` : `${cmd}:${sub}`;
+}
+
+function meterFrame(sub: number, raw: number): Buffer {
+  return fromRadio(
+    CivCmd.METERS,
+    Buffer.concat([Buffer.from([sub]), encodeBcdLevel(raw)]),
+  );
+}
+
+function replyTo(request: Buffer, radio: RadioState): Buffer | null {
+  const cmd = request[4];
+  const sub = request.length > 6 ? request[5] : undefined;
+  if (radio.silent.has(cmdSubKey(cmd, sub))) return null;
+
+  switch (cmd) {
+    case CivCmd.READ_FREQ:
+      return fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(radio.frequencyHz));
+    case CivCmd.READ_MODE:
+      return fromRadio(CivCmd.READ_MODE, [radio.modeByte, 0x01]);
+    case CivCmd.PTT:
+      return fromRadio(CivCmd.PTT, [0x00, radio.ptt ? 0x01 : 0x00]);
+    case CivCmd.SPLIT:
+      return fromRadio(CivCmd.SPLIT, [radio.split ? 0x01 : 0x00]);
+    case CivCmd.METERS: {
+      if (sub === CIV_METER_SUB.SMETER)
+        return meterFrame(sub, radio.smeterRaw);
+      if (sub === CIV_METER_SUB.RFPOWER)
+        return meterFrame(sub, radio.powerRaw);
+      if (sub === CIV_METER_SUB.SWR) return meterFrame(sub, radio.swrRaw);
+      if (sub === CIV_METER_SUB.ALC)
+        return meterFrame(sub, radio.alcRaw);
+      return null;
+    }
+    case CivCmd.RIT_XIT: {
+      if (sub === 0x01)
+        return fromRadio(CivCmd.RIT_XIT, [
+          0x01,
+          radio.ritEnabled ? 0x01 : 0x00,
+        ]);
+      if (sub === 0x02)
+        return fromRadio(CivCmd.RIT_XIT, [
+          0x02,
+          radio.xitEnabled ? 0x01 : 0x00,
+        ]);
+      if (sub === 0x03)
+        return fromRadio(
+          CivCmd.RIT_XIT,
+          Buffer.concat([Buffer.from([0x03]), encodeBcdOffset(radio.ritOffsetHz)]),
+        );
+      return null;
+    }
+    case CivCmd.FUNCTIONS: {
+      if (sub === CIV_FUNC_SUB.ANF)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.anf ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.BKIN)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.qsk ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.VOX)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.vox ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.AGC)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.agcMode]);
+      return null;
+    }
+    case CivCmd.LEVELS: {
+      if (sub === CIV_LEVEL_SUB.KEYSPD)
+        return fromRadio(
+          CivCmd.LEVELS,
+          Buffer.concat([Buffer.from([sub]), encodeBcdLevel(radio.cwSpeed)]),
+        );
+      if (sub === CIV_LEVEL_SUB.IF_SHIFT)
+        return fromRadio(
+          CivCmd.LEVELS,
+          Buffer.concat([
+            Buffer.from([sub]),
+            encodeBcdLevel(radio.ifShiftRaw),
+          ]),
+        );
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+function isWrite(cmd: number, sub?: number) {
+  return (frame: Buffer) => {
+    if (frame[4] !== cmd) return false;
+    if (sub === undefined) return true;
+    return frame.length > 6 && frame[5] === sub;
+  };
+}
+
+interface PollHarness {
+  session: CivSession;
+  transport: FakeTransport;
+  radio: RadioState;
+  statuses: RigStatus[];
+  smeters: number[];
+  events: SessionEvent[];
+}
+
+function pollHarness(radio: RadioState = defaultRadio()): PollHarness {
+  const transport = new FakeTransport();
+  const statuses: RigStatus[] = [];
+  const smeters: number[] = [];
+  const events: SessionEvent[] = [];
+  const session = new CivSession(
+    transport,
+    {
+      onSpectrumLine: () => undefined,
+      onUnsolicitedFrequency: (hz) => events.push({ kind: "frequency", hz }),
+      onUnsolicitedMode: (mode) => events.push({ kind: "mode", mode }),
+      onStatus: (status) => {
+        statuses.push(status);
+      },
+      onSmeter: (dbm) => smeters.push(dbm),
+    },
+    ADDR,
+  );
+  transport.reply = (frame) => {
+    const response = replyTo(frame, radio);
+    if (response) session.handleIncomingData(response);
+  };
+  return { session, transport, radio, statuses, smeters, events };
+}
+
+test("the first poll cycle emits frequency, mode, and optional fields", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+
+  assert.equal(h.statuses.length, 1);
+  const status = h.statuses[0];
+  assert.equal(status.connected, true);
+  assert.equal(status.frequency, 14_074_000);
+  assert.equal(status.mode, "USB");
+  assert.equal(status.ptt, false);
+  assert.equal(status.split, false);
+  assert.equal(status.rit?.enabled, false);
+  assert.equal(status.rit?.offsetHz, 0);
+  assert.equal(status.xit?.enabled, false);
+  assert.equal(status.anf, false);
+  assert.equal(status.qsk, false);
+  assert.equal(status.vox, false);
+  assert.equal(status.agcMode, 2);
+  assert.equal(status.cwSpeed, 20);
+  assert.equal(status.ifShift, Math.round((128 / 255) * 2400 - 1200));
+  assert.equal(h.smeters.length, 1);
+  assert.equal(h.smeters[0], rawSmeterToDbm(120));
+  assert.equal(h.session.getLastStatus(), status);
+});
+
+test("an unchanged second poll does not re-emit status or S-meter", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 1);
+  assert.equal(h.smeters.length, 1);
+});
+
+test("an S-meter-only change emits S-meter but not status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.radio.smeterRaw = 80;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 1);
+  assert.deepEqual(h.smeters, [rawSmeterToDbm(120), rawSmeterToDbm(80)]);
+});
+
+test("a frequency change on the next poll emits a new status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.radio.frequencyHz = 7_074_000;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 2);
+  assert.equal(h.statuses[1].frequency, 7_074_000);
+  assert.equal(h.statuses[1].mode, "USB");
+});
+
+test("unsolicited frequency before the first poll does not emit status", async () => {
+  const h = pollHarness();
+  h.session.handleIncomingData(
+    fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(21_074_000)),
+  );
+  assert.deepEqual(h.events, [{ kind: "frequency", hz: 21_074_000 }]);
+  assert.equal(h.statuses.length, 0);
+  assert.equal(h.session.getLastStatus(), null);
+});
+
+test("unsolicited frequency after a poll updates lastStatus and emits status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.session.handleIncomingData(
+    fromRadio(0x00, encodeBcdFrequency(21_074_000)),
+  );
+  assert.equal(h.statuses.length, 2);
+  assert.equal(h.statuses[1].frequency, 21_074_000);
+  assert.equal(h.session.getLastStatus()?.frequency, 21_074_000);
+});
+
+test("PTT on brings TX meters into the status snapshot", async () => {
+  const h = pollHarness(defaultRadio({ ptt: true, powerRaw: 120 }));
+  await h.session.pollNow();
+  assert.equal(h.statuses[0].ptt, true);
+  assert.ok(h.statuses[0].txMeter);
+  assert.equal(h.statuses[0].txMeter?.powerW, (120 / 241) * 100);
+  assert.ok(
+    h.transport.writes.some(isWrite(CivCmd.METERS, CIV_METER_SUB.RFPOWER)),
+  );
+  assert.ok(
+    h.transport.writes.some(isWrite(CivCmd.METERS, CIV_METER_SUB.SWR)),
+  );
+});
+
+test("optional fields are skipped on cycles that are not the interval", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.transport.writes.length = 0;
+  await h.session.pollNow();
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)),
+    false,
+  );
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.FUNCTIONS, CIV_FUNC_SUB.ANF)),
+    false,
+  );
+});
+
+test("a timed-out optional field is not polled again", async () => {
+  const h = pollHarness(
+    defaultRadio({ silent: new Set([cmdSubKey(CivCmd.RIT_XIT, 0x01)]) }),
+  );
+  await h.session.pollNow();
+  assert.ok(h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)));
+  assert.equal(h.statuses[0].rit, undefined);
+
+  for (let i = 0; i < OPTIONAL_POLL_INTERVAL_CYCLES - 2; i++) {
+    await h.session.pollNow();
+  }
+  h.transport.writes.length = 0;
+  await h.session.pollNow();
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)),
+    false,
+  );
+});
+
+test("pollNow is a no-op when the transport is not ready", async () => {
+  const h = pollHarness();
+  h.transport.ready = false;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 0);
+  assert.equal(h.transport.writes.length, 0);
+});
+
+test("startPolling runs immediately and stopPolling cancels the timer", async () => {
+  const h = pollHarness();
+  h.session.startPolling(40);
+  await delay(20);
+  assert.equal(h.statuses.length, 1);
+  h.session.stopPolling();
+  await delay(80);
+  assert.equal(h.statuses.length, 1);
+});
+
+test("resetPollState drops lastStatus so the next poll emits again", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.session.resetPollState();
+  assert.equal(h.session.getLastStatus(), null);
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 2);
 });

@@ -20,14 +20,8 @@ import { resolveAudioDevice } from "./audioResolver.js";
 import {
   readFrequency,
   setFrequency,
-  readMode,
   setMode,
-  readPtt,
   setPtt,
-  readSmeter,
-  readPowerMeter,
-  readSwrMeter,
-  readAlcMeter,
   readLevel,
   setLevel,
   readFunction,
@@ -35,12 +29,8 @@ import {
   setAgc,
   setVfo,
   setSplit,
-  readSplit,
   setRit,
   setXit,
-  readRit,
-  readXit,
-  readRitXitOffset,
   setCwSpeed,
   setIfShift,
   startScope,
@@ -48,27 +38,15 @@ import {
   startScopeDataOutput,
   stopScopeDataOutput,
   setAntenna,
-  parseFrequencyResponse,
-  parseModeResponse,
-  parsePttResponse,
-  parseMeterResponse,
   parseLevelResponse,
   parseFunctionResponse,
-  parseSplitResponse,
-  parseRitXitEnableResponse,
-  parseRitXitOffsetResponse,
-  parseIfShiftResponse,
-  parseAgcResponse,
 } from "./civ/commands.js";
 import {
   type CivAddress,
   CivCmd,
   CIV_CONTROLLER_ADDR,
   ICOM_MODELS,
-  ScopeMode,
-  rawSmeterToDbm,
 } from "./civ/types.js";
-import { decodeBcdFrequency } from "./civ/codec.js";
 import { CivSession } from "./civ/session.js";
 import type { RigStatus } from "./types.js";
 import type { CivSpectrumLine } from "./civ.js";
@@ -95,25 +73,9 @@ type SmeterHandler = (dbm: number) => void;
 type ErrorHandler = (error: string) => void;
 type SpectrumHandler = (line: CivSpectrumLine) => void;
 
-// ─── Spectrum Assembly ────────────────────────────────────────────────────────
-
-interface LineAssembly {
-  scopeMode: ScopeMode;
-  scopeIndex: number;
-  startFreqHz: number;
-  endFreqHz: number;
-  seqMax: number;
-  lastSeq: number;
-  pixels: number[];
-  lastUpdateMs: number;
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_POLL_INTERVAL = 200;
-const MAX_CONSECUTIVE_ERRORS = 10;
-const ASSEMBLY_TIMEOUT_MS = 500;
-const OPTIONAL_POLL_INTERVAL_CYCLES = 5;
 
 // ─── IcomSerialBackend ────────────────────────────────────────────────────────
 
@@ -122,19 +84,7 @@ export class IcomSerialBackend {
   private readonly addr: CivAddress;
   private serial: SerialPort | null = null;
   private readonly session: CivSession;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private pollInFlight = false;
-  private consecutiveErrors = 0;
   private _isConnected = false;
-
-  // Last known state for change detection
-  private lastStatus: RigStatus | null = null;
-  private lastSmeterDbm: number | null = null;
-
-  // Spectrum assembly
-  private assembly: LineAssembly | null = null;
-  private assemblyTimer: ReturnType<typeof setTimeout> | null = null;
-  private spectrumEnabled = false;
 
   // Audio capture (resolved from USB audio device)
   private audioCapture: AudioCapture | null = null;
@@ -146,10 +96,6 @@ export class IcomSerialBackend {
   private smeterHandlers: SmeterHandler[] = [];
   private errorHandlers: ErrorHandler[] = [];
   private spectrumHandlers: SpectrumHandler[] = [];
-
-  // Track which optional fields are unsupported (avoid repeated errors)
-  private warnedUnsupported = new Set<string>();
-  private spectrumLineCount = 0;
 
   constructor(config: IcomSerialConfig) {
     this.config = {
@@ -176,22 +122,15 @@ export class IcomSerialBackend {
         },
       },
       {
-        isSpectrumEnabled: () => this.spectrumEnabled,
-        onScopeHeader: (scopeData, scopeIndex, seqMax) =>
-          this.handleScopeHeader(scopeData, scopeIndex, seqMax),
-        onScopePixels: (scopeData, seq, seqMax) =>
-          this.handleScopePixels(scopeData, seq, seqMax),
-        onUnsolicitedFrequency: (frequency) => {
-          if (!this.lastStatus) return;
-          this.lastStatus = { ...this.lastStatus, frequency };
-          this.emitStatus(this.lastStatus);
-        },
-        onUnsolicitedMode: (mode) => {
-          if (!this.lastStatus) return;
-          this.lastStatus = { ...this.lastStatus, mode };
-          this.emitStatus(this.lastStatus);
+        onSpectrumLine: (line) => this.emitSpectrumLine(line),
+        onStatus: (status) => this.emitStatus(status),
+        onSmeter: (dbm) => this.emitSmeter(dbm),
+        onFatalPollError: (message) => {
+          this.emitError(message);
+          this.stop();
         },
       },
+      this.addr,
     );
   }
 
@@ -239,7 +178,6 @@ export class IcomSerialBackend {
     });
 
     this.session.resetParser();
-    this.consecutiveErrors = 0;
 
     this.serial.on("data", (data: Buffer) => {
       this.session.handleIncomingData(data);
@@ -251,19 +189,19 @@ export class IcomSerialBackend {
 
     this.serial.on("close", () => {
       this._isConnected = false;
-      this.stopPolling();
+      this.session.stopPolling();
     });
 
     this._isConnected = true;
-    this.startPolling();
+    this.session.startPolling(this.config.pollInterval);
   }
 
   /** Stop the backend: close serial, stop polling, stop audio */
   stop(): void {
-    this.stopPolling();
-    this.stopSpectrumInternal();
+    this.session.stopPolling();
+    this.session.resetSpectrum();
     this.stopAudio();
-    this.pollInFlight = false;
+    this.session.resetPollState();
 
     this.session.cancelPending();
 
@@ -279,7 +217,6 @@ export class IcomSerialBackend {
 
     this.session.resetParser();
     this._isConnected = false;
-    this.lastStatus = null;
   }
 
   // ── Event Registration ────────────────────────────────────────────────────
@@ -445,7 +382,7 @@ export class IcomSerialBackend {
     // ICOM radios select filter width via the mode command with a filter number
     // (1=FIL1 widest, 2=FIL2 medium, 3=FIL3 narrowest).
     // Re-send the current mode with the appropriate filter selection.
-    const currentMode = this.lastStatus?.mode;
+    const currentMode = this.session.getLastStatus()?.mode;
     if (!currentMode) return;
 
     const isCw = currentMode === "CW" || currentMode === "CW-R";
@@ -521,7 +458,7 @@ export class IcomSerialBackend {
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
-    this.spectrumEnabled = true;
+    this.session.setSpectrumEnabled(true);
     console.log(
       `[icom-serial] Starting spectrum for addr 0x${this.addr.radio.toString(16)}`,
     );
@@ -551,8 +488,7 @@ export class IcomSerialBackend {
   }
 
   async stopSpectrum(): Promise<void> {
-    this.spectrumEnabled = false;
-    this.stopSpectrumInternal();
+    this.session.setSpectrumEnabled(false);
     // Disable data output first, then scope display
     await this.session.sendAndWaitOk(
       stopScopeDataOutput(this.addr),
@@ -561,327 +497,6 @@ export class IcomSerialBackend {
     await this.session.sendAndWaitOk(
       stopScope(this.addr),
       "Disable scope display",
-    );
-  }
-
-  // ── Internal: Polling ─────────────────────────────────────────────────────
-
-  private startPolling(): void {
-    if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => {
-      this.triggerPollCycle();
-    }, this.config.pollInterval);
-    // Run first poll immediately
-    this.triggerPollCycle();
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  private triggerPollCycle(): void {
-    if (this.pollInFlight) return;
-    this.pollInFlight = true;
-    void this.pollCycle().finally(() => {
-      this.pollInFlight = false;
-    });
-  }
-
-  private pollCount = 0;
-
-  private async pollCycle(): Promise<void> {
-    if (!this._isConnected || !this.serial?.isOpen) return;
-
-    this.pollCount++;
-    const pollOptionalFields =
-      !this.lastStatus || this.pollCount % OPTIONAL_POLL_INTERVAL_CYCLES === 0;
-
-    try {
-      const status = await this.readFullStatus(pollOptionalFields);
-      this.consecutiveErrors = 0;
-
-      // Emit S-meter separately (always changes)
-      if (status.smeter !== undefined) {
-        const dbm = status.smeter;
-        if (dbm !== this.lastSmeterDbm) {
-          this.lastSmeterDbm = dbm;
-          this.emitSmeter(dbm);
-        }
-      }
-
-      // Emit status if anything changed (excluding smeter)
-      if (this.hasStatusChanged(status)) {
-        this.lastStatus = status;
-        this.emitStatus(status);
-      }
-    } catch (err) {
-      this.consecutiveErrors++;
-      if (this.consecutiveErrors <= 3) {
-        console.warn(
-          `[icom-serial] Poll error (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-      if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        this.emitError(
-          `Too many consecutive errors (${this.consecutiveErrors}), disconnecting`,
-        );
-        this.stop();
-      }
-    }
-  }
-
-  private async readFullStatus(
-    pollOptionalFields: boolean,
-  ): Promise<RigStatus> {
-    const status: RigStatus = this.lastStatus
-      ? { ...this.lastStatus, connected: true }
-      : { connected: true };
-
-    // Frequency (required)
-    const freqFrame = await this.session.sendCommand(readFrequency(this.addr));
-    if (freqFrame) {
-      const freq = parseFrequencyResponse(freqFrame);
-      if (freq !== null) status.frequency = freq;
-    }
-
-    // Mode (required)
-    const modeFrame = await this.session.sendCommand(readMode(this.addr));
-    if (modeFrame) {
-      const result = parseModeResponse(modeFrame);
-      if (result) status.mode = result.mode;
-    }
-
-    // PTT
-    const pttFrame = await this.session.sendCommand(readPtt(this.addr));
-    if (pttFrame) {
-      const ptt = parsePttResponse(pttFrame);
-      if (ptt !== null) status.ptt = ptt;
-    }
-
-    // S-meter
-    const smeterFrame = await this.session.sendCommand(readSmeter(this.addr));
-    if (smeterFrame) {
-      if (smeterFrame.data.length >= 3) {
-        const raw = parseMeterResponse(smeterFrame);
-        if (raw !== null) {
-          if (raw > 241 && !this.warnedUnsupported.has("SMETER_RANGE")) {
-            this.warnedUnsupported.add("SMETER_RANGE");
-            const hexBytes = Buffer.from(smeterFrame.data).toString("hex");
-            console.warn(
-              `[icom-serial] S-meter raw=${raw} exceeds max 241 (frame: ${hexBytes}), clamping`,
-            );
-          }
-          status.smeter = rawSmeterToDbm(raw);
-        }
-      }
-    }
-
-    // TX metering (only when transmitting)
-    if (status.ptt) {
-      const txMeter: NonNullable<RigStatus["txMeter"]> = {};
-
-      const pwrFrame = await this.session.sendCommand(
-        readPowerMeter(this.addr),
-      );
-      if (pwrFrame) {
-        const raw = parseMeterResponse(pwrFrame);
-        if (raw !== null) txMeter.powerW = (raw / 241) * 100; // Scale to watts
-      }
-
-      const swrFrame = await this.session.sendCommand(readSwrMeter(this.addr));
-      if (swrFrame) {
-        const raw = parseMeterResponse(swrFrame);
-        if (raw !== null) txMeter.swr = 1 + (raw / 241) * 2; // 1.0 to 3.0 scale
-      }
-
-      const alcFrame = await this.session.sendCommand(readAlcMeter(this.addr));
-      if (alcFrame) {
-        const raw = parseMeterResponse(alcFrame);
-        if (raw !== null) txMeter.alc = raw / 241;
-      }
-
-      status.txMeter = txMeter;
-    }
-
-    // Split
-    const splitFrame = await this.session.sendCommand(readSplit(this.addr));
-    if (splitFrame) {
-      const split = parseSplitResponse(splitFrame);
-      if (split !== null) status.split = split;
-    }
-
-    if (pollOptionalFields) {
-      // RIT
-      await this.pollOptional("RIT", async () => {
-        const ritFrame = this.requireOptionalFrame(
-          "RIT",
-          await this.session.sendCommand(readRit(this.addr)),
-        );
-        const enabled = parseRitXitEnableResponse(ritFrame);
-        if (enabled === null) {
-          throw new Error("RIT parse failed");
-        }
-        const offsetFrame = this.requireOptionalFrame(
-          "RIT_OFFSET",
-          await this.session.sendCommand(readRitXitOffset(this.addr)),
-        );
-        const offsetHz = parseRitXitOffsetResponse(offsetFrame);
-        if (offsetHz === null) {
-          throw new Error("RIT offset parse failed");
-        }
-        status.rit = { enabled, offsetHz };
-      });
-
-      // XIT
-      await this.pollOptional("XIT", async () => {
-        const xitFrame = this.requireOptionalFrame(
-          "XIT",
-          await this.session.sendCommand(readXit(this.addr)),
-        );
-        const enabled = parseRitXitEnableResponse(xitFrame);
-        if (enabled === null) {
-          throw new Error("XIT parse failed");
-        }
-        status.xit = { enabled, offsetHz: status.rit?.offsetHz ?? 0 };
-      });
-
-      // ANF
-      await this.pollOptional("ANF", async () => {
-        const frame = this.requireOptionalFrame(
-          "ANF",
-          await this.session.sendCommand(readFunction(this.addr, "ANF")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("ANF parse failed");
-        }
-        status.anf = val;
-      });
-
-      // QSK (BKIN)
-      await this.pollOptional("QSK", async () => {
-        const frame = this.requireOptionalFrame(
-          "QSK",
-          await this.session.sendCommand(readFunction(this.addr, "BKIN")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("QSK parse failed");
-        }
-        status.qsk = val;
-      });
-
-      // VOX
-      await this.pollOptional("VOX", async () => {
-        const frame = this.requireOptionalFrame(
-          "VOX",
-          await this.session.sendCommand(readFunction(this.addr, "VOX")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("VOX parse failed");
-        }
-        status.vox = val;
-      });
-
-      // AGC
-      await this.pollOptional("AGC", async () => {
-        const frame = this.requireOptionalFrame(
-          "AGC",
-          await this.session.sendCommand(readFunction(this.addr, "AGC")),
-        );
-        const val = parseAgcResponse(frame);
-        if (val === null) {
-          throw new Error("AGC parse failed");
-        }
-        status.agcMode = val;
-      });
-
-      // CW Speed
-      await this.pollOptional("KEYSPD", async () => {
-        const frame = this.requireOptionalFrame(
-          "KEYSPD",
-          await this.session.sendCommand(readLevel(this.addr, "KEYSPD")),
-        );
-        const val = parseLevelResponse(frame);
-        if (val === null) {
-          throw new Error("KEYSPD parse failed");
-        }
-        status.cwSpeed = val;
-      });
-
-      // IF Shift
-      await this.pollOptional("IF_SHIFT", async () => {
-        const frame = this.requireOptionalFrame(
-          "IF_SHIFT",
-          await this.session.sendCommand(readLevel(this.addr, "IF_SHIFT")),
-        );
-        const raw = parseLevelResponse(frame);
-        if (raw === null) {
-          throw new Error("IF_SHIFT parse failed");
-        }
-        status.ifShift = parseIfShiftResponse(raw);
-      });
-    }
-
-    return status;
-  }
-
-  /** Poll an optional field, suppressing repeated errors for unsupported features */
-  private async pollOptional(
-    name: string,
-    fn: () => Promise<void>,
-  ): Promise<void> {
-    if (this.warnedUnsupported.has(name)) return;
-    try {
-      await fn();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const shouldDisable =
-        message.includes("timed out") || message.includes("rejected by radio");
-      if (shouldDisable) {
-        this.warnedUnsupported.add(name);
-        console.warn(
-          `[icom-serial] Disabling optional poll ${name}: ${message}`,
-        );
-      } else {
-        console.warn(`[icom-serial] Optional poll ${name} failed: ${message}`);
-      }
-    }
-  }
-
-  private requireOptionalFrame(name: string, frame: CivFrame | null): CivFrame {
-    if (!frame) {
-      throw new Error(`${name} timed out`);
-    }
-    if (frame.isNg) {
-      throw new Error(`${name} rejected by radio`);
-    }
-    return frame;
-  }
-
-  /** Check if status has meaningfully changed (excluding S-meter) */
-  private hasStatusChanged(status: RigStatus): boolean {
-    if (!this.lastStatus) return true;
-    const prev = this.lastStatus;
-    return (
-      prev.frequency !== status.frequency ||
-      prev.mode !== status.mode ||
-      prev.ptt !== status.ptt ||
-      prev.vfo !== status.vfo ||
-      prev.split !== status.split ||
-      prev.anf !== status.anf ||
-      prev.qsk !== status.qsk ||
-      prev.vox !== status.vox ||
-      prev.agcMode !== status.agcMode ||
-      prev.cwSpeed !== status.cwSpeed ||
-      prev.ifShift !== status.ifShift ||
-      prev.rit?.enabled !== status.rit?.enabled ||
-      prev.rit?.offsetHz !== status.rit?.offsetHz ||
-      prev.xit?.enabled !== status.xit?.enabled
     );
   }
 
@@ -949,128 +564,6 @@ export class IcomSerialBackend {
     });
   }
 
-  // ── Internal: Spectrum Assembly ───────────────────────────────────────────
-
-  private handleScopeHeader(
-    scopeData: Buffer,
-    scopeIndex: number,
-    seqMax: number,
-  ): void {
-    if (scopeData.length < 15) return;
-
-    const scopeMode = scopeData[3] as ScopeMode;
-    const startFreqHz = decodeBcdFrequency(scopeData, 4);
-    const endFreqHz = decodeBcdFrequency(scopeData, 9);
-
-    this.assembly = {
-      scopeMode,
-      scopeIndex,
-      startFreqHz,
-      endFreqHz,
-      seqMax,
-      lastSeq: 1,
-      pixels: [],
-      lastUpdateMs: Date.now(),
-    };
-
-    if (seqMax === 1) {
-      for (let i = 15; i < scopeData.length; i++) {
-        this.assembly.pixels.push(scopeData[i]);
-      }
-      this.emitCompleteLine();
-      return;
-    }
-
-    this.resetAssemblyTimeout();
-  }
-
-  private handleScopePixels(
-    scopeData: Buffer,
-    seq: number,
-    _seqMax: number,
-  ): void {
-    if (!this.assembly) return;
-
-    if (seq !== this.assembly.lastSeq + 1) {
-      this.assembly = null;
-      return;
-    }
-
-    this.assembly.lastSeq = seq;
-    this.assembly.lastUpdateMs = Date.now();
-
-    for (let i = 3; i < scopeData.length; i++) {
-      this.assembly.pixels.push(scopeData[i]);
-    }
-
-    if (seq === this.assembly.seqMax) {
-      this.emitCompleteLine();
-    } else {
-      this.resetAssemblyTimeout();
-    }
-  }
-
-  private emitCompleteLine(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-      this.assemblyTimer = null;
-    }
-
-    if (!this.assembly || this.assembly.pixels.length === 0) {
-      this.assembly = null;
-      return;
-    }
-
-    const { scopeMode, scopeIndex, startFreqHz, endFreqHz, pixels } =
-      this.assembly;
-
-    let centerHz: number;
-    let spanHz: number;
-
-    if (scopeMode === ScopeMode.Center) {
-      centerHz = startFreqHz;
-      spanHz = endFreqHz * 2;
-    } else {
-      centerHz = (startFreqHz + endFreqHz) / 2;
-      spanHz = endFreqHz - startFreqHz;
-    }
-
-    if (spanHz <= 0) {
-      this.assembly = null;
-      return;
-    }
-
-    const line: CivSpectrumLine = {
-      centerHz,
-      spanHz,
-      pixels: new Uint8Array(pixels),
-      scopeMode,
-      scopeIndex,
-    };
-
-    this.assembly = null;
-    this.emitSpectrumLine(line);
-  }
-
-  private resetAssemblyTimeout(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-    }
-    this.assemblyTimer = setTimeout(() => {
-      this.assemblyTimer = null;
-      this.assembly = null;
-    }, ASSEMBLY_TIMEOUT_MS);
-  }
-
-  private stopSpectrumInternal(): void {
-    if (this.assemblyTimer) {
-      clearTimeout(this.assemblyTimer);
-      this.assemblyTimer = null;
-    }
-    this.assembly = null;
-    this.spectrumEnabled = false;
-  }
-
   // ── Internal: Event Emission ──────────────────────────────────────────────
 
   private emitStatus(status: RigStatus): void {
@@ -1104,12 +597,6 @@ export class IcomSerialBackend {
   }
 
   private emitSpectrumLine(line: CivSpectrumLine): void {
-    this.spectrumLineCount++;
-    if (this.spectrumLineCount <= 3 || this.spectrumLineCount % 100 === 0) {
-      console.log(
-        `[icom-serial] Spectrum line #${this.spectrumLineCount}: center=${(line.centerHz / 1e6).toFixed(3)}MHz span=${(line.spanHz / 1e3).toFixed(0)}kHz bins=${line.pixels.length} handlers=${this.spectrumHandlers.length}`,
-      );
-    }
     for (const handler of this.spectrumHandlers) {
       try {
         handler(line);

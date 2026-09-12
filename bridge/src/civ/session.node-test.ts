@@ -1003,3 +1003,130 @@ test("resetPollState drops lastStatus so the next poll emits again", async () =>
   await h.session.pollNow();
   assert.equal(h.statuses.length, 2);
 });
+
+// ─── Rig control ────────────────────────────────────────────────────────────
+
+function ackWrites(h: { session: CivSession; transport: FakeTransport }): void {
+  h.transport.reply = () => {
+    h.session.handleIncomingData(fromRadio(CIV_OK));
+  };
+}
+
+test("setFrequency sends the set-freq frame and waits for OK", async () => {
+  const h = harness();
+  ackWrites(h);
+  await h.session.setFrequency(14_074_000);
+  assert.equal(h.transport.writes.length, 1);
+  assert.equal(h.transport.writes[0][4], CivCmd.SET_FREQ);
+});
+
+test("setPTT, setVFO, setSplit, setAgc, setFunc and setLevel wait for OK", async () => {
+  const h = harness();
+  ackWrites(h);
+  await h.session.setPTT(true);
+  await h.session.setVFO("B");
+  await h.session.setSplit(true);
+  await h.session.setAgc(2);
+  await h.session.setFunc("NB", true);
+  await h.session.setLevel("AF", 64);
+  assert.equal(h.transport.writes.length, 6);
+});
+
+test("getLevel returns 0 when the radio does not answer", async () => {
+  const h = harness();
+  assert.equal(await h.session.getLevel("AF"), 0);
+});
+
+test("getFunc returns false when the radio does not answer", async () => {
+  const h = harness();
+  assert.equal(await h.session.getFunc("NB"), false);
+});
+
+test("setPassband is a no-op until a poll has populated the current mode", async () => {
+  const h = harness();
+  ackWrites(h);
+  await h.session.setPassband(2400);
+  assert.equal(h.transport.writes.length, 0);
+});
+
+test("setPassband maps USB widths onto FIL1–3 and re-sends the current mode", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  ackWrites(h);
+  h.transport.writes.length = 0;
+
+  await h.session.setPassband(2400);
+  assert.equal(h.transport.writes[0][4], CivCmd.SET_MODE);
+  assert.equal(h.transport.writes[0][5], 0x01); // USB
+  assert.equal(h.transport.writes[0][6], 1);
+
+  h.transport.writes.length = 0;
+  await h.session.setPassband(1500);
+  assert.equal(h.transport.writes[0][6], 2);
+
+  h.transport.writes.length = 0;
+  await h.session.setPassband(500);
+  assert.equal(h.transport.writes[0][6], 3);
+});
+
+test("setPassband uses the CW/RTTY filter breakpoints", async () => {
+  const h = pollHarness(defaultRadio({ modeByte: 0x03 })); // CW
+  await h.session.pollNow();
+  ackWrites(h);
+  h.transport.writes.length = 0;
+
+  await h.session.setPassband(500);
+  assert.equal(h.transport.writes[0][5], 0x03); // CW
+  assert.equal(h.transport.writes[0][6], 1);
+
+  h.transport.writes.length = 0;
+  await h.session.setPassband(200);
+  assert.equal(h.transport.writes[0][6], 2);
+
+  h.transport.writes.length = 0;
+  await h.session.setPassband(50);
+  assert.equal(h.transport.writes[0][6], 3);
+});
+
+test("setAntenna ignores a non-numeric index", async () => {
+  const h = harness();
+  ackWrites(h);
+  await h.session.setAntenna("rear");
+  assert.equal(h.transport.writes.length, 0);
+});
+
+test("setRit and setXit write without waiting for an ACK", async () => {
+  const h = harness();
+  await h.session.setRit(true, 100);
+  await h.session.setXit(false);
+  assert.equal(h.transport.writes.length, 2);
+  assert.equal(h.transport.writes[0][4], CivCmd.RIT_XIT);
+  assert.equal(h.transport.writes[1][4], CivCmd.RIT_XIT);
+});
+
+test("startSpectrum enables assembly and sends scope on then data-output on", async () => {
+  const h = harness();
+  ackWrites(h);
+  await h.session.startSpectrum();
+  assert.equal(h.transport.writes.length, 2);
+  assert.equal(h.transport.writes[0][4], CivCmd.SCOPE_CTRL);
+  assert.equal(h.transport.writes[0][5], CIV_SCOPE_SUB.ON);
+  assert.equal(h.transport.writes[1][5], CIV_SCOPE_SUB.DATA_OUTPUT);
+});
+
+test("startSpectrum rethrows when the radio rejects the scope-on command", async () => {
+  const h = harness();
+  h.transport.reply = () => {
+    h.session.handleIncomingData(fromRadio(CIV_NG));
+  };
+  await assert.rejects(h.session.startSpectrum(), /Enable scope display rejected/);
+});
+
+test("stopSpectrum disables assembly and sends data-output off then scope off", async () => {
+  const h = harness({ spectrumEnabled: true });
+  ackWrites(h);
+  await h.session.stopSpectrum();
+  assert.equal(h.transport.writes.length, 2);
+  assert.equal(h.transport.writes[0][5], CIV_SCOPE_SUB.DATA_OUTPUT);
+  assert.equal(h.transport.writes[1][5], CIV_SCOPE_SUB.ON);
+});

@@ -14,6 +14,7 @@ import {
   calculateDLayerAbsorption,
   calculateZenithAngle,
   getAbsorptionAtLocation,
+  getIonosphericParameters,
 } from "@/lib/utils/ionosphere";
 import {
   assertEveryTabDoesNotOverflow,
@@ -728,6 +729,39 @@ describe("BestBandReport keeps NowCast on the ladder's own path (finding 7)", ()
     expect(mocks.nowCast).toHaveBeenCalled();
     const call = mocks.nowCast.mock.calls[0][0] as { target: unknown };
     expect(call.target).toEqual({ grid: "PM95", lat: 35.68, lon: 139.69 });
+  });
+});
+
+describe("MufReport PATH conditions line (#1246)", () => {
+  it("names muf3000 as MUF(3000), not QTH MUF, while the hero stays on estimateMUF", () => {
+    mocks.target.mockReturnValue(LONDON);
+    const at = new Date("2026-09-05T18:00:00Z");
+    const qthMuf = getMUFAtLocation(AUSTIN.lat, AUSTIN.lon, 140, at);
+    const { muf3000 } = getIonosphericParameters(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      at,
+      140,
+    );
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+
+    // Scope to the hero: the comparison strip repeats the estimator value
+    // and must not hide an accidental switch of the hero to muf3000.
+    const hero = dialog.querySelector(".hcr-hero");
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toBe(`${qthMuf.toFixed(1)}MHz`);
+
+    const conditions = within(dialog).getByText(/MUF\(3000\)/);
+    expect(conditions.textContent).toBe(
+      `Daytime F2 EXCELLENT · MUF(3000) ${muf3000.toFixed(1)} MHz · up to 10M`,
+    );
+    expect(conditions.textContent).not.toMatch(/QTH MUF/i);
+
+    // The two estimators diverge at this fixture — the bug was both reading
+    // as the same QTH MUF on one screen.
+    expect(muf3000).not.toBeCloseTo(qthMuf, 1);
   });
 });
 

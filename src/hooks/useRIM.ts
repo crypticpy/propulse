@@ -24,6 +24,7 @@ import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
 import type { RiverGauge } from "@/lib/api/gauges";
+import type { WeatherAlert } from "@/lib/api/weather";
 import { useUserStore } from "@/stores/userStore";
 import { useAtmosStore } from "@/stores/atmosStore";
 import { useRepeaters } from "@/hooks/useRepeaters";
@@ -32,6 +33,16 @@ import { analyzeNVIS, type NVISAnalysis } from "@/lib/utils/nvis";
 const EARTH_RADIUS_KM = 6371;
 const RIM_HISTORY_WINDOW_MS = 12 * 60 * 60 * 1000;
 const RIM_HISTORY_MIN_INTERVAL_MS = 15 * 60 * 1000;
+/**
+ * Search radius (km) for terrestrial inputs (lightning, alerts, gauges)
+ * scoped to a target with no configured radius of its own — home has none
+ * (`RimFocus` carries no `radiusKm`); a monitored region's own `radiusKm`
+ * (`MonitoredRegionManager`'s "Default monitoring radius" is also 150) is
+ * used instead when the focus matches one.
+ */
+const DEFAULT_FOCUS_RADIUS_KM = 150;
+
+type AlertSeverity = "Extreme" | "Severe" | "Moderate" | "Minor";
 
 export interface RimFocus {
   id: string;
@@ -119,6 +130,75 @@ function nearestLightningKm(
     if (dist < minDist) minDist = dist;
   }
   return Number.isFinite(minDist) ? minDist : null;
+}
+
+/** Count of strikes within `radiusKm` of a target — falls back to the raw global count when the target has no location to scope around. */
+function strikesNear(
+  lat: number | null,
+  lon: number | null,
+  radiusKm: number,
+  strikes: Array<{ lat: number; lon: number }>,
+): number {
+  if (lat == null || lon == null) return strikes.length;
+  let count = 0;
+  for (const strike of strikes) {
+    if (haversineKm(lat, lon, strike.lat, strike.lon) <= radiusKm) count++;
+  }
+  return count;
+}
+
+function severitiesFrom(alerts: readonly WeatherAlert[]): AlertSeverity[] {
+  const relevant: AlertSeverity[] = [];
+  for (const alert of alerts) {
+    if (
+      alert.severity === "Extreme" ||
+      alert.severity === "Severe" ||
+      alert.severity === "Moderate" ||
+      alert.severity === "Minor"
+    ) {
+      relevant.push(alert.severity);
+    }
+  }
+  return relevant;
+}
+
+/** Alert severities within `radiusKm` of a target — falls back to every active severity, unfiltered, when the target has no location to scope around. */
+function severitiesNear(
+  alerts: readonly WeatherAlert[],
+  lat: number | null,
+  lon: number | null,
+  radiusKm: number,
+): AlertSeverity[] {
+  if (lat == null || lon == null) return severitiesFrom(alerts);
+  return severitiesFrom(
+    alerts.filter((alert) => haversineKm(lat, lon, alert.lat, alert.lon) <= radiusKm),
+  );
+}
+
+function maxSeverityLevel(severities: readonly AlertSeverity[]): number {
+  const severityMap: Record<AlertSeverity, number> = {
+    Minor: 1,
+    Moderate: 2,
+    Severe: 3,
+    Extreme: 4,
+  };
+  let max = 0;
+  for (const sev of severities) {
+    const level = severityMap[sev];
+    if (level > max) max = level;
+  }
+  return max;
+}
+
+/** River gauges within `radiusKm` of a target — falls back to the full fetched set (already a ~2° box around the Atmos map center, see `useRiverGauges`) when the target has no location to scope around. */
+function gaugesNear(
+  gauges: readonly RiverGauge[],
+  lat: number | null,
+  lon: number | null,
+  radiusKm: number,
+): RiverGauge[] {
+  if (lat == null || lon == null) return [...gauges];
+  return gauges.filter((gauge) => haversineKm(lat, lon, gauge.lat, gauge.lon) <= radiusKm);
 }
 
 function localTecValue(
@@ -216,6 +296,20 @@ function regionFocus(region: MonitoredRegion): RimFocus {
   };
 }
 
+/**
+ * The search radius terrestrial inputs should be scoped to for `focus`:
+ * a monitored region's own configured `radiusKm`, or `DEFAULT_FOCUS_RADIUS_KM`
+ * for "home" (no configurable radius) or a focus passed in from outside this
+ * hook's own `targets` list (e.g. an ad hoc focus with no matching region).
+ */
+function radiusForFocus(
+  focus: RimFocus,
+  monitoredRegions: readonly MonitoredRegion[],
+): number {
+  if (focus.id === "home") return DEFAULT_FOCUS_RADIUS_KM;
+  return monitoredRegions.find((region) => region.id === focus.id)?.radiusKm ?? DEFAULT_FOCUS_RADIUS_KM;
+}
+
 export function useRIM(focus?: RimFocus | null): {
   rimResult: RIMResult | null;
   isLoading: boolean;
@@ -236,11 +330,11 @@ export function useRIM(focus?: RimFocus | null): {
   const dstIndexQuery = useDstIndex();
 
   const { tecData, isLoading: tecLoading } = useTEC();
-  const { strikes, isLoading: lightningLoading } = useLightning();
-  const { alerts, isLoading: alertsLoading } = useWeatherAlerts();
+  const { strikes, isLoading: lightningLoading, error: lightningError } = useLightning();
+  const { alerts, isLoading: alertsLoading, error: alertsError } = useWeatherAlerts();
   const { manifest, isLoading: radarLoading } = useWeatherRadar();
-  const { gauges } = useRiverGauges();
-  const { repeaters } = useRepeaters();
+  const { gauges, isLoading: gaugesLoading, error: gaugesError } = useRiverGauges();
+  const { repeaters, isLoading: repeatersLoading, error: repeatersError } = useRepeaters();
   const monitoredRegions = useAtmosStore((s) => s.monitoredRegions);
 
   const station = useUserStore((s) => s.station);
@@ -278,47 +372,12 @@ export function useRIM(focus?: RimFocus | null): {
     ? dstIndexQuery.data[dstIndexQuery.data.length - 1].dst
     : null;
 
-  const activeAlertSeverities = useMemo(() => {
-    const relevant: ("Extreme" | "Severe" | "Moderate" | "Minor")[] = [];
-    for (const alert of alerts) {
-      if (
-        alert.severity === "Extreme" ||
-        alert.severity === "Severe" ||
-        alert.severity === "Moderate" ||
-        alert.severity === "Minor"
-      ) {
-        relevant.push(alert.severity);
-      }
-    }
-    return relevant;
-  }, [alerts]);
-
   const repeaterCount = repeaters.length;
   const operationalRepeaterRatio = useMemo(() => {
     if (repeaters.length === 0) return null;
     const operational = repeaters.filter((r) => r.operational).length;
     return operational / repeaters.length;
   }, [repeaters]);
-
-  const alertMaxSeverityLevel = useMemo(() => {
-    const severityMap: Record<string, number> = {
-      Minor: 1,
-      Moderate: 2,
-      Severe: 3,
-      Extreme: 4,
-    };
-    let max = 0;
-    for (const sev of activeAlertSeverities) {
-      const level = severityMap[sev] ?? 0;
-      if (level > max) max = level;
-    }
-    return max;
-  }, [activeAlertSeverities]);
-
-  const floodProximity = worstFloodStatus(gauges);
-  const floodActionCount = gauges.filter(
-    (g) => FLOOD_RANK[g.floodStatus] >= 1,
-  ).length;
 
   const targets = useMemo(() => {
     const list: RimFocus[] = [];
@@ -344,8 +403,16 @@ export function useRIM(focus?: RimFocus | null): {
     strikes.length > 0 ||
     alerts.length > 0;
 
-  const buildInput = (lat: number | null, lon: number | null): RIMInput => {
+  // `radiusKm` scopes lightning/alerts/gauges to the target being scored —
+  // without it every region inherited the global count/nationwide severities
+  // and the map-center gauge query (#916 review).
+  const buildInput = (
+    lat: number | null,
+    lon: number | null,
+    radiusKm: number,
+  ): RIMInput => {
     const nvis = nvisAt(lat, lon, latestSfi);
+    const severities = severitiesNear(alerts, lat, lon, radiusKm);
     return {
       kpIndex: latestKp,
       solarFlux: latestSfi,
@@ -353,26 +420,38 @@ export function useRIM(focus?: RimFocus | null): {
       protonFlux: latestProton,
       dstIndex: latestDst,
       tecValue: localTecValue(lat, lon, tecData),
-      lightningStrikeCount: strikes.length,
+      lightningStrikeCount: strikesNear(lat, lon, radiusKm, strikes),
       nearestLightningKm: nearestLightningKm(lat, lon, strikes),
-      activeAlertSeverities,
+      activeAlertSeverities: severities,
       hasActiveRadar: manifest != null,
-      floodProximity,
+      floodProximity: worstFloodStatus(gaugesNear(gauges, lat, lon, radiusKm)),
       stationLat: lat,
       stationLon: lon,
       repeaterCount,
       operationalRepeaterRatio,
       nvisViable: nvis?.nvisViable ?? false,
-      alertMaxSeverityLevel,
+      alertMaxSeverityLevel: maxSeverityLevel(severities),
+      // Explicit feed-success flags so a successful empty result (e.g. no
+      // active alerts) scores as quiet rather than PARTIAL/unavailable, and
+      // so EmComm availability reflects whether these feeds actually
+      // answered rather than whether station coordinates exist (#916 review).
+      alertsFeedOk: !alertsLoading && alertsError == null,
+      lightningFeedOk: !lightningLoading && lightningError == null,
+      floodFeedOk: !gaugesLoading && gaugesError == null,
+      repeatersFeedOk: !repeatersLoading && repeatersError == null,
+      sfiFeedOk: !solarFluxQuery.isLoading && solarFluxQuery.error == null,
     };
   };
 
   const regionScores = useMemo((): RimRegionScore[] => {
     if (!hasAnyData && isLoading) return [];
-    return targets.map((region) => ({
-      region,
-      result: computeRIM(buildInput(region.lat, region.lon), region.id),
-    }));
+    return targets.map((region) => {
+      const radiusKm = radiusForFocus(region, monitoredRegions);
+      return {
+        region,
+        result: computeRIM(buildInput(region.lat, region.lon, radiusKm), region.id),
+      };
+    });
     // buildInput closes over the latest scalars; listing them keeps the
     // per-region scores in lock-step with the focused result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,12 +466,22 @@ export function useRIM(focus?: RimFocus | null): {
     latestDst,
     tecData,
     strikes,
-    activeAlertSeverities,
+    alerts,
     manifest,
-    floodProximity,
+    gauges,
     repeaterCount,
     operationalRepeaterRatio,
-    alertMaxSeverityLevel,
+    monitoredRegions,
+    alertsLoading,
+    alertsError,
+    lightningLoading,
+    lightningError,
+    gaugesLoading,
+    gaugesError,
+    repeatersLoading,
+    repeatersError,
+    solarFluxQuery.isLoading,
+    solarFluxQuery.error,
   ]);
 
   const rimResult = useMemo(() => {
@@ -403,7 +492,10 @@ export function useRIM(focus?: RimFocus | null): {
       ? regionScores.find((row) => row.region.id === activeFocus.id)
       : undefined;
     if (match) return match.result;
-    return computeRIM(buildInput(lat, lon), activeFocus?.id ?? "home");
+    const radiusKm = activeFocus
+      ? radiusForFocus(activeFocus, monitoredRegions)
+      : DEFAULT_FOCUS_RADIUS_KM;
+    return computeRIM(buildInput(lat, lon, radiusKm), activeFocus?.id ?? "home");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeFocus,
@@ -412,6 +504,7 @@ export function useRIM(focus?: RimFocus | null): {
     isLoading,
     stationLat,
     stationLon,
+    monitoredRegions,
   ]);
 
   const [, setTick] = useState(0);
@@ -425,25 +518,24 @@ export function useRIM(focus?: RimFocus | null): {
     ? (rimHistoryBuffers.get(rimResult.regionId) ?? [])
     : [];
 
-  const nvis = nvisAt(
-    activeFocus?.lat ?? stationLat,
-    activeFocus?.lon ?? stationLon,
-    latestSfi,
-  );
+  const activeLat = activeFocus?.lat ?? stationLat;
+  const activeLon = activeFocus?.lon ?? stationLon;
+  const activeRadiusKm = activeFocus
+    ? radiusForFocus(activeFocus, monitoredRegions)
+    : DEFAULT_FOCUS_RADIUS_KM;
+  const activeGauges = gaugesNear(gauges, activeLat, activeLon, activeRadiusKm);
+
+  const nvis = nvisAt(activeLat, activeLon, latestSfi);
 
   return {
     rimResult,
     isLoading,
     history,
     regionScores,
-    nearestLightningKm: nearestLightningKm(
-      activeFocus?.lat ?? stationLat,
-      activeFocus?.lon ?? stationLon,
-      strikes,
-    ),
-    lightningStrikeCount: strikes.length,
-    floodProximity,
-    floodActionCount,
+    nearestLightningKm: nearestLightningKm(activeLat, activeLon, strikes),
+    lightningStrikeCount: strikesNear(activeLat, activeLon, activeRadiusKm, strikes),
+    floodProximity: worstFloodStatus(activeGauges),
+    floodActionCount: activeGauges.filter((g) => FLOOD_RANK[g.floodStatus] >= 1).length,
     repeaterCount,
     operationalRepeaterRatio,
     nvis,

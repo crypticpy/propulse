@@ -148,6 +148,11 @@ const FULL_INPUT: RIMInput = {
   operationalRepeaterRatio: 0.8,
   nvisViable: true,
   alertMaxSeverityLevel: 0,
+  alertsFeedOk: true,
+  lightningFeedOk: true,
+  floodFeedOk: true,
+  repeatersFeedOk: true,
+  sfiFeedOk: true,
 };
 
 describe("computeRIM", () => {
@@ -177,12 +182,54 @@ describe("computeRIM", () => {
         lightningStrikeCount: 0,
         activeAlertSeverities: [],
         floodProximity: "none",
+        alertsFeedOk: false,
+        lightningFeedOk: false,
       },
       "home",
     );
     expect(result.vhfUhf.dataAvailable).toBe(false);
     expect(result.partial).toBe(true);
     expect(result.excludedInputs).toContain("VHF/UHF");
+  });
+
+  it("scores a quiet feed (empty severities, feed succeeded) as available, not NO DATA", () => {
+    const result = computeRIM(
+      {
+        ...FULL_INPUT,
+        nearestLightningKm: null,
+        lightningStrikeCount: 0,
+        activeAlertSeverities: [],
+        floodProximity: "none",
+        lightningFeedOk: false,
+        // alertsFeedOk stays true: the alerts feed answered with zero active
+        // alerts, which is a real quiet result, not an unavailable feed.
+      },
+      "home",
+    );
+    expect(result.vhfUhf.dataAvailable).toBe(true);
+    expect(result.infraRisk.dataAvailable).toBe(true);
+    expect(result.vhfUhf.value).toBe(80);
+    expect(result.infraRisk.value).toBe(100);
+  });
+
+  it("does not count station coordinates alone as EmComm evidence", () => {
+    const result = computeRIM(
+      {
+        ...FULL_INPUT,
+        repeaterCount: 0,
+        operationalRepeaterRatio: null,
+        alertMaxSeverityLevel: 0,
+        floodProximity: "none",
+        repeatersFeedOk: false,
+        alertsFeedOk: false,
+        floodFeedOk: false,
+        sfiFeedOk: false,
+        // stationLat/stationLon remain set — must not unlock EmComm alone.
+      },
+      "home",
+    );
+    expect(result.emcommReadiness.dataAvailable).toBe(false);
+    expect(result.excludedInputs).toContain("EmComm");
   });
 
   it("names the inputs that moved each available sub-score", () => {

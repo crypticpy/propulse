@@ -245,8 +245,7 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
  * not unlock the quiet-day default of 80.
  */
 function computeVhfUhfScore(input: RIMInput): RIMSubScore {
-  const hasAnyData =
-    input.activeAlertSeverities.length > 0 || input.nearestLightningKm != null;
+  const hasAnyData = input.alertsFeedOk || input.lightningFeedOk;
 
   if (!hasAnyData) {
     return {
@@ -285,10 +284,7 @@ function computeVhfUhfScore(input: RIMInput): RIMSubScore {
  * Compute Infrastructure Risk score (0-100, 100 = no risk).
  */
 function computeInfraRiskScore(input: RIMInput): RIMSubScore {
-  const hasAnyData =
-    input.activeAlertSeverities.length > 0 ||
-    input.nearestLightningKm != null ||
-    (input.floodProximity != null && input.floodProximity !== "none");
+  const hasAnyData = input.alertsFeedOk || input.lightningFeedOk || input.floodFeedOk;
 
   if (!hasAnyData) {
     return {
@@ -338,12 +334,14 @@ function computeInfraRiskScore(input: RIMInput): RIMSubScore {
   };
 }
 
+// Station coordinates alone are not EmComm evidence — availability must
+// reflect what the scorer's underlying feeds actually answered (#916 review).
 function emcommInputsPresent(input: RIMInput): boolean {
   return (
-    (input.stationLat != null && input.stationLon != null) ||
-    input.repeaterCount > 0 ||
-    input.alertMaxSeverityLevel > 0 ||
-    (input.floodProximity != null && input.floodProximity !== "none")
+    input.repeatersFeedOk ||
+    input.alertsFeedOk ||
+    input.floodFeedOk ||
+    input.sfiFeedOk
   );
 }
 

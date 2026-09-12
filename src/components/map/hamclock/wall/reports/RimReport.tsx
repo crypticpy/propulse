@@ -39,12 +39,13 @@ function scoreText(part: RIMSubScore): string {
 function impactTail(
   lightningKm: number | null,
   flood: string | undefined,
+  regionName: string,
 ): string | null {
   const nearLightning = lightningKm != null && lightningKm < 500;
   const flooding = flood != null && flood !== "none";
-  if (nearLightning && flooding) return "LIGHTNING AND FLOODING NEAR HOME";
-  if (nearLightning) return "LIGHTNING AND STORMS NEAR HOME";
-  if (flooding) return "FLOODING NEAR HOME";
+  if (nearLightning && flooding) return `LIGHTNING AND FLOODING NEAR ${regionName}`;
+  if (nearLightning) return `LIGHTNING AND STORMS NEAR ${regionName}`;
+  if (flooding) return `FLOODING NEAR ${regionName}`;
   return null;
 }
 
@@ -52,11 +53,12 @@ function verdictLine(
   result: RIMResult,
   lightningKm: number | null,
   flood: string | undefined,
+  regionName: string,
 ): string {
   const { word } = rimGrade(result.composite);
   const prefix = result.partial ? `PARTIAL · ${word}` : word;
   const tail =
-    impactTail(lightningKm, flood) ??
+    impactTail(lightningKm, flood, regionName) ??
     (result.excludedInputs?.length
       ? result.excludedInputs.join(", ").toUpperCase()
       : null);
@@ -398,7 +400,7 @@ export function RimReport({ open, onClose }: RimReportProps) {
       title="Radio impact report · RIM"
       tone={reportTone(tone)}
       hero={Math.round(rimResult.composite).toString()}
-      verdict={verdictLine(rimResult, nearestLightningKm, floodProximity)}
+      verdict={verdictLine(rimResult, nearestLightningKm, floodProximity, focus?.name ?? "HOME")}
       facts={facts}
       footer={footer}
       updated={updated}

@@ -347,7 +347,7 @@ export function KioskChrome() {
           <div
             className={`max-w-3xl mx-6 p-10 rounded-2xl border-2 text-center ${
               breakInAlert.priority === "CRITICAL"
-                ? "border-alert-red bg-alert-red/10 animate-pulse"
+                ? "border-alert-red bg-alert-red/10"
                 : "border-caution-amber bg-caution-amber/10"
             }`}
           >

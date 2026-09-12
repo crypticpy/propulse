@@ -189,7 +189,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
             </span>
           )}
           {ptt ? (
-            <RadioBadge label="TX" variant="danger" pulse size="xs" />
+            <RadioBadge label="TX" variant="danger" size="xs" />
           ) : (
             <SmeterBar dbm={smeterDbm} size="compact" className="w-20" />
           )}
@@ -271,7 +271,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
 
         {/* TX / RX indicator */}
         {ptt ? (
-          <RadioBadge label="TX" variant="danger" pulse />
+          <RadioBadge label="TX" variant="danger" />
         ) : (
           <RadioBadge label="RX" variant="success" />
         )}

@@ -153,7 +153,7 @@ export function PropagationForecast({
             </div>
           </div>
           <div className="text-center py-8 text-su-muted">
-            <div className="animate-pulse">Loading forecast data...</div>
+            <div>Loading forecast data...</div>
           </div>
         </Card>
 

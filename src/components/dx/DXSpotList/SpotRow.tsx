@@ -257,7 +257,7 @@ export const SpotRow = memo(function SpotRow({
 
     // Q8: Highlight animation for scroll-to-selected (brief cyan glow)
     const highlightClass = isHighlighted
-      ? "ring-2 ring-su-accent-edge ring-inset animate-pulse"
+      ? "ring-2 ring-su-accent-edge ring-inset"
       : "";
 
     // QoL1: Keyboard focus ring
@@ -270,7 +270,7 @@ export const SpotRow = memo(function SpotRow({
     }
 
     if (isAlertMatch) {
-      return `${base} bg-alert-red/10 animate-pulse`;
+      return `${base} bg-alert-red/10`;
     }
 
     // Highlight needed spots with a subtle gold/yellow left border

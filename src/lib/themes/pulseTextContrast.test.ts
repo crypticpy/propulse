@@ -81,6 +81,8 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
+import { stationContrast, stationPalettes } from "@/lib/themes/stationTokens";
+import type { ThemeId } from "@/lib/themes";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -248,6 +250,73 @@ const AUDITED_SITES: AuditedSite[] = [
     what: "off-time warning badge",
     anchor: "bg-alert-red/20 border border-alert-red/50 text-alert-red",
   },
+  {
+    file: "src/components/kiosk/KioskChrome.tsx",
+    what: "CRITICAL break-in takeover card",
+    anchor: "border-alert-red bg-alert-red/10",
+  },
+  {
+    file: "src/components/contest/MultiplierTracker.tsx",
+    what: "new-multiplier badge",
+    anchor: "const isNew = index < 3",
+  },
+  {
+    file: "src/components/contest/ContestOneLineEntry.tsx",
+    what: "inline DUP badge",
+    anchor: "bg-alert-red/20 text-alert-red border-2 border-alert-red/50",
+  },
+  {
+    file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
+    what: "TX badge (LIVE pulse stays on the decorative dot)",
+    anchor:
+      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
+  },
+  {
+    file: "src/components/sdr/skins/fate/FateBottomBar.tsx",
+    what: "TX badge",
+    anchor: "shadow-[0_0_8px_rgba(255,68,68,0.5)]",
+  },
+  {
+    file: "src/components/dx/DXSpotList/SpotRow.tsx",
+    what: "alert-matched row (pulse removed from rowClasses)",
+    anchor: "${base} bg-alert-red/10",
+  },
+  {
+    file: "src/components/dx/DXSpotList/SpotRow.tsx",
+    what: "scroll-to-selected highlight",
+    anchor: "ring-2 ring-su-accent-edge ring-inset",
+  },
+  {
+    file: "src/components/map/GlobeView.tsx",
+    what: "Logged chip",
+    anchor: "data-logged-chip",
+  },
+  {
+    file: "src/components/map/OperatorProfile.tsx",
+    what: "Start here CTA",
+    anchor:
+      "bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left",
+  },
+  {
+    file: "src/components/map/SolarSnapshot.tsx",
+    what: "loading placeholder and greyline/storm labels",
+    anchor: "Storm risk - HF may be degraded",
+  },
+  {
+    file: "src/components/map/PropagationForecast.tsx",
+    what: "loading-forecast message",
+    anchor: "Loading forecast data...",
+  },
+  {
+    file: "src/components/map/PropagationForecastMini.tsx",
+    what: "loading-forecast message",
+    anchor: "Loading forecast...",
+  },
+  {
+    file: "src/components/ui/LoadingSpinner.tsx",
+    what: "optional loading label",
+    anchor: "Optional loading text",
+  },
 ];
 
 /**
@@ -283,68 +352,6 @@ interface KnownRemainingSite {
 
 const KNOWN_REMAINING_SITES: KnownRemainingSite[] = [
   {
-    file: "src/components/contest/MultiplierTracker.tsx",
-    why: "multiplier badge pulses its own tinted label text",
-    anchor: "isNew ?",
-  },
-  {
-    file: "src/components/contest/ContestOneLineEntry.tsx",
-    why: "same TX/multiplier-badge pattern as RigStatusBar/DupeIndicator",
-    anchor: "bg-alert-red/20 text-alert-red border-2 border-alert-red/50",
-  },
-  {
-    file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
-    why: "TX indicator pulses its tinted label text",
-    anchor:
-      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
-  },
-  {
-    file: "src/components/sdr/skins/fate/FateBottomBar.tsx",
-    why: "TX indicator pulses its tinted label text",
-    anchor: "shadow-[0_0_8px_rgba(255,68,68,0.5)]",
-  },
-  {
-    file: "src/components/dx/DXSpotList/SpotRow.tsx",
-    why: "the whole alert-matched row pulses, including its tinted text",
-    anchor: "${base} bg-alert-red/10",
-  },
-  {
-    file: "src/components/dx/DXSpotList/SpotRow.tsx",
-    why: "the scroll-to-selected highlight pulses the whole selected/needed row, including its tinted text; a second indirect site in the same rowClasses memo, outside the alert-match anchor's window (Codex, PR #874 round 5)",
-    anchor: "ring-2 ring-su-accent-edge ring-inset",
-  },
-  {
-    file: "src/components/kiosk/KioskChrome.tsx",
-    why: "CRITICAL takeover banner pulses its tinted label",
-    anchor: "border-alert-red bg-alert-red/10",
-  },
-  {
-    file: "src/components/map/GlobeView.tsx",
-    why: "the \"Logged\" chip pulses its tinted text",
-    anchor: "data-logged-chip",
-  },
-  {
-    file: "src/components/map/OperatorProfile.tsx",
-    why: "the \"Start here\" CTA pulses its tinted label",
-    anchor:
-      "bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left",
-  },
-  {
-    file: "src/components/map/SolarSnapshot.tsx",
-    why: "tint is applied via inline style backgroundColor, not a class, but the element (and its text) still pulses",
-    anchor: "greylineStatus.isActive ?",
-  },
-  {
-    file: "src/components/map/SolarSnapshot.tsx",
-    why: "the loading placeholder pulses its own text",
-    anchor: "Loading...",
-  },
-  {
-    file: "src/components/map/SolarSnapshot.tsx",
-    why: "the storm-risk warning pulses its own tinted text",
-    anchor: "Storm risk - HF may be degraded",
-  },
-  {
     file: "src/components/alerts/AlertToastContainer.tsx",
     why: "the queued-critical-alerts counter pulses its own tinted text",
     anchor: "+{queuedCount} more alert",
@@ -370,23 +377,8 @@ const KNOWN_REMAINING_SITES: KnownRemainingSite[] = [
     anchor: "text-caution-amber hover:bg-caution-amber/10",
   },
   {
-    file: "src/components/map/PropagationForecast.tsx",
-    why: "the loading-forecast message pulses its own text",
-    anchor: "Loading forecast data...",
-  },
-  {
-    file: "src/components/map/PropagationForecastMini.tsx",
-    why: "the loading-forecast message pulses its own text",
-    anchor: "Loading forecast...",
-  },
-  {
-    file: "src/components/map/PropagationForecastMini.tsx",
-    why: "the pending-nowcast ellipsis pulses its own tinted text",
-    anchor: "modelNowCast.pending",
-  },
-  {
     file: "src/components/map/RecommendationsPanel.tsx",
-    why: "the analyzing-propagation message pulses its own text",
+    why: "the analyzing-propagation message pulses its own text (muted-on-panel trough 2.31:1, over the 15-file cap)",
     anchor: "Analyzing propagation...",
   },
   {
@@ -428,11 +420,6 @@ const KNOWN_REMAINING_SITES: KnownRemainingSite[] = [
     file: "src/components/shack/builder/BuilderCanvas.tsx",
     why: "the whole empty-canvas drop zone pulses while dragging, including its \"Drop here to add\" child text",
     anchor: "shadow-[inset_0_0_40px_rgba(255,107,53,0.08)]",
-  },
-  {
-    file: "src/components/ui/LoadingSpinner.tsx",
-    why: "the optional loading-spinner label pulses its own tinted text",
-    anchor: "Optional loading text",
   },
 ];
 
@@ -9087,7 +9074,7 @@ describe("collectExportedPulseBindings resolves an inline default export (#874 r
 });
 
 describe("animate-pulse does not ship on tinted/measured text at the audited sites (#847)", () => {
-  it("has no reintroduced pulse-on-text in any of the 14 audited files", () => {
+  it("has no reintroduced pulse-on-text in any audited file", () => {
     const files = Array.from(new Set(AUDITED_SITES.map((s) => s.file)));
     const violations = files.flatMap((file) => {
       const found = scanSourceForViolations(readRaw(file));
@@ -9298,5 +9285,46 @@ describe("no unlisted text-bearing animate-pulse site exists in src/ (#878 round
         `add each to KNOWN_REMAINING_SITES with an anchor (or fix it and add ` +
         `it to AUDITED_SITES):\n${uncovered.join("\n")}`,
     ).toEqual([]);
+  });
+});
+
+/**
+ * Untinted loading/status text that still uses `animate-pulse` on a plain
+ * panel surface (#878). Tailwind fades the element to 50% opacity at the
+ * trough, so ink is composited at alpha 0.5 over the surface. Measured with
+ * `stationContrast` across shipped palettes (min of the four themes):
+ *
+ *   text-su-muted on panel at the trough: **2.31:1** (under the 4.5 floor)
+ *
+ * Fixed in this PR (file budget): LoadingSpinner, PropagationForecast,
+ * PropagationForecastMini, SolarSnapshot loading copy.
+ * Still remaining under that floor, listed in KNOWN_REMAINING_SITES:
+ * RecommendationsPanel, LogStatsCard, ActivityFeed, FriendList, plus
+ * tinted leftovers (Header, ShareCard, QRCodeModal, FateBandActivity, …).
+ */
+function compositeHex(front: string, alpha: number, back: string): string {
+  const channels = (value: string) =>
+    [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16));
+  const a = channels(front);
+  const b = channels(back);
+  return `#${a
+    .map((channel, index) =>
+      Math.round(channel * alpha + b[index] * (1 - alpha))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+describe("untinted pulsing loading text at the 0.5 opacity trough (#878)", () => {
+  const themes = Object.keys(stationPalettes) as ThemeId[];
+
+  it("records muted-on-panel trough contrast so the census comment cannot rot", () => {
+    const ratios = themes.map((theme) => {
+      const palette = stationPalettes[theme];
+      const faded = compositeHex(palette.muted, 0.5, palette.panel);
+      return stationContrast(faded, palette.panel);
+    });
+    expect(Math.min(...ratios)).toBeCloseTo(2.31, 2);
   });
 });

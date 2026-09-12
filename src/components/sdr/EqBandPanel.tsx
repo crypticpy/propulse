@@ -99,26 +99,30 @@ export function EqBandPanel({
     const el = panelRef.current;
     if (!el) return;
 
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-
-    let left = anchorX - PANEL_WIDTH / 2;
-    let top = anchorY + GAP;
-
-    if (top + rect.height > vh - 8) {
-      top = anchorY - GAP - rect.height;
-    }
-
-    left = Math.max(8, Math.min(vw - PANEL_WIDTH - 8, left));
-    top = Math.max(8, top);
-
-    if (left !== position.left || top !== position.top) {
-      setPosition({ left, top });
-    }
-    // Run once on mount to re-clamp with actual size
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      let left = anchorX - rect.width / 2;
+      let top = anchorY + GAP;
+      if (top + rect.height > vh - 8) {
+        top = anchorY - GAP - rect.height;
+      }
+      left = Math.max(8, Math.min(vw - rect.width - 8, left));
+      top = Math.max(8, Math.min(vh - rect.height - 8, top));
+      setPosition((previous) =>
+        previous.left === left && previous.top === top ? previous : { left, top },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [anchorX, anchorY]);
 
   // ─── Click-outside & Escape dismiss ───────────────────────────────────────
 
@@ -197,6 +201,8 @@ export function EqBandPanel({
         left: position.left,
         top: position.top,
         width: PANEL_WIDTH,
+        maxHeight: "calc(100dvh - 16px)",
+        overflowY: "auto",
         zIndex: 9999,
       }}
       className="bg-su-canvas/95 backdrop-blur-sm border border-su-line/40
@@ -209,7 +215,7 @@ export function EqBandPanel({
             <button
               key={ft}
               onClick={() => onChangeType(band.id, ft)}
-              className={`px-1.5 py-1 text-[10px] font-medium rounded border transition-colors ${
+              className={`px-1.5 py-1 text-xs font-medium rounded border transition-colors ${
                 band.filterType === ft ? activeClasses : inactiveClasses
               }`}
             >
@@ -222,7 +228,7 @@ export function EqBandPanel({
       <div className="border-t border-su-line/40" />
 
       {/* Rotary knobs row */}
-      <div className="flex items-center justify-around px-2.5 py-3">
+      <div className="flex flex-wrap items-center justify-around gap-2 px-2.5 py-3">
         <RotaryKnob
           value={band.freqHz}
           min={20}
@@ -268,14 +274,14 @@ export function EqBandPanel({
             <button
               key={s}
               onClick={() => onChangeSlope(band.id, s)}
-              className={`px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+              className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
                 (band.slope ?? 12) === s ? activeClasses : inactiveClasses
               }`}
             >
               {s}
             </button>
           ))}
-          <span className="ml-1 text-[10px] text-su-muted">dB/oct</span>
+          <span className="ml-1 text-xs text-su-muted">dB/oct</span>
         </div>
       </div>
 
@@ -285,7 +291,7 @@ export function EqBandPanel({
       <div className="flex gap-1.5 px-2.5 py-2">
         <button
           onClick={handleToggle}
-          className={`flex-1 px-2 py-1.5 text-[11px] font-semibold rounded border transition-colors ${
+          className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors ${
             band.enabled
               ? "bg-signal-green/15 border-signal-green/30 text-signal-green hover:bg-signal-green/25"
               : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
@@ -295,7 +301,7 @@ export function EqBandPanel({
         </button>
         <button
           onClick={handleRemove}
-          className="flex-1 px-2 py-1.5 text-[11px] font-semibold rounded border transition-colors
+          className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
             bg-alert-red/10 border-alert-red/25 text-alert-red/80
             hover:bg-alert-red/20 hover:text-alert-red"
         >

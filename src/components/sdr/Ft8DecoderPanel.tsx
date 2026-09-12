@@ -96,12 +96,12 @@ export function Ft8DecoderPanel({
     <div className="rounded border border-su-line/40 bg-void-black/60">
       {/* Header row: title + ON/OFF toggle */}
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-su-text/80">
+        <span className="text-xs font-semibold uppercase tracking-wider text-su-text/80">
           Decoder
         </span>
         <button
           onClick={onToggle}
-          className={`rounded px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+          className={`rounded px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide transition-colors ${
             enabled
               ? "bg-signal-green/20 text-signal-green ring-1 ring-signal-green/40"
               : "bg-su-line/10 text-su-text/80 ring-1 ring-su-line/40 hover:bg-su-line/20"
@@ -127,7 +127,7 @@ export function Ft8DecoderPanel({
               <button
                 key={m}
                 onClick={() => onModeChange(m)}
-                className={`flex-1 rounded py-1 text-[11px] font-semibold tracking-wide transition-colors ${
+                className={`flex-1 rounded py-1 text-xs font-semibold tracking-wide transition-colors ${
                   mode === m
                     ? "bg-cosmic-cyan/20 text-cosmic-cyan ring-1 ring-cosmic-cyan/40"
                     : "bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"
@@ -157,7 +157,7 @@ export function Ft8DecoderPanel({
 
           {/* Time sync warning */}
           {timeSyncResult && !timeSyncResult.isAcceptable && (
-            <div className="mx-3 rounded bg-caution-amber/10 px-2 py-1.5 text-[10px] leading-tight text-caution-amber/90">
+            <div className="mx-3 rounded bg-caution-amber/10 px-2 py-1.5 text-xs leading-tight text-caution-amber/90">
               Clock drift: {timeSyncResult.offsetMs > 0 ? "+" : ""}
               {timeSyncResult.offsetMs}ms — FT8 requires &lt;500ms accuracy
             </div>
@@ -165,7 +165,7 @@ export function Ft8DecoderPanel({
 
           {/* Error display */}
           {error && (
-            <div className="mx-3 rounded bg-alert-red/10 px-2 py-1.5 text-[10px] leading-tight text-alert-red/90">
+            <div className="mx-3 rounded bg-alert-red/10 px-2 py-1.5 text-xs leading-tight text-alert-red/90">
               {error}
             </div>
           )}
@@ -195,7 +195,7 @@ function StatCell({ label, value }: { label: string; value: number }) {
       <div className="text-[13px] font-mono font-semibold tabular-nums text-su-text/80">
         {value.toLocaleString()}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-su-text/80">
+      <div className="text-xs uppercase tracking-wider text-su-text/80">
         {label}
       </div>
     </div>

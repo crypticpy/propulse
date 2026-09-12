@@ -148,7 +148,7 @@ function CheckmarkIcon({ className }: { className?: string }) {
 
 function SortArrow({ dir }: { dir: SortDir }) {
   return (
-    <span className="ml-0.5 text-[8px] leading-none text-plasma-orange">
+    <span className="ml-0.5 text-xs leading-none text-plasma-orange">
       {dir === "asc" ? "\u25B2" : "\u25BC"}
     </span>
   );
@@ -225,7 +225,7 @@ function SnrSparkline({ values }: { values: number[] }) {
         />
       </svg>
       {arrow && (
-        <span className="text-[8px] leading-none" style={{ color }}>
+        <span className="text-xs leading-none" style={{ color }}>
           {arrow}
         </span>
       )}
@@ -265,7 +265,7 @@ function BandActivityHeader({ sortField, sortDir, onSort }: HeaderProps) {
 
   return (
     <div
-      className="grid items-center px-1.5 py-1 text-[9px] uppercase tracking-wider text-su-muted font-medium bg-[#0c0c16] border-b border-su-line/20 select-none shrink-0"
+      className="grid items-center px-1.5 py-1 text-xs uppercase tracking-wider text-su-muted font-medium bg-[#0c0c16] border-b border-su-line/20 select-none shrink-0"
       style={{ gridTemplateColumns: GRID_COLS }}
     >
       {sortable("time", "UTC", "justify-start")}
@@ -345,7 +345,7 @@ export function FateDecodeRow({
 
   return (
     <div
-      className={`grid items-center px-1.5 py-0.5 font-mono text-[11px] leading-tight transition-colors duration-150 ${rowClass}`}
+      className={`grid items-center px-1.5 py-0.5 font-mono text-xs leading-tight transition-colors duration-150 ${rowClass}`}
       style={{ gridTemplateColumns: GRID_COLS }}
     >
       {/* UTC */}
@@ -377,7 +377,7 @@ export function FateDecodeRow({
       {/* Delta Frequency */}
       <span className="text-right tabular-nums text-su-muted pr-0.5">
         {d.deltaFrequency}
-        <span className="text-su-muted text-[9px] ml-0.5">Hz</span>
+        <span className="text-su-muted text-xs ml-0.5">Hz</span>
       </span>
 
       {/* Message — the full decoded text */}
@@ -412,12 +412,12 @@ export function FateDecodeRow({
           {d.parsedCallsign ?? ""}
         </span>
         {d.foxCallsign && d.parsedCallsign && (
-          <span className="shrink-0 bg-amber-500/20 text-amber-400 text-[7px] font-bold px-1 rounded leading-normal">
+          <span className="shrink-0 bg-amber-500/20 text-amber-400 text-xs font-bold px-1 rounded leading-normal">
             FOX
           </span>
         )}
         {isNewEntity && d.parsedCallsign && (
-          <span className="shrink-0 bg-caution-amber/20 text-caution-amber text-[7px] px-1 rounded font-bold leading-normal">
+          <span className="shrink-0 bg-caution-amber/20 text-caution-amber text-xs px-1 rounded font-bold leading-normal">
             DXCC
           </span>
         )}
@@ -432,16 +432,16 @@ export function FateDecodeRow({
       </div>
 
       {/* Grid locator */}
-      <span className="text-su-muted tabular-nums text-[10px]">
+      <span className="text-su-muted tabular-nums text-xs">
         {d.parsedGrid ?? ""}
       </span>
 
       {/* Distance */}
-      <span className="text-right tabular-nums text-su-muted text-[10px]">
+      <span className="text-right tabular-nums text-su-muted text-xs">
         {d.distanceKm != null ? (
           <>
             {Math.round(d.distanceKm).toLocaleString()}
-            <span className="text-su-muted text-[8px] ml-0.5">km</span>
+            <span className="text-su-muted text-xs ml-0.5">km</span>
           </>
         ) : (
           <span className="text-su-muted">---</span>
@@ -449,7 +449,7 @@ export function FateDecodeRow({
       </span>
 
       {/* Bearing */}
-      <span className="text-right tabular-nums text-su-muted text-[10px]">
+      <span className="text-right tabular-nums text-su-muted text-xs">
         {d.bearingDeg != null ? (
           <>
             {Math.round(d.bearingDeg)}
@@ -497,7 +497,7 @@ function JumpToLatestButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="absolute bottom-2 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0c0c16]/90 border border-su-line/40 text-[10px] font-medium text-su-muted hover:text-su-text hover:border-plasma-orange/40 hover:bg-[#0c0c16] transition-all shadow-lg backdrop-blur-sm"
+      className="absolute bottom-2 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0c0c16]/90 border border-su-line/40 text-xs font-medium text-su-muted hover:text-su-text hover:border-plasma-orange/40 hover:bg-[#0c0c16] transition-all shadow-lg backdrop-blur-sm"
     >
       <ChevronDown className="w-3 h-3 rotate-180" />
       Jump to latest
@@ -513,7 +513,7 @@ function EmptyState() {
       <span className="text-sm font-medium text-su-muted animate-pulse">
         Waiting for decodes&hellip;
       </span>
-      <span className="text-[11px] text-su-muted">
+      <span className="text-xs text-su-muted">
         FT8 signals will appear here as they are decoded.
       </span>
     </div>
@@ -544,7 +544,7 @@ function CycleSeparator({
 }) {
   return (
     <div className="flex items-center px-2 py-0.5 border-y border-su-line/20 bg-[#0a0a14]">
-      <span className="text-[8px] text-su-muted font-mono">
+      <span className="text-xs text-su-muted font-mono">
         ── Cycle {formatUtcFromCycleId(cycleId, cycleDurationMs)} ──
       </span>
     </div>
@@ -766,7 +766,7 @@ export function FateBandActivity({
         <button
           type="button"
           onClick={() => onCqFilterChange(!showCqOnly)}
-          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+          className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
               : "text-su-muted hover:text-su-text"
@@ -774,10 +774,10 @@ export function FateBandActivity({
         >
           CQ
           {cqCount > 0 && (
-            <span className="ml-1 text-[9px] opacity-70">({cqCount})</span>
+            <span className="ml-1 text-xs opacity-70">({cqCount})</span>
           )}
         </button>
-        <span className="text-[9px] text-su-muted font-mono">
+        <span className="text-xs text-su-muted font-mono">
           {sortedDecodes.length} decode{sortedDecodes.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -791,8 +791,8 @@ export function FateBandActivity({
 
       {/* DXpedition banner — shown when a Fox is detected */}
       {detectedFoxCallsign && (
-        <div className="bg-amber-500/10 border-b border-amber-400/20 px-3 py-1 text-[10px] text-amber-400 font-mono shrink-0 flex items-center gap-1.5">
-          <span className="text-[10px]">{"\uD83E\uDD8A"}</span>
+        <div className="bg-amber-500/10 border-b border-amber-400/20 px-3 py-1 text-xs text-amber-400 font-mono shrink-0 flex items-center gap-1.5">
+          <span className="text-xs">{"\uD83E\uDD8A"}</span>
           <span>
             DXpedition detected:{" "}
             <span className="font-bold text-amber-300">

@@ -48,7 +48,7 @@ export function GuestModeToggle({
         </span>
         <button
           onClick={() => endSession(activeSession.id)}
-          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-alert-red/20 text-alert-red border border-alert-red/30 hover:bg-alert-red/30 transition-colors"
+          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-alert-red/20 text-su-text border border-alert-red/30 hover:bg-alert-red/20 transition-colors"
         >
           End
         </button>

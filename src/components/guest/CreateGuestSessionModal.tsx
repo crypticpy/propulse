@@ -144,7 +144,7 @@ export function CreateGuestSessionModal({
                       flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                       ${
                         duration === opt.value
-                          ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                          ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                           : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                       }
                     `}
@@ -159,7 +159,7 @@ export function CreateGuestSessionModal({
               <button
                 onClick={handleGenerateCode}
                 className="w-full px-4 py-3 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30
+                         text-su-text hover:bg-plasma-orange/20
                          transition-colors font-medium text-lg"
               >
                 Generate Share Code
@@ -216,7 +216,7 @@ export function CreateGuestSessionModal({
                   flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2
                   ${
                     copied
-                      ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
+                      ? "bg-signal-green/20 text-su-text border border-signal-green/50"
                       : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                   }
                 `}
@@ -260,7 +260,7 @@ export function CreateGuestSessionModal({
                 <button
                   onClick={handleEndSession}
                   className="flex-1 px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
-                           text-alert-red hover:bg-alert-red/30
+                           text-su-text hover:bg-alert-red/20
                            transition-colors font-medium"
                 >
                   End Session

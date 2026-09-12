@@ -33,7 +33,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { useMapStore } from "@/stores/mapStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { useUserStore } from "@/stores/userStore";
+import {
+  createCanvasRecorder,
+  groupStrokeSegments,
+  makeStubRect,
+  StubResizeObserver,
+} from "@/components/map/layers/canvasRecorder.test-helper";
 import type { ReactNode } from "react";
 
 const STATION = { lat: 0, lon: 0 };
@@ -67,76 +74,24 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
   useViewMapSpots: () => EMPTY_FEED,
 }));
 
-interface CanvasOp {
-  name: string;
-  value?: number | string;
-}
-
-const ops: CanvasOp[] = [];
-
-const STUB_RECT: DOMRect = {
-  x: 0,
-  y: 0,
-  top: 0,
-  left: 0,
-  right: 600,
-  bottom: 600,
-  width: 600,
-  height: 600,
-  toJSON: () => ({}),
-};
-
-class StubResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+const STUB_RECT = makeStubRect(600, 600);
 
 // Property sets whose values distinguish one stroked border pass from
-// another. The base-pass and night-boosted passes both reuse
-// `drawAzimuthalBorders`/`drawAzimuthalStateBorders`, so only the
+// another. The base-pass and night-boosted passes both reuse the shared
+// `drawCountryBordersLayer`/`drawStateBordersLayer` passes, so only the
 // lineWidth/strokeStyle set immediately before each call tells them apart.
-const TRACKED_PROPS = new Set(["lineWidth", "strokeStyle", "globalAlpha"]);
-
-/**
- * Same recorder technique as `AzimuthalView.hazards.test.tsx`, extended to
- * also record the property sets (`lineWidth`/`strokeStyle`/`globalAlpha`)
- * and `clip()` calls that the batching test needs. Answers every
- * `getContext()` call the same way regardless of context id, so the WebGL
- * globe init path resolves harmlessly while the 2D overlay canvas we care
- * about records its real draw calls.
- */
-function installCanvasRecorder() {
-  ops.length = 0;
-  const context = new Proxy(
-    {},
-    {
-      get: (_target, prop: string) => {
-        if (prop === "canvas") return { width: 600, height: 600 };
-        return (..._args: unknown[]) => {
-          ops.push({ name: prop });
-          if (prop === "measureText") return { width: 10 };
-          if (
-            prop === "createLinearGradient" ||
-            prop === "createRadialGradient"
-          ) {
-            return { addColorStop: () => {} };
-          }
-          if (prop === "getImageData")
-            return { data: new Uint8ClampedArray(4) };
-          return undefined;
-        };
-      },
-      set: (_target, prop: string, value: unknown) => {
-        if (TRACKED_PROPS.has(prop)) {
-          ops.push({ name: `set:${prop}`, value: value as number | string });
-        }
-        return true;
-      },
-    },
-  );
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => context) as never;
-}
+//
+// Same recorder technique as `AzimuthalView.hazards.test.tsx`, extended to
+// also record the property sets (`lineWidth`/`strokeStyle`/`globalAlpha`)
+// and `clip()` calls that the batching test needs. Answers every
+// `getContext()` call the same way regardless of context id, so the WebGL
+// globe init path resolves harmlessly while the 2D overlay canvas we care
+// about records its real draw calls.
+const { ops, installCanvasRecorder } = createCanvasRecorder({
+  width: 600,
+  height: 600,
+  trackedProps: new Set(["lineWidth", "strokeStyle", "globalAlpha"]),
+});
 
 function Wrap({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -173,54 +128,12 @@ async function mount() {
   );
 }
 
-interface StrokeSegment {
-  lineWidth: number | undefined;
-  strokeStyle: string | undefined;
-  beginPathCount: number;
-  moveLineCount: number;
-}
-
-/**
- * For every `stroke` op, group the `beginPath`/`moveTo`/`lineTo` ops since
- * the previous `stroke` and tag the group with whatever `lineWidth`/
- * `strokeStyle` were last set. A `beginPath` that is consumed by a `clip()`
- * before any `stroke()` belongs to the night-boosted pass's clip polygon
- * (closed with `closePath()` + `clip()`, never stroked), not to a stroked
- * border path, so it (and its move/line ops) is discarded rather than
- * carried into the next stroked segment's counts.
- */
-function strokeSegments(): StrokeSegment[] {
-  const segments: StrokeSegment[] = [];
-  let beginPathCount = 0;
-  let moveLineCount = 0;
-  let lineWidth: number | undefined;
-  let strokeStyle: string | undefined;
-  for (const op of ops) {
-    if (op.name === "set:lineWidth") {
-      lineWidth = op.value as number;
-    } else if (op.name === "set:strokeStyle") {
-      strokeStyle = op.value as string;
-    } else if (op.name === "beginPath") {
-      beginPathCount++;
-      moveLineCount = 0;
-    } else if (op.name === "moveTo" || op.name === "lineTo") {
-      moveLineCount++;
-    } else if (op.name === "clip") {
-      beginPathCount = 0;
-      moveLineCount = 0;
-    } else if (op.name === "stroke") {
-      segments.push({ lineWidth, strokeStyle, beginPathCount, moveLineCount });
-      beginPathCount = 0;
-    }
-  }
-  return segments;
-}
-
 /**
  * Expected stroked border passes with the terminator at its store default
  * (on) and both border layers on, keyed by the `lineWidth`/`strokeStyle`
- * `drawAzimuthalBorders`/`drawAzimuthalStateBorders` set right before each
- * call (see `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
+ * the shared `drawCountryBordersLayer`/`drawStateBordersLayer` passes
+ * (`bordersLayer.ts`, #1091 PR 6) set right before each call (see
+ * `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
  * (`loadMapStyle()`'s fallback -- no `propulse-map-style` key is present in
  * this test's fresh localStorage), which is why the base-pass
  * lineWidths are the satellite branch's 0.8/0.5 rather than standard's
@@ -268,6 +181,8 @@ const EXPECTED_SEGMENTS = [
 describe("AzimuthalView border batching (#1150)", () => {
   const originalLayers = useMapStore.getState().layers;
   const originalLabelOptions = useMapStore.getState().labelOptions;
+  const originalMapStyle = useMapStore.getState().mapStyle;
+  const originalThemeId = useThemeStore.getState().themeId;
 
   beforeEach(() => {
     expandGroup.mockClear();
@@ -301,13 +216,15 @@ describe("AzimuthalView border batching (#1150)", () => {
     useMapStore.setState({
       layers: originalLayers,
       labelOptions: originalLabelOptions,
+      mapStyle: originalMapStyle,
     });
+    useThemeStore.getState().setTheme(originalThemeId);
   });
 
   it("strokes every accumulated ring for the standard and night-boosted country/state passes", async () => {
     await mount();
 
-    const segments = strokeSegments();
+    const segments = groupStrokeSegments(ops);
 
     for (const expected of EXPECTED_SEGMENTS) {
       const matches = segments.filter(
@@ -330,6 +247,44 @@ describe("AzimuthalView border batching (#1150)", () => {
           `${expected.label} should have accumulated most of its ~${expected.observedMoveLineCount} rings`,
         ).toBeGreaterThan(expected.minMoveLineCount);
       }
+    }
+  });
+
+  // #1091 PR 6 closes a reported coverage gap: the disc's light-theme drift
+  // (tracked in #1173) is a hardcoded `lightTheme: false` at both border
+  // call sites in AzimuthalView.tsx, which only becomes observable when
+  // `mapStyle === "standard"` (the colour ternary in bordersLayer.ts's
+  // `countryBorderStyle`/`stateBorderStyle` only reads `lightTheme` inside
+  // the `standardMode` branch) -- the test above mounts with the
+  // `loadMapStyle()` fallback ("satellite"), where `lightTheme` is inert,
+  // so it could never have caught a regression here.
+  it("keeps drawing white borders in standard mode when the theme store is light (#1173)", async () => {
+    useMapStore.setState({ mapStyle: "standard" });
+    useThemeStore.getState().setTheme("light");
+
+    await mount();
+
+    const segments = groupStrokeSegments(ops);
+    const country = segments.filter(
+      (segment) =>
+        segment.lineWidth === 1.0 &&
+        segment.strokeStyle === "rgba(255, 255, 255, 0.65)",
+    );
+    const state = segments.filter(
+      (segment) =>
+        segment.lineWidth === 0.7 &&
+        segment.strokeStyle === "rgba(255, 255, 255, 0.45)",
+    );
+    expect(
+      country.length,
+      "base-pass country borders, light theme",
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      state.length,
+      "base-pass state borders, light theme",
+    ).toBeGreaterThanOrEqual(1);
+    for (const match of [...country, ...state]) {
+      expect(match.beginPathCount).toBe(1);
     }
   });
 });

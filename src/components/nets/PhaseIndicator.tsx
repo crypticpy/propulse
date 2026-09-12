@@ -86,7 +86,7 @@ export function PhaseIndicator({
                 : "",
               // Completed phase (not current)
               completed && !isCurrent
-                ? "text-signal-green font-medium bg-signal-green/15 hover:bg-su-line/10 cursor-pointer"
+                ? "text-su-text font-medium bg-signal-green/15 hover:bg-su-line/10 cursor-pointer"
                 : "",
               // Future / not clickable, not current
               !clickable && !isCurrent && !completed ? "text-su-muted" : "",

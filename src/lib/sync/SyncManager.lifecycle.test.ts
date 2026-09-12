@@ -3,6 +3,17 @@ import type { SyncLifecycle, SyncModule } from "./types";
 
 vi.mock("@/lib/supabase", () => ({ isSupabaseConfigured: true }));
 
+vi.mock("@/lib/db/imageReferenceSnapshot", () => ({
+  getLiveImageReferenceSnapshot: () => ({
+    profileImageId: null,
+    radios: [],
+    antennas: [],
+    feedlines: [],
+    accessories: [],
+    inlineComponents: [],
+  }),
+}));
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });

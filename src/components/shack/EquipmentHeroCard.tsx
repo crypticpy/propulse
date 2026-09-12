@@ -1,3 +1,5 @@
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
+import { useOptionalStationTheme } from "@/components/station-ui/context";
 import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * EquipmentHeroCard — XL-size immersive collectible-card modal.
@@ -131,11 +133,7 @@ function ensureStyles() {
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 /** Single spec field cell — label on top, value below */
-function HeroFieldCell({
-  field,
-}: {
-  field: EquipmentDetailField;
-}) {
+function HeroFieldCell({ field }: { field: EquipmentDetailField }) {
   const numeric = isNumericValue(field.value);
   const formatted = formatFieldValue(field.value, field.unit);
 
@@ -310,6 +308,7 @@ export function EquipmentHeroCard({
   onSetActive,
   isActive,
 }: EquipmentHeroCardProps) {
+  const scopedTheme = useOptionalStationTheme();
   const titleId = useId();
   const [activeImageId, setActiveImageId] = useState<string | undefined>(
     undefined,
@@ -387,8 +386,10 @@ export function EquipmentHeroCard({
       panelProps={{
         className: "hero-entrance z-10 w-full max-w-xl max-h-[85vh] flex flex-col",
         style: {
-          animation:
-            effects.motion ? "heroEntrance 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
+          ...scopedTheme?.tokens,
+          animation: effects.motion
+            ? "heroEntrance 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both"
+            : "none",
         },
       }}
     >
@@ -407,7 +408,7 @@ export function EquipmentHeroCard({
 
       {/* ══ Card Body (scrollable) ══ */}
       <div
-        className="overflow-y-auto flex-1 min-h-0 rounded-b-2xl"
+        className="su-fixed-dark overflow-y-auto flex-1 min-h-0 rounded-b-2xl"
         style={{
           backgroundColor: "#0a0e18",
           ...(rankBorderStyle.border
@@ -886,18 +887,19 @@ export function EquipmentHeroCard({
                 <button
                   type="button"
                   onClick={onSetActive}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-center
-                             transition-all duration-200 min-h-[44px]
-                             focus:outline-none focus-visible:ring-2
-                             ${
-                               isActive
-                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                                 : "bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text hover:border-su-line/50 focus-visible:ring-su-line/60"
-                             }`}
+                  aria-pressed={Boolean(isActive)}
+                  className={`flex-1 py-2.5 rounded-lg border text-sm font-medium text-center
+                             transition-colors duration-200 min-h-[44px] ${stationTreatmentClasses(
+                               {
+                                 tone: isActive ? "success" : "neutral",
+                                 treatment: "subtle",
+                                 interactive: true,
+                               },
+                             )}`}
                 >
                   {isActive ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
                       Active
                     </span>
                   ) : (

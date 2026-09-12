@@ -267,6 +267,11 @@ export function modifiedDipDegAt(
         `${String(latitudeDeg)}, ${String(longitudeDeg)}.`,
     );
   }
+  if (!Number.isFinite(heightKm) || heightKm <= 0) {
+    throw new RangeError(
+      `heightKm must be positive and finite, received ${String(heightKm)}.`,
+    );
+  }
   const latRad = latitudeDeg * DEG_TO_RAD;
   const { dipRad } = magneticField(latRad, longitudeDeg * DEG_TO_RAD, heightKm);
   return Math.atan(dipRad / Math.sqrt(Math.cos(latRad))) * RAD_TO_DEG;
@@ -370,6 +375,15 @@ export function absorptionLoss(
     throw new RangeError(
       `rayPathElevationRad must be a positive finite angle, received ` +
         `${String(rayPathElevationRad)}.`,
+    );
+  }
+  // Equation (20) scales the absorption by (1 + 0.0067 R12); R12 is a
+  // smoothed sunspot number and is never negative. This leaf is exported
+  // directly by `physics/index.ts`, so a caller reaching it without going
+  // through `fieldStrengthShort.ts`'s own check must be caught here too.
+  if (!Number.isFinite(ssn) || ssn < 0) {
+    throw new RangeError(
+      `ssn must be finite and non-negative, received ${String(ssn)}.`,
     );
   }
 

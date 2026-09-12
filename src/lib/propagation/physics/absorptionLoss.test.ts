@@ -210,6 +210,13 @@ describe("modifiedDipDegAt", () => {
     expect(() => modifiedDipDegAt(Number.NaN, 0)).toThrow(RangeError);
     expect(() => modifiedDipDegAt(0, Number.NaN)).toThrow(RangeError);
   });
+
+  it("rejects a non-positive or non-finite height", () => {
+    expect(() => modifiedDipDegAt(40, -74, 0)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, -100)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, Number.NaN)).toThrow(RangeError);
+    expect(() => modifiedDipDegAt(40, -74, 100)).not.toThrow();
+  });
 });
 
 describe("absorptionLoss", () => {
@@ -405,5 +412,15 @@ describe("absorptionLoss", () => {
     expect(() =>
       absorptionLoss({ ...base, rayPathElevationRad: Number.NaN }),
     ).toThrow(RangeError);
+  });
+
+  it("rejects a non-finite or negative sunspot number, exported leaf and all", () => {
+    // This leaf is exported directly by `physics/index.ts`, so a caller that
+    // never goes through `fieldStrengthShort.ts` must still be caught here.
+    expect(() => absorptionLoss({ ...base, ssn: Number.NaN })).toThrow(
+      RangeError,
+    );
+    expect(() => absorptionLoss({ ...base, ssn: -1 })).toThrow(RangeError);
+    expect(() => absorptionLoss({ ...base, ssn: 0 })).not.toThrow();
   });
 });

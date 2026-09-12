@@ -667,4 +667,36 @@ describe("domain checks", () => {
       ),
     ).toThrow(RangeError);
   });
+
+  it("rejects a non-finite fixed antenna gain", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: Number.NaN })),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { receiverGain: Number.POSITIVE_INFINITY }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: 0 })),
+    ).not.toThrow();
+  });
+
+  it("rejects a non-finite antenna gain returned by a per-mode callback", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { transmitterGain: () => Number.NaN }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(
+        inputs(set, { receiverGain: () => Number.NEGATIVE_INFINITY }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { transmitterGain: () => 0 })),
+    ).not.toThrow();
+  });
 });

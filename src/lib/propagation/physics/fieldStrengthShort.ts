@@ -502,8 +502,25 @@ export function shortPathFieldStrength(
       elevationRad,
       elevationDeg: (elevationRad * 180) / Math.PI,
     };
+    // Gt and Grw enter equations (17) and (43) directly. A fixed gain is
+    // checked here on its first mode and a per-mode callback's return on
+    // every mode, because "at the required azimuth angle and elevation
+    // angle" (equation (17)) means the callback may legitimately answer
+    // differently for each one.
     const transmitterGainDbi = gainDbi(transmitterGain, context);
+    if (!Number.isFinite(transmitterGainDbi)) {
+      throw new RangeError(
+        `transmitterGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(transmitterGainDbi)}.`,
+      );
+    }
     const receiverGainDbi = gainDbi(receiverGain, context);
+    if (!Number.isFinite(receiverGainDbi)) {
+      throw new RangeError(
+        `receiverGain must produce a finite dBi value for mode ` +
+          `${mode.label}, received ${String(receiverGainDbi)}.`,
+      );
+    }
 
     const fieldStrengthDbuVPerM =
       FIELD_STRENGTH_CONSTANT_DB +

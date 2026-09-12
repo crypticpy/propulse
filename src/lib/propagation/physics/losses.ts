@@ -305,6 +305,38 @@ export interface BasicTransmissionLoss {
 export function basicTransmissionLossDb(
   terms: BasicTransmissionLossTerms,
 ): BasicTransmissionLoss {
+  // Every term is itself already a loss in dB (equations (20), (24)-(27) and
+  // the fixed Lz). A direct caller of this leaf bypasses whichever module
+  // computed a term, so a non-finite value is only ever caught here.
+  if (!Number.isFinite(terms.absorptionDb)) {
+    throw new RangeError(
+      `absorptionDb must be finite, received ${String(terms.absorptionDb)}.`,
+    );
+  }
+  if (!Number.isFinite(terms.aboveMufDb)) {
+    throw new RangeError(
+      `aboveMufDb must be finite, received ${String(terms.aboveMufDb)}.`,
+    );
+  }
+  if (!Number.isFinite(terms.groundReflectionDb)) {
+    throw new RangeError(
+      `groundReflectionDb must be finite, received ` +
+        `${String(terms.groundReflectionDb)}.`,
+    );
+  }
+  if (!Number.isFinite(terms.auroralDb)) {
+    throw new RangeError(
+      `auroralDb must be finite, received ${String(terms.auroralDb)}.`,
+    );
+  }
+  if (
+    terms.otherLossesDb !== undefined &&
+    !Number.isFinite(terms.otherLossesDb)
+  ) {
+    throw new RangeError(
+      `otherLossesDb must be finite, received ${String(terms.otherLossesDb)}.`,
+    );
+  }
   const freeSpaceDb = freeSpaceLossDb(
     terms.frequencyMHz,
     terms.virtualSlantRangeKm,

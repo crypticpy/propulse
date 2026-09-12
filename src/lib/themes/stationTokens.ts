@@ -15,7 +15,10 @@ import type { CSSProperties } from "react";
 import { COLOR_BLIND_PALETTES, type ColorBlindMode } from "./colorblind";
 import type { ThemeId } from "./index";
 import { scaleHexChroma } from "./oklch";
-import { STATION_TREATMENT_STRENGTH, STATION_TREATMENT_TONES } from "./treatments";
+import {
+  STATION_TREATMENT_STRENGTH,
+  STATION_TREATMENT_TONES,
+} from "./treatments";
 
 /** Appearance saturation slider: 80 % … 140 % in 5 % steps, stored as 0.8…1.4. */
 export const SATURATION_MIN = 0.8;
@@ -183,28 +186,56 @@ export const SOLID_TEXT_CONTRAST = 4.6;
  * the black/white blend rays that permits canonical soft reading ink. This
  * changes a control treatment only, never the requested accent or domain color.
  */
-export function resolveSolidTreatment(fill: string): { fill: string; ink: string } {
-  if (!/^#[a-f0-9]{6}$/i.test(fill)) throw new TypeError("Expected an opaque six-digit color");
-  const inks = [stationPalettes.light.text, stationPalettes["high-contrast"].text];
-  const passing = inks.filter((ink) => stationContrast(fill, ink) >= SOLID_TEXT_CONTRAST);
+export function resolveSolidTreatment(fill: string): {
+  fill: string;
+  ink: string;
+} {
+  if (!/^#[a-f0-9]{6}$/i.test(fill))
+    throw new TypeError("Expected an opaque six-digit color");
+  const inks = [
+    stationPalettes.light.text,
+    stationPalettes["high-contrast"].text,
+  ];
+  const passing = inks.filter(
+    (ink) => stationContrast(fill, ink) >= SOLID_TEXT_CONTRAST,
+  );
   if (passing.length) {
-    return { fill, ink: passing.sort((a, b) => stationContrast(fill, b) - stationContrast(fill, a))[0] };
+    return {
+      fill,
+      ink: passing.sort(
+        (a, b) => stationContrast(fill, b) - stationContrast(fill, a),
+      )[0],
+    };
   }
   const candidates = inks.map((ink, index) => {
     const pole = index === 0 ? "#ffffff" : "#000000";
-    let low = 0, high = 1;
+    let low = 0,
+      high = 1;
     for (let step = 0; step < 32; step++) {
       const amount = (low + high) / 2;
-      if (stationContrast(compositeOnSurface(pole, amount, fill), ink) >= SOLID_TEXT_CONTRAST) high = amount;
+      if (
+        stationContrast(compositeOnSurface(pole, amount, fill), ink) >=
+        SOLID_TEXT_CONTRAST
+      )
+        high = amount;
       else low = amount;
     }
     const fitted = compositeOnSurface(pole, high, fill);
-    const distance = [1, 3, 5].reduce((sum, start) => sum +
-      (parseInt(fitted.slice(start, start + 2), 16) - parseInt(fill.slice(start, start + 2), 16)) ** 2, 0);
+    const distance = [1, 3, 5].reduce(
+      (sum, start) =>
+        sum +
+        (parseInt(fitted.slice(start, start + 2), 16) -
+          parseInt(fill.slice(start, start + 2), 16)) **
+          2,
+      0,
+    );
     return { fill: fitted, ink, distance };
   });
-  candidates.sort((a, b) => a.distance - b.distance ||
-    stationContrast(b.fill, b.ink) - stationContrast(a.fill, a.ink));
+  candidates.sort(
+    (a, b) =>
+      a.distance - b.distance ||
+      stationContrast(b.fill, b.ink) - stationContrast(a.fill, a.ink),
+  );
   const { fill: fitted, ink } = candidates[0];
   return { fill: fitted, ink };
 }
@@ -357,17 +388,20 @@ export function stationTokens(
     ? scaledAccent
     : info;
   for (const role of STATION_TREATMENT_TONES) {
-    const pair = resolveSolidTreatment(colors[`--su-${role === "neutral" ? "muted" : role}`]);
+    const pair = resolveSolidTreatment(
+      colors[`--su-${role === "neutral" ? "muted" : role}`],
+    );
     colors[`--su-solid-${role}-fill`] = pair.fill;
     colors[`--su-solid-${role}-ink`] = pair.ink;
   }
   // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
-  // inside a scoped StationProvider as well as on the document root.
+  // inside a scoped StationProvider as well as on the document root. Solid
+  // treatments consume opaque pairs directly; they have no opacity API and
+  // deliberately emit no redundant RGB companion tokens.
   const channels = Object.fromEntries(
-    Object.entries(colors).map(([name, value]) => [
-      `${name}-rgb`,
-      hexToChannels(value),
-    ]),
+    Object.entries(colors)
+      .filter(([name]) => !name.startsWith("--su-solid-"))
+      .map(([name, value]) => [`${name}-rgb`, hexToChannels(value)]),
   );
   return {
     ...colors,

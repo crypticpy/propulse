@@ -240,7 +240,10 @@ export function applyThemeToDocument(
   for (const role of STATION_TREATMENT_TONES) {
     if (role === "accent") continue;
     for (const part of ["fill", "ink"] as const) {
-      root.style.setProperty(`--su-fixed-dark-solid-${role}-${part}`, fixedDarkTones[`--su-solid-${role}-${part}`]);
+      root.style.setProperty(
+        `--su-fixed-dark-solid-${role}-${part}`,
+        fixedDarkTones[`--su-solid-${role}-${part}`],
+      );
     }
   }
 

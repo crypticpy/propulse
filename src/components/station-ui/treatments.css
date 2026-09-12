@@ -39,7 +39,11 @@
 .su-treatment.su-treatment {
   --su-treatment-ink: var(--su-text);
   --su-treatment-secondary-ink: var(--su-treatment-ink);
-  --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-rest-strength, 10%), var(--su-panel));
+  --su-treatment-fill: color-mix(
+    in srgb,
+    var(--su-tone) var(--su-treatment-rest-strength, 10%),
+    var(--su-panel)
+  );
   --su-treatment-edge: color-mix(in srgb, var(--su-tone) 55%, var(--su-panel));
   color: var(--su-treatment-ink);
   background-color: var(--su-treatment-fill);
@@ -58,25 +62,49 @@
 .su-treatment .su-treatment-secondary {
   color: var(--su-treatment-secondary-ink);
 }
-.su-treatment.su-treatment--interactive:is([aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
+.su-treatment.su-treatment--interactive:is(
+    [aria-selected="true"],
+    [aria-pressed="true"],
+    [aria-checked="true"],
+    [data-selected="true"]
+  ) {
   /* Offset ring is adjacent to the outside surface, not a solid control fill. */
   outline: 2px solid var(--su-text);
   outline-offset: 2px;
 }
-.su-treatment.su-treatment--interactive:not(.su-treatment--solid):is([aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
-  --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-active-strength, 20%), var(--su-panel));
+.su-treatment.su-treatment--interactive:not(.su-treatment--solid):is(
+    [aria-selected="true"],
+    [aria-pressed="true"],
+    [aria-checked="true"],
+    [data-selected="true"]
+  ) {
+  --su-treatment-fill: color-mix(
+    in srgb,
+    var(--su-tone) var(--su-treatment-active-strength, 20%),
+    var(--su-panel)
+  );
 }
 @media (hover: hover) {
-  .su-treatment.su-treatment--interactive:not(:disabled):not([aria-disabled="true"]):hover {
+  .su-treatment.su-treatment--interactive:not(:disabled):not(
+      [aria-disabled="true"]
+    ):hover {
     /* A shape cue works for solid pairs without adding an untested overlay. */
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
-  .su-treatment.su-treatment--interactive:not(.su-treatment--solid):not(:disabled):not([aria-disabled="true"]):hover {
-    --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-active-strength, 20%), var(--su-panel));
+  .su-treatment.su-treatment--interactive:not(.su-treatment--solid):not(
+      :disabled
+    ):not([aria-disabled="true"]):hover {
+    --su-treatment-fill: color-mix(
+      in srgb,
+      var(--su-tone) var(--su-treatment-active-strength, 20%),
+      var(--su-panel)
+    );
   }
 }
 .su-treatment.su-treatment:focus-visible {
+  /* Global tab focus previously painted an inset wash over the fitted fill. */
+  box-shadow: none;
   outline: 2px solid var(--su-text);
   outline-offset: 3px;
 }
@@ -85,14 +113,30 @@
   cursor: not-allowed;
   border-style: dashed;
 }
+/* The existing accessibility class must not replace a certified edge with
+   its arbitrary-accent focus override or translucent blanket border. */
+.contrast-more .su-treatment.su-treatment {
+  border-color: var(--su-treatment-edge) !important;
+}
+.contrast-more .su-treatment.su-treatment:focus-visible {
+  outline-color: var(--su-text) !important;
+}
 @media (forced-colors: active) {
   .su-treatment.su-treatment {
     color: ButtonText;
     background-color: ButtonFace;
     border-color: ButtonText;
   }
-  .su-treatment .su-treatment-secondary { color: ButtonText; }
-  .su-treatment.su-treatment:is(:focus-visible, [aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
+  .su-treatment .su-treatment-secondary {
+    color: ButtonText;
+  }
+  .su-treatment.su-treatment:is(
+      :focus-visible,
+      [aria-selected="true"],
+      [aria-pressed="true"],
+      [aria-checked="true"],
+      [data-selected="true"]
+    ) {
     outline-color: Highlight;
   }
 }

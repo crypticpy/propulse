@@ -45,5 +45,7 @@ export function stationTreatmentClasses({
     toneClasses[tone],
     treatmentClasses[treatment],
     interactive ? "su-treatment--interactive" : "",
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

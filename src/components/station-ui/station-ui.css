@@ -1,5 +1,3 @@
-@import "./treatments.css";
-
 /* Scoped foundation. Never restyle the legacy app or HamClock through :root. */
 .station-ui {
   --su-text-scale: 1;

@@ -9,35 +9,70 @@
  * strengths over these, slice E reports them, and neither should have to ask a
  * mode to recompute itself.
  *
- * TWO MIRROR HEIGHTS, AND THEY ARE NOT THE SAME NUMBER. This is the single
- * most surprising thing in the record, so it is named here rather than left to
- * be discovered:
+ * WHICH HEIGHT THE ELEVATION ANGLE IS TAKEN AT. Section 5.1 is headed
+ * "Elevation angle" and defines equation (13)'s hr itself:
  *
- *  - `mirrorHeightKm` is the height the *elevation angle* is taken at. For E
- *    modes it is 110 km. For F2 modes section 5.2.1 gives it as equation (2),
- *    `hr = min(1490/M(3000)F2 - 176, 500)`, with M(3000)F2 read at the
- *    mid-path control point for paths up to dmax and at the Table 1c control
- *    point with the lower foF2 for paths from dmax to 9000 km.
- *  - `screeningReflectionHeightKm` is the section 5.1 mirror height, the long
- *    G/J/U formula in `geometry/reflectionHeight.ts`, evaluated at this mode's
- *    own hop length. It is F2-only and it exists only where section 4 asks for
- *    it, which is a path of 4000 km or less. It is what the reference reports
- *    as `DMhr`.
+ *     "d:  hop length of an n-hop mode given by d = D/n
+ *      hr: equivalent plane-mirror reflection height
+ *          for E modes hr = 110 km
+ *          for F2 modes hr is taken as a function of time, location and hop
+ *          length."
  *
- * Section 5.1 reads as though one height serves both purposes: equation (13)
- * is given with "hr: equivalent plane-mirror reflection height ... for F2
- * modes hr is taken as a function of time, location and hop length", which is
- * the section 5.1 height. The reference implementation does not do that. Its
- * `MedianSkywaveFieldStrengthShort()` computes the mode elevation, and so the
- * slant range, the antenna gains and everything downstream of them, from the
- * equation (2) height; only the elevation *inside* the screening calculation
- * (`ELayerScreeningFrequency()`) uses the section 5.1 height. The golden cases
- * settle it: on G03, 1576.37 km with DMhr = 191.62 km, equation (13) at the
- * section 5.1 height gives 9.91 degrees and the reference reports
- * ele = DMele = 16.69 degrees, which is equation (13) at an equation (2)
- * height near 298 km. We follow the reference because the oracle proves that
- * reading, and both heights are kept on the record so the choice stays
- * visible instead of collapsing into one field.
+ * and then gives the (a), (b), (c) formulas for that height immediately below
+ * ("The mirror reflection height for F2 modes, hr, is calculated as follows").
+ * So equation (13)'s hr for an F2 mode IS the section 5.1 height, the long
+ * G/J/U formula in `geometry/reflectionHeight.ts`, evaluated at this mode's own
+ * hop length. That is what `mirrorHeightKm` holds and what `elevationRad`,
+ * `elevationDeg` and `virtualSlantRangeKm` are computed from. It is the number
+ * every product surface uses, and `traceRayPath` already ships this reading
+ * (#1108).
+ *
+ * Equation (2)'s height, `hr = min(1490/M(3000)F2 - 176, 500)`, is a different
+ * quantity with a different job. Section 3.5.1.1 uses it to find the
+ * lowest-order mode n0 "by geometrical considerations", and section 5.2.1's
+ * first bullet repeats it as the height the *set of modes* is chosen at, with
+ * M(3000)F2 read at the mid-path control point up to dmax and at the Table 1c
+ * control point with the lower foF2 beyond. It decides which modes exist. It
+ * does not appear in equation (13).
+ *
+ * WHICH HEIGHT THE MODE'S EXISTENCE IS DECIDED AT. Section 5.2.1's first
+ * criterion is headed "mirror-reflection heights" and is one of the criteria
+ * every selected mode "meets": "for E modes, from a height hr = 110 km; for F2
+ * modes, from a height hr determined from equation (2)". So whether a mode
+ * reflects at all, and the reference's 3 degree floor that goes with section
+ * 3.5.1.1's "geometrical considerations", are read off the equation (2) height.
+ * `selectionMirrorHeightKm`, `selectionElevationDeg` and
+ * `selectionSlantRangeKm` are that geometry, and `status` and
+ * `unsupportedReason` are the only things computed from them.
+ *
+ * THOSE FIELDS ARE ALSO THE REFERENCE COMPARATOR.
+ * `MedianSkywaveFieldStrengthShort()` in the pinned ITU build cd172be5 computes
+ * the mode elevation, and so the slant range, the antenna gains and everything
+ * downstream, from the equation (2) height; only the elevation inside
+ * `ELayerScreeningFrequency()` uses the section 5.1 height. That is a defect of
+ * the same kind as its G polynomial dropping the published `+ 90.47 xr` term:
+ * the golden columns prove what the reference does, not what the recommendation
+ * says. Because the selection geometry is that same geometry,
+ * `selectionElevationDeg` and `selectionSlantRangeKm` are exactly the oracle's
+ * `ele`, `DMele` and `ptick`, and `parity.modeSet.test.ts` asserts those columns
+ * against them. NO FIELD STRENGTH, ANTENNA GAIN OR LOSS MAY BE COMPUTED FROM
+ * THEM. Slice C takes `elevationRad` and `virtualSlantRangeKm`, which means its
+ * own golden Ew and Pr parity inherits this declared divergence rather than
+ * hiding it.
+ *
+ * On G03, 1576.37 km with a section 5.1 height of 191.62 km, equation (13)
+ * gives 9.91 degrees and the reference reports ele = DMele = 16.69 degrees,
+ * which is equation (13) at the 297.68 km equation (2) height. Both numbers are
+ * on this record, under names that say which is which.
+ *
+ * ONE CONSEQUENCE, MEASURED AND NOT DESIGNED AWAY. The two heights are
+ * independent, so a hop the equation (2) height reflects can be longer than the
+ * section 5.1 height reaches. On golden case G11 (6322.24 km, 2F2, selection
+ * height 311.00 km, section 5.1 height 195.22 km) that happens: the mode is
+ * selected and `elevationDeg` is -0.21, with `virtualSlantRangeKm` null. The
+ * recommendation's equation (13) is an arctangent with no floor, so a negative
+ * angle is what it gives; a consumer must handle a null slant range on a
+ * `supported` mode rather than assume one.
  *
  * STATUS. Mathematical contract M07 names four states. Slice B produces three
  * of them; `above_basic_muf_with_loss` is slice C's, because it needs the
@@ -83,13 +118,14 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
 /**
  * Which criterion a `geometrically_unsupported` mode failed.
  *
- *  - `no_reflection`: the take-off elevation of equation (13) is at or below
- *    the horizon, so a mirror at this height cannot close a hop this long.
- *  - `below_minimum_elevation`: the elevation is positive but under
+ *  - `no_reflection`: the take-off elevation of equation (13) at
+ *    `selectionMirrorHeightKm` is at or below the horizon, so a mirror at
+ *    section 5.2.1's selection height cannot close a hop this long.
+ *  - `below_minimum_elevation`: `selectionElevationDeg` is positive but under
  *    `MIN_ELEVATION_DEG`, the 3 degree floor the reference applies when it
- *    chooses the lowest-order mode. See `modeSet.ts` for why this can fire on
- *    a mode the reference keeps, and for the evidence that it does not fire on
- *    any golden case.
+ *    chooses the lowest-order mode. Section 3.5.1.1 puts that floor on the
+ *    equation (2) geometry, so that is where it is applied. See `modeSet.ts`
+ *    for why it can still fire on a mode the reference keeps.
  *  - `hop_exceeds_dmax`: section 5.2.1 admits as the lowest-order F2 mode only
  *    one "with a hop length up to dmax (km)". A lowest-order mode whose hop is
  *    longer than dmax fails that, and the higher orders are then considered on
@@ -116,53 +152,81 @@ export interface PropagationMode {
   /** d = D / n, km. */
   readonly hopGroundDistanceKm: number;
   /**
-   * The mirror height the elevation angle was taken at, km. 110 km for E
-   * modes, the equation (2) height for F2 modes. See the module header: this
-   * is not the section 5.1 height.
+   * Equation (13)'s hr for this mode, km.
+   *
+   * 110 km for E modes and the section 5.1 height of this hop for F2 modes,
+   * which is what section 5.1 says hr is. This is the height every product
+   * number on the record is computed from. Section 5.2.1's own selection height
+   * is `selectionMirrorHeightKm`.
    */
   readonly mirrorHeightKm: number;
-  /** Equation (13) at `mirrorHeightKm`, radians. Zero or negative if the mode does not reflect. */
-  readonly elevationRad: number;
-  /** The same angle in degrees, for consumers and for the reference's `ele` column. */
-  readonly elevationDeg: number;
   /**
-   * The section 5.1 mirror height for this mode's hop, km, or `null`.
+   * Equation (13) at `mirrorHeightKm`, radians.
    *
-   * F2 modes only, and only on a path of 4000 km or less: section 4 states
-   * "E-layer screening of F2 modes is considered for paths up to 4 000 km",
-   * and the height is computed as part of that. The reference reports it as
-   * `DMhr` and leaves it at its initialised 0.0 on longer paths, which is the
-   * same statement as this `null`.
+   * Zero or negative where the section 5.1 height does not reach this mode's
+   * hop, which can happen on a `supported` mode because section 5.2.1 selects
+   * at the other height. See the module header's G11 note.
    */
-  readonly screeningReflectionHeightKm: number | null;
+  readonly elevationRad: number;
+  /** The same angle in degrees. The angle a consumer points an antenna at. */
+  readonly elevationDeg: number;
   /**
    * Equation (11) fs, MHz, or `null` where section 4 does not evaluate it.
    *
-   * `null` for every E mode, and for every F2 mode on a path longer than
-   * 4000 km. `null` is not "zero": the reference's initialised 0.0 compares
+   * Equation (12) is taken at `elevationRad`, the mode's own elevation: section
+   * 4 names "delta_F: elevation angle for the F2-layer mode (determined from
+   * equation (13))", and now that equation (13) is evaluated at the section 5.1
+   * height there is only one such angle. The separate screening elevation this
+   * record used to carry has been folded away because it was the same number.
+   *
+   * `null` for every E mode, for every F2 mode on a path longer than 4000 km,
+   * and for an F2 mode whose section 5.1 height does not reach its hop. `null` is not "zero": the reference's initialised 0.0 compares
    * below every operating frequency and so admits the mode, which is the same
    * outcome as not testing it, but it is a different claim and a report should
    * not print 0 MHz as a screening frequency.
    */
   readonly screeningFrequencyMHz: number | null;
-  /**
-   * The elevation, in radians, that `screeningFrequencyMHz` was computed from.
-   *
-   * Equation (13) at `screeningReflectionHeightKm`, which is a different angle
-   * from `elevationRad`. `null` wherever `screeningFrequencyMHz` is.
-   */
-  readonly screeningElevationRad: number | null;
   /** The basic MUF of this mode, MHz. Equation (1) for E, (3) or (7) for F2. */
   readonly basicMufMHz: number;
   /**
-   * Equation (19) virtual slant range of the whole n-hop circuit, km, or
-   * `null` when the mode does not reflect.
+   * Equation (19) virtual slant range of the whole n-hop circuit, km, at
+   * `mirrorHeightKm`, or `null` where the section 5.1 height does not reach
+   * this mode's hop.
    *
-   * Carried here because it is a property of this mode's geometry and because
-   * it is the reference's `ptick` column, which is the only golden evidence
-   * for which modes the mode set ends on.
+   * This is the length free-space spreading is computed over, so it is a
+   * product number and it moves with the section 5.1 height. It can be `null`
+   * on a `supported` mode; see the module header's G11 note.
    */
   readonly virtualSlantRangeKm: number | null;
+  /**
+   * Equation (2)'s height for this mode, km: section 5.2.1's first criterion.
+   *
+   * 110 km for E modes, `min(1490/M(3000)F2 - 176, 500)` for F2 modes with
+   * M(3000)F2 read at the mid-path control point up to dmax and at the Table 1c
+   * control point with the lower foF2 beyond. `status` and `unsupportedReason`
+   * are decided on this height, and nothing else is.
+   */
+  readonly selectionMirrorHeightKm: number;
+  /**
+   * Equation (13) at `selectionMirrorHeightKm`, degrees, or `null` where that
+   * height cannot close the hop.
+   *
+   * Two things at once, and the doc says both because the name cannot. It is
+   * the angle section 5.2.1's selection is decided on, and it is exactly what
+   * ITU-R-HF cd172be5 reports as `ele` and `DMele`, so the golden columns are
+   * asserted against it. NO FIELD STRENGTH, GAIN OR LOSS MAY BE COMPUTED FROM
+   * IT: the angle a consumer points an antenna at is `elevationDeg`.
+   */
+  readonly selectionElevationDeg: number | null;
+  /**
+   * Equation (19) at `selectionMirrorHeightKm`, km, or `null` where that height
+   * cannot close the hop.
+   *
+   * What ITU-R-HF cd172be5 reports as `ptick`. Benchmark only: nothing computes
+   * a product number from it, and the length free-space spreading is taken over
+   * is `virtualSlantRangeKm`.
+   */
+  readonly selectionSlantRangeKm: number | null;
   readonly status: ModeStatus;
   /** Non-null exactly when `status` is `geometrically_unsupported`. */
   readonly unsupportedReason: ModeUnsupportedReason | null;

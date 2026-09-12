@@ -69,7 +69,15 @@ export const D_REGION_HEIGHT_KM = 90;
 /** Height the P.533-14 equation (20) incidence angle is taken at, km. */
 export const ABSORPTION_INCIDENCE_HEIGHT_KM = 110;
 
-/** Upper bound on the mirror height, km. P.533-14 section 5.1. */
+/**
+ * Upper bound on the equation (2) mirror height, km.
+ *
+ * The 500 km of `hr = min(1490/M(3000)F2 - 176, 500)`, P.533-14 equation (2),
+ * which section 3.5.1.1 uses to find the lowest-order mode and section 5.2.1
+ * uses to select the mode set. It is NOT section 5.1's cap: the mirror height
+ * equation (13) takes its elevation from is capped at 800 km
+ * (`MAX_F2_REFLECTION_HEIGHT_KM` in `reflectionHeight.ts`).
+ */
 export const MAX_MIRROR_HEIGHT_KM = 500;
 
 /**

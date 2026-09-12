@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
 import {
   resolveRoute,
   type GeodeticPoint,
@@ -9,7 +10,10 @@ import {
 } from "@/lib/propagation/geometry/route";
 import { maxHopForMinElevationKm, MIN_ELEVATION_DEG } from "./basicMuf";
 import type { ControlPointLabel } from "./controlPoints";
-import { E_LAYER_SCREENING_FACTOR } from "./eLayerScreening";
+import {
+  E_LAYER_SCREENING_FACTOR,
+  screeningFrequencyMHz,
+} from "./eLayerScreening";
 import {
   modeSet,
   E_MODE_MAX_HOP_KM,
@@ -36,15 +40,35 @@ import type { PropagationMode } from "./modeTypes";
  *   dhmax = 2 R0 (pi/2 - delta_min - i(delta_min, hr))    at delta_min = 3 deg
  *   fs    = 1.05 foE / cos(i at 110 km)                           (11), (12)
  *
- * The E-layer screening frequency of a real mode needs the section 5.1 mirror
- * height, which is `reflectionHeight.ts`'s long G/J/U formula and is pinned in
- * that leaf's own tests. It is not re-derived here. What is asserted here about
- * fs is the part that holds whatever the height is: cos i is at most 1, so
- * `fs >= 1.05 foE` always, and a case built so that 1.05 foE already exceeds
- * the operating frequency is screened for certain. That is a hand-provable
- * inequality rather than a number copied out of the implementation.
+ * Section 5.1's mirror height is `reflectionHeight.ts`'s long G/J/U formula and
+ * is pinned in that leaf's own tests, so it is not re-derived here. Where a
+ * reported elevation is asserted, the height comes from that leaf and equation
+ * (13) is applied to it by `elevationDegAt` below, which is this file's own
+ * transcription. What is asserted about fs is the part that holds whatever the
+ * height is: cos i is at most 1, so `fs >= 1.05 foE` always, and a case built
+ * so that 1.05 foE already exceeds the operating frequency is screened for
+ * certain. That is a hand-provable inequality rather than a number copied out
+ * of the implementation.
  */
 const PRECISION = 9;
+const EARTH_RADIUS_KM = 6371;
+
+/** Equation (13), this file's own transcription, in degrees. */
+function elevationDegAt(
+  groundDistanceKm: number,
+  hopCount: number,
+  mirrorHeightKm: number,
+): number {
+  const psi = groundDistanceKm / (2 * hopCount * EARTH_RADIUS_KM);
+  return (
+    (Math.atan2(
+      Math.cos(psi) - EARTH_RADIUS_KM / (EARTH_RADIUS_KM + mirrorHeightKm),
+      Math.sin(psi),
+    ) *
+      180) /
+    Math.PI
+  );
+}
 
 /** A route of an exact length; see `controlPoints.test.ts` for why. */
 function routeOfLength(groundDistanceKm: number): ResolvedRoute {
@@ -213,30 +237,75 @@ describe("equation (13): the elevation of each mode", () => {
     );
   });
 
-  it("takes F2 modes from the equation (2) height at the mid-point", () => {
-    // M(3000)F2 = 3 at M, so hr = 1490/3 - 176 = 320.666666666667 km, and
-    // D = 1500 km <= dmax:
+  it("selects F2 modes on the equation (2) height at the mid-point", () => {
+    // Section 5.2.1's first criterion. M(3000)F2 = 3 at M, so
+    // hr = 1490/3 - 176 = 320.666666666667 km, and D = 1500 km <= dmax:
     //   1F2: delta = 19.243081389366 deg
     //   2F2: delta = 38.137779972466 deg
+    // Those two numbers are also, exactly, what the pinned reference reports as
+    // `ele` and `DMele`, which is why the comparator carries them.
     const { sample } = samplerByLabel({});
     const set = resolved(
       modeSet({ route: routeOfLength(1500), frequencyMHz: 20, sample }),
     );
-    expect(set.f2MirrorHeightKm).toBeCloseTo(320.6666666666667, PRECISION);
-    expect(set.f2MirrorHeightSource).toBe("mid_path");
-    expect(set.f2MirrorHeightLabel).toBe("M");
-    expect(modeNamed(set, "1F2").mirrorHeightKm).toBeCloseTo(
+    expect(set.f2SelectionMirrorHeightKm).toBeCloseTo(
       320.6666666666667,
       PRECISION,
     );
-    expect(modeNamed(set, "1F2").elevationDeg).toBeCloseTo(
+    expect(set.f2SelectionMirrorHeightSource).toBe("mid_path");
+    expect(set.f2SelectionMirrorHeightLabel).toBe("M");
+    expect(modeNamed(set, "1F2").selectionMirrorHeightKm).toBeCloseTo(
+      320.6666666666667,
+      PRECISION,
+    );
+    expect(modeNamed(set, "1F2").selectionElevationDeg as number).toBeCloseTo(
       19.2430813893664,
       PRECISION,
     );
-    expect(modeNamed(set, "2F2").elevationDeg).toBeCloseTo(
+    expect(modeNamed(set, "2F2").selectionElevationDeg as number).toBeCloseTo(
       38.137779972465815,
       PRECISION,
     );
+  });
+
+  it("reports F2 elevations from the section 5.1 height, not that one", () => {
+    // Section 5.1 defines equation (13)'s hr itself, so the reported elevation
+    // is equation (13) at the section 5.1 height of this mode's own hop. The
+    // height comes from `reflectionHeight.ts`, which has its own tests; what is
+    // asserted here is that equation (13) is applied to THAT height and to no
+    // other. D = 1500 km is under dmax, so Table 1c names the mid-point alone
+    // and the mean is over one point.
+    const { sample } = samplerByLabel({});
+    const set = resolved(
+      modeSet({ route: routeOfLength(1500), frequencyMHz: 20, sample }),
+    );
+    for (const hopCount of [1, 2]) {
+      const mode = modeNamed(set, `${String(hopCount)}F2`);
+      const heightKm = f2ReflectionHeight({
+        ...BASE_STATE,
+        frequencyMHz: 20,
+        groundDistanceKm: 1500,
+        hopCount,
+      }).heightKm;
+      expect(mode.mirrorHeightKm).toBeCloseTo(heightKm, PRECISION);
+      expect(mode.elevationDeg).toBeCloseTo(
+        elevationDegAt(1500, hopCount, heightKm),
+        PRECISION,
+      );
+      // The two heights really are different numbers here, so the assertion
+      // above could not have passed by them coinciding.
+      expect(
+        Math.abs(mode.mirrorHeightKm - mode.selectionMirrorHeightKm),
+      ).toBeGreaterThan(1);
+      expect(
+        Math.abs(mode.elevationDeg - (mode.selectionElevationDeg as number)),
+      ).toBeGreaterThan(0.5);
+      // Radians and degrees are the same angle, not two answers.
+      expect((mode.elevationRad * 180) / Math.PI).toBeCloseTo(
+        mode.elevationDeg,
+        12,
+      );
+    }
   });
 
   it("takes them from the Table 1c point with the lower foF2 beyond dmax", () => {
@@ -245,7 +314,7 @@ describe("equation (13): the elevation of each mode", () => {
     // the height comes from R - d0/2, where M(3000)F2 = 2.5 gives
     // hr = 1490/2.5 - 176 = 420 km. n0 is still found at the mid-point height
     // (dhmax(320.667) = 3347.44 km, 5000/2 = 2500 < 3347.44, so n0 = 2), and
-    // then every elevation is taken at 420 km:
+    // then every mode is selected at 420 km:
     //   2F2: delta = 12.343701514760 deg
     //   6F2: delta = 42.415485176459 deg
     const { sample } = samplerByLabel({
@@ -256,9 +325,9 @@ describe("equation (13): the elevation of each mode", () => {
     const set = resolved(
       modeSet({ route: routeOfLength(5000), frequencyMHz: 20, sample }),
     );
-    expect(set.f2MirrorHeightSource).toBe("table_1c_lowest_fof2");
-    expect(set.f2MirrorHeightLabel).toBe("R - d0/2");
-    expect(set.f2MirrorHeightKm).toBeCloseTo(420, PRECISION);
+    expect(set.f2SelectionMirrorHeightSource).toBe("table_1c_lowest_fof2");
+    expect(set.f2SelectionMirrorHeightLabel).toBe("R - d0/2");
+    expect(set.f2SelectionMirrorHeightKm).toBeCloseTo(420, PRECISION);
     expect(set.modes.map((mode) => mode.label)).toEqual([
       "2F2",
       "3F2",
@@ -266,11 +335,11 @@ describe("equation (13): the elevation of each mode", () => {
       "5F2",
       "6F2",
     ]);
-    expect(modeNamed(set, "2F2").elevationDeg).toBeCloseTo(
+    expect(modeNamed(set, "2F2").selectionElevationDeg as number).toBeCloseTo(
       12.343701514759823,
       PRECISION,
     );
-    expect(modeNamed(set, "6F2").elevationDeg).toBeCloseTo(
+    expect(modeNamed(set, "6F2").selectionElevationDeg as number).toBeCloseTo(
       42.415485176458894,
       PRECISION,
     );
@@ -296,11 +365,16 @@ describe("section 4: screening, and contract M07's labelling", () => {
     expect(oneF2.screeningFrequencyMHz as number).toBeGreaterThanOrEqual(
       E_LAYER_SCREENING_FACTOR * 1.8,
     );
-    expect(oneF2.screeningElevationRad).not.toBeNull();
-    expect(oneF2.screeningReflectionHeightKm).not.toBeNull();
-    // The screening elevation is NOT the mode's own elevation: it is equation
-    // (13) at the section 5.1 height, which is a different height.
-    expect(oneF2.screeningReflectionHeightKm).not.toBe(oneF2.mirrorHeightKm);
+    // Section 4's delta_F and the mode's reported elevation are one angle now:
+    // equation (12) is taken at `elevationRad` and the record carries no second
+    // screening elevation to disagree with it.
+    expect(oneF2.screeningFrequencyMHz as number).toBeCloseTo(
+      screeningFrequencyMHz(1.8, oneF2.elevationRad),
+      12,
+    );
+    // And that angle is not the selection angle, so the identity above is a
+    // statement about which height section 4 used.
+    expect(oneF2.mirrorHeightKm).not.toBe(oneF2.selectionMirrorHeightKm);
   });
 
   it("labels every screened F2 mode and drops none of them", () => {
@@ -366,8 +440,10 @@ describe("section 4: screening, and contract M07's labelling", () => {
     );
     for (const mode of set.modes.filter((m) => m.layer === "E")) {
       expect(mode.screeningFrequencyMHz).toBeNull();
-      expect(mode.screeningElevationRad).toBeNull();
-      expect(mode.screeningReflectionHeightKm).toBeNull();
+      // Section 5.1 gives an E mode hr = 110 km and equation (2) is an F2
+      // formula, so both heights are the one number.
+      expect(mode.mirrorHeightKm).toBe(110);
+      expect(mode.selectionMirrorHeightKm).toBe(110);
       expect(mode.status).toBe("supported");
     }
   });
@@ -389,22 +465,25 @@ describe("section 4: screening, and contract M07's labelling", () => {
     }
     for (const mode of set.modes) {
       expect(mode.screeningFrequencyMHz).toBeNull();
-      expect(mode.screeningReflectionHeightKm).toBeNull();
+      // The section 5.1 height is still computed, because equation (13) needs
+      // it on every path; only section 4 stops at 4 000 km.
+      expect(mode.mirrorHeightKm).toBeGreaterThan(0);
       expect(mode.status).not.toBe("screened");
     }
   });
 });
 
-describe("the 3 degree elevation floor, on the height the mode uses", () => {
+describe("the 3 degree elevation floor, on the height selection uses", () => {
   it("labels a mode the Table 1c height puts under the floor", () => {
     // Deviation 3 of the module header, constructed. D = 5400 km. n0 is chosen
     // at the mid-point height hr = 1490/3 - 176 = 320.666666666667 km, where
-    // 5400/2 = 2700 < dhmax(320.667) = 3347.443352589471 km, so n0 = 2. The
-    // Table 1c point with the lower foF2 is R - d0/2, where M(3000)F2 = 4.0
-    // gives hr = 1490/4 - 176 = 196.5 km, and equation (13) at 196.5 km over a
-    // 2700 km hop is 2.056933994142 degrees, under the 3 degree floor. The
-    // reference keeps this mode because it applied the floor at the other
-    // height; we label it and keep it on the list.
+    // 5400/2 = 2700 < dhmax(320.667) = 3347.443352589471 km, so n0 = 2. Beyond
+    // dmax, section 5.2.1's first criterion moves the selection height to the
+    // Table 1c point with the lower foF2, R - d0/2, where M(3000)F2 = 4.0 gives
+    // hr = 1490/4 - 176 = 196.5 km; equation (13) at 196.5 km over a 2700 km
+    // hop is 2.056933994142 degrees, under the 3 degree floor. The reference
+    // keeps this mode because it applied the floor only when it chose n0 at the
+    // other height; we label it and keep it on the list.
     const { sample } = samplerByLabel({
       "T + d0/2": { foF2MHz: 10 },
       M: { foF2MHz: 9 },
@@ -413,10 +492,15 @@ describe("the 3 degree elevation floor, on the height the mode uses", () => {
     const set = resolved(
       modeSet({ route: routeOfLength(5400), frequencyMHz: 20, sample }),
     );
-    expect(set.f2MirrorHeightKm).toBeCloseTo(196.5, PRECISION);
+    expect(set.f2SelectionMirrorHeightKm).toBeCloseTo(196.5, PRECISION);
     const twoF2 = modeNamed(set, "2F2");
-    expect(twoF2.elevationDeg).toBeCloseTo(2.056933994142354, PRECISION);
-    expect(twoF2.elevationDeg).toBeLessThan(MIN_ELEVATION_DEG);
+    expect(twoF2.selectionElevationDeg as number).toBeCloseTo(
+      2.056933994142354,
+      PRECISION,
+    );
+    expect(twoF2.selectionElevationDeg as number).toBeLessThan(
+      MIN_ELEVATION_DEG,
+    );
     expect(twoF2.status).toBe("geometrically_unsupported");
     expect(twoF2.unsupportedReason).toBe("below_minimum_elevation");
     // Labelled, not dropped, and the higher orders are unaffected.

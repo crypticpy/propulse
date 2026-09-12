@@ -41,12 +41,32 @@
  *    averaging rule is `selectControlPoints`.
  *  - Equations (11) and (12) are `eLayerScreening.ts`.
  *
- * THE TWO HEIGHTS AGAIN, BECAUSE IT IS THE THING TO GET WRONG. The elevation
- * a mode reports (and that the slant range, the antenna gains and slice C's
- * field strength all use) is equation (13) at the equation (2) height. The
- * elevation the screening frequency uses is equation (13) at the section 5.1
- * height of the same hop. They are different angles. `modeTypes.ts` carries
- * the evidence from the golden cases; `parity.modeSet.test.ts` measures it.
+ * THE TWO HEIGHTS, BECAUSE IT IS THE THING TO GET WRONG. They are different
+ * quantities with different jobs and both are needed:
+ *
+ *  - EQUATION (2), `hr = min(1490/M(3000)F2 - 176, 500)`, decides WHICH MODES
+ *    EXIST. Section 3.5.1.1 finds n0 at it and section 5.2.1's first bullet
+ *    repeats it with the Table 1c rule for paths beyond dmax. It does not
+ *    appear in equation (13).
+ *  - SECTION 5.1's height, the long G/J/U formula of `reflectionHeight.ts`, is
+ *    equation (13)'s hr. Section 5.1 is headed "Elevation angle" and defines it
+ *    there: "hr: equivalent plane-mirror reflection height; for E modes
+ *    hr = 110 km; for F2 modes hr is taken as a function of time, location and
+ *    hop length", with the (a), (b), (c) formulas immediately below. Every
+ *    elevation and every slant range on the mode record comes from it, and so
+ *    does the incidence angle inside the screening frequency, which is why the
+ *    record no longer carries a separate screening elevation: section 4's
+ *    delta_F is "the elevation angle for the F2-layer mode (determined from
+ *    equation (13))", and there is now only one such angle.
+ *
+ * Section 5.2.1's FIRST criterion is one of the criteria every selected mode
+ * "meets", and it names the equation (2) height, so that height is where a
+ * mode's existence is decided: `status` and `unsupportedReason` come from the
+ * geometry at `selectionMirrorHeightKm` and from nothing else. The reference
+ * takes equation (13) there too, which is the defect; because the geometry is
+ * the same, `selectionElevationDeg` and `selectionSlantRangeKm` are exactly its
+ * `ele`, `DMele` and `ptick`, and the golden columns are asserted against them.
+ * See deviation 2 below and `modeTypes.ts`.
  *
  * WHERE THE REFERENCE AND THE TEXT DISAGREE, AND WHAT WE DO.
  *
@@ -69,23 +89,44 @@
  *     three points is what we search. `parity.modeSet.test.ts` carries the
  *     measurement and gives G07 and G10 their own declared budget rather than
  *     widening everybody's.
- *  2. The elevation height. The text reads as though equation (13) uses the
- *     section 5.1 height; the reference uses the equation (2) height for the
- *     mode elevation. WE FOLLOW THE REFERENCE, because the golden `ele` and
- *     `DMele` columns prove that reading (see `modeTypes.ts`).
+ *  2. The elevation height. WE FOLLOW THE TEXT. Section 5.1 is headed
+ *     "Elevation angle" and defines equation (13)'s hr in the same breath: "for
+ *     F2 modes hr is taken as a function of time, location and hop length",
+ *     followed by the (a), (b), (c) formulas for exactly that height. The
+ *     reference instead computes the mode elevation, the slant range and every
+ *     downstream gain from the equation (2) height, and uses the section 5.1
+ *     height only for the elevation inside `ELayerScreeningFrequency()`. That
+ *     is a defect of the same kind as its G polynomial dropping the published
+ *     `+ 90.47 xr` term: the golden `ele`, `DMele` and `ptick` columns prove
+ *     what the reference does, not what the recommendation says. This codebase
+ *     already ships the section 5.1 height for elevation in `traceRayPath`
+ *     (#1108), so following it here also makes the two agree.
+ *     The cost is declared, not hidden: `selectionElevationDeg` and
+ *     `selectionSlantRangeKm` carry the reference's reading, the golden columns
+ *     are asserted against THOSE at the derived budgets, and the divergence
+ *     between the product elevation and the golden value is recorded per case
+ *     in the fixture's `reference_divergence` block with a wide bound so that
+ *     drift is noticed and is never presented as parity. Slice C's field
+ *     strength consumes `elevationRad` and `virtualSlantRangeKm`, so its own
+ *     golden Ew and Pr parity inherits this divergence.
+ *     WHAT DOES NOT MOVE IS THE MODE SET. Section 5.2.1's first criterion names
+ *     the equation (2) height, so `status` stays on that geometry; taking the
+ *     section 5.1 elevation as the selection test instead was measured and
+ *     would label the reference's own dominant mode `geometrically_unsupported`
+ *     on three of the fourteen golden circuits (G09 at 2.55 degrees, G13 at
+ *     2.23, G11 below the horizon at -0.21), which is a different and much
+ *     larger claim than a shifted angle.
  *  3. The 3 degree elevation floor. `MIN_ELEVATION_DEG` is the reference's
- *     `MINELEANGLES`, which it applies when choosing n0 and never again. On a
- *     path longer than dmax the elevation height comes from a different
- *     control point than the one n0 was chosen at, so a mode can clear the
- *     floor when n0 was picked and sit below it when its elevation is finally
- *     taken. We label such a mode `geometrically_unsupported`; the reference
- *     keeps it. Applying the reference's own floor to the height the mode
- *     actually uses is the coherent reading, and it is a labelling difference
- *     only, because modes are never dropped. It does not fire on any golden
- *     case: the shallowest mode in the whole corpus is G11's 2F2 at 3.711
- *     degrees, and `parity.modeSet.test.ts` asserts that measurement so that a
- *     future provider revision moving a mode under the floor is reported
- *     rather than absorbed.
+ *     `MINELEANGLES`, which it applies when choosing n0 and never again. It is
+ *     applied here to `selectionElevationDeg`, because section 3.5.1.1 puts it
+ *     on the equation (2) geometry: "the lowest-order mode, n0, is determined
+ *     by geometrical considerations, using the mirror reflection height hr
+ *     derived at the mid-path control point from the equation (2)". It can
+ *     still fire on a mode the reference keeps, because beyond dmax section
+ *     5.2.1 moves that height to the Table 1c point with the lower foF2 while
+ *     n0 was chosen at the mid-path one. `parity.modeSet.test.ts` records that
+ *     it never fires on the golden corpus and `modeSet.test.ts` constructs a
+ *     state where it does.
  *  4. The reference's E-mode loop `break`s at the first mode that fails a
  *     criterion instead of continuing. The criteria are monotone in n - a
  *     higher order means a shorter hop, a higher elevation and a larger basic
@@ -183,7 +224,7 @@ export interface ModeSetInputs {
   readonly sample: ModeControlPointSampler;
 }
 
-/** Which control point the equation (2) elevation height was read at. */
+/** Which control point the equation (2) mode-existence height was read at. */
 export type F2MirrorHeightSource =
   "mid_path" | "table_1c_lowest_fof2" | "no_f2_mode";
 
@@ -193,11 +234,17 @@ export interface ResolvedModeSet {
   readonly frequencyMHz: number;
   /** dmax at M, restricted to 4000 km. Section 3.5.1.1. */
   readonly dmaxKm: number;
-  /** The equation (2) height every F2 elevation was taken at, km. */
-  readonly f2MirrorHeightKm: number | null;
-  readonly f2MirrorHeightSource: F2MirrorHeightSource;
-  /** The control point `f2MirrorHeightKm` came from. */
-  readonly f2MirrorHeightLabel: ControlPointLabel | null;
+  /**
+   * Section 5.2.1's first criterion, the equation (2) height for this path, km.
+   *
+   * The height the mode SET is chosen at, not the height any elevation a
+   * consumer reads is taken at. It is also the reference's elevation height, so
+   * it is what the `selection...` comparator fields on each mode come from.
+   */
+  readonly f2SelectionMirrorHeightKm: number | null;
+  readonly f2SelectionMirrorHeightSource: F2MirrorHeightSource;
+  /** The control point `f2SelectionMirrorHeightKm` came from. */
+  readonly f2SelectionMirrorHeightLabel: ControlPointLabel | null;
   /** Section 4's foE for this path, or the statement that it has none. */
   readonly screening: PathScreeningFoE;
   /** Every mode P.533-14 names, E modes first, each in ascending hop order. */
@@ -250,8 +297,8 @@ export function modeSet({
   }
 
   // One sample per distinct control point. `basicMuf` asks for M and, on a
-  // long path, Table 1a's two; section 4 asks for Table 1b's; the elevation
-  // height asks for Table 1c's. Several of those are the same place.
+  // long path, Table 1a's two; section 4 asks for Table 1b's; both heights ask
+  // for Table 1c's. Several of those are the same place.
   const seen = new Map<string, ModeControlPointState>();
   const controlPoints: SampledControlPoint[] = [];
   const cachedSample: ModeControlPointSampler = (point, label) => {
@@ -276,11 +323,13 @@ export function modeSet({
 
   const screening = pathScreeningFoE({ route, sample: cachedSample });
 
-  // Section 5.2.1's F2 mirror-reflection height: equation (2) at M for a path
-  // up to dmax, and at the Table 1c control point with the lower foF2 beyond.
-  let f2MirrorHeightKm: number | null = null;
-  let f2MirrorHeightSource: F2MirrorHeightSource = "no_f2_mode";
-  let f2MirrorHeightLabel: ControlPointLabel | null = null;
+  // Section 5.2.1's first criterion: the equation (2) height the F2 mode set is
+  // chosen at, taken at M for a path up to dmax and at the Table 1c control
+  // point with the lower foF2 beyond. NOT the height a reported elevation is
+  // taken at; see the module header.
+  let f2SelectionMirrorHeightKm: number | null = null;
+  let f2SelectionMirrorHeightSource: F2MirrorHeightSource = "no_f2_mode";
+  let f2SelectionMirrorHeightLabel: ControlPointLabel | null = null;
   let table1cPoints: readonly SampledPoint[] = [];
 
   if (muf.f2 !== null) {
@@ -309,16 +358,16 @@ export function modeSet({
     if (D <= muf.dmaxKm) {
       // `basicMuf` already took equation (2) at M; taking it again from the
       // same M(3000)F2 would be a second chance to disagree.
-      f2MirrorHeightKm = muf.mirrorHeightKm;
-      f2MirrorHeightSource = "mid_path";
-      f2MirrorHeightLabel = "M";
+      f2SelectionMirrorHeightKm = muf.mirrorHeightKm;
+      f2SelectionMirrorHeightSource = "mid_path";
+      f2SelectionMirrorHeightLabel = "M";
     } else {
       const lowest = table1cPoints.reduce((a, b) =>
         b.state.foF2MHz < a.state.foF2MHz ? b : a,
       );
-      f2MirrorHeightKm = mirrorHeightFromM3000F2(lowest.state.m3000F2);
-      f2MirrorHeightSource = "table_1c_lowest_fof2";
-      f2MirrorHeightLabel = lowest.site.label;
+      f2SelectionMirrorHeightKm = mirrorHeightFromM3000F2(lowest.state.m3000F2);
+      f2SelectionMirrorHeightSource = "table_1c_lowest_fof2";
+      f2SelectionMirrorHeightLabel = lowest.site.label;
     }
   }
 
@@ -340,7 +389,7 @@ export function modeSet({
         frequencyMHz,
         dmaxKm: muf.dmaxKm,
         lowestOrderHopCount: muf.f2?.lowestOrderHopCount ?? mode.hopCount,
-        mirrorHeightKm: f2MirrorHeightKm as number,
+        selectionMirrorHeightKm: f2SelectionMirrorHeightKm as number,
         screening,
         table1cPoints,
       }),
@@ -352,9 +401,9 @@ export function modeSet({
     groundDistanceKm: D,
     frequencyMHz,
     dmaxKm: muf.dmaxKm,
-    f2MirrorHeightKm,
-    f2MirrorHeightSource,
-    f2MirrorHeightLabel,
+    f2SelectionMirrorHeightKm,
+    f2SelectionMirrorHeightSource,
+    f2SelectionMirrorHeightLabel,
     screening,
     modes,
     supportedModes: modes.filter((mode) => mode.status === "supported"),
@@ -379,23 +428,29 @@ function buildEMode({
     hopCount: mode.hopCount,
     mirrorHeightKm: E_LAYER_MIRROR_HEIGHT_KM,
   });
-  const base = {
+  const supported = geometry.kind === "supported";
+  const elevationDeg = geometry.elevationAngleRad * RAD_TO_DEG;
+  const base: ModeBase = {
     label: modeLabel("E", mode.hopCount),
-    layer: "E" as const,
+    layer: "E",
     hopCount: mode.hopCount,
     hopGroundDistanceKm: mode.hopGroundDistanceKm,
     mirrorHeightKm: E_LAYER_MIRROR_HEIGHT_KM,
+    elevationRad: geometry.elevationAngleRad,
+    elevationDeg,
     // Section 4 screens F2 modes with the E layer; an E mode has no fs.
-    screeningReflectionHeightKm: null,
     screeningFrequencyMHz: null,
-    screeningElevationRad: null,
     basicMufMHz: mode.basicMufMHz,
+    virtualSlantRangeKm: supported ? geometry.virtualSlantRangeKm : null,
+    // Section 5.1 says hr = 110 km for E modes and equation (2) is an F2
+    // formula, so selection and report are the same geometry here, and the
+    // reference agrees with us on E modes.
+    selectionMirrorHeightKm: E_LAYER_MIRROR_HEIGHT_KM,
+    selectionElevationDeg: supported ? elevationDeg : null,
+    selectionSlantRangeKm: supported ? geometry.virtualSlantRangeKm : null,
   };
 
-  if (geometry.kind !== "supported") {
-    return unsupportedMode(base, geometry.elevationAngleRad, "no_reflection");
-  }
-  const elevationDeg = geometry.elevationAngleRad * RAD_TO_DEG;
+  if (!supported) return unsupportedMode(base, "no_reflection");
   const reason =
     mode.hopCount === lowestOrderHopCount &&
     mode.hopGroundDistanceKm > E_MODE_MAX_HOP_KM
@@ -403,22 +458,8 @@ function buildEMode({
       : elevationDeg < MIN_ELEVATION_DEG
         ? "below_minimum_elevation"
         : null;
-  if (reason !== null) {
-    return unsupportedMode(
-      base,
-      geometry.elevationAngleRad,
-      reason,
-      geometry.virtualSlantRangeKm,
-    );
-  }
-  return {
-    ...base,
-    elevationRad: geometry.elevationAngleRad,
-    elevationDeg,
-    virtualSlantRangeKm: geometry.virtualSlantRangeKm,
-    status: "supported",
-    unsupportedReason: null,
-  };
+  if (reason !== null) return unsupportedMode(base, reason);
+  return { ...base, status: "supported", unsupportedReason: null };
 }
 
 interface F2ModeInputs {
@@ -427,7 +468,8 @@ interface F2ModeInputs {
   readonly frequencyMHz: number;
   readonly dmaxKm: number;
   readonly lowestOrderHopCount: number;
-  readonly mirrorHeightKm: number;
+  /** Equation (2)'s height for the path: section 5.2.1's first criterion. */
+  readonly selectionMirrorHeightKm: number;
   readonly screening: PathScreeningFoE;
   readonly table1cPoints: readonly SampledPoint[];
 }
@@ -439,62 +481,72 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
     frequencyMHz,
     dmaxKm,
     lowestOrderHopCount,
-    mirrorHeightKm,
+    selectionMirrorHeightKm,
     screening,
     table1cPoints,
   } = inputs;
 
-  // Equations (11) and (12) at this mode's own section 5.1 height, which is a
-  // different height, and so a different elevation angle, from the one the
-  // mode reports. See the module header.
-  const screeningReflectionHeightKm =
-    screening.kind === "evaluated"
-      ? sectionFiveOneHeightKm({
-          groundDistanceKm,
-          hopCount: mode.hopCount,
-          frequencyMHz,
-          table1cPoints,
-        })
-      : null;
-  let screeningElevationRad: number | null = null;
-  let fsMHz: number | null = null;
-  if (screening.kind === "evaluated" && screeningReflectionHeightKm !== null) {
-    const screeningGeometry = hopGeometry({
-      groundDistanceKm,
-      hopCount: mode.hopCount,
-      mirrorHeightKm: screeningReflectionHeightKm,
-    });
-    /* c8 ignore next 3 -- a section 5.1 height that cannot reflect the hop it
-       was computed for. Section 5.1 heights run from about 150 km to the
-       800 km cap, all of which reach further than the 110 km E layer does. */
-    if (screeningGeometry.kind === "supported") {
-      screeningElevationRad = screeningGeometry.elevationAngleRad;
-      fsMHz = screeningFrequencyMHz(screening.foEMHz, screeningElevationRad);
-    }
-  }
-
-  const base = {
-    label: modeLabel("F2", mode.hopCount),
-    layer: "F2" as const,
+  // Section 5.2.1's first criterion, which decides whether the mode is there at
+  // all: "for F2 modes, from a height hr determined from equation (2)". Every
+  // status and every reason below is read off this geometry, and it is also the
+  // geometry the pinned reference reports as ele, DMele and ptick.
+  const selection = hopGeometry({
+    groundDistanceKm,
     hopCount: mode.hopCount,
-    hopGroundDistanceKm: mode.hopGroundDistanceKm,
-    mirrorHeightKm,
-    screeningReflectionHeightKm,
-    screeningFrequencyMHz: fsMHz,
-    screeningElevationRad,
-    basicMufMHz: mode.basicMufMHz,
-  };
+    mirrorHeightKm: selectionMirrorHeightKm,
+  });
+  const selectionSupported = selection.kind === "supported";
+  const selectionElevationDeg = selection.elevationAngleRad * RAD_TO_DEG;
 
+  // Equation (13)'s hr, which section 5.1 defines as the section 5.1 height of
+  // this mode's own hop. Every number a consumer reads comes from here.
+  const mirrorHeightKm = sectionFiveOneHeightKm({
+    groundDistanceKm,
+    hopCount: mode.hopCount,
+    frequencyMHz,
+    table1cPoints,
+  });
   const geometry = hopGeometry({
     groundDistanceKm,
     hopCount: mode.hopCount,
     mirrorHeightKm,
   });
-  if (geometry.kind !== "supported") {
-    return unsupportedMode(base, geometry.elevationAngleRad, "no_reflection");
-  }
+  // The two heights are independent, so a hop equation (2) reflects can be
+  // longer than the section 5.1 height reaches. Equation (13) still has a
+  // value there, a negative one, and equation (19) does not; see the G11 note
+  // in `modeTypes.ts`.
+  const reaches = geometry.kind === "supported";
 
-  const elevationDeg = geometry.elevationAngleRad * RAD_TO_DEG;
+  // Equations (11) and (12), section 4. Section 4 names "delta_F: elevation
+  // angle for the F2-layer mode (determined from equation (13))", and now that
+  // equation (13) is read as section 5.1 defines it there is exactly one such
+  // angle, so the screening frequency and the reported elevation cannot drift
+  // apart.
+  const fsMHz =
+    screening.kind === "evaluated" && reaches
+      ? screeningFrequencyMHz(screening.foEMHz, geometry.elevationAngleRad)
+      : null;
+
+  const base: ModeBase = {
+    label: modeLabel("F2", mode.hopCount),
+    layer: "F2",
+    hopCount: mode.hopCount,
+    hopGroundDistanceKm: mode.hopGroundDistanceKm,
+    mirrorHeightKm,
+    elevationRad: geometry.elevationAngleRad,
+    elevationDeg: geometry.elevationAngleRad * RAD_TO_DEG,
+    screeningFrequencyMHz: fsMHz,
+    basicMufMHz: mode.basicMufMHz,
+    virtualSlantRangeKm: reaches ? geometry.virtualSlantRangeKm : null,
+    selectionMirrorHeightKm,
+    selectionElevationDeg: selectionSupported ? selectionElevationDeg : null,
+    selectionSlantRangeKm: selectionSupported
+      ? selection.virtualSlantRangeKm
+      : null,
+  };
+
+  if (!selectionSupported) return unsupportedMode(base, "no_reflection");
+
   // Section 5.2.1's own criterion first, the reference's elevation floor
   // second: both end as `geometrically_unsupported`, so the order decides only
   // which reason a report shows, and the recommendation's reason is the one to
@@ -502,23 +554,13 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
   const reason: ModeUnsupportedReason | null =
     mode.hopCount === lowestOrderHopCount && mode.hopGroundDistanceKm > dmaxKm
       ? "hop_exceeds_dmax"
-      : elevationDeg < MIN_ELEVATION_DEG
+      : selectionElevationDeg < MIN_ELEVATION_DEG
         ? "below_minimum_elevation"
         : null;
-  if (reason !== null) {
-    return unsupportedMode(
-      base,
-      geometry.elevationAngleRad,
-      reason,
-      geometry.virtualSlantRangeKm,
-    );
-  }
+  if (reason !== null) return unsupportedMode(base, reason);
 
   return {
     ...base,
-    elevationRad: geometry.elevationAngleRad,
-    elevationDeg,
-    virtualSlantRangeKm: geometry.virtualSlantRangeKm,
     status: isScreened(fsMHz, frequencyMHz) ? "screened" : "supported",
     unsupportedReason: null,
   };
@@ -549,8 +591,16 @@ function sectionFiveOneHeightKm({
   hopCount,
   frequencyMHz,
   table1cPoints,
-}: SectionFiveOneInputs): number | null {
-  if (table1cPoints.length === 0) return null;
+}: SectionFiveOneInputs): number {
+  /* c8 ignore next 6 -- `modeSet` throws before it builds any F2 mode if
+     Table 1c named no control point, so the list is never empty here; the
+     guard is present because averaging over nothing would produce NaN and a
+     NaN height reflects every hop. */
+  if (table1cPoints.length === 0) {
+    throw new Error(
+      "the section 5.1 mirror height needs at least one Table 1c control point.",
+    );
+  }
   const sum = table1cPoints.reduce(
     (total, { state }) =>
       total +
@@ -568,27 +618,11 @@ function sectionFiveOneHeightKm({
   return sum / table1cPoints.length;
 }
 
-type ModeBase = Omit<
-  PropagationMode,
-  | "elevationRad"
-  | "elevationDeg"
-  | "virtualSlantRangeKm"
-  | "status"
-  | "unsupportedReason"
->;
+type ModeBase = Omit<PropagationMode, "status" | "unsupportedReason">;
 
 function unsupportedMode(
   base: ModeBase,
-  elevationRad: number,
   unsupportedReason: ModeUnsupportedReason,
-  virtualSlantRangeKm: number | null = null,
 ): PropagationMode {
-  return {
-    ...base,
-    elevationRad,
-    elevationDeg: elevationRad * RAD_TO_DEG,
-    virtualSlantRangeKm,
-    status: "geometrically_unsupported",
-    unsupportedReason,
-  };
+  return { ...base, status: "geometrically_unsupported", unsupportedReason };
 }

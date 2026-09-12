@@ -49,6 +49,16 @@ import type { PropagationMode } from "./modeTypes";
  * residuals, never equality. The derivation is
  * `p533-modes.cases.json.tolerance_derivation` and the first two tests read it
  * out, so widening a budget silently is not possible.
+ *
+ * AND ONE COLUMN HERE IS NOT PARITY AT ALL. `ele`, `DMele` and `ptick` are
+ * equation (13) and equation (19) at the equation (2) height, which is section
+ * 5.2.1's selection height, so they are asserted against
+ * `selectionElevationDeg` and `selectionSlantRangeKm`. The product elevation
+ * and slant range are the same equations at the section 5.1 height, which is
+ * what section 5.1 says equation (13)'s hr is (`modeSet.ts` deviation 2); the
+ * oracle cannot measure those, only disagree with them, so their per-case
+ * difference is asserted against `fixtures.reference_divergence` with a wide
+ * bound and is labelled a divergence everywhere it appears.
  */
 const assetBytes: AssetByteSource = async () => {
   const file = path.join(process.cwd(), manifest.asset.path);
@@ -217,6 +227,12 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
     // publishes one mode and no fs.
     expect(fixtures.parity_is_partial).toContain("no fs column");
     expect(fixtures.parity_is_partial).toContain("DMFprob");
+    // And the loudest of the three, because it is the one a reader is most
+    // likely to mistake for parity.
+    expect(fixtures.parity_is_partial).toContain("elevationDeg");
+    expect(fixtures.reference_divergence.what_this_is).toContain(
+      "NOT A PARITY COLUMN",
+    );
     expect(fixtures.screening_cases.provenance).toContain(
       "NOT FROM THE REFERENCE",
     );
@@ -254,8 +270,8 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
    * The tight gate, and a different claim from the per-case budgets.
    *
    * On the 12 circuits where our Table 1c control point is the one the
-   * reference's five-point search lands on, the leaf and the oracle agree to
-   * the last digit the oracle publishes. Losing that is a regression even
+   * reference's five-point search lands on, the selection geometry and the
+   * oracle agree to the last digit the oracle publishes. Losing that is a regression even
    * though it would still sit inside the derived budget: a systematic 0.1
    * degree error in equation (13) passes all 14 per-case checks untouched and
    * fails here.
@@ -270,7 +286,10 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
       const dominant = solved.dominant as PropagationMode;
       worst.elevationDeg = Math.max(
         worst.elevationDeg,
-        Math.abs(dominant.elevationDeg - expected.dominant_mode_elevation_deg),
+        Math.abs(
+          (dominant.selectionElevationDeg as number) -
+            expected.dominant_mode_elevation_deg,
+        ),
       );
       worst.basicMufMHz = Math.max(
         worst.basicMufMHz,
@@ -281,7 +300,7 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
         worst.slantRangeKm,
         Math.abs(
           ((solved.lastSelected as PropagationMode)
-            .virtualSlantRangeKm as number) - expected.slant_range_km,
+            .selectionSlantRangeKm as number) - expected.slant_range_km,
         ),
       );
     }
@@ -322,12 +341,17 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
 
       // ele and DMele are the same number on every one of these cases, because
       // the reference sets the short path's own elevation from the dominant
-      // mode. Asserted rather than assumed.
+      // mode. Asserted rather than assumed. Both are equation (13) at the
+      // equation (2) height, so the comparator field is the one they meet.
+      expect(dominant.selectionElevationDeg).not.toBeNull();
       expect(expected.path_elevation_deg).toBe(
         expected.dominant_mode_elevation_deg,
       );
       expect(
-        Math.abs(dominant.elevationDeg - expected.dominant_mode_elevation_deg),
+        Math.abs(
+          (dominant.selectionElevationDeg as number) -
+            expected.dominant_mode_elevation_deg,
+        ),
       ).toBeLessThanOrEqual(TOL.elevation_deg[band]);
 
       // DMBMUF, carried from slice A rather than recomputed.
@@ -340,18 +364,18 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
       const lastSelected = solved.lastSelected as PropagationMode;
       expect(
         Math.abs(
-          (lastSelected.virtualSlantRangeKm as number) -
+          (lastSelected.selectionSlantRangeKm as number) -
             expected.slant_range_km,
         ),
       ).toBeLessThanOrEqual(TOL.slant_range_km[band]);
 
-      // DMhr, the section 5.1 height, which section 4 computes only up to
-      // 4000 km.
+      // DMhr, the section 5.1 height. The reference computes it only inside
+      // `ELayerScreeningFrequency()`, which returns early past 4000 km; we need
+      // it for equation (13) on every path, so past 4000 km there is nothing to
+      // compare against and the oracle's 0.0 is not a height.
       if (!testCase.reading.screening_evaluated) {
-        // The oracle's initialised 0.0, which is not a height. Ours is null,
-        // and so is fs, and nothing on this path can be screened.
         expect(expected.dominant_mode_reflection_height_km).toBe(0);
-        expect(dominant.screeningReflectionHeightKm).toBeNull();
+        expect(dominant.mirrorHeightKm).toBeGreaterThan(100);
         for (const mode of solved.modes) {
           expect(mode.screeningFrequencyMHz).toBeNull();
           expect(mode.status).not.toBe("screened");
@@ -370,20 +394,17 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
         ).toBeLessThanOrEqual(TOL.reference_branch_a_height_km);
         // And our published-formula height is the one the fixture records,
         // tens of kilometres above the reference's.
-        expect(dominant.screeningReflectionHeightKm).not.toBeNull();
-        expect(dominant.screeningReflectionHeightKm as number).toBeCloseTo(
+        expect(dominant.mirrorHeightKm).toBeCloseTo(
           testCase.reading.published_branch_a_height_km as number,
           2,
         );
         expect(
-          (dominant.screeningReflectionHeightKm as number) -
-            expected.dominant_mode_reflection_height_km,
+          dominant.mirrorHeightKm - expected.dominant_mode_reflection_height_km,
         ).toBeGreaterThan(40);
       } else {
-        expect(dominant.screeningReflectionHeightKm).not.toBeNull();
         expect(
           Math.abs(
-            (dominant.screeningReflectionHeightKm as number) -
+            dominant.mirrorHeightKm -
               expected.dominant_mode_reflection_height_km,
           ),
         ).toBeLessThanOrEqual(TOL.reflection_height_km);
@@ -397,26 +418,112 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
    * `modeSet.ts` is safe.
    */
   it("finds no screened and no unsupported mode anywhere in the corpus", () => {
-    let minSupportedElevationDeg = Number.POSITIVE_INFINITY;
+    let minSelectionElevationDeg = Number.POSITIVE_INFINITY;
+    let minProductElevationDeg = Number.POSITIVE_INFINITY;
+    let nullSlantRangeModes = 0;
     for (const testCase of fixtures.cases) {
       const solved = solve(provider, testCase);
       for (const mode of solved.modes) {
         expect(mode.status).toBe("supported");
         expect(mode.unsupportedReason).toBeNull();
-        minSupportedElevationDeg = Math.min(
-          minSupportedElevationDeg,
+        minSelectionElevationDeg = Math.min(
+          minSelectionElevationDeg,
+          mode.selectionElevationDeg as number,
+        );
+        minProductElevationDeg = Math.min(
+          minProductElevationDeg,
           mode.elevationDeg,
         );
+        if (mode.virtualSlantRangeKm === null) nullSlantRangeModes += 1;
       }
     }
-    // Deviation 3 of `modeSet.ts`: we apply the reference's own 3 degree floor
-    // to the height the mode actually uses, which the reference does not. The
-    // shallowest mode in the whole corpus is G11's 2F2 at 3.711 degrees, so the
-    // floor never fires and the deviation is not measurable here. If a future
+    // Deviation 3 of `modeSet.ts`: the 3 degree floor is applied to the
+    // selection elevation, because section 3.5.1.1 puts it on the equation (2)
+    // geometry. The shallowest selection elevation in the whole corpus is
+    // G11's 2F2 at 3.711 degrees, so the floor never fires here. If a future
     // provider revision moved a mode under 3 degrees this test would say so
     // rather than let a labelling change pass unnoticed.
-    expect(minSupportedElevationDeg).toBeGreaterThan(MIN_ELEVATION_DEG);
-    expect(minSupportedElevationDeg).toBeLessThan(3.8);
+    expect(minSelectionElevationDeg).toBeGreaterThan(MIN_ELEVATION_DEG);
+    expect(minSelectionElevationDeg).toBeLessThan(3.8);
+    // And the reason the floor is not applied to the product elevation: on this
+    // corpus the section 5.1 height puts one selected mode below the horizon,
+    // so moving the floor there would drop three of the reference's own
+    // dominant modes rather than merely re-angle them. The fixture records the
+    // case.
+    expect(minProductElevationDeg).toBeLessThan(0);
+    expect(nullSlantRangeModes).toBe(1);
+    expect(fixtures.reference_divergence.below_horizon_case).toContain("G11");
+  });
+
+  /**
+   * The declared divergence, which is the opposite claim from every test above.
+   *
+   * `elevationDeg` and `virtualSlantRangeKm` are equation (13) and equation
+   * (19) at the section 5.1 height, and the oracle's `ele`, `DMele` and `ptick`
+   * are the same equations at the equation (2) height. The two are different
+   * readings of the recommendation, not a measurement and an error, so what is
+   * asserted here is that the difference is the one the fixture recorded and
+   * has not drifted.
+   */
+  it("holds the declared divergence between the two readings", () => {
+    const declared = new Map(
+      fixtures.reference_divergence.cases.map((c) => [c.case_id, c]),
+    );
+    expect(declared.size).toBe(fixtures.cases.length);
+    const bounds = fixtures.reference_divergence.bounds;
+    let worstElevationDeg = 0;
+    let worstSlantRangeKm = 0;
+
+    for (const testCase of fixtures.cases) {
+      const record = declared.get(testCase.case_id);
+      expect(record).toBeDefined();
+      const row = record as NonNullable<typeof record>;
+      const solved = solve(provider, testCase);
+      const dominant = solved.dominant as PropagationMode;
+      const lastSelected = solved.lastSelected as PropagationMode;
+      expect(dominant.label).toBe(row.dominant_mode);
+      expect(lastSelected.label).toBe(row.last_selected_mode);
+
+      // The recorded per-case difference, to the precision the fixture keeps.
+      const elevationDeltaDeg =
+        dominant.elevationDeg - testCase.expected.dominant_mode_elevation_deg;
+      expect(elevationDeltaDeg).toBeCloseTo(row.elevation_delta_deg, 3);
+      expect(dominant.mirrorHeightKm).toBeCloseTo(row.section_5_1_height_km, 2);
+      expect(dominant.selectionMirrorHeightKm).toBeCloseTo(
+        row.selection_height_km,
+        2,
+      );
+      const slantRangeDeltaKm =
+        (lastSelected.virtualSlantRangeKm as number) -
+        testCase.expected.slant_range_km;
+      expect(slantRangeDeltaKm).toBeCloseTo(row.slant_range_delta_km, 1);
+
+      worstElevationDeg = Math.max(
+        worstElevationDeg,
+        Math.abs(elevationDeltaDeg),
+      );
+      worstSlantRangeKm = Math.max(
+        worstSlantRangeKm,
+        Math.abs(slantRangeDeltaKm),
+      );
+    }
+
+    // The wide bound, which exists only so that a change in either height is
+    // reported. It is not a tolerance and the fixture says so.
+    expect(worstElevationDeg).toBeLessThanOrEqual(bounds.elevation_deg);
+    expect(worstSlantRangeKm).toBeLessThanOrEqual(bounds.slant_range_km);
+    expect(worstElevationDeg).toBeCloseTo(
+      fixtures.reference_divergence.observed_max.elevation_deg,
+      3,
+    );
+    expect(worstSlantRangeKm).toBeCloseTo(
+      fixtures.reference_divergence.observed_max.slant_range_km,
+      1,
+    );
+    // Not a small difference dressed up as a divergence: the product elevation
+    // is degrees away from the oracle's on most of the corpus.
+    expect(worstElevationDeg).toBeGreaterThan(1);
+    expect(bounds.derivation).toContain("drift detectors");
   });
 });
 

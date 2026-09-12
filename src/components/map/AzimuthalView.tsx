@@ -2207,7 +2207,10 @@ export function AzimuthalView({
         {
           highViz: highVizSpots,
           dashed: labelOptions.terminatorDashed,
-          cacheScope: `${center.lat}|${center.lon}|${zoom}`,
+          // Zoom is applied by the ctx.scale transform above, not by
+          // project(), so it stays out of the scope; the layer's sample
+          // count (which does follow zoom) is already part of its key.
+          cacheScope: `${center.lat}|${center.lon}`,
         },
         terminatorGeometryRef,
       );

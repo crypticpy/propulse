@@ -782,7 +782,7 @@ export function DXNewsTicker({
       <div
         className={`relative flex items-center overflow-hidden select-none ${className}`}
         style={{
-          height: "var(--dx-ticker-height, 30px)",
+          height: "max(2rem, var(--dx-ticker-height, 2rem))",
           background: "rgba(10, 10, 26, 0.85)",
           borderTop: "1px solid rgba(255, 255, 255, 0.1)",
           maskImage:
@@ -816,7 +816,7 @@ export function DXNewsTicker({
         <span
           className="font-mono font-bold uppercase tracking-wider"
           style={{
-            fontSize: "var(--dx-ticker-badge-size, 10px)",
+            fontSize: "max(0.75rem, var(--dx-ticker-badge-size, 0.75rem))",
             letterSpacing: "0.5px",
             background: "rgba(255, 107, 53, 0.9)",
             color: "#000",
@@ -842,7 +842,7 @@ export function DXNewsTicker({
           <span aria-hidden="true">⚙</span> NEWS
         </button>
         <button
-          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
+          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))" }}
           type="button"
           onClick={() => setSettingsOpen(true)}
           className="ml-0.5 rounded p-0.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
@@ -866,7 +866,7 @@ export function DXNewsTicker({
           data-testid="dx-ticker-track"
           className="inline-flex items-center font-mono text-xs text-su-muted"
           style={{
-            fontSize: "var(--dx-ticker-font-size, 11px)",
+            fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))",
             animationName: KEYFRAMES_NAME,
             animationDuration: `${animationDuration}s`,
             animationTimingFunction: "linear",
@@ -901,7 +901,7 @@ export function DXNewsTicker({
         {breakInItem && (
           <div
             className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-xs"
-            style={{ fontSize: "var(--dx-ticker-font-size, 11px)" }}
+            style={{ fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))" }}
             role="status"
             aria-live="assertive"
             data-testid="ticker-break-in"

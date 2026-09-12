@@ -121,6 +121,13 @@ function assertNoSameHueInkOnTint(
 
 const BATCH4_SITES: Batch4Site[] = [
   {
+    file: "src/components/atmos/emcomm/ActivationBanner.tsx",
+    what: "the partial level pill over one accent wash",
+    snippet: `banner: "bg-plasma-orange/20 border-b border-plasma-orange/30",
+      pill: "text-su-text"`,
+    token: "plasma-orange",
+  },
+  {
     file: "src/components/atmos/AtmosHeader.tsx",
     what: "the monitoring activation-level EMRG badge",
     snippet: `monitoring: "bg-nebula-blue/20 text-su-text"`,
@@ -135,13 +142,15 @@ const BATCH4_SITES: Batch4Site[] = [
   {
     file: "src/components/atmos/emcomm/ActivationBanner.tsx",
     what: "the standby level pill",
-    snippet: `pill: "bg-caution-amber/20 text-su-text"`,
+    snippet: `banner: "bg-caution-amber/20 border-b border-caution-amber/30",
+      pill: "text-su-text"`,
     token: "caution-amber",
   },
   {
     file: "src/components/atmos/emcomm/ActivationBanner.tsx",
     what: "the full activation level pill",
-    snippet: `pill: "bg-alert-red/20 text-su-text"`,
+    snippet: `banner: "bg-alert-red/20 border-b border-alert-red/30",
+      pill: "text-su-text"`,
     token: "alert-red",
   },
   {
@@ -159,7 +168,7 @@ const BATCH4_SITES: Batch4Site[] = [
   {
     file: "src/components/atmos/emcomm/EmCommQuickActions.tsx",
     what: "the 14.300 emergency tune button",
-    snippet: `bg-alert-red/20 text-su-text hover:bg-alert-red/20 border border-alert-red/30`,
+    snippet: `bg-alert-red/15 text-su-text hover:bg-alert-red/20 border border-alert-red/30`,
     token: "alert-red",
   },
   {
@@ -183,13 +192,13 @@ const BATCH4_SITES: Batch4Site[] = [
   {
     file: "src/components/atmos/emcomm/ICS213Form.tsx",
     what: "the Save & Export TXT button",
-    snippet: `bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"`,
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"`,
     token: "plasma-orange",
   },
   {
     file: "src/components/atmos/emcomm/ICS213Form.tsx",
     what: "the Save & Export HTML button",
-    snippet: `bg-nebula-blue/20 text-su-text hover:bg-nebula-blue/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"`,
+    snippet: `bg-nebula-blue/15 text-su-text hover:bg-nebula-blue/20 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"`,
     token: "nebula-blue",
   },
 ];
@@ -238,4 +247,25 @@ describe("#844 batch 4 status-tint sites ship --su-text ink", () => {
       }
     },
   );
+});
+
+it("keeps the emergency action over an opaque theme panel", () => {
+  const source = readFileSync(resolve(REPO_ROOT, "src/components/atmos/emcomm/EmCommQuickActions.tsx"), "utf8");
+  expect(source).toContain(`<div className="rounded-full bg-su-panel">`);
+});
+
+it("keeps partial activation ink readable across custom accent RGB values", () => {
+  for (const theme of THEMES_IDS) {
+    const palette = stationPalettes[theme];
+    for (let red = 0; red <= 255; red += 17) {
+      for (let green = 0; green <= 255; green += 17) {
+        for (let blue = 0; blue <= 255; blue += 17) {
+          const accent = "#" + [red, green, blue].map(v => v.toString(16).padStart(2, "0")).join("");
+          for (const surface of [palette.canvas, palette.panel]) {
+            expect(stationContrast(palette.text, compositeOnSurface(accent, 0.2, surface))).toBeGreaterThanOrEqual(AA);
+          }
+        }
+      }
+    }
+  }
 });

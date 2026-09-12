@@ -18,15 +18,15 @@ const BANNER_STYLES: Record<ActivationLevel, { banner: string; pill: string }> =
     },
     standby: {
       banner: "bg-caution-amber/20 border-b border-caution-amber/30",
-      pill: "bg-caution-amber/20 text-su-text",
+      pill: "text-su-text",
     },
     partial: {
       banner: "bg-plasma-orange/20 border-b border-plasma-orange/30",
-      pill: "bg-plasma-orange/20 text-su-text",
+      pill: "text-su-text",
     },
     full: {
       banner: "bg-alert-red/20 border-b border-alert-red/30",
-      pill: "bg-alert-red/20 text-su-text",
+      pill: "text-su-text",
     },
   };
 

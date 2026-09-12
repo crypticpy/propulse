@@ -248,7 +248,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       )}
 
       {/* Action buttons */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-su-line/40">
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-su-line/40">
         <button
           type="button"
           onClick={onClose}
@@ -268,7 +268,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
           type="button"
           onClick={handleSaveAndExportText}
           disabled={!isValid()}
-          className="rounded px-4 py-2 text-sm font-semibold bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded px-4 py-2 text-sm font-semibold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save & Export TXT
         </button>
@@ -276,7 +276,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
           type="button"
           onClick={handleSaveAndExportHtml}
           disabled={!isValid()}
-          className="rounded px-4 py-2 text-sm font-semibold bg-nebula-blue/20 text-su-text hover:bg-nebula-blue/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded px-4 py-2 text-sm font-semibold bg-nebula-blue/15 text-su-text hover:bg-nebula-blue/20 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save & Export HTML
         </button>

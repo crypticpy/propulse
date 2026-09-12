@@ -432,7 +432,7 @@ export function DXSpotList({
               {SOURCE_BADGE_STYLES[spotSource].label} · {feedState.state}
             </span>
             {alertMatchCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-alert-red/20 text-su-text border border-alert-red/30">
+              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-alert-red/20 text-alert-red border border-alert-red/30">
                 {alertMatchCount} alert{alertMatchCount !== 1 ? "s" : ""}
               </span>
             )}
@@ -703,7 +703,7 @@ export function DXSpotList({
                 }`}
               >
                 {isNewMult && (
-                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-su-text text-xs font-bold leading-none uppercase tracking-wider">
+                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-xs font-bold leading-none uppercase tracking-wider">
                     NEW MULT
                   </span>
                 )}

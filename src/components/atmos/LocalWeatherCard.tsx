@@ -65,7 +65,7 @@ export function LocalWeatherCard() {
         {weather.precipitation > 0 && (
           <>
             <div className="text-su-muted">Precip</div>
-            <div className="text-nebula-blue font-mono text-right">
+            <div className="text-su-muted font-mono text-right">
               {weather.precipitation.toFixed(1)} mm
             </div>
           </>

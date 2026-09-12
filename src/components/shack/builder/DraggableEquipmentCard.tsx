@@ -70,6 +70,9 @@ export function DraggableEquipmentCard({
       "application/x-equipment",
       JSON.stringify({ type, id }),
     );
+    if (type === "inline") {
+      e.dataTransfer.setData("application/x-equipment-inline", "1");
+    }
     e.dataTransfer.effectAllowed = "move";
     setIsDragging(true);
     onDragStart?.();

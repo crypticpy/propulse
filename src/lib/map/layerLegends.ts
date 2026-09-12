@@ -27,7 +27,7 @@ import { CATEGORY_COLORS as SATELLITE_CATEGORY_COLORS } from "@/components/map/S
 import {
   BEACON_COLOR_ACTIVE,
   BEACON_COLOR_INACTIVE,
-} from "@/components/map/layers/BeaconNetworkOverlay3D";
+} from "@/lib/colors/palettes/beacon";
 import { WSPR_BAND_COLORS } from "@/lib/map/wsprBandColors";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import {
@@ -40,13 +40,13 @@ import {
   COLOR_6M,
   COLOR_DEFAULT,
 } from "@/components/map/layers/MeteorShowerOverlay3D";
-import { FIRE_CORE_COLOR } from "@/components/map/FireOverlay3D";
+import { FIRE_CORE_COLOR } from "@/lib/colors/palettes/fire";
 import {
   LIGHTNING_COLOR_FLAT,
   LIGHTNING_COLOR_STRONG,
   LIGHTNING_COLOR_WEAK,
   LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
+} from "@/lib/colors/palettes/lightning";
 import { LUNAR_SUBPOINT_COLOR } from "@/lib/map/lunarSubpointMarker";
 import { GEOMAG_FIELD_COLORS } from "@/components/map/layers/GeomagneticFieldLines3D";
 
@@ -400,8 +400,8 @@ function buildFiresSpec(): LayerLegendSpec {
 }
 
 function buildLightningSpec(viewMode: ViewMode): LayerLegendSpec {
-  // The globe interpolates the core color continuously by peak current; the
-  // 2D renderers draw amber and switch to white only above the threshold.
+  // Preserve the legacy globe rows until the glyph-tone correction in #1286.
+  // Canvas draws amber and switches to white only above the threshold.
   const entries =
     viewMode === "globe"
       ? [

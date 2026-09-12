@@ -17,9 +17,8 @@ import type { LightningStrike } from "@/lib/api/lightning";
 import type { Projection } from "@/lib/map/projection";
 import {
   LIGHTNING_COLOR_FLAT,
-  LIGHTNING_COLOR_STRONG,
-  LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
+  getCanvasLightningCoreColor,
+} from "@/lib/colors/palettes/lightning";
 
 const FADE_WINDOW_MS = 10 * 60 * 1000; // strike alpha reaches the floor after this age; equal on both maps
 const ALPHA_FLOOR = 0.1; // equal on both maps
@@ -74,10 +73,7 @@ export function drawLightningLayer(
       0,
       Math.PI * 2,
     );
-    ctx.fillStyle =
-      strike.currentKA > LIGHTNING_STRONG_KA
-        ? LIGHTNING_COLOR_STRONG
-        : LIGHTNING_COLOR_FLAT;
+    ctx.fillStyle = getCanvasLightningCoreColor(strike.currentKA);
     ctx.fill();
   }
   ctx.globalAlpha = 1;

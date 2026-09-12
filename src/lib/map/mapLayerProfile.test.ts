@@ -36,4 +36,27 @@ describe("MapLayerProfile", () => {
       FLAT_LAYER_PROFILE.fires.glowAlpha,
     );
   });
+
+  it("FLAT_LAYER_PROFILE.quakes pins the measured flat-map values", () => {
+    expect(FLAT_LAYER_PROFILE.quakes).toEqual({
+      maxRadiusPx: 20,
+      pxPerMagnitude: 3,
+    });
+  });
+
+  it("AZIMUTHAL_LAYER_PROFILE.quakes pins the measured azimuthal-disc values", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.quakes).toEqual({
+      maxRadiusPx: 15,
+      pxPerMagnitude: 2.5,
+    });
+  });
+
+  it("differs from the flat profile in both quakes.maxRadiusPx and quakes.pxPerMagnitude", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.quakes.maxRadiusPx).not.toBe(
+      FLAT_LAYER_PROFILE.quakes.maxRadiusPx,
+    );
+    expect(AZIMUTHAL_LAYER_PROFILE.quakes.pxPerMagnitude).not.toBe(
+      FLAT_LAYER_PROFILE.quakes.pxPerMagnitude,
+    );
+  });
 });

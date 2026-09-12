@@ -14,6 +14,12 @@ export interface MapLayerProfile {
     frpPerRadiusPx: number;
     glowAlpha: number;
   };
+  quakes: {
+    /** Cap for a quake marker's core radius, on-screen px. */
+    maxRadiusPx: number;
+    /** On-screen px of radius growth per unit of magnitude above the baseline. */
+    pxPerMagnitude: number;
+  };
 }
 
 export const FLAT_LAYER_PROFILE: MapLayerProfile = {
@@ -24,6 +30,10 @@ export const FLAT_LAYER_PROFILE: MapLayerProfile = {
     frpPerRadiusPx: 80,
     glowAlpha: 0.2,
   },
+  quakes: {
+    maxRadiusPx: 20,
+    pxPerMagnitude: 3,
+  },
 };
 
 export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
@@ -33,5 +43,9 @@ export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
     maxRadiusPx: 5,
     frpPerRadiusPx: 100,
     glowAlpha: 0.25,
+  },
+  quakes: {
+    maxRadiusPx: 15,
+    pxPerMagnitude: 2.5,
   },
 };

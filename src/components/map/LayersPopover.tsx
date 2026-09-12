@@ -1496,7 +1496,12 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
         )}
       <AccessibleDialog
         open={satelliteListOpen}
-        onClose={() => setSatelliteListOpen(false)}
+        onClose={() => {
+          setSatelliteListOpen(false);
+          // See full list unmounts with the popover, so AccessibleDialog's
+          // opener is already disconnected. Return to the Layers trigger.
+          triggerRef.current?.focus();
+        }}
         title="Satellites"
         size="lg"
       >

@@ -717,6 +717,8 @@ export function SatellitePanel({
     { key: "fm", label: "FM" },
     { key: "linear", label: "Linear" },
     { key: "digital", label: "Digital" },
+    { key: "weather", label: "Weather" },
+    { key: "other", label: "Other" },
   ];
 
   // Collapsed summary

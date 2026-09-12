@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "quantity": "Rop",
+  "description": "Ratio of the median operational MUF to the median basic MUF for an F2 mode.",
+  "units": "dimensionless ratio",
+  "provenance": {
+    "recommendation": "ITU-R P.1240",
+    "edition": "P.1240-1",
+    "table": "Table 1",
+    "cited_by": "ITU-R P.533-14 section 3.7: \"for F2 modes, the operational MUF = basic MUF . Rop where Rop is given in Table 1 to Recommendation ITU-R P.1240; for E modes the operational MUF is equal to the basic MUF\".",
+    "transcribed_from": "ITU-R HF reference implementation P533 v14.3, MUFOperational.c, whose Rop array is labelled \"Table 1 ITU-R P.1240-1\". Reference build pinned at commit cd172be56dc04b154e5d2fa91cbaa6ecf5284305.",
+    "transcription_caveat": "The P.1240 recommendation text itself was not available when this file was written, so the numbers are second-hand from the reference implementation rather than read off the published table. The six values of the 30 dBW and below band are independently confirmed by 19 of the 30 ITU golden circuit cases (every case shorter than 9000 km), which reproduce OPMUF/BMUF to four decimals. The six values of the band above 30 dBW are NOT confirmed by any evidence we hold: the reference's own EIRP index is hard-wired to 0 (`if (path->EIRP <= 30.0) power = 0; else power = 0;`), so the reference never reads them, and no golden case has an EIRP above 30 dBW. Treat that band as unverified until the published table is read."
+  },
+  "seasons": {
+    "definition": "P.533-14 / the reference's WhatSeason(): at latitudes at or north of the equator, November to February is winter, March, April, September and October are equinox, and May to August is summer; south of the equator winter and summer are exchanged. The latitude is the path mid-point's.",
+    "order": ["winter", "equinox", "summer"]
+  },
+  "day_night": {
+    "definition": "P.533-14 states no test. The reference compares the path's UTC hour at the mid-path control point against that point's sunrise and sunset expressed as UTC hours and wrapped into 0..24; see operationalMuf.ts for what that wrapping does near a sunset that crosses midnight UTC."
+  },
+  "eirp_bands": {
+    "le_30_dbw": "EIRP no greater than 30 dBW",
+    "gt_30_dbw": "EIRP greater than 30 dBW"
+  },
+  "rop": {
+    "le_30_dbw": {
+      "winter": { "day": 1.2, "night": 1.3 },
+      "equinox": { "day": 1.15, "night": 1.25 },
+      "summer": { "day": 1.1, "night": 1.2 }
+    },
+    "gt_30_dbw": {
+      "winter": { "day": 1.15, "night": 1.25 },
+      "equinox": { "day": 1.2, "night": 1.3 },
+      "summer": { "day": 1.25, "night": 1.35 }
+    }
+  }
+}

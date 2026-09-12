@@ -72,6 +72,7 @@ import {
   minimumHopCount,
   type UnsupportedHopReason,
 } from "@/lib/propagation/geometry/hop";
+import type { F2ReflectionHeightBranch } from "@/lib/propagation/geometry/reflectionHeight";
 import {
   dRegionAbsorption,
   type DRegionCrossing,
@@ -105,9 +106,30 @@ export type MirrorHeightStandinReason =
 export type MirrorHeightProvenance =
   | {
       readonly kind: "modelled";
+      /**
+       * The ITU-R P.533-14 section 5.1 F2 mirror height at the control point
+       * for this frequency and circuit distance, km. See
+       * `propagation/geometry/reflectionHeight.ts`.
+       */
       readonly heightKm: number;
-      /** hr = min(1490 / M(3000)F2 - 176, 500); the M(3000)F2 it was solved from. */
+      /** M(3000)F2 at the control point, one of the inputs it was solved from. */
       readonly m3000F2: number;
+      /** foF2 at the control point, MHz. */
+      readonly foF2MHz: number;
+      /** foE at the control point, MHz. */
+      readonly foEMHz: number;
+      /** The R12 the ionospheric state was actually evaluated at. */
+      readonly r12: number;
+      /** The operating frequency the height was solved for, MHz. */
+      readonly frequencyMHz: number;
+      /** The circuit ground distance the height was solved for, km. */
+      readonly groundDistanceKm: number;
+      /** dmax at the control point, restricted to 4000 km. Equations (5), (6). */
+      readonly dmaxKm: number;
+      /** The hop count the height was solved for. */
+      readonly hopCount: number;
+      /** Which of section 5.1's cases produced the height. */
+      readonly branch: F2ReflectionHeightBranch;
       readonly providerId: string;
       readonly providerVersion: string;
       /** `sha256:` of the coefficient asset the state was built from. */
@@ -189,7 +211,13 @@ function mirrorHeightAssumption(provenance: MirrorHeightProvenance): string {
   if (provenance.kind === "modelled") {
     return (
       `Mirror reflection height is the modelled ${provenance.heightKm.toFixed(1)} km, ` +
-      `solved from M(3000)F2 = ${provenance.m3000F2.toFixed(3)} read from ` +
+      `the ITU-R P.533-14 section 5.1 F2 mirror height (case ${provenance.branch}) ` +
+      `at the control point for ${provenance.frequencyMHz.toFixed(1)} MHz over ` +
+      `${provenance.groundDistanceKm.toFixed(0)} km as ${String(provenance.hopCount)} ` +
+      `hops, solved from foF2 = ${provenance.foF2MHz.toFixed(2)} MHz, ` +
+      `foE = ${provenance.foEMHz.toFixed(2)} MHz, ` +
+      `M(3000)F2 = ${provenance.m3000F2.toFixed(3)}, R12 = ${provenance.r12.toFixed(1)} ` +
+      `and dmax = ${provenance.dmaxKm.toFixed(0)} km read from ` +
       `${provenance.providerId} ${provenance.providerVersion} at ${provenance.validAt}.`
     );
   }

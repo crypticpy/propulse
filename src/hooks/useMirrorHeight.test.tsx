@@ -12,11 +12,21 @@ vi.mock("@/lib/propagation/ionosphere/mirrorHeight", () => ({
 }));
 
 const AT = new Date("2026-09-05T18:00:00Z");
+const FREQUENCY_MHZ = 18.4;
+const DISTANCE_KM = 7880;
 
 const MODELLED = {
   kind: "modelled" as const,
   heightKm: 328.4,
   m3000F2: 3.04,
+  foF2MHz: 6.4,
+  foEMHz: 2.2,
+  r12: 61.5,
+  frequencyMHz: FREQUENCY_MHZ,
+  groundDistanceKm: DISTANCE_KM,
+  dmaxKm: 4000,
+  hopCount: 2,
+  branch: "5.1a" as const,
   providerId: "ccir-numerical-map",
   providerVersion: "1.0.0",
   artifactHash: "sha256:" + "a".repeat(64),
@@ -44,9 +54,12 @@ describe("useMirrorHeight", () => {
       return MODELLED;
     });
 
-    const { result } = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      {
+        wrapper,
+      },
+    );
 
     // First frame: nothing has resolved, and the hook says so rather than
     // handing the engine a number with no source.
@@ -65,15 +78,34 @@ describe("useMirrorHeight", () => {
     resolveMocks.resolve.mockClear();
     resolveMocks.resolve.mockResolvedValue(MODELLED);
 
-    const { result } = renderHook(() => useMirrorHeight(null, null, AT), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useMirrorHeight(null, null, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      { wrapper },
+    );
 
     expect(result.current.kind).toBe("declared_standin");
     await waitFor(() => expect(resolveMocks.resolve).not.toHaveBeenCalled());
   });
 
-  it("keys on the rounded position and the hour, so a minute of clock drift is not a refetch", async () => {
+  it("stays on the declared stand-in without a frequency or a distance, and never queries", async () => {
+    resolveMocks.resolve.mockClear();
+    resolveMocks.resolve.mockResolvedValue(MODELLED);
+
+    const noDistance = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, null),
+      { wrapper },
+    );
+    const noFrequency = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, null, DISTANCE_KM),
+      { wrapper },
+    );
+
+    expect(noDistance.result.current.kind).toBe("declared_standin");
+    expect(noFrequency.result.current.kind).toBe("declared_standin");
+    await waitFor(() => expect(resolveMocks.resolve).not.toHaveBeenCalled());
+  });
+
+  it("keys on the rounded position, frequency, distance and minute: seconds of drift within the minute are not a refetch, a new minute is", async () => {
     resolveMocks.resolve.mockClear();
     resolveMocks.resolve.mockResolvedValue(MODELLED);
     const client = new QueryClient({
@@ -83,18 +115,73 @@ describe("useMirrorHeight", () => {
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
 
-    const first = renderHook(() => useMirrorHeight(30.271, -97.744, AT), {
-      wrapper: sharedWrapper,
-    });
+    const first = renderHook(
+      () =>
+        useMirrorHeight(
+          30.271,
+          -97.744,
+          new Date("2026-09-05T18:37:10.000Z"),
+          18.401,
+          7880.4,
+        ),
+      { wrapper: sharedWrapper },
+    );
     await waitFor(() => expect(first.result.current.kind).toBe("modelled"));
 
     renderHook(
       () =>
-        useMirrorHeight(30.269, -97.742, new Date("2026-09-05T18:59:00.000Z")),
+        useMirrorHeight(
+          30.269,
+          -97.742,
+          new Date("2026-09-05T18:37:29.000Z"),
+          18.404,
+          7880.2,
+        ),
       { wrapper: sharedWrapper },
+    );
+    await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
+
+    renderHook(
+      () =>
+        useMirrorHeight(
+          30.271,
+          -97.744,
+          new Date("2026-09-05T18:38:00.000Z"),
+          18.401,
+          7880.4,
+        ),
+      { wrapper: sharedWrapper },
+    );
+    await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(2));
+  });
+
+  it("evaluates the leaf at the displayed instant rounded to the minute, not the truncated hour", async () => {
+    resolveMocks.resolve.mockClear();
+    resolveMocks.resolve.mockResolvedValue(MODELLED);
+
+    renderHook(
+      () =>
+        useMirrorHeight(
+          30.27,
+          -97.74,
+          new Date("2026-09-05T18:37:41.000Z"),
+          18.404,
+          7880.4,
+        ),
+      { wrapper },
     );
 
     await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
+    const query = resolveMocks.resolve.mock.calls[0][0] as {
+      at: Date;
+      frequencyMHz: number;
+      groundDistanceKm: number;
+    };
+    expect(query.at.toISOString()).toBe("2026-09-05T18:38:00.000Z");
+    // The leaf gets the same rounded inputs the key was built from, so the
+    // cached answer is a pure function of its key.
+    expect(query.frequencyMHz).toBe(18.4);
+    expect(query.groundDistanceKm).toBe(7880);
   });
 
   it("asks again on the next mount when the last answer was a stand-in, so a transient load failure is not cached for the hour", async () => {
@@ -110,9 +197,12 @@ describe("useMirrorHeight", () => {
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
 
-    const first = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
-      wrapper: sharedWrapper,
-    });
+    const first = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      {
+        wrapper: sharedWrapper,
+      },
+    );
     await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
     await waitFor(() => {
       const value = first.result.current;
@@ -123,9 +213,12 @@ describe("useMirrorHeight", () => {
     });
     first.unmount();
 
-    const second = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
-      wrapper: sharedWrapper,
-    });
+    const second = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      {
+        wrapper: sharedWrapper,
+      },
+    );
     await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(second.result.current.kind).toBe("modelled"));
   });
@@ -140,15 +233,21 @@ describe("useMirrorHeight", () => {
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
 
-    const first = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
-      wrapper: sharedWrapper,
-    });
+    const first = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      {
+        wrapper: sharedWrapper,
+      },
+    );
     await waitFor(() => expect(first.result.current.kind).toBe("modelled"));
     first.unmount();
 
-    const second = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
-      wrapper: sharedWrapper,
-    });
+    const second = renderHook(
+      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      {
+        wrapper: sharedWrapper,
+      },
+    );
     await waitFor(() => expect(second.result.current.kind).toBe("modelled"));
     expect(resolveMocks.resolve).toHaveBeenCalledTimes(1);
   });

@@ -12,9 +12,11 @@
  *    route does not pay for the provider chain until a report opens (#1108
  *    decision O10). A rejected load is not cached: the next call retries, the
  *    same rule `loadNumericalMapAsset` already applies to the asset itself.
- *  - converts the state's M(3000)F2 to a mirror height with
- *    `mirrorHeightFromM3000F2`, which is the ITU-R P.1239 conversion, not a
- *    curve invented here.
+ *  - hands the state's foF2, foE, M(3000)F2 and the R12 it was actually
+ *    evaluated at, together with the circuit's operating frequency and ground
+ *    distance, to `f2ReflectionHeight`, the ITU-R P.533-14 section 5.1 F2
+ *    mirror height (mathematical contract M05). The height depends on all six,
+ *    which is why this leaf takes the circuit and not just the point.
  *  - returns provenance either way. It never throws at the caller and never
  *    returns a bare number: a height with no source is the thing this leaf
  *    exists to stop.
@@ -24,7 +26,7 @@
  * belongs to whoever is drawing the circuit.
  */
 
-import { mirrorHeightFromM3000F2 } from "@/lib/propagation/geometry/hop";
+import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
 import {
   declaredMirrorHeightStandin,
   type MirrorHeightProvenance,
@@ -45,6 +47,10 @@ export interface MirrorHeightQuery {
   readonly longitude: number;
   /** The instant the report is showing, not necessarily the wall clock. */
   readonly at: Date;
+  /** The operating frequency the circuit is traced at, MHz. */
+  readonly frequencyMHz: number;
+  /** Ground distance of the whole circuit along its resolved route, km. */
+  readonly groundDistanceKm: number;
 }
 
 /**
@@ -119,6 +125,8 @@ export async function resolveMirrorHeight({
   latitude,
   longitude,
   at,
+  frequencyMHz,
+  groundDistanceKm,
 }: MirrorHeightQuery): Promise<ResolvedMirrorHeight> {
   let loaded: LoadedProvider;
   try {
@@ -138,11 +146,29 @@ export async function resolveMirrorHeight({
       // grid, which is a parity oracle, not a live evaluation.
       mode: "enhanced",
     });
-    const heightKm = mirrorHeightFromM3000F2(state.m3000F2);
+    // The R12 is the one the state was evaluated at. When the circuit
+    // supplies none, that is the provider's bundled climatology, and the
+    // substitution is already named in `state.assumptions`.
+    const height = f2ReflectionHeight({
+      m3000F2: state.m3000F2,
+      foF2MHz: state.foF2MHz,
+      foEMHz: state.foEMHz,
+      r12: state.solarIndex.r12,
+      frequencyMHz,
+      groundDistanceKm,
+    });
     return {
       kind: "modelled",
-      heightKm,
+      heightKm: height.heightKm,
       m3000F2: state.m3000F2,
+      foF2MHz: state.foF2MHz,
+      foEMHz: state.foEMHz,
+      r12: state.solarIndex.r12,
+      frequencyMHz,
+      groundDistanceKm,
+      dmaxKm: height.dmaxKm,
+      hopCount: height.hopCount,
+      branch: height.branch,
       providerId: state.providerId,
       providerVersion: state.providerVersion,
       artifactHash: state.artifactHash,

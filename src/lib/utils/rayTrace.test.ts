@@ -437,6 +437,14 @@ describe("PROP-03 (#1108): the mirror height names its own source", () => {
     kind: "modelled" as const,
     heightKm: 412.5,
     m3000F2: 2.53,
+    foF2MHz: 9.8,
+    foEMHz: 3.1,
+    r12: 61.5,
+    frequencyMHz: 14,
+    groundDistanceKm: 5570,
+    dmaxKm: 4000,
+    hopCount: 2,
+    branch: "5.1a" as const,
     providerId: "ccir-numerical-map",
     providerVersion: "1.0.0",
     artifactHash: `sha256:${"a".repeat(64)}`,
@@ -526,6 +534,11 @@ describe("PROP-03 (#1108): the mirror height names its own source", () => {
     expect(modelled.hops.length).toBeLessThanOrEqual(missing.hops.length);
     expect(modelled.virtualSlantRangeKm).not.toBe(missing.virtualSlantRangeKm);
     expect(modelled.assumptions[0]).toContain("412.5");
+    // The prose names what the height is and what it was solved from.
+    expect(modelled.assumptions[0]).toContain("P.533-14 section 5.1");
+    expect(modelled.assumptions[0]).toContain("14.0 MHz");
+    expect(modelled.assumptions[0]).toContain("5570 km");
+    expect(modelled.assumptions[0]).toContain("2 hops");
   });
 });
 

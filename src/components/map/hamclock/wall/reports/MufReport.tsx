@@ -8,6 +8,7 @@ import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useMirrorHeight } from "@/hooks/useMirrorHeight";
 import { getMidpoint } from "@/lib/utils/path";
+import { resolveRoute } from "@/lib/propagation/geometry/route";
 import {
   getFrequencyLimits,
   getMUFAtLocation,
@@ -580,10 +581,25 @@ export function MufReport({ open, onClose }: MufReportProps) {
     if (!target) return { lat: location.lat, lon: location.lon };
     return getMidpoint(location.lat, location.lon, target.lat, target.lon);
   }, [location, target]);
+  // The height is a circuit quantity (P.533-14 section 5.1), so the hook also
+  // gets the frequency the trace runs at and the resolved route's ground
+  // distance, the same great circle `traceRayPath` walks. Without a target
+  // there is no circuit: the distance is null, the hook stays disabled and the
+  // stand-in applies, which is fine because the trace needs a target anyway.
+  const circuitDistanceKm = useMemo(() => {
+    if (!location || !target) return null;
+    const route = resolveRoute(
+      { latitudeDeg: location.lat, longitudeDeg: location.lon },
+      { latitudeDeg: target.lat, longitudeDeg: target.lon },
+    );
+    return route.kind === "resolved" ? route.groundDistanceKm : null;
+  }, [location, target]);
   const mirrorHeight = useMirrorHeight(
     controlPoint?.lat ?? null,
     controlPoint?.lon ?? null,
     at,
+    limits?.fot ?? null,
+    circuitDistanceKm,
   );
 
   const rayTrace = useMemo(() => {

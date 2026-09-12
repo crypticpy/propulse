@@ -113,10 +113,10 @@ export function OperationalScopeControl({
       <span
         className={`rounded px-1.5 py-1 text-xs font-bold uppercase tracking-wider ${
           scope === "observe"
-            ? "bg-cosmic-cyan/15 text-cosmic-cyan"
+            ? "bg-cosmic-cyan/15 text-su-text"
             : scope === "log"
-              ? "bg-signal-green/15 text-signal-green"
-              : "bg-plasma-orange/15 text-plasma-orange"
+              ? "bg-signal-green/15 text-su-text"
+              : "bg-plasma-orange/15 text-su-text"
         }`}
       >
         {compact ? SCOPE_LABELS[scope].slice(0, 3) : SCOPE_LABELS[scope]}
@@ -141,7 +141,7 @@ export function OperationalScopeControl({
           }
           className={`rounded border px-1.5 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
             policy.publicAssistance
-              ? "border-caution-amber/40 bg-caution-amber/15 text-caution-amber"
+              ? "border-caution-amber/40 bg-caution-amber/15 text-su-text"
               : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-text"
           }`}
           aria-pressed={policy.publicAssistance}
@@ -316,7 +316,7 @@ export function OpsConsole({
             Ops Console
           </span>
           {hasActiveSession && (
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 shrink-0">
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-plasma-orange/15 text-su-text border border-plasma-orange/30 shrink-0">
               Contest Active
             </span>
           )}

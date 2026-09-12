@@ -46,25 +46,13 @@ describe("DisplayTab", () => {
     },
   );
 
-  it("spells the smart scaling state as ON or OFF", () => {
+  it("keeps the heatmap caveat region mounted even when it has nothing to say", () => {
     render(<DisplayTab />);
-    // useHeatMapBaseline is now called unconditionally (#772 round 2) so the
-    // caveat region never remounts across a preset switch, but it is called
-    // disabled while "ratioDiverging" isn't selected — the fetch itself
-    // stays lazy via react-query's own `enabled` gate, not by mounting.
     expect(baseline).toHaveBeenCalledWith({ enabled: false });
-    // The caveat region stays mounted (empty) even when there is nothing to
-    // say, so a later baseline-unavailable state has something already in
-    // the accessibility tree to announce into.
     const explanation = screen.getByRole("status");
     expect(explanation.textContent).toBe("");
     expect((screen.getByRole("radio", { name: "BASELINE RATIO" }) as HTMLButtonElement).disabled).toBe(false);
-    const toggle = screen.getByRole("switch", { name: "Smart scaling" });
-    expect(toggle.textContent).toBe("ON");
-
-    fireEvent.click(toggle);
-    expect(toggle.textContent).toBe("OFF");
-    expect(useHamClockDisplayStore.getState().smartScaling).toBe(false);
+    expect(screen.queryByRole("switch", { name: "Smart scaling" })).toBeNull();
   });
 
   it("switches density and units through segmented controls", () => {

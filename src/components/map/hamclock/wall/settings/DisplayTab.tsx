@@ -61,11 +61,12 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
 ];
 
 /**
- * Density, units, map content, smart scaling and the home-region re-frame —
+ * Density, units, map content, auto-page and the home-region re-frame —
  * the display choices that used to live behind the header's buried
  * `HamClockDisplaySettings` popout (B1/HW-22 already put density itself in
  * the fixed header slot at both densities; it is repeated here so the whole
- * set is discoverable from one settings surface).
+ * set is discoverable from one settings surface). Smart scaling is persisted
+ * in the display store but has no layout consumer, so the control is gone.
  *
  * Cut for this shell (see B5 report): text size, the desk accordion's
  * per-panel visibility list and "Reset display" — the panel list alone is
@@ -91,8 +92,6 @@ export function DisplayTab() {
   const setUnits = useHamClockDisplayStore((s) => s.setUnits);
   const mapContent = useHamClockDisplayStore((s) => s.mapContent);
   const setMapContent = useHamClockDisplayStore((s) => s.setMapContent);
-  const smartScaling = useHamClockDisplayStore((s) => s.smartScaling);
-  const setSmartScaling = useHamClockDisplayStore((s) => s.setSmartScaling);
   const autoPage = useHamClockDisplayStore((s) => s.autoPage);
   const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const frameHome = useHamClockDisplayStore((s) => s.frameHome);
@@ -141,12 +140,6 @@ export function DisplayTab() {
             : null}
         </LiveRegion>
       </div>
-      <HamClockToggleRow
-        label="Smart scaling"
-        detail="Fits panel widths and spacing to the desk text size"
-        checked={smartScaling}
-        onChange={setSmartScaling}
-      />
       <HamClockToggleRow
         label="Auto-page"
         detail="Rotates both rails through the wall's pages on a timer"

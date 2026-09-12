@@ -46,6 +46,16 @@ describe("detectPlatform", () => {
     stubUserAgent("SomeUnknownBrowser/1.0", "");
     expect(detectPlatform()).toBe("linux");
   });
+
+  it("detects macOS from a Darwin-bearing user agent, not Windows", () => {
+    // "Darwin" contains the substring "win" — this UA regressed to
+    // "windows" when the windows check ran before the mac check.
+    stubUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Darwin/23.5.0",
+      "MacIntel",
+    );
+    expect(detectPlatform()).toBe("macos");
+  });
 });
 
 describe("platformLabel", () => {
@@ -72,12 +82,15 @@ describe("getInitialPlatform / persistPlatform (localStorage migration)", () => 
     expect(localStorage.getItem(PLATFORM_STORAGE_KEY)).toBe("macos");
   });
 
-  it("adopts the legacy key's value when the canonical key is absent, and persists it", () => {
+  it("adopts the legacy key's value when the canonical key is absent", () => {
     localStorage.setItem(LEGACY_KEY, "linux");
 
+    // getInitialPlatform() is a pure read: it returns the legacy value but
+    // does not write it forward. Copying it to the canonical key is done by
+    // the pages' `useEffect(() => persistPlatform(platform), [platform])`
+    // on mount, not by this function.
     expect(getInitialPlatform()).toBe("linux");
-    // The value is never dropped: it's written under the canonical key too.
-    expect(localStorage.getItem(PLATFORM_STORAGE_KEY)).toBe("linux");
+    expect(localStorage.getItem(PLATFORM_STORAGE_KEY)).toBeNull();
   });
 
   it("falls back to detectPlatform() when neither key is set", () => {
@@ -97,6 +110,47 @@ describe("getInitialPlatform / persistPlatform (localStorage migration)", () => 
     );
 
     expect(getInitialPlatform()).toBe("macos");
+  });
+
+  it("ignores an invalid legacy value when the canonical key is absent and falls back", () => {
+    localStorage.setItem(LEGACY_KEY, "not-a-platform");
+    stubUserAgent(
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+      "Linux x86_64",
+    );
+
+    expect(getInitialPlatform()).toBe("linux");
+    expect(localStorage.getItem(PLATFORM_STORAGE_KEY)).toBeNull();
+  });
+
+  it("falls back to detectPlatform() when localStorage access throws", () => {
+    // Spies target the `localStorage` instance directly, not
+    // `Storage.prototype`: the test setup (src/test/setup.ts) installs a
+    // plain-object localStorage polyfill to work around Node 26 shadowing
+    // jsdom's implementation, so its methods are own properties, not
+    // inherited from `Storage.prototype`.
+    const getItemSpy = vi
+      .spyOn(localStorage, "getItem")
+      .mockImplementation(() => {
+        throw new Error("storage unavailable");
+      });
+    const setItemSpy = vi
+      .spyOn(localStorage, "setItem")
+      .mockImplementation(() => {
+        throw new Error("storage unavailable");
+      });
+    stubUserAgent(
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+      "Linux x86_64",
+    );
+
+    try {
+      expect(getInitialPlatform()).toBe("linux");
+      expect(() => persistPlatform("linux")).not.toThrow();
+    } finally {
+      getItemSpy.mockRestore();
+      setItemSpy.mockRestore();
+    }
   });
 
   it("persistPlatform writes only the canonical key", () => {

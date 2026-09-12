@@ -14,12 +14,14 @@ export type Platform = "windows" | "macos" | "linux";
  * written by both pages via `getInitialPlatform()` / `persistPlatform()`.
  *
  * This reuses SetupGuidePage's pre-#1097 key rather than inventing a third
- * one: `/setup` is the page new users land on first (BridgeInfoPage links
- * out to it from its disconnected state, not the other way around), so a
- * platform choice is more likely to already be stored under this key than
- * under BridgeInfoPage's `propulse-bridge-setup-platform`. There is no
- * telemetry to confirm this; it is a judgment call for the design review to
- * override if it looks wrong.
+ * one. Neither key ever recorded a deliberate choice: both pre-#1097 pages
+ * wrote their own key unconditionally on mount with the auto-detected
+ * value, so whichever key was written last just reflects which page the
+ * user opened most recently, not an explicit pick. The tie-break is that
+ * `/setup` sees more traffic than BridgeInfoPage's disconnected state, and
+ * a wrong guess there only costs the user one click on a visible platform
+ * tab. There is no telemetry to confirm this; it is a judgment call for the
+ * design review to override if it looks wrong.
  */
 export const PLATFORM_STORAGE_KEY = "propulse-setup-guide-platform";
 
@@ -41,8 +43,8 @@ export function detectPlatform(): Platform {
       ? ((navigator as Navigator & { platform?: string }).platform ?? "")
       : "";
   const s = `${ua} ${plat}`.toLowerCase();
-  if (s.includes("win")) return "windows";
   if (s.includes("mac")) return "macos";
+  if (s.includes("win")) return "windows";
   return "linux";
 }
 
@@ -59,10 +61,12 @@ export function platformLabel(p: Platform): string {
 }
 
 /**
- * Reads the remembered platform choice. If the canonical key is unset but
- * the legacy BridgeInfoPage key has a valid value, adopts it: writes it
- * under the canonical key (so it is never dropped) and returns it. Falls
- * back to `detectPlatform()` if neither key has a valid value.
+ * Reads the remembered platform choice: canonical key if valid, else the
+ * legacy BridgeInfoPage key if valid, else `detectPlatform()`. This is a
+ * pure read — it never writes. Copying a legacy value forward to the
+ * canonical key is done by the pages' `useEffect(() => persistPlatform(...),
+ * [platform])` on mount, not here, so this can safely run during render
+ * (including twice under StrictMode) without touching storage.
  */
 export function getInitialPlatform(): Platform {
   try {
@@ -70,10 +74,7 @@ export function getInitialPlatform(): Platform {
     if (isPlatform(chosen)) return chosen;
 
     const legacy = localStorage.getItem(LEGACY_PLATFORM_STORAGE_KEY);
-    if (isPlatform(legacy)) {
-      persistPlatform(legacy);
-      return legacy;
-    }
+    if (isPlatform(legacy)) return legacy;
   } catch {
     // localStorage unavailable (private browsing, disabled storage, etc.)
   }

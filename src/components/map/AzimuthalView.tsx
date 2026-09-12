@@ -64,7 +64,10 @@ import {
 import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
-import { createAzimuthalProjection } from "@/lib/map/projection";
+import {
+  createAzimuthalProjection,
+  screenPxToCanvas,
+} from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
@@ -761,10 +764,11 @@ function drawSpotCallsignPills(
   spotDotScale: number,
 ): AzimuthalSpotPillCanvasPlacement[] {
   const zoomDamp = Math.max(0.5, zoom);
+  const spx = (px: number) => screenPxToCanvas(px, zoom, 0.5);
   const viewport = getCenteredZoomViewport(CANVAS_SIZE, zoomDamp, 2);
   const placed: AzimuthalSpotPillBox[] = [];
   const placements: AzimuthalSpotPillCanvasPlacement[] = [];
-  const endpointRadius = Math.round(4 * spotDotScale) + 2 / zoomDamp;
+  const endpointRadius = Math.round(4 * spotDotScale) + spx(2);
   const endpointZones = spots.flatMap((spot) =>
     [
       azimuthalProject(
@@ -787,13 +791,10 @@ function drawSpotCallsignPills(
       }),
   );
   const callsigns = new Set<string>();
-  const fontSize = Math.max(
-    1,
-    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
-  );
-  const verticalPadding = 8 / zoomDamp;
-  const horizontalPadding = 12 / zoomDamp;
-  const gap = endpointRadius + 4 / zoomDamp;
+  const fontSize = spx((highViz ? 12 : 10) * labelScale);
+  const verticalPadding = spx(8);
+  const horizontalPadding = spx(12);
+  const gap = endpointRadius + spx(4);
   const height = fontSize + verticalPadding;
 
   ctx.save();
@@ -850,7 +851,7 @@ function drawSpotCallsignPills(
 
     ctx.globalAlpha = 0.9 * ageOpacity;
     ctx.strokeStyle = bandColor;
-    ctx.lineWidth = (highViz ? 2 : 1.25) / zoomDamp;
+    ctx.lineWidth = spx(highViz ? 2 : 1.25);
     drawSpotPillPath(ctx, box, height / 2);
     ctx.stroke();
 
@@ -858,23 +859,23 @@ function drawSpotCallsignPills(
     // with a bright edge-to-edge band cue instead of color-washing the text.
     ctx.globalAlpha = ageOpacity;
     ctx.strokeStyle = bandColor;
-    ctx.lineWidth = (highViz ? 3 : 2) / zoomDamp;
+    ctx.lineWidth = spx(highViz ? 3 : 2);
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(
       box.x + height / 2,
-      box.y + box.height - 2 / zoomDamp,
+      box.y + box.height - spx(2),
     );
     ctx.lineTo(
       box.x + box.width - height / 2,
-      box.y + box.height - 2 / zoomDamp,
+      box.y + box.height - spx(2),
     );
     ctx.stroke();
 
     ctx.globalAlpha = ageOpacity;
     ctx.fillStyle = "#ffffff";
     ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-    ctx.shadowBlur = 3 / zoomDamp;
+    ctx.shadowBlur = spx(3);
     ctx.fillText(spot.callsign, box.x + box.width / 2, box.y + height / 2);
     ctx.shadowBlur = 0;
   }

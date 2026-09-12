@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   createAzimuthalProjection,
   createEquirectangularProjection,
+  screenPxToCanvas,
 } from "./projection";
+
+describe("screenPxToCanvas", () => {
+  it("matches createEquirectangularProjection().screenPx when zoomScale >= 1", () => {
+    const projection = createEquirectangularProjection({
+      width: 1024,
+      height: 512,
+      zoomScale: 8,
+    });
+    expect(screenPxToCanvas(12, 8)).toBe(projection.screenPx(12));
+  });
+});
 
 describe("createEquirectangularProjection", () => {
   const projection = createEquirectangularProjection({

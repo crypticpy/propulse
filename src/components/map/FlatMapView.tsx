@@ -122,6 +122,7 @@ import {
   useScopedMapLayers,
 } from "@/hooks/useMapOperationalContext";
 import { policyAllows } from "@/lib/map/operationalScope";
+import { screenPxToCanvas } from "@/lib/map/projection";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import {
@@ -1945,23 +1946,17 @@ function drawCallsignLabels(
 ): PlacedLabel[] {
   const placed: PlacedLabel[] = [];
   const placedBoxes: LabelBBox[] = [];
-  const zoomDamp = Math.max(1, zoomScale);
-  const fontSize = Math.max(
-    1,
-    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
-  );
-  const gap = Math.max(
-    1,
-    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
-  );
-  const pillRadius = 3;
+  const spx = (px: number) => screenPxToCanvas(px, zoomScale);
+  const fontSize = spx((highViz ? 12 : 10) * labelScale);
+  const gap = spx((highViz ? 12 : 10) * labelScale);
+  const pillRadius = spx(3);
 
   // Build exclusion zones for ALL spot endpoint dots (prevents labels covering dots)
   const endpointZones: LabelBBox[] = [];
   for (const spot of spots) {
     const dx = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
     const sp = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
-    const r = Math.round((highViz ? 8 : 6) / zoomDamp);
+    const r = spx(highViz ? 8 : 6);
     endpointZones.push({ x: dx.x - r, y: dx.y - r, w: r * 2, h: r * 2 });
     endpointZones.push({ x: sp.x - r, y: sp.y - r, w: r * 2, h: r * 2 });
   }
@@ -1978,8 +1973,8 @@ function drawCallsignLabels(
     }
 
     const { x, y } = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
-    const textW = ctx.measureText(callsign).width + 6;
-    const textH = fontSize + 4;
+    const textW = ctx.measureText(callsign).width + spx(6);
+    const textH = fontSize + spx(4);
 
     const candidates = getLabelCandidates(x, y, textW, textH, gap);
 
@@ -2036,14 +2031,14 @@ function drawCallsignLabels(
       (anchor.x - label.spotX) ** 2 + (anchor.y - label.spotY) ** 2,
     );
 
-    if (label.anchorSide !== "above" || dist > gap + 4) {
+    if (label.anchorSide !== "above" || dist > gap + spx(4)) {
       const modeColor = getSpotColor(label.spot, colorMode);
       const opacity = 1;
 
       ctx.save();
       ctx.globalAlpha = opacity * 0.4;
       ctx.strokeStyle = modeColor;
-      ctx.lineWidth = 1 / zoomDamp;
+      ctx.lineWidth = spx(1);
       ctx.beginPath();
       ctx.moveTo(anchor.x, anchor.y);
       ctx.lineTo(label.spotX, label.spotY);
@@ -2069,19 +2064,19 @@ function drawCallsignLabels(
 
     // Band-color underline — solid, bright, edge-to-edge.
     const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
-    const underlineH = Math.max(1, 3 / zoomDamp);
+    const underlineH = spx(3);
     ctx.fillStyle = bandColor;
     ctx.fillRect(bbox.x, bbox.y + bbox.h - underlineH, bbox.w, underlineH);
 
     // Callsign text with shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = 2 / zoomDamp;
+    ctx.shadowBlur = spx(2);
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.textAlign = "center";
     ctx.fillText(
       spot.callsign,
       bbox.x + bbox.w / 2,
-      bbox.y + bbox.h - Math.max(2, 5 / zoomDamp),
+      bbox.y + bbox.h - spx(5),
     );
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
@@ -2108,12 +2103,9 @@ function drawSpotterLabels(
   labelScale = 1.0,
   zoomScale = 1.0,
 ) {
-  const zoomDamp = Math.max(1, zoomScale);
-  const fontSize = Math.max(
-    1,
-    Math.round(((highViz ? 10 : 9) * labelScale) / zoomDamp),
-  );
-  const pillRadius = 3;
+  const spx = (px: number) => screenPxToCanvas(px, zoomScale);
+  const fontSize = spx((highViz ? 10 : 9) * labelScale);
+  const pillRadius = spx(3);
   const spotterOpacity = 0.6;
 
   // Deduplicate: only draw one label per spotter callsign
@@ -2136,10 +2128,10 @@ function drawSpotterLabels(
       width,
       height,
     );
-    const textW = ctx.measureText(spotter).width + 6;
-    const textH = fontSize + 4;
+    const textW = ctx.measureText(spotter).width + spx(6);
+    const textH = fontSize + spx(4);
     const bx = x - textW / 2;
-    const by = y - textH - 6; // place above spotter dot
+    const by = y - textH - spx(6); // place above spotter dot
 
     const modeColor = getSpotColor(spot, colorMode);
 
@@ -2152,19 +2144,19 @@ function drawSpotterLabels(
 
     // Band-color underline — solid, bright, edge-to-edge.
     const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
-    const ulH = Math.max(1, 3 / zoomDamp);
+    const ulH = spx(3);
     ctx.fillStyle = bandColor;
     ctx.fillRect(bx, by + textH - ulH, textW, ulH);
 
     // Spotter callsign text
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = 2 / zoomDamp;
+    ctx.shadowBlur = spx(2);
     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.textAlign = "center";
     ctx.fillText(
       spotter,
       bx + textW / 2,
-      by + textH - Math.max(2, 5 / zoomDamp),
+      by + textH - spx(5),
     );
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";

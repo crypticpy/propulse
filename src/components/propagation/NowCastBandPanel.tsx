@@ -194,8 +194,9 @@ export function NowCastBandPanel({
 
       {state.predictions.size > 0 && (
         <div
+          style={compact ? undefined : { gridTemplateColumns: "repeat(auto-fit, minmax(min(12rem, 100%), 1fr))" }}
           className={`mt-4 grid gap-px overflow-hidden rounded-md border border-su-line/40 bg-su-line/20 ${
-            compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+            compact ? "grid-cols-1 sm:grid-cols-2" : ""
           }`}
         >
           {bands.map((band) => {

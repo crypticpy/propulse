@@ -287,7 +287,7 @@ function ServiceCard({
       <p className="text-xs text-su-muted mb-3">{service.description}</p>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))" }}>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-su-text">
             {service.totalUploaded}
@@ -316,7 +316,7 @@ function ServiceCard({
 
       {/* Action buttons */}
       {service.status !== "not_configured" ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => onSync(service.id)}
             disabled={syncing}
@@ -644,7 +644,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-orbitron text-lg font-bold text-su-text flex items-center gap-2">
             <svg
@@ -668,7 +668,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </div>
 
         {/* Global actions */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleSyncAll}
             disabled={syncingAll || configuredCount === 0}
@@ -727,7 +727,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </h3>
 
         {/* Aggregate stats */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))" }}>
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-xl font-bold text-su-text">{stats.totalQSOs}</p>
             <p className="text-xs text-su-muted uppercase tracking-wider">
@@ -753,8 +753,8 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </div>
 
         {/* Per-service breakdown */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto" role="region" aria-label="QSL service breakdown" tabIndex={0}>
+          <table className="w-full text-sm" style={{ minWidth: "28rem", borderSpacing: "0.75rem 0", borderCollapse: "separate" }}>
             <thead>
               <tr className="text-su-muted text-xs">
                 <th className="text-left py-1.5">Service</th>

@@ -69,7 +69,7 @@ export function ResearchAttemptControl({
           type="button"
           onClick={start}
           disabled={research.startingAttempt}
-          className="flex h-7 w-full items-center justify-center gap-1 rounded-md border border-su-line/40 bg-su-line/10 px-2 text-xs font-medium text-su-muted hover:bg-su-line/20 disabled:opacity-50"
+          className="flex min-h-7 py-1 w-full items-center justify-center gap-1 rounded-md border border-su-line/40 bg-su-line/10 px-2 text-xs font-medium text-su-muted hover:bg-su-line/20 disabled:opacity-50"
         >
           <Play className="h-3 w-3" aria-hidden="true" />
           {research.startingAttempt ? "Starting..." : "Start attempt"}
@@ -89,7 +89,7 @@ export function ResearchAttemptControl({
             type="button"
             onClick={() => complete(outcome.value)}
             disabled={research.completingAttempt}
-            className="h-7 rounded-md border border-su-line/40 bg-su-line/10 px-1 text-xs text-su-muted hover:bg-su-line/20 disabled:opacity-50"
+            className="min-h-7 py-1 rounded-md border border-su-line/40 bg-su-line/10 px-1 text-xs text-su-muted hover:bg-su-line/20 disabled:opacity-50"
           >
             {outcome.label}
           </button>

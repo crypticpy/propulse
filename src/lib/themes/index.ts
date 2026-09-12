@@ -8,8 +8,17 @@ import type { ColorBlindMode } from "./colorblind";
 import {
   DEFAULT_ACCENT_HEX,
   hexToChannels,
+  SATURATION_DEFAULT,
   stationPalettes,
   stationTokens,
+} from "./stationTokens";
+
+export {
+  clampSaturation,
+  SATURATION_DEFAULT,
+  SATURATION_MAX,
+  SATURATION_MIN,
+  SATURATION_STEP,
 } from "./stationTokens";
 
 export interface ThemeColors {
@@ -149,11 +158,15 @@ export function getAccentPreset(id: string): AccentColor {
  * tone tokens it swaps (`--su-success`/`-warning`/`-danger`) are inline styles
  * on `<html>`: a separate CSS rule could never outrank them, and a separate
  * second pass would be undone by the next theme or accent change.
+ *
+ * `saturation` (0.8…1.4, default 1) scales chroma of accent/info/success/
+ * warning/danger inside `stationTokens` after that swap. Surfaces stay put.
  */
 export function applyThemeToDocument(
   theme: Theme,
   accent?: AccentColor,
   colorBlindMode: ColorBlindMode = "none",
+  saturation: number = SATURATION_DEFAULT,
 ): void {
   const root = document.documentElement;
   const { colors } = theme;
@@ -165,6 +178,13 @@ export function applyThemeToDocument(
     ? requestedAccent
     : DEFAULT_ACCENT_HEX;
   const palette = stationPalettes[theme.id];
+  const tokens = stationTokens(
+    theme.id,
+    accentPrimary,
+    colorBlindMode,
+    saturation,
+  );
+  const scaledAccent = tokens["--su-accent"];
 
   // Legacy --theme-* vars, derived from the same station palette/accent as
   // the --su-* tokens below so the two systems agree instead of drifting.
@@ -173,23 +193,21 @@ export function applyThemeToDocument(
   root.style.setProperty("--theme-bg-panel", "rgb(var(--su-panel-rgb) / 0.95)");
   root.style.setProperty("--theme-text-primary", palette.text);
   root.style.setProperty("--theme-text-secondary", palette.muted);
-  root.style.setProperty("--theme-accent-primary", accentPrimary);
+  root.style.setProperty("--theme-accent-primary", scaledAccent);
   root.style.setProperty("--theme-border", "rgb(var(--su-line-rgb) / 0.4)");
   root.style.setProperty("--theme-glow", "rgb(var(--su-accent-rgb) / 0.3)");
 
   // RGB channel variables for Tailwind opacity modifier support
   root.style.setProperty(
     "--theme-accent-primary-rgb",
-    hexToChannels(accentPrimary),
+    hexToChannels(scaledAccent),
   );
 
   // Station design tokens (--su-*) on the document root, so `su-` Tailwind
   // utilities work anywhere. StationProvider still injects the same variables
   // inline on its `.station-ui` element, which wins over the root, so local
   // `theme`/`accent` overrides keep working.
-  for (const [name, value] of Object.entries(
-    stationTokens(theme.id, accentPrimary, colorBlindMode),
-  )) {
+  for (const [name, value] of Object.entries(tokens)) {
     if (!name.startsWith("--su-") || typeof value !== "string") continue;
     root.style.setProperty(name, value);
   }
@@ -204,6 +222,7 @@ export function applyThemeToDocument(
     "dark",
     DEFAULT_ACCENT_HEX,
     colorBlindMode,
+    saturation,
   );
   for (const role of ["info", "success", "warning", "danger"] as const) {
     root.style.setProperty(

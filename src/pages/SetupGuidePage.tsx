@@ -3,137 +3,28 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
 import { useBridge } from "@/hooks/useBridge";
+import {
+  ArchitectureDiagram,
+  CommandBlock,
+  ConnectionDot,
+  FAQItem,
+  Step,
+  getInitialPlatform,
+  persistPlatform,
+  platformLabel,
+  type Platform,
+} from "@/components/setup";
 
 // ---------------------------------------------------------------------------
-// Types & Constants
+// Constants
 // ---------------------------------------------------------------------------
-
-type Platform = "windows" | "macos" | "linux";
-
-const LS_PLATFORM_KEY = "propulse-setup-guide-platform";
 
 const GITHUB_REPO = "https://github.com/crypticpy/propulse";
 const SCRIPTS_BASE = `https://raw.githubusercontent.com/crypticpy/propulse/main/scripts`;
 
 // ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-function detectPlatform(): Platform {
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const plat =
-    typeof navigator !== "undefined"
-      ? ((navigator as Navigator & { platform?: string }).platform ?? "")
-      : "";
-  const s = `${ua} ${plat}`.toLowerCase();
-  if (s.includes("win")) return "windows";
-  if (s.includes("mac")) return "macos";
-  return "linux";
-}
-
-function platformLabel(p: Platform): string {
-  switch (p) {
-    case "windows":
-      return "Windows";
-    case "macos":
-      return "macOS";
-    case "linux":
-      return "Linux";
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-/** Code block with copy-to-clipboard button */
-function CommandBlock({ children }: { children: string }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard
-      .writeText(children)
-      .then(() => {
-        setCopied(true);
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {});
-  }, [children]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  return (
-    <div className="relative group">
-      <pre className="text-xs md:text-sm bg-su-input border border-su-line/40 rounded-lg p-3 pr-10 overflow-x-auto text-su-text font-mono">
-        {children}
-      </pre>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-        aria-label="Copy to clipboard"
-      >
-        {copied ? (
-          <svg
-            className="w-3.5 h-3.5 text-signal-green"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        ) : (
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-          </svg>
-        )}
-      </button>
-    </div>
-  );
-}
-
-/** Numbered step heading */
-function Step({
-  n,
-  title,
-  children,
-}: {
-  n: number;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full bg-su-line/20 border border-su-line/40 text-su-text flex items-center justify-center text-sm font-semibold shrink-0">
-          {n}
-        </div>
-        <div className="text-sm font-semibold text-su-text">{title}</div>
-      </div>
-      <div className="text-sm text-su-muted leading-relaxed pl-9">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /** Status dot */
 function StatusDot({ color }: { color: "green" | "amber" | "red" | "gray" }) {
@@ -156,52 +47,6 @@ function StatusDot({ color }: { color: "green" | "amber" | "red" | "gray" }) {
       className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${cls}`}
       aria-hidden="true"
     />
-  );
-}
-
-/** Bridge connection dot driven by WebSocket state */
-function ConnectionDot({ state }: { state: string }) {
-  const color = (() => {
-    switch (state) {
-      case "connected":
-        return "green" as const;
-      case "connecting":
-        return "amber" as const;
-      case "error":
-        return "red" as const;
-      default:
-        return "gray" as const;
-    }
-  })();
-  return <StatusDot color={color} />;
-}
-
-/** FAQ / collapsible item */
-function FAQItem({
-  question,
-  children,
-}: {
-  question: string;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group">
-      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text/80 hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
-        <svg
-          className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        {question}
-      </summary>
-      <div className="text-sm text-su-muted leading-relaxed pl-7 pr-4 pb-3 pt-1">
-        {children}
-      </div>
-    </details>
   );
 }
 
@@ -295,316 +140,6 @@ function PlatformTabs({
 }
 
 // ---------------------------------------------------------------------------
-// Architecture Diagram
-// ---------------------------------------------------------------------------
-
-function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
-  const lineColor = connected
-    ? "rgba(255,255,255,0.25)"
-    : "rgba(255,255,255,0.08)";
-  const lineStroke = connected ? undefined : "4 4";
-
-  return (
-    <svg
-      viewBox="0 0 710 310"
-      className="w-full h-auto"
-      role="img"
-      aria-label="ProPulse system architecture: browser connects to bridge server, which interfaces with Hamlib, DX Cluster, and WSJT-X"
-    >
-      <defs>
-        <linearGradient id="sg-glass" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.06)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
-        </linearGradient>
-        <linearGradient id="sg-glass-orange" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,107,53,0.08)" />
-          <stop offset="100%" stopColor="rgba(255,107,53,0.02)" />
-        </linearGradient>
-        <linearGradient id="sg-glass-green" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(0,255,136,0.06)" />
-          <stop offset="100%" stopColor="rgba(0,255,136,0.02)" />
-        </linearGradient>
-        {connected && (
-          <style>{`
-            @media (prefers-reduced-motion: no-preference) {
-              .sg-travel-dot {
-                offset-distance: 0%;
-                animation: sg-dot-travel 3s linear infinite;
-              }
-              @keyframes sg-dot-travel {
-                0% { offset-distance: 0%; }
-                100% { offset-distance: 100%; }
-              }
-            }
-          `}</style>
-        )}
-      </defs>
-
-      {/* Propulse Browser */}
-      <rect
-        x="30"
-        y="50"
-        width="180"
-        height="75"
-        rx="12"
-        fill="url(#sg-glass-orange)"
-        stroke="rgba(255,107,53,0.25)"
-        strokeWidth="1"
-      />
-      <text
-        x="120"
-        y="82"
-        textAnchor="middle"
-        className="fill-plasma-orange text-[13px] font-semibold"
-        fontFamily="Orbitron, sans-serif"
-      >
-        Propulse
-      </text>
-      <text
-        x="120"
-        y="103"
-        textAnchor="middle"
-        className="fill-su-muted text-[11px]"
-      >
-        (Browser)
-      </text>
-
-      {/* Bridge Server */}
-      <rect
-        x="380"
-        y="50"
-        width="180"
-        height="75"
-        rx="12"
-        fill="url(#sg-glass-green)"
-        stroke="rgba(0,255,136,0.25)"
-        strokeWidth="1"
-      />
-      <text
-        x="470"
-        y="82"
-        textAnchor="middle"
-        className="fill-signal-green text-[13px] font-semibold"
-        fontFamily="Orbitron, sans-serif"
-      >
-        Bridge Server
-      </text>
-      <text
-        x="470"
-        y="103"
-        textAnchor="middle"
-        className="fill-su-muted text-[11px]"
-      >
-        localhost:9867
-      </text>
-
-      {/* WebSocket line */}
-      <line
-        x1="210"
-        y1="88"
-        x2="380"
-        y2="88"
-        stroke={lineColor}
-        strokeWidth="1.5"
-        strokeDasharray={lineStroke}
-      />
-      <text
-        x="295"
-        y="78"
-        textAnchor="middle"
-        className="fill-su-muted text-[10px] font-mono"
-      >
-        WebSocket
-      </text>
-      <polygon points="375,84 385,88 375,92" fill={lineColor} />
-      <polygon points="215,84 205,88 215,92" fill={lineColor} />
-      {connected && (
-        <circle
-          r="3"
-          fill="#00ff88"
-          className="sg-travel-dot"
-          style={{ offsetPath: "path('M 210 88 L 380 88')" }}
-        />
-      )}
-
-      {/* Vertical trunk */}
-      <line
-        x1="470"
-        y1="125"
-        x2="470"
-        y2="165"
-        stroke={lineColor}
-        strokeWidth="1.5"
-        strokeDasharray={lineStroke}
-      />
-
-      {/* Branches */}
-      <line
-        x1="470"
-        y1="165"
-        x2="330"
-        y2="165"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-      <line
-        x1="470"
-        y1="165"
-        x2="470"
-        y2="185"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-      <line
-        x1="470"
-        y1="165"
-        x2="610"
-        y2="165"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-      <line
-        x1="330"
-        y1="165"
-        x2="330"
-        y2="185"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-      <line
-        x1="610"
-        y1="165"
-        x2="610"
-        y2="185"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-
-      {/* Hamlib */}
-      <rect
-        x="270"
-        y="185"
-        width="120"
-        height="55"
-        rx="8"
-        fill="url(#sg-glass)"
-        stroke="rgba(255,255,255,0.12)"
-        strokeWidth="1"
-      />
-      <text
-        x="330"
-        y="208"
-        textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
-      >
-        Hamlib
-      </text>
-      <text
-        x="330"
-        y="226"
-        textAnchor="middle"
-        className="fill-su-muted text-[10px]"
-      >
-        rigctld
-      </text>
-
-      {/* DX Cluster */}
-      <rect
-        x="410"
-        y="185"
-        width="120"
-        height="55"
-        rx="8"
-        fill="url(#sg-glass)"
-        stroke="rgba(255,255,255,0.12)"
-        strokeWidth="1"
-      />
-      <text
-        x="470"
-        y="208"
-        textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
-      >
-        DX Cluster
-      </text>
-      <text
-        x="470"
-        y="226"
-        textAnchor="middle"
-        className="fill-su-muted text-[10px]"
-      >
-        Telnet
-      </text>
-
-      {/* WSJT-X */}
-      <rect
-        x="550"
-        y="185"
-        width="120"
-        height="55"
-        rx="8"
-        fill="url(#sg-glass)"
-        stroke="rgba(255,255,255,0.12)"
-        strokeWidth="1"
-      />
-      <text
-        x="610"
-        y="208"
-        textAnchor="middle"
-        className="fill-su-text text-[11px] font-semibold"
-      >
-        WSJT-X
-      </text>
-      <text
-        x="610"
-        y="226"
-        textAnchor="middle"
-        className="fill-su-muted text-[10px]"
-      >
-        UDP 2237
-      </text>
-
-      {/* Arrow from Hamlib to Radio */}
-      <line
-        x1="330"
-        y1="240"
-        x2="330"
-        y2="265"
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray={lineStroke}
-      />
-      <polygon points="326,260 330,270 334,260" fill={lineColor} />
-
-      {/* Your Radio */}
-      <rect
-        x="270"
-        y="268"
-        width="120"
-        height="40"
-        rx="8"
-        fill="url(#sg-glass-orange)"
-        stroke="rgba(255,107,53,0.2)"
-        strokeWidth="1"
-      />
-      <text
-        x="330"
-        y="293"
-        textAnchor="middle"
-        className="fill-plasma-orange text-[11px] font-semibold"
-      >
-        Your Radio
-      </text>
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main Page Component
 // ---------------------------------------------------------------------------
 
@@ -614,23 +149,10 @@ export function SetupGuidePage() {
   const { state, error, connect } = bridge;
 
   // Platform selector with localStorage persistence
-  const [platform, setPlatform] = useState<Platform>(() => {
-    try {
-      const saved = localStorage.getItem(LS_PLATFORM_KEY) as Platform | null;
-      if (saved === "windows" || saved === "macos" || saved === "linux")
-        return saved;
-    } catch {
-      // ignore
-    }
-    return detectPlatform();
-  });
+  const [platform, setPlatform] = useState<Platform>(getInitialPlatform);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(LS_PLATFORM_KEY, platform);
-    } catch {
-      // ignore
-    }
+    persistPlatform(platform);
   }, [platform]);
 
   // Connection test
@@ -776,7 +298,7 @@ export function SetupGuidePage() {
 
           {/* Bridge Server - LIVE */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
-            <ConnectionDot state={state} />
+            <ConnectionDot state={state} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-su-text">
                 Bridge Server
@@ -824,9 +346,7 @@ export function SetupGuidePage() {
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20 md:col-span-2">
             <StatusDot color="gray" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-su-text">
-                DX Cluster
-              </div>
+              <div className="text-sm font-medium text-su-text">DX Cluster</div>
               <div className="text-xs text-su-muted truncate">
                 Live spots from other operators
               </div>
@@ -1004,8 +524,8 @@ export function SetupGuidePage() {
           </p>
           <ul className="list-disc pl-4 space-y-1.5">
             <li>
-              <strong className="text-su-text">Windows:</strong> Right-click
-              the Start button and choose{" "}
+              <strong className="text-su-text">Windows:</strong> Right-click the
+              Start button and choose{" "}
               <span className="font-mono text-su-muted">
                 "Windows PowerShell"
               </span>{" "}
@@ -1244,7 +764,7 @@ export function SetupGuidePage() {
               >
                 {testingConnection ? "Testing..." : "Test Connection"}
               </button>
-              <ConnectionDot state={state} />
+              <ConnectionDot state={state} size="sm" />
               <span className="text-xs text-su-muted">{bridgeStatusLabel}</span>
               {state === "connected" && (
                 <svg
@@ -1535,7 +1055,7 @@ export function SetupGuidePage() {
               >
                 {testingConnection ? "Testing..." : "Test Bridge Connection"}
               </button>
-              <ConnectionDot state={state} />
+              <ConnectionDot state={state} size="sm" />
               <span className="text-xs text-su-muted">{bridgeStatusLabel}</span>
             </div>
 
@@ -1598,7 +1118,7 @@ export function SetupGuidePage() {
             " Green lines and animated dots indicate an active connection."}
         </p>
         <div className="overflow-x-auto -mx-2 px-2">
-          <SetupArchitectureDiagram connected={state === "connected"} />
+          <ArchitectureDiagram connected={state === "connected"} />
         </div>
       </Card>
 

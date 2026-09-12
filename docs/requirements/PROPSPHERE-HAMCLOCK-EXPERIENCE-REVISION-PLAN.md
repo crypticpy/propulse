@@ -422,15 +422,12 @@ npm run build
 npm run check:bundles
 npm run test:dev-session
 npm run test -- src/lib/hamclock src/stores/hamclockStore.test.ts src/stores/hamclockDisplayStore.test.ts src/stores/mapStore.hamclockBeauty.test.ts src/components/map/lib/flatMapLayout.test.ts src/components/map/lib/flatMufRaster.test.ts src/components/map/hamclock/HamClockSpotsSidebar.test.tsx
-npm run test:hamclock:browser -- http://127.0.0.1:5180
 ```
 
-The browser command requires this checkout's managed local-profile server at the
-specified URL. It uses disposable contexts and synthetic station/spot/log/radio
-fixtures. It exercises 1280×800, 1920×1080, and 3840×2160; Flat/3D/AZ;
-scaling and panel overflow; Observatory; and same-origin log and radio updates.
-See [Local agent testing](../guides/LOCAL-AGENT-TESTING.md#hamclock-display-regression)
-for setup and handoff details. CI and the PR record contain final validation results.
+The Playwright `test:hamclock:browser` harness was retired in #780. See
+[Local agent testing](../guides/LOCAL-AGENT-TESTING.md#hamclock-display-regression)
+for the current HamClock check path. CI and the PR record contain final
+validation results.
 
 Remaining product validation: physical review on the owner's close-up 55-inch
 screen and a distant display; warm/cold GPU traces against the stated frame budget;

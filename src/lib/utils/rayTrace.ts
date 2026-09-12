@@ -25,9 +25,11 @@
  *     `mirrorHeightKm` the assumption names that value and claims nothing
  *     else; when it does not, the declared 300 km stand-in is used and said
  *     to be a stand-in. The correct source is `mirrorHeightFromM3000F2` fed
- *     by the #953 climatology provider, which is asynchronous and not yet
- *     wired into this synchronous entry point. The previous stand-in, a
- *     `250 + 100 (1 - cos z)` heuristic, had no physical basis and is gone.
+ *     by the #953 climatology provider, which is asynchronous: a caller that
+ *     has resolved it above this entry point passes `mirrorHeight`, and
+ *     `RayTraceResult.mirrorHeight` then names that source rather than the
+ *     stand-in. The previous stand-in, a `250 + 100 (1 - cos z)` heuristic,
+ *     had no physical basis and is gone.
  *  2. The modified magnetic dip that selects the diurnal absorption exponent
  *     is computed here, by `modifiedDipAngle`, from the centred-dipole
  *     geomagnetic latitude rather than a field model at 100 km. This module
@@ -70,6 +72,7 @@ import {
   minimumHopCount,
   type UnsupportedHopReason,
 } from "@/lib/propagation/geometry/hop";
+import type { F2ReflectionHeightBranch } from "@/lib/propagation/geometry/reflectionHeight";
 import {
   dRegionAbsorption,
   type DRegionCrossing,
@@ -85,26 +88,251 @@ const MAX_HOPS = 12;
  */
 export const DECLARED_MIRROR_HEIGHT_KM = 300;
 
+/** Why a trace fell back to the declared 300 km stand-in. Never absent. */
+export type MirrorHeightStandinReason =
+  | "no_provider_supplied"
+  | "provider_asset_unavailable"
+  | "provider_query_rejected"
+  | "circuit_unresolvable";
+
 /**
- * What the trace actually used for the mirror height, said as a fact about
- * the input rather than about the module's default.
+ * One P.533-14 Table 1c control point a modelled height was evaluated at.
+ * A circuit up to dmax has one (`M`); a longer one has three, and the height
+ * is their mean.
  */
-function mirrorHeightAssumption(
+export interface MirrorHeightControlPoint {
+  readonly label: "T + d0/2" | "M" | "R - d0/2";
+  readonly latitude: number;
+  readonly longitude: number;
+  /** Section 5.1 height at this point for the circuit's mode, km. */
+  readonly heightKm: number;
+  readonly m3000F2: number;
+  readonly foF2MHz: number;
+  readonly foEMHz: number;
+  readonly r12: number;
+  readonly branch: F2ReflectionHeightBranch;
+}
+
+/**
+ * Where the mirror reflection height came from. Never absent from a result.
+ *
+ * The three variants are the three honest answers: a climatology solved it
+ * (`modelled`), the caller handed the engine a number and the engine claims
+ * nothing about it (`caller_supplied`), or nobody supplied one and the module's
+ * declared stand-in was used, with the reason (`declared_standin`).
+ * `mirrorHeight.ts` is the leaf that produces the first and the last.
+ */
+export type MirrorHeightProvenance =
+  | {
+      readonly kind: "modelled";
+      /**
+       * The ITU-R P.533-14 section 5.1 F2 mirror height for this frequency
+       * and circuit, km: the midpoint value for a circuit up to dmax, the
+       * mean over the Table 1c control points beyond it. See
+       * `propagation/geometry/reflectionHeight.ts` and `controlPoints`.
+       */
+      readonly heightKm: number;
+      /** M(3000)F2 at the midpoint control point. */
+      readonly m3000F2: number;
+      /** foF2 at the control point, MHz. */
+      readonly foF2MHz: number;
+      /** foE at the control point, MHz. */
+      readonly foEMHz: number;
+      /** The R12 the ionospheric state was actually evaluated at. */
+      readonly r12: number;
+      /** The operating frequency the height was solved for, MHz. */
+      readonly frequencyMHz: number;
+      /** The circuit ground distance the height was solved for, km. */
+      readonly groundDistanceKm: number;
+      /** dmax at the control point, restricted to 4000 km. Equations (5), (6). */
+      readonly dmaxKm: number;
+      /** The hop count the height was solved for. */
+      readonly hopCount: number;
+      /** d0 = groundDistanceKm / hopCount, km. */
+      readonly hopGroundDistanceKm: number;
+      /** Which of section 5.1's cases produced the midpoint height. */
+      readonly branch: F2ReflectionHeightBranch;
+      /** The route the circuit distance was resolved on. */
+      readonly routeDirection: "short" | "long";
+      /**
+       * Every Table 1c control point the height was evaluated at, in path
+       * order. One entry for a circuit up to dmax, three beyond it.
+       */
+      readonly controlPoints: readonly MirrorHeightControlPoint[];
+      readonly providerId: string;
+      readonly providerVersion: string;
+      /** `sha256:` of the coefficient asset the state was built from. */
+      readonly artifactHash: string;
+      /** The instant the climatology was read at. */
+      readonly validAt: string;
+      /** The place it was read at. */
+      readonly coordinates: {
+        readonly latitude: number;
+        readonly longitude: number;
+      };
+      /**
+       * `ionosphereStateDigest` of the state this height came from, or the
+       * literal `"unknown"` when no digest could be formed, matching
+       * `ContextSnapshot.sourceVersion`. Never an empty string.
+       */
+      readonly stateDigest: string;
+      /** The state's own assumption list, carried, not summarised. */
+      readonly assumptions: readonly string[];
+    }
+  | {
+      readonly kind: "caller_supplied";
+      readonly heightKm: number;
+      readonly detail: string;
+    }
+  | {
+      readonly kind: "declared_standin";
+      readonly heightKm: typeof DECLARED_MIRROR_HEIGHT_KM;
+      readonly reason: MirrorHeightStandinReason;
+      /** Why the modelled value was not used. Never an empty string. */
+      readonly detail: string;
+    };
+
+/**
+ * The one sentence every stand-in is described by, so the prose assumption and
+ * the structured provenance can never drift into two different explanations.
+ */
+const STANDIN_CAUSE: Readonly<Record<MirrorHeightStandinReason, string>> = {
+  no_provider_supplied:
+    "the caller supplied none: the #953 climatology provider that supplies " +
+    "M(3000)F2 is asynchronous and is not wired into this synchronous entry " +
+    "point yet",
+  provider_asset_unavailable:
+    "the #953 climatology provider's coefficient asset could not be loaded",
+  provider_query_rejected:
+    "the #953 climatology provider rejected the query for this place and " +
+    "instant",
+  circuit_unresolvable:
+    "the circuit's endpoints are coincident or antipodal, so no great-circle " +
+    "route fixes its control points",
+};
+
+/** The declared stand-in, labelled with why it was reached. */
+export function declaredMirrorHeightStandin(
+  reason: MirrorHeightStandinReason,
+): Extract<MirrorHeightProvenance, { kind: "declared_standin" }> {
+  return {
+    kind: "declared_standin",
+    heightKm: DECLARED_MIRROR_HEIGHT_KM,
+    reason,
+    detail:
+      `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
+      `stand-in, taken because ${STANDIN_CAUSE[reason]}.`,
+  };
+}
+
+/** A bare number from the caller: used, and not dressed up as a model output. */
+function callerSuppliedMirrorHeight(
   mirrorHeightKm: number,
-  supplied: boolean,
-): string {
-  if (supplied) {
-    return (
+): Extract<MirrorHeightProvenance, { kind: "caller_supplied" }> {
+  return {
+    kind: "caller_supplied",
+    heightKm: mirrorHeightKm,
+    detail:
       `Mirror reflection height is the caller-supplied ${String(mirrorHeightKm)} km. ` +
-      "This engine makes no claim about where that value came from."
+      "This engine makes no claim about where that value came from.",
+  };
+}
+
+/** What the trace actually used for the mirror height, as one sentence. */
+function mirrorHeightAssumption(provenance: MirrorHeightProvenance): string {
+  if (provenance.kind === "modelled") {
+    const points = provenance.controlPoints.length;
+    const where =
+      points > 1
+        ? `the mean over the ${String(points)} Table 1c control points ` +
+          `(${provenance.controlPoints.map((p) => `${p.label}: ${p.heightKm.toFixed(1)} km`).join(", ")})`
+        : `at the midpoint control point (case ${provenance.branch})`;
+    return (
+      `Mirror reflection height is the modelled ${provenance.heightKm.toFixed(1)} km, ` +
+      `the ITU-R P.533-14 section 5.1 F2 mirror height ${where} for ` +
+      `${provenance.frequencyMHz.toFixed(1)} MHz over the ${provenance.routeDirection} ` +
+      `route of ${provenance.groundDistanceKm.toFixed(0)} km as ${String(provenance.hopCount)} ` +
+      `${provenance.hopCount === 1 ? "hop" : "hops"} of ` +
+      `${provenance.hopGroundDistanceKm.toFixed(0)} km, solved at the midpoint from ` +
+      `foF2 = ${provenance.foF2MHz.toFixed(2)} MHz, foE = ${provenance.foEMHz.toFixed(2)} MHz, ` +
+      `M(3000)F2 = ${provenance.m3000F2.toFixed(3)}, R12 = ${provenance.r12.toFixed(1)} ` +
+      `and dmax = ${provenance.dmaxKm.toFixed(0)} km read from ` +
+      `${provenance.providerId} ${provenance.providerVersion} at ${provenance.validAt}.`
     );
   }
-  return (
-    `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
-    "stand-in, taken because the caller supplied none: the #953 climatology " +
-    "provider that supplies M(3000)F2 is asynchronous and is not wired into " +
-    "this synchronous entry point yet."
-  );
+  return provenance.detail;
+}
+
+/** Tolerances inside which a modelled provenance describes this circuit. */
+const PROVENANCE_DISTANCE_TOLERANCE_KM = 1;
+const PROVENANCE_FREQUENCY_TOLERANCE_MHZ = 0.01;
+const PROVENANCE_INSTANT_TOLERANCE_MS = 60 * 1000;
+
+/**
+ * Why a modelled provenance does not describe the circuit being traced, or
+ * null when it does. A modelled height is solved for one frequency, one
+ * route and one hop count, and its hop count is only meaningful on that
+ * circuit. `useMirrorHeight` rounds the frequency to 0.01 MHz, the distance
+ * to 1 km and the instant to the minute, so the tolerances are those.
+ */
+function modelledProvenanceMismatch(
+  provenance: Extract<MirrorHeightProvenance, { kind: "modelled" }>,
+  circuit: {
+    groundDistanceKm: number;
+    frequencyMHz: number;
+    pathMode: "short" | "long";
+    date: Date;
+  },
+): string | null {
+  const reasons: string[] = [];
+  if (provenance.routeDirection !== circuit.pathMode) {
+    reasons.push(
+      `it was solved on the ${provenance.routeDirection} route and this trace ` +
+        `walks the ${circuit.pathMode} one`,
+    );
+  }
+  if (
+    Math.abs(provenance.groundDistanceKm - circuit.groundDistanceKm) >
+    PROVENANCE_DISTANCE_TOLERANCE_KM
+  ) {
+    reasons.push(
+      `it was solved for ${provenance.groundDistanceKm.toFixed(0)} km and this ` +
+        `circuit is ${circuit.groundDistanceKm.toFixed(0)} km`,
+    );
+  }
+  if (
+    Math.abs(provenance.frequencyMHz - circuit.frequencyMHz) >
+    PROVENANCE_FREQUENCY_TOLERANCE_MHZ
+  ) {
+    reasons.push(
+      `it was solved for ${provenance.frequencyMHz.toFixed(2)} MHz and this ` +
+        `trace runs at ${circuit.frequencyMHz.toFixed(2)} MHz`,
+    );
+  }
+  const validAtMs = Date.parse(provenance.validAt);
+  if (
+    !Number.isFinite(validAtMs) ||
+    Math.abs(validAtMs - circuit.date.getTime()) >
+      PROVENANCE_INSTANT_TOLERANCE_MS
+  ) {
+    reasons.push(
+      `it was read at ${provenance.validAt} and this trace is for ` +
+        `${circuit.date.toISOString()}`,
+    );
+  }
+  return reasons.length === 0 ? null : reasons.join("; ");
+}
+
+/**
+ * Which of the three the caller asked for. A provenance wins over a bare
+ * number: it carries the height as well as its source.
+ */
+function mirrorHeightOf(params: RayTraceInput): MirrorHeightProvenance {
+  if (params.mirrorHeight !== undefined) return params.mirrorHeight;
+  if (params.mirrorHeightKm !== undefined) {
+    return callerSuppliedMirrorHeight(params.mirrorHeightKm);
+  }
+  return declaredMirrorHeightStandin("no_provider_supplied");
 }
 
 const DIP_ASSUMPTION =
@@ -136,9 +364,16 @@ export interface RayTraceInput {
   pathMode?: "short" | "long";
   /**
    * Mirror reflection height, km. Defaults to the declared 300 km constant.
-   * Supply `mirrorHeightFromM3000F2(m3000F2)` when a real M(3000)F2 is known.
+   * Supply `mirrorHeightFromM3000F2(m3000F2)` when a real M(3000)F2 is known,
+   * or `mirrorHeight` when its source can be named too.
    */
   mirrorHeightKm?: number;
+  /**
+   * Mirror reflection height with its source, from `resolveMirrorHeight`. When
+   * present it both sets the height and is carried onto the result verbatim,
+   * and it takes precedence over `mirrorHeightKm`.
+   */
+  mirrorHeight?: MirrorHeightProvenance;
 }
 
 /** The itemised loss budget. The parts sum exactly to `totalPathLossDb`. */
@@ -221,6 +456,8 @@ export interface RayTraceResult {
   absorptionPassCount: number;
   /** Everything this result stands in for rather than models. */
   assumptions: readonly string[];
+  /** Where the mirror reflection height came from. Never absent. */
+  mirrorHeight: MirrorHeightProvenance;
 }
 
 export type PathViability =
@@ -534,11 +771,12 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     sfi,
     kp,
     pathMode = "short",
-    mirrorHeightKm = DECLARED_MIRROR_HEIGHT_KM,
   } = params;
 
+  const mirrorHeight = mirrorHeightOf(params);
+  const mirrorHeightKm = mirrorHeight.heightKm;
   const assumptions = [
-    mirrorHeightAssumption(mirrorHeightKm, params.mirrorHeightKm !== undefined),
+    mirrorHeightAssumption(mirrorHeight),
     DIP_ASSUMPTION,
     GYROFREQUENCY_ASSUMPTION,
   ];
@@ -553,20 +791,51 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       pathMode,
       frequencyMHz,
       assumptions,
+      mirrorHeight,
     );
   }
 
   const totalDistanceKm = route.groundDistanceKm;
+
+  // A modelled height was solved for one mode: P.533-14 section 5.1 makes hr
+  // a function of the hop length, so the trace must draw the hop count the
+  // height was computed for, or it applies a height solved for one hop of D
+  // to n hops of D/n. If that mode does not close at this height (a grazing
+  // hop), `hopGeometry` says so below and the trace reports it as
+  // geometrically unsupported rather than quietly choosing another count.
+  // A provenance solved for a different circuit is used for its height only,
+  // and the trace says so.
+  let modelledHopCount: number | null = null;
+  if (mirrorHeight.kind === "modelled") {
+    const mismatch = modelledProvenanceMismatch(mirrorHeight, {
+      groundDistanceKm: totalDistanceKm,
+      frequencyMHz,
+      pathMode,
+      date,
+    });
+    if (mismatch === null) {
+      modelledHopCount = mirrorHeight.hopCount;
+    } else {
+      assumptions.push(
+        "The modelled mirror height provenance describes a different circuit " +
+          `(${mismatch}); its ${mirrorHeight.heightKm.toFixed(1)} km is used ` +
+          "as a height only and the hop count is chosen here.",
+      );
+    }
+  }
+
   // Never fewer hops than the mirror height can physically reach: choosing a
   // hop count that needs a below-horizon ray is how the old engine ended up
   // clamping the elevation angle.
-  const numHops = Math.max(
-    minimumHopCount(totalDistanceKm, mirrorHeightKm),
+  const numHops =
+    modelledHopCount ??
     Math.max(
-      1,
-      Math.min(MAX_HOPS, Math.ceil(totalDistanceKm / TYPICAL_F2_HOP_KM)),
-    ),
-  );
+      minimumHopCount(totalDistanceKm, mirrorHeightKm),
+      Math.max(
+        1,
+        Math.min(MAX_HOPS, Math.ceil(totalDistanceKm / TYPICAL_F2_HOP_KM)),
+      ),
+    );
   const hopDistanceKm = totalDistanceKm / numHops;
 
   const geometry = hopGeometry({
@@ -584,6 +853,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       pathMode,
       frequencyMHz,
       assumptions,
+      mirrorHeight,
       totalDistanceKm,
     );
   }
@@ -737,6 +1007,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     elevationAngleDeg: (geometry.elevationAngleRad * 180) / Math.PI,
     absorptionPassCount,
     assumptions: [...assumptions, ...hopAbsorptions[0].assumptions],
+    mirrorHeight,
   };
 }
 
@@ -776,6 +1047,7 @@ function emptyResult(
   pathMode: "short" | "long",
   frequencyMHz: number,
   assumptions: readonly string[],
+  mirrorHeight: MirrorHeightProvenance,
   totalDistanceKm = 0,
 ): RayTraceResult {
   const losses: RayPathLosses = {
@@ -803,6 +1075,7 @@ function emptyResult(
     elevationAngleDeg: 0,
     absorptionPassCount: 0,
     assumptions,
+    mirrorHeight,
   };
 }
 

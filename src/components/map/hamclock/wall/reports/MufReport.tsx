@@ -6,6 +6,7 @@ import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { useMirrorHeight } from "@/hooks/useMirrorHeight";
 import {
   getFrequencyLimits,
   getMUFAtLocation,
@@ -566,6 +567,22 @@ export function MufReport({ open, onClose }: MufReportProps) {
     };
   }, [timeShifted, ladderReady, observedEntry]);
 
+  // The mirror height is a circuit quantity (P.533-14 section 5.1: it depends
+  // on the operating frequency and the hop length), so the hook gets both
+  // ends of the circuit and the frequency the trace runs at, and resolves the
+  // same short great-circle route `traceRayPath` walks. It picks its own
+  // control points (Table 1c). Without a target there is no circuit: the hook
+  // stays disabled and the stand-in applies, which is fine because the trace
+  // needs a target anyway.
+  const mirrorHeight = useMirrorHeight(
+    location?.lat ?? null,
+    location?.lon ?? null,
+    target?.lat ?? null,
+    target?.lon ?? null,
+    at,
+    limits?.fot ?? null,
+  );
+
   const rayTrace = useMemo(() => {
     if (!location || !target || muf === null || limits === null) return null;
     return safeTrace({
@@ -577,8 +594,12 @@ export function MufReport({ open, onClose }: MufReportProps) {
       date: at,
       sfi: sfi ?? 100,
       kp: currentKp ?? FALLBACK_KP,
+      mirrorHeight,
+      // The modelled height is solved on the short route; the trace must walk
+      // the same one or it would set the height aside as a mismatch.
+      pathMode: "short",
     });
-  }, [location, target, muf, limits, at, sfi, currentKp]);
+  }, [location, target, muf, limits, at, sfi, currentKp, mirrorHeight]);
 
   // QTH-only ionosphere diagnostics (spec §26.2's PATH facts) -- vertical
   // D-layer absorption at the QTH point, using the same MUF/FOT frequency the
@@ -778,6 +799,12 @@ export function MufReport({ open, onClose }: MufReportProps) {
           <p className="hcr-bandtable-caption">
             {tracedHops.hops.length} hop
             {tracedHops.hops.length === 1 ? "" : "s"} · {tracedHops.summary}
+            {/* The caption is already the dim token; the suffix says which
+                reflecting height these hops were solved at when it is the
+                stand-in, so a person does not read them as measured. */}
+            {tracedHops.mirrorHeight.kind === "declared_standin"
+              ? " · 300 km assumed"
+              : ""}
           </p>
           <div className="hcr-hoptable-head" aria-hidden="true">
             <span>#</span>

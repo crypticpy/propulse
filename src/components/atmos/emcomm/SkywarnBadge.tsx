@@ -51,7 +51,7 @@ export function SkywarnBadge() {
       )}
       <span>{config.label}</span>
       {activatingAlerts.length > 0 && (
-        <span className="text-[9px] opacity-70 truncate max-w-[120px]">
+        <span className="text-xs opacity-70 truncate max-w-[120px]">
           ({activatingAlerts[0]})
         </span>
       )}

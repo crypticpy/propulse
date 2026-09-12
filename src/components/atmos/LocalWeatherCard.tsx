@@ -17,7 +17,7 @@ export function LocalWeatherCard() {
   if (!hasLocation) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Set station location in Profile
         </p>
       </div>
@@ -45,11 +45,11 @@ export function LocalWeatherCard() {
           <div className="text-lg font-orbitron font-bold text-su-text">
             {Math.round(weather.temperature)}&deg;C
           </div>
-          <div className="text-[10px] text-su-muted">{desc}</div>
+          <div className="text-xs text-su-muted">{desc}</div>
         </div>
       </div>
       {/* Details grid */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <div className="text-su-muted">Wind</div>
         <div className="text-su-muted font-mono text-right">
           {Math.round(weather.windSpeed)} km/h {windDir}

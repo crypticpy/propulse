@@ -4,7 +4,7 @@ import {
   AZIMUTHAL_LAYER_PROFILE,
   FLAT_LAYER_PROFILE,
 } from "@/lib/map/mapLayerProfile";
-import type { Projection } from "@/lib/map/projection";
+import type { EquirectangularProjection } from "@/lib/map/projection";
 import type { WeatherAlert } from "@/lib/api/weather";
 
 /** Minimal recording stub of the CanvasRenderingContext2D surface
@@ -104,11 +104,16 @@ function createMockCtx() {
   };
 }
 
-function fakeProjection(overrides: Partial<Projection> = {}): Projection {
+// wrapWidth/wrapHeight are unused by this layer -- any numbers satisfy the
+// equirectangular branch's now-required fields (#1091 PR 7).
+function fakeProjection(
+  overrides: Partial<EquirectangularProjection> = {},
+): EquirectangularProjection {
   return {
     kind: "equirectangular",
     zoomScale: 1,
-    wrapWidth: undefined,
+    wrapWidth: 1024,
+    wrapHeight: 512,
     project: () => ({ x: 10, y: 20, visible: true }),
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,

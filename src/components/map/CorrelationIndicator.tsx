@@ -174,14 +174,14 @@ export const CorrelationIndicator = memo(function CorrelationIndicator({
 
       {/* Confidence label */}
       <span
-        className={`text-[10px] font-mono leading-none ${confidenceTextColor(confidence)}`}
+        className={`text-xs font-mono leading-none ${confidenceTextColor(confidence)}`}
       >
         {formatConfidenceLabel(confidence)}
       </span>
 
       {/* Spot count badge */}
       {spotCount > 0 && (
-        <span className="rounded-full bg-su-input/50 px-1.5 py-0.5 text-[9px] font-medium leading-none text-su-muted">
+        <span className="rounded-full bg-su-input/50 px-1.5 py-0.5 text-xs font-medium leading-none text-su-muted">
           {spotCount} {spotCount === 1 ? "spot" : "spots"}
         </span>
       )}

@@ -194,13 +194,13 @@ export function MapTooltip({
                     <span className="text-su-muted font-mono truncate">
                       {info.callsign}
                     </span>
-                    <span className="text-cyan-400/80 font-mono text-[10px] flex-shrink-0">
+                    <span className="text-cyan-400/80 font-mono text-xs flex-shrink-0">
                       {formatFrequencyMHz(info.frequency)}
                     </span>
                   </div>
                 ))}
                 {spots.length > recentSpotInfo.length && (
-                  <div className="text-su-muted text-[10px]">
+                  <div className="text-su-muted text-xs">
                     +{spots.length - recentSpotInfo.length} more...
                   </div>
                 )}

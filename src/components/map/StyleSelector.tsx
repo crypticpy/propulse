@@ -190,7 +190,7 @@ export function StyleSelector({
     >
       {/* --- Visual Style row --- */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted w-10 shrink-0">
+        <span className="text-xs uppercase tracking-wider text-su-muted w-10 shrink-0">
           Style
         </span>
         <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">
@@ -223,7 +223,7 @@ export function StyleSelector({
 
       {/* --- Color Mode row --- */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted w-10 shrink-0">
+        <span className="text-xs uppercase tracking-wider text-su-muted w-10 shrink-0">
           Color
         </span>
         <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">

@@ -2,8 +2,8 @@
  * Activation sub-text-xs guard (#808 batch 36)
  *
  * Census on `origin/main`: `src/components/activation/` holds sub-floor
- * `text-[Npx]` sites (N<12) in QuickLogForm. ParkSearch is excluded
- * (#1192 / #844). This batch raises user-read copy to `text-xs`.
+ * `text-[Npx]` sites (N<12) in QuickLogForm. The follow-up also fixes
+ * ParkSearch, so both components are covered without exemptions.
  */
 
 import { fileURLToPath } from "node:url";
@@ -15,7 +15,10 @@ const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const ACTIVATION_ROOT = resolve(REPO_ROOT, "src/components/activation");
 
 /** Files this batch read and fixed — append-only for follow-ups. */
-const FILES = ["src/components/activation/QuickLogForm.tsx"];
+const FILES = [
+  "src/components/activation/QuickLogForm.tsx",
+  "src/components/activation/ParkSearch.tsx",
+];
 
 interface AllowlistEntry {
   file: string;
@@ -23,13 +26,7 @@ interface AllowlistEntry {
   reason: string;
 }
 
-const ALLOWLIST: AllowlistEntry[] = [
-  {
-    file: "src/components/activation/ParkSearch.tsx",
-    match: "className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${",
-    reason: "held for #1192 / #844 — this batch does not edit ParkSearch.tsx",
-  },
-];
+const ALLOWLIST: AllowlistEntry[] = [];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 const INLINE_SIZE_RE =

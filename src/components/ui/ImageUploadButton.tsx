@@ -6,10 +6,16 @@
  * with a remove button that deletes from IndexedDB.
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import { ImageCropDialog } from "@/components/ui/ImageCropDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useImageUrl } from "@/hooks/useImageUrl";
+
+function readFailureMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err) return err;
+  return "Could not read the selected photo. Try another file or try again.";
+}
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -80,9 +86,11 @@ export function ImageUploadButton({
   className = "",
 }: ImageUploadButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const readErrorId = useId();
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
 
   const { url: imageUrl } = useImageUrl(imageId);
 
@@ -99,13 +107,28 @@ export function ImageUploadButton({
 
       // Reset the input so the same file can be re-selected
       e.target.value = "";
+      setReadError(null);
 
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") {
           setCropSrc(reader.result);
           setCropOpen(true);
+          return;
         }
+        console.error(
+          "[ImageUploadButton] FileReader returned a non-string result",
+        );
+        setReadError(
+          "Could not read the selected photo. Try another file or try again.",
+        );
+      };
+      reader.onerror = () => {
+        console.error("[ImageUploadButton] FileReader failed:", reader.error);
+        setReadError(readFailureMessage(reader.error));
+      };
+      reader.onabort = () => {
+        setReadError("Photo read was cancelled. Choose a file to try again.");
       };
       reader.readAsDataURL(file);
     },
@@ -147,7 +170,8 @@ export function ImageUploadButton({
         tabIndex={-1}
       />
 
-      <div className={`inline-flex items-center gap-2 ${className}`}>
+      <div className={className}>
+        <div className="inline-flex items-center gap-2">
         {/* Preview thumbnail (when image exists) */}
         {imageId && imageUrl && (
           <div className="relative group flex-shrink-0">
@@ -204,6 +228,34 @@ export function ImageUploadButton({
             <CameraIcon size={16} />
             <span>{imageId ? "Change" : label}</span>
           </button>
+        )}
+        </div>
+
+        {readError && (
+          <div
+            id={readErrorId}
+            role="alert"
+            aria-live="polite"
+            className="mt-2 max-w-sm rounded-lg border border-alert-red/20 bg-alert-red/10 px-3 py-2"
+          >
+            <p className="text-sm font-medium text-su-text">{readError}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleClick}
+                className="rounded-md border border-alert-red/30 bg-alert-red/20 px-3 py-1 text-xs font-medium text-su-text hover:bg-alert-red/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-alert-red/40"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => setReadError(null)}
+                className="rounded-md border border-su-line/40 bg-su-line/10 px-3 py-1 text-xs font-medium text-su-muted hover:bg-su-line/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-su-line/60"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

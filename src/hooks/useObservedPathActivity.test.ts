@@ -20,7 +20,6 @@ import {
 } from "./useObservedPathActivity";
 
 const readerMocks = vi.hoisted(() => ({
-  queryPathHourlyStats: vi.fn(),
   queryPathCoverageHours: vi.fn(),
   queryReadableBandHours: vi.fn(),
 }));
@@ -43,13 +42,26 @@ const HOURS = [
   "2026-09-11T17:00:00.000Z",
 ];
 
+/** One row of the single read, which answers coverage and the pair count. */
+function coverageRow(
+  overrides: Partial<Record<string, unknown>> & { hour_utc: string },
+) {
+  return {
+    mode_class: "digital",
+    tx_field: "FN",
+    spot_count: 5,
+    unique_tx: 1,
+    unique_rx: 3,
+    backfilled_count: 0,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-09-11T18:03:20Z"));
-  readerMocks.queryPathHourlyStats.mockReset();
   readerMocks.queryPathCoverageHours.mockReset();
   readerMocks.queryReadableBandHours.mockReset();
-  readerMocks.queryPathHourlyStats.mockResolvedValue([]);
   readerMocks.queryPathCoverageHours.mockResolvedValue([]);
   readerMocks.queryReadableBandHours.mockResolvedValue(
     HOURS.map((hour_utc) => ({ hour_utc })),
@@ -76,7 +88,7 @@ describe("observedActivityIssueBucket", () => {
 });
 
 describe("useObservedPathActivity", () => {
-  it("pins one issuedAt across the three reads and does not churn (test 24)", async () => {
+  it("pins one issuedAt across the reads and does not churn (test 24)", async () => {
     const { result, rerender } = renderHook(
       () =>
         useObservedPathActivity({
@@ -92,20 +104,17 @@ describe("useObservedPathActivity", () => {
     rerender();
 
     // One fetch each, whatever the render count.
-    expect(readerMocks.queryPathHourlyStats).toHaveBeenCalledTimes(1);
     expect(readerMocks.queryPathCoverageHours).toHaveBeenCalledTimes(1);
     expect(readerMocks.queryReadableBandHours).toHaveBeenCalledTimes(1);
 
     // 18:03:20 buckets to 18:00, so the window opens six hours earlier and
-    // all three reads state the same `since`.
+    // both reads state the same `since`.
     expect(result.current.issuedAt).toBe("2026-09-11T18:00:00.000Z");
     const since = [
-      readerMocks.queryPathHourlyStats,
       readerMocks.queryPathCoverageHours,
       readerMocks.queryReadableBandHours,
     ].map((mock) => mock.mock.calls[0][0].since);
     expect(since).toEqual([
-      "2026-09-11T12:00:00.000Z",
       "2026-09-11T12:00:00.000Z",
       "2026-09-11T12:00:00.000Z",
     ]);
@@ -124,11 +133,6 @@ describe("useObservedPathActivity", () => {
     );
 
     await waitFor(() => expect(result.current.record).not.toBeNull());
-    expect(readerMocks.queryPathHourlyStats.mock.calls[0][0]).toMatchObject({
-      band: "20m",
-      txField: "FN",
-      rxField: "IO",
-    });
     // Coverage asks about the receiving field only: any transmitter proves a
     // receiver was there.
     expect(readerMocks.queryPathCoverageHours.mock.calls[0][0]).toMatchObject({
@@ -177,32 +181,12 @@ describe("useObservedPathActivity", () => {
     );
 
     expect(result.current.record).toBeNull();
-    expect(readerMocks.queryPathHourlyStats).not.toHaveBeenCalled();
+    expect(readerMocks.queryPathCoverageHours).not.toHaveBeenCalled();
   });
 
-  it("derives a verified-open record from the three reads", async () => {
-    readerMocks.queryPathHourlyStats.mockResolvedValue([
-      {
-        hour_utc: HOURS[4],
-        band: "20m",
-        mode_class: "digital",
-        tx_field: "FN",
-        rx_field: "IO",
-        spot_count: 5,
-        unique_tx: 1,
-        unique_rx: 3,
-        avg_snr: null,
-        median_snr: null,
-        backfilled_count: 0,
-      },
-    ]);
+  it("derives a verified-open record from the two reads", async () => {
     readerMocks.queryPathCoverageHours.mockResolvedValue([
-      {
-        hour_utc: HOURS[4],
-        mode_class: "digital",
-        tx_field: "FN",
-        unique_rx: 3,
-      },
+      coverageRow({ hour_utc: HOURS[4] }),
     ]);
 
     const { result } = renderHook(
@@ -221,6 +205,91 @@ describe("useObservedPathActivity", () => {
     const record = result.current.record;
     expect(record?.state === "verified_open" && record.count).toBe(5);
     expect(record?.state === "verified_open" && record.ageSeconds).toBe(3600);
+  });
+
+  it("opens the query at the aligned window start, not at the bucket", async () => {
+    // An 18:05 issuance answers over 12:00 to 18:00. Querying from 12:05
+    // would drop the 12:00 hour from every read while the record went on
+    // claiming it, which makes silence unreachable for most of every hour.
+    vi.setSystemTime(new Date("2026-09-11T18:07:00Z"));
+    readerMocks.queryPathCoverageHours.mockResolvedValue([
+      coverageRow({ hour_utc: HOURS[0] }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.record?.state).toBe("verified_open"),
+    );
+    const record = result.current.record;
+    expect(result.current.issuedAt).toBe("2026-09-11T18:05:00.000Z");
+    expect(readerMocks.queryPathCoverageHours.mock.calls[0][0].since).toBe(
+      "2026-09-11T12:00:00.000Z",
+    );
+    // The bound the query used is the bound the record states.
+    expect(record?.windowStartAt).toBe("2026-09-11T12:00:00.000Z");
+    expect(record?.state === "verified_open" && record.count).toBe(5);
+  });
+
+  it("derives the pair rows from the one coverage read", async () => {
+    // Two requests can straddle a recovery commit, so a report present in the
+    // coverage snapshot but missing from a separate pair snapshot would cache
+    // a false zero. The pair rows are the subset of these rows that are ours.
+    readerMocks.queryPathCoverageHours.mockResolvedValue([
+      coverageRow({ hour_utc: HOURS[4], tx_field: "DM", spot_count: 40 }),
+      coverageRow({ hour_utc: HOURS[4], spot_count: 5 }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.record?.state).toBe("verified_open"),
+    );
+    expect(readerMocks.queryPathCoverageHours).toHaveBeenCalledTimes(1);
+    // Only our transmitting field is counted; the other one is coverage only.
+    expect(
+      result.current.record?.state === "verified_open" &&
+        result.current.record.count,
+    ).toBe(5);
+  });
+
+  it("reads a readable hour with no coverage rows as unknown", async () => {
+    // The readable-hours read stays separate, and may legitimately disagree
+    // with the coverage snapshot. A mismatch there can only widen what is
+    // unknown; it can never manufacture a zero.
+    readerMocks.queryPathCoverageHours.mockResolvedValue([]);
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.record).not.toBeNull());
+    const record = result.current.record;
+    expect(record?.state).toBe("unknown");
+    expect(record?.state).not.toBe("no_reports");
+    expect(record && "count" in record).toBe(false);
   });
 });
 

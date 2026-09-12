@@ -105,15 +105,20 @@ export function derivePathActivity(
 ): PathActivityRecord {
   const windowSeconds = inputs.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
   const modeClasses = inputs.modeClasses ?? MODE_CLASSES;
+  // One window for the whole derivation, and for the reader that fetched the
+  // rows when it supplies its own: the bounds the query used and the bounds
+  // the record states must be the same bounds, not two computations that
+  // happen to agree.
+  const window = inputs.window ?? alignedWindow(inputs.issuedAt, windowSeconds);
   const coverage = resolveCoverage({
     issuedAt: inputs.issuedAt,
     windowSeconds,
     readableHours: inputs.readableHours,
     coverageRows: inputs.coverageRows,
     modeClasses,
+    window,
   });
   const { span } = coverage;
-  const window = alignedWindow(inputs.issuedAt, windowSeconds);
 
   const base: PathActivityBase = {
     band: inputs.band,

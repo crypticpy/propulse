@@ -155,7 +155,7 @@ describe("queryPathHourlyStats", () => {
 });
 
 describe("queryPathCoverageHours", () => {
-  it("selects only the coverage columns and filters on band + rx field", async () => {
+  it("selects the coverage and pair columns and filters on band + rx field", async () => {
     const { builder, calls } = makeBuilder([{ data: [], error: null }]);
     supabaseMocks.from.mockReturnValue(builder);
 
@@ -166,10 +166,17 @@ describe("queryPathCoverageHours", () => {
     // tx_field for the receiving field, so `*` would multiply the page count
     // and drag the aggregate SNR columns into a surface that must not use
     // them.
+    // One read answers both questions: the pair rows are the subset of these
+    // rows whose tx_field is ours, so the caller never mixes two snapshots.
     expect(calls).toContainEqual([
       "select",
-      ["hour_utc,mode_class,tx_field,unique_rx"],
+      [
+        "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
+      ],
     ]);
+    // Still no aggregate SNR column: no consumer of this reader may use one.
+    const selected = calls.find(([method]) => method === "select")?.[1][0];
+    expect(selected).not.toMatch(/snr/);
     expect(calls).toContainEqual(["eq", ["band", "20m"]]);
     expect(calls).toContainEqual(["eq", ["rx_field", "IO"]]);
     expect(calls).toContainEqual([
@@ -254,22 +261,5 @@ describe("queryReadableBandHours", () => {
     await expect(queryReadableBandHours({ band: "20m" })).rejects.toThrow(
       "band_hourly_stats_readable query failed: permission denied",
     );
-  });
-});
-
-describe("queryPathHourlyStats windows", () => {
-  it("pins the window to a supplied instant instead of the clock", async () => {
-    const { builder, calls } = makeBuilder([{ data: [], error: null }]);
-    supabaseMocks.from.mockReturnValue(builder);
-
-    await queryPathHourlyStats({
-      band: "20m",
-      since: "2026-08-29T09:30:00.000Z",
-    });
-
-    expect(calls).toContainEqual([
-      "gte",
-      ["hour_utc", "2026-08-29T09:30:00.000Z"],
-    ]);
   });
 });

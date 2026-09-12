@@ -130,13 +130,6 @@ export interface PathHourlyStatsQuery {
   band: string;
   /** Trailing window in hours (default 24 — path rows fan out per field pair) */
   hours?: number;
-  /**
-   * Explicit window start (ISO-8601). A caller that pins one issuance instant
-   * across several reads passes it here; without it the window is measured
-   * back from the read instant, which lets two reads of one verdict disagree
-   * about which hours they covered.
-   */
-  since?: string;
   /** Optional mode class filter (e.g., "digital", "cw") */
   modeClass?: string;
   /** Optional 2-char Maidenhead field filter for the transmit end (e.g., "FN") */
@@ -155,7 +148,7 @@ export async function queryPathHourlyStats(
 ): Promise<PathHourlyStatsRow[]> {
   const supabase = getSupabase();
   const { band, hours = 24, modeClass, txField, rxField } = query;
-  const since = query.since ?? windowStart(hours);
+  const since = windowStart(hours);
 
   return fetchAllPages<PathHourlyStatsRow>((from, to) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,12 +176,22 @@ export async function queryPathHourlyStats(
 /**
  * One row of the coverage question: was anybody heard at this receiving field
  * on this band-hour, whatever the transmitting field?
+ *
+ * The row also carries the counting columns, because the rows for one
+ * transmitting field are exactly the pair rows for that path. Deriving them
+ * from this read instead of issuing a second query is what keeps a verdict on
+ * one snapshot: two requests can straddle a collector commit, and a report
+ * present in the coverage answer but missing from a separate pair answer
+ * would be cached as a silent hour.
  */
 export interface PathCoverageHourRow {
   hour_utc: string;
   mode_class: string;
   tx_field: string;
+  spot_count: number;
+  unique_tx: number;
   unique_rx: number;
+  backfilled_count: number;
 }
 
 export interface PathCoverageHoursQuery {
@@ -204,10 +207,11 @@ export interface PathCoverageHoursQuery {
 /**
  * Query `path_hourly_stats` for every transmitting field that reached a given
  * receiving field, so a caller can tell "nobody was listening there" from
- * "somebody was listening and heard nothing".
+ * "somebody was listening and heard nothing", and count its own pair out of
+ * the same rows.
  *
- * The select is narrow on purpose. This query fans over every `tx_field` for a
- * busy receiving field, so `*` would multiply the page count against the 8 s
+ * The select stays narrow. This query fans over every `tx_field` for a busy
+ * receiving field, so `*` would multiply the page count against the 8 s
  * statement timeout, and it would pull in the aggregate SNR columns, which no
  * consumer of this reader is allowed to use.
  */
@@ -223,7 +227,9 @@ export async function queryPathCoverageHours(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
         .from("path_hourly_stats")
-        .select("hour_utc,mode_class,tx_field,unique_rx")
+        .select(
+          "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
+        )
         .eq("band", band)
         .eq("rx_field", rxField.toUpperCase())
         .gte("hour_utc", since)

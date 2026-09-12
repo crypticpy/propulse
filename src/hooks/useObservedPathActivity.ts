@@ -4,10 +4,13 @@
  *
  * The hook owns the two things the pure derivation deliberately does not:
  *
- * 1. **One issuance instant.** All three reads and the derivation share a
- *    single `issuedAt`, bucketed to five minutes. Three clock samples would
- *    let the coverage query and the pair query disagree about which hours they
- *    covered, and a per-render sample would churn the query key forever.
+ * 1. **One issuance instant, and one snapshot.** Both reads and the derivation
+ *    share a single `issuedAt`, bucketed to five minutes, and both open at the
+ *    aligned window start rather than at the bucket, so the hours queried are
+ *    the hours the record claims. The pair rows are filtered out of the
+ *    coverage read rather than fetched separately: two requests can straddle a
+ *    collector commit, and a report present in one answer but not the other
+ *    would be cached as a silent hour.
  * 2. **What a failed read means.** It means `unknown`, with a reason. It does
  *    not mean zero: a request that never returned is the absence of evidence,
  *    and rendering it as a silent band would be the closure claim this whole
@@ -20,7 +23,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   queryPathCoverageHours,
-  queryPathHourlyStats,
   queryReadableBandHours,
 } from "@/lib/propagation/hourlyStats";
 import {
@@ -28,13 +30,14 @@ import {
   unknownActivity,
 } from "@/lib/propagation/radioEvidence/activityRecord";
 import {
-  assertWholeHourWindow,
+  alignedWindow,
   DEFAULT_OBSERVED_WINDOW_SECONDS,
 } from "@/lib/propagation/radioEvidence/coverage";
 import {
   MODE_CLASSES,
   type ModeClass,
   type ObservedActivityDescriptor,
+  type PathActivityPairRow,
   type PathActivityRecord,
 } from "@/lib/propagation/radioEvidence/types";
 
@@ -156,10 +159,14 @@ export function useObservedPathActivity(
   const txField = fieldOf(input.txGrid);
   const rxField = fieldOf(input.rxGrid);
   const windowSeconds = input.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
-  // At the call site rather than inside the query: a window the aggregates
-  // cannot express is a caller bug, and letting it surface as a failed read
-  // would file it as missing evidence.
-  assertWholeHourWindow(windowSeconds);
+  // Computed once, here, and then used for both the query bound and the
+  // derivation. It also validates the window during render rather than inside
+  // the query, because a window the aggregates cannot express is a caller bug
+  // and a failed read would file it as missing evidence.
+  const window = useMemo(
+    () => alignedWindow(issuedAt, windowSeconds),
+    [issuedAt, windowSeconds],
+  );
   const modeClasses = input.modeClasses;
   const enabled =
     (input.enabled ?? true) && txField !== null && rxField !== null;
@@ -179,7 +186,12 @@ export function useObservedPathActivity(
     [input.band, txField, rxField, issuedAt, windowSeconds, modeClasses],
   );
 
-  const since = new Date(bucket - windowSeconds * 1000).toISOString();
+  // The bound the rows are fetched over is the bound the record states. An
+  // 18:05 issuance answers over 12:00 to 18:00, so it must ask from 12:00: a
+  // window measured back from the bucket would drop the oldest hour from every
+  // read while the record went on claiming it, and silence would be
+  // unreachable for 55 minutes of every hour.
+  const since = window.startAt;
 
   const query = useQuery({
     queryKey: observedActivityQueryKey({
@@ -198,22 +210,27 @@ export function useObservedPathActivity(
       if (descriptor === null) {
         throw new Error("observed activity needs both endpoints");
       }
-      const [pairRows, coverageRows, readableHours] = await Promise.all([
-        queryPathHourlyStats({
-          band: descriptor.band,
-          txField: descriptor.txField,
-          rxField: descriptor.rxField,
-          since,
-        }),
+      const [coverageRows, readableHours] = await Promise.all([
         queryPathCoverageHours({
           band: descriptor.band,
           rxField: descriptor.rxField,
           since,
         }),
+        // The gap witness stays a separate read, and may disagree with the
+        // coverage snapshot. That is safe in a way a pair mismatch is not: a
+        // readable hour the coverage read has not caught up with can only
+        // make the verdict unknown, never manufacture a zero.
         queryReadableBandHours({ band: descriptor.band, since }),
       ]);
+      // Our pair is the subset of the coverage rows transmitted from our
+      // field. One snapshot, so a report can never be counted as coverage and
+      // missed as a report.
+      const pairRows: PathActivityPairRow[] = coverageRows
+        .filter((row) => row.tx_field.toUpperCase() === descriptor.txField)
+        .map((row) => ({ ...row, rx_field: descriptor.rxField }));
       return derivePathActivity({
         ...descriptor,
+        window,
         pairRows,
         coverageRows,
         readableHours,

@@ -24,6 +24,19 @@ function createMockCtx() {
     color: string;
     lineWidth: number;
   }> = [];
+  const texts: Array<{
+    kind: "strokeText" | "fillText";
+    text: string;
+    x: number;
+    y: number;
+    font: string;
+    textAlign: string;
+    textBaseline: string;
+    strokeStyle: string;
+    fillStyle: string;
+    lineWidth: number;
+    globalAlpha: number;
+  }> = [];
   let lastArc = { x: 0, y: 0, radius: 0 };
   const ctx = {
     globalAlpha: 1,
@@ -57,14 +70,45 @@ function createMockCtx() {
       });
       calls.push("stroke");
     }),
-    strokeText: vi.fn(() => calls.push("strokeText")),
-    fillText: vi.fn(() => calls.push("fillText")),
+    strokeText: vi.fn((text: string, x: number, y: number) => {
+      texts.push({
+        kind: "strokeText",
+        text,
+        x,
+        y,
+        font: ctx.font as string,
+        textAlign: ctx.textAlign as string,
+        textBaseline: ctx.textBaseline as string,
+        strokeStyle: ctx.strokeStyle as string,
+        fillStyle: ctx.fillStyle as string,
+        lineWidth: ctx.lineWidth,
+        globalAlpha: ctx.globalAlpha,
+      });
+      calls.push("strokeText");
+    }),
+    fillText: vi.fn((text: string, x: number, y: number) => {
+      texts.push({
+        kind: "fillText",
+        text,
+        x,
+        y,
+        font: ctx.font as string,
+        textAlign: ctx.textAlign as string,
+        textBaseline: ctx.textBaseline as string,
+        strokeStyle: ctx.strokeStyle as string,
+        fillStyle: ctx.fillStyle as string,
+        lineWidth: ctx.lineWidth,
+        globalAlpha: ctx.globalAlpha,
+      });
+      calls.push("fillText");
+    }),
   };
   return {
     ctx: ctx as unknown as CanvasRenderingContext2D,
     calls,
     fills,
     strokes,
+    texts,
   };
 }
 
@@ -163,6 +207,61 @@ describe("drawEarthquakesLayer", () => {
     expect(atThreshold.calls.filter((c) => c === "strokeText")).toHaveLength(1);
   });
 
+  it("produces zero text calls below M5 and two at M5 (threshold boundary)", () => {
+    const below = createMockCtx();
+    drawEarthquakesLayer(
+      below.ctx,
+      [quake({ magnitude: 4.9 })],
+      fakeProjection(),
+      FLAT_LAYER_PROFILE,
+    );
+    expect(below.texts).toHaveLength(0);
+
+    const atThreshold = createMockCtx();
+    drawEarthquakesLayer(
+      atThreshold.ctx,
+      [quake({ magnitude: 5.0 })],
+      fakeProjection(),
+      FLAT_LAYER_PROFILE,
+    );
+    expect(atThreshold.texts).toHaveLength(2);
+  });
+
+  it("captures the full label style state at strokeText/fillText call time", () => {
+    const { ctx, texts } = createMockCtx();
+    drawEarthquakesLayer(
+      ctx,
+      [quake({ magnitude: 6 })],
+      fakeProjection({ screenPx: (px) => px / 2 }),
+      FLAT_LAYER_PROFILE,
+    );
+
+    // radius = screenPx(min(20, (6-1)*3)) = screenPx(15) = 7.5
+    // labelY = 20 - 7.5 - screenPx(2) = 20 - 7.5 - 1 = 11.5
+    // fontSize = round(screenPx(7)) = round(3.5) = 4
+    expect(texts).toHaveLength(2);
+    expect(texts[0].kind).toBe("strokeText");
+    expect(texts[1].kind).toBe("fillText");
+
+    for (const t of texts) {
+      expect(t.text).toBe("M6.0");
+      expect(t.x).toBe(10);
+      expect(t.y).toBe(11.5);
+      expect(t.font).toBe("bold 4px monospace");
+    }
+
+    expect(texts[0]).toMatchObject({
+      strokeStyle: "rgba(0,0,0,0.6)",
+      lineWidth: 1,
+    });
+    expect(texts[1]).toMatchObject({
+      fillStyle: "#ffffff",
+      textAlign: "center",
+      textBaseline: "bottom",
+      globalAlpha: 1,
+    });
+  });
+
   describe("flat vs. azimuthal profile parity (drift is intentional, see #1091 drift census)", () => {
     it("magnitude 8 -> core radius 20 under FLAT (capped) and 15 under AZIMUTHAL (capped)", () => {
       const flat = createMockCtx();
@@ -173,6 +272,7 @@ describe("drawEarthquakesLayer", () => {
         FLAT_LAYER_PROFILE,
       );
       expect(flat.fills[1].radius).toBe(20);
+      expect(flat.fills[1].color).toBe("#ff2020");
 
       const az = createMockCtx();
       drawEarthquakesLayer(
@@ -182,6 +282,7 @@ describe("drawEarthquakesLayer", () => {
         AZIMUTHAL_LAYER_PROFILE,
       );
       expect(az.fills[1].radius).toBe(15);
+      expect(az.fills[1].color).toBe("#ff2020");
     });
 
     it("magnitude 5 -> core radius 12 under FLAT (pxPerMagnitude 3) and 10 under AZIMUTHAL (pxPerMagnitude 2.5); this must fail if the per-magnitude constants are swapped", () => {
@@ -193,6 +294,7 @@ describe("drawEarthquakesLayer", () => {
         FLAT_LAYER_PROFILE,
       );
       expect(flat.fills[1].radius).toBe(12); // (5 - 1) * 3
+      expect(flat.fills[1].color).toBe("#ff8800");
 
       const az = createMockCtx();
       drawEarthquakesLayer(
@@ -202,6 +304,7 @@ describe("drawEarthquakesLayer", () => {
         AZIMUTHAL_LAYER_PROFILE,
       );
       expect(az.fills[1].radius).toBe(10); // (5 - 1) * 2.5
+      expect(az.fills[1].color).toBe("#ff8800");
     });
 
     it("magnitude 1 floors the core radius at 3 under both profiles", () => {
@@ -213,6 +316,7 @@ describe("drawEarthquakesLayer", () => {
         FLAT_LAYER_PROFILE,
       );
       expect(flat.fills[1].radius).toBe(3);
+      expect(flat.fills[1].color).toBe("#88cc44");
 
       const az = createMockCtx();
       drawEarthquakesLayer(
@@ -222,7 +326,25 @@ describe("drawEarthquakesLayer", () => {
         AZIMUTHAL_LAYER_PROFILE,
       );
       expect(az.fills[1].radius).toBe(3);
+      expect(az.fills[1].color).toBe("#88cc44");
     });
+
+    it.each([
+      { magnitude: 6.9, color: "#ff8800" },
+      { magnitude: 7.0, color: "#ff2020" },
+    ])(
+      "colour ramp boundary: magnitude $magnitude -> $color",
+      ({ magnitude, color }) => {
+        const { ctx, fills } = createMockCtx();
+        drawEarthquakesLayer(
+          ctx,
+          [quake({ magnitude })],
+          fakeProjection(),
+          FLAT_LAYER_PROFILE,
+        );
+        expect(fills[1].color).toBe(color);
+      },
+    );
   });
 
   it("applies screenPx to the clamped radius, halving both the glow and core radii", () => {
@@ -245,6 +367,7 @@ describe("drawEarthquakesLayer", () => {
 
     expect(halved.fills[0].radius).toBe(unscaled.fills[0].radius / 2);
     expect(halved.fills[1].radius).toBe(unscaled.fills[1].radius / 2);
+    expect(halved.strokes[0].lineWidth).toBe(unscaled.strokes[0].lineWidth / 2);
   });
 
   it("wraps a pair of quakes straddling the antimeridian to opposite edges of the real equirectangular projection, each drawn once", () => {

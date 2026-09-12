@@ -263,6 +263,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
         hover:scale-[1.02] hover:shadow-xl
         focus:outline-none focus:ring-2 focus:ring-su-line/50
       `}
+      style={{ maxWidth: "calc(100vw - 2rem)" }}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}

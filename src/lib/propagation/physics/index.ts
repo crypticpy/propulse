@@ -2,9 +2,10 @@
  * ITU-R P.533-14 circuit physics (PROP-08, #954).
  *
  * Slice A: the Table 1 control points, the basic MUF of sections 3.3 and 3.5,
- * and the operational MUF of section 3.7. Later slices add the mode set and
- * E-layer screening, short-path field strength, the long-path method and the
- * solver that ties them together.
+ * and the operational MUF of section 3.7. Slice B: the E-layer maximum
+ * screening frequency of section 4 and the mode set of section 5.2.1. Later
+ * slices add short-path field strength, the long-path method and the solver
+ * that ties them together.
  *
  * Nothing here is wired to a consumer yet, and nothing here fetches an
  * ionosphere: a circuit passes in one sampling callback that answers for every
@@ -76,3 +77,36 @@ export {
   type OperationalMufMode,
   type OperationalMufResult,
 } from "./operationalMuf";
+
+export {
+  isScreened,
+  pathScreeningFoE,
+  screeningFrequencyMHz,
+  screeningIncidenceAngleRad,
+  E_LAYER_SCREENING_FACTOR,
+  E_SCREENING_MAX_PATH_KM,
+  type EvaluatedScreeningFoE,
+  type NotEvaluatedScreeningFoE,
+  type PathScreeningFoE,
+  type PathScreeningFoEInputs,
+} from "./eLayerScreening";
+
+export {
+  modeLabel,
+  type ModeStatus,
+  type ModeUnsupportedReason,
+  type PropagationLayer,
+  type PropagationMode,
+} from "./modeTypes";
+
+export {
+  modeSet,
+  E_MODE_MAX_HOP_KM,
+  type F2MirrorHeightSource,
+  type ModeControlPointSampler,
+  type ModeControlPointState,
+  type ModeSetInputs,
+  type ModeSetResult,
+  type ResolvedModeSet,
+  type UnsupportedModeSet,
+} from "./modeSet";

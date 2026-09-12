@@ -77,6 +77,7 @@ export interface BuilderCanvasProps {
     nodeType: string,
     equipmentId: string,
     position: number,
+    feedlineRunId?: string,
   ) => void;
   /** Band key for performance display (e.g., "20m") */
   selectedBand?: string;
@@ -415,6 +416,35 @@ export function BuilderCanvas({
     },
     [chain.id, reorderChainNodes, onDropEquipment],
   );
+
+  const handleFeedlineRunDrop = useCallback(
+    (
+      e: React.DragEvent,
+      feedlineRunId: string,
+      nodeIndex: number,
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setActiveDropIndex(null);
+
+      const equipJson = e.dataTransfer.getData("application/x-equipment");
+      if (!equipJson) return;
+      try {
+        const { type: equipType, id: equipId } = JSON.parse(equipJson);
+        if (equipType && equipId) {
+          onDropEquipment(equipType, equipId, nodeIndex, feedlineRunId);
+        }
+      } catch {
+        // Malformed drag data — ignore
+      }
+    },
+    [onDropEquipment],
+  );
+
+  const handleFeedlineRunDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
 
   // ── Zoom handler (native wheel — passive:false to prevent page scroll) ──
   const svgRef = useRef<SVGSVGElement>(null);
@@ -910,29 +940,34 @@ export function BuilderCanvas({
               if (run) {
                 const runData = feedlineRunData.get(run.id);
                 return (
-                  <FeedlineRunNode
+                  <g
                     key={`node-${i}`}
-                    feedlineRun={run}
-                    feedlineLabel={label}
-                    feedlineSubLabel={subLabel}
-                    inlineLabels={runData?.inlineLabels ?? []}
-                    totalLossDb={runData?.totalLossDb}
-                    nodePerformance={nodePerf}
-                    inputConnector={connectors?.input ?? null}
-                    outputConnector={connectors?.output ?? null}
-                    inputCompatible={compat?.inputCompatible}
-                    outputCompatible={compat?.outputCompatible}
-                    isSelected={selectedNodeIndex === i}
-                    impedanceOhms={feedlineImpedances.get(run.id)}
-                    x={layout.x}
-                    y={layout.y}
-                    width={layout.width}
-                    onClick={() => onSelectNode(i)}
-                    onContextMenu={(e: React.MouseEvent) => {
-                      e.preventDefault();
-                      onNodeContextMenu?.(i, e.clientX, e.clientY);
-                    }}
-                  />
+                    onDragOver={handleFeedlineRunDragOver}
+                    onDrop={(e) => handleFeedlineRunDrop(e, run.id, i)}
+                  >
+                    <FeedlineRunNode
+                      feedlineRun={run}
+                      feedlineLabel={label}
+                      feedlineSubLabel={subLabel}
+                      inlineLabels={runData?.inlineLabels ?? []}
+                      totalLossDb={runData?.totalLossDb}
+                      nodePerformance={nodePerf}
+                      inputConnector={connectors?.input ?? null}
+                      outputConnector={connectors?.output ?? null}
+                      inputCompatible={compat?.inputCompatible}
+                      outputCompatible={compat?.outputCompatible}
+                      isSelected={selectedNodeIndex === i}
+                      impedanceOhms={feedlineImpedances.get(run.id)}
+                      x={layout.x}
+                      y={layout.y}
+                      width={layout.width}
+                      onClick={() => onSelectNode(i)}
+                      onContextMenu={(e: React.MouseEvent) => {
+                        e.preventDefault();
+                        onNodeContextMenu?.(i, e.clientX, e.clientY);
+                      }}
+                    />
+                  </g>
                 );
               }
             }

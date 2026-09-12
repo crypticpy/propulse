@@ -329,6 +329,76 @@ describe("what section 5.4 refuses rather than guesses", () => {
       }
     }
   });
+
+  it("returns out_of_domain rather than a NaN field strength when a corrupted upstream Es overflows equation (42)'s exponential", () => {
+    // shortPathDb only has to be finite to be accepted; at 1e6 dB it still
+    // is, but Xs = 10^(0.01 Es) overflows double range on its own, before the
+    // interpolation itself runs, corrupting Xi and the field strength with
+    // it. This is the distanceBlend sibling of the fM finding: neither Es nor
+    // El fails any check above, and it is the record's own arithmetic that
+    // overflows.
+    const result = distanceBlend({
+      groundDistanceKm: 8000,
+      shortPathDb: 1e6,
+      longPathDb: -50,
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("equation (42)");
+  });
+
+  it.each([
+    {
+      name: "shortPathDb = Number.MAX_VALUE, an even more extreme overflow than the 1e6 case above",
+      overrides: { shortPathDb: Number.MAX_VALUE, longPathDb: -50 },
+      expectedReason: "out_of_domain" as const,
+    },
+    {
+      name: "longPathDb = Number.MAX_VALUE, the same overflow on the other side",
+      overrides: { shortPathDb: -50, longPathDb: Number.MAX_VALUE },
+      expectedReason: "out_of_domain" as const,
+    },
+    {
+      name: "groundDistanceKm = Number.MAX_VALUE, resolves as long_path_only rather than overflowing, since equation (42) never runs outside the blend window",
+      overrides: {
+        groundDistanceKm: Number.MAX_VALUE,
+        shortPathDb: -50,
+        longPathDb: -50,
+      },
+      expectedReason: null,
+    },
+    {
+      name: "groundDistanceKm = -Number.MAX_VALUE, not a usable path length",
+      overrides: {
+        groundDistanceKm: -Number.MAX_VALUE,
+        shortPathDb: -50,
+        longPathDb: -50,
+      },
+      expectedReason: "out_of_domain" as const,
+    },
+    {
+      name: "shortPathDb and longPathDb both deeply negative but finite, which this leaf's own contract still admits",
+      overrides: { shortPathDb: -1000, longPathDb: -1000 },
+      expectedReason: null,
+    },
+  ])(
+    "hostile input, item H's table: $name",
+    ({ overrides, expectedReason }) => {
+      const result = distanceBlend({ groundDistanceKm: 8000, ...overrides });
+      if (expectedReason === null) {
+        expect(result.kind).toBe("resolved");
+        if (result.kind === "resolved") {
+          expect(Number.isFinite(result.fieldStrengthDb)).toBe(true);
+        }
+      } else {
+        expect(result.kind).toBe("unsupported");
+        if (result.kind === "unsupported") {
+          expect(result.reason).toBe(expectedReason);
+        }
+      }
+    },
+  );
 });
 
 it.each([40000, -40000])(

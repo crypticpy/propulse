@@ -1,5 +1,4 @@
 import type { EffectiveDisplayQuality } from "@/lib/map/displayQuality";
-import { getSubsolarPoint } from "@/lib/utils/sun";
 
 /** Stable size buckets preserve detail without processing UHD pixels on small views. */
 export function flatIlluminationRasterSizes(
@@ -44,43 +43,4 @@ export function terminatorCoordinates(
     });
   }
   return points;
-}
-
-export function drawFlatTerminator(
-  context: CanvasRenderingContext2D,
-  date: Date,
-  width: number,
-  height: number,
-  highViz = false,
-  dashed = false,
-  scale = 1,
-) {
-  const sun = getSubsolarPoint(date);
-  const samples = Math.min(16384, Math.max(2048, Math.ceil(width * scale)));
-  const points = terminatorCoordinates(sun.lat, sun.lon, samples);
-  context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  if (dashed) context.setLineDash([8 / scale, 4 / scale]);
-  context.beginPath();
-  let lastLon: number | undefined;
-  for (const point of points) {
-    const x = ((point.lon + 180) / 360) * width;
-    const y = ((90 - point.lat) / 180) * height;
-    if (lastLon === undefined || Math.abs(point.lon - lastLon) > 180)
-      context.moveTo(x, y);
-    else context.lineTo(x, y);
-    lastLon = point.lon;
-  }
-  // A dark, soft outline keeps the orange edge legible over snow and deserts.
-  context.strokeStyle = "rgba(8, 14, 25, 0.7)";
-  context.lineWidth = (highViz ? 5 : 4) / scale;
-  context.shadowColor = "rgba(0, 0, 0, 0.5)";
-  context.shadowBlur = 2;
-  context.stroke();
-  context.shadowBlur = 0;
-  context.strokeStyle = "#ff8b46";
-  context.lineWidth = (highViz ? 3 : 2.25) / scale;
-  context.stroke();
-  context.restore();
 }

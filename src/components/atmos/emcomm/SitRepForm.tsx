@@ -54,13 +54,13 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
 
   return (
     <div className="p-3 border-b border-su-line/20 space-y-2">
-      <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
+      <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted">
         New Situation Report
       </h2>
 
       {/* Author (read-only) */}
       <div>
-        <label className="block text-[10px] text-su-muted mb-0.5">Author</label>
+        <label className="block text-xs text-su-muted mb-0.5">Author</label>
         <div className="text-xs text-su-text font-mono bg-su-line/10 rounded px-2 py-1 border border-su-line/40">
           {author}
         </div>
@@ -68,7 +68,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
 
       {/* Summary */}
       <div>
-        <label className="block text-[10px] text-su-muted mb-0.5">
+        <label className="block text-xs text-su-muted mb-0.5">
           Summary <span className="text-alert-red">*</span>
         </label>
         <textarea
@@ -82,7 +82,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
 
       {/* Conditions (auto-filled from RIM) */}
       <div>
-        <label className="block text-[10px] text-su-muted mb-0.5">
+        <label className="block text-xs text-su-muted mb-0.5">
           Conditions (auto-filled)
         </label>
         <input
@@ -95,7 +95,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
 
       {/* Net Activity */}
       <div>
-        <label className="block text-[10px] text-su-muted mb-0.5">
+        <label className="block text-xs text-su-muted mb-0.5">
           Net Activity
         </label>
         <input
@@ -109,7 +109,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
 
       {/* Next Actions */}
       <div>
-        <label className="block text-[10px] text-su-muted mb-0.5">
+        <label className="block text-xs text-su-muted mb-0.5">
           Next Actions
         </label>
         <textarea
@@ -127,14 +127,14 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-signal-green/20 hover:bg-signal-green/30 text-signal-green border border-signal-green/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 px-2 py-1.5 text-xs font-mono rounded-md bg-signal-green/20 hover:bg-signal-green/30 text-signal-green border border-signal-green/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save SitRep
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
+          className="flex-1 px-2 py-1.5 text-xs font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
         >
           Cancel
         </button>

@@ -98,7 +98,7 @@ function BadgeTile({
         {/* Tier badge */}
         {isEarned ? (
           <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider"
             style={{
               backgroundColor: tierColor,
               color: inkOnFill(tierColor),
@@ -112,7 +112,7 @@ function BadgeTile({
             {TIER_LABELS[earned.tier]}
           </span>
         ) : (
-          <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
+          <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
             Locked
           </span>
         )}

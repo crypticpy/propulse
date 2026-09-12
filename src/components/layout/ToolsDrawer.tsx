@@ -165,7 +165,7 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
         <div className="w-10 h-1 bg-su-line rounded-full mx-auto mb-3" />
 
         {/* My Station section */}
-        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
+        <div className="text-xs uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           My Station
         </div>
         {stationItems.map((item) => (
@@ -187,7 +187,7 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
         <div className="border-t border-su-line/40 my-1" />
 
         {/* Tools section */}
-        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
+        <div className="text-xs uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           Tools
         </div>
         {tools.map((tool) => (
@@ -209,7 +209,7 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
         <div className="border-t border-su-line/40 my-1" />
 
         {/* Support section */}
-        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
+        <div className="text-xs uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           Support
         </div>
         <Link

@@ -50,6 +50,27 @@ function resetAuthState() {
   });
 }
 
+/**
+ * The modal focuses the active view's first input 80ms after `isOpen` or
+ * `displayView` changes (AuthModal.tsx, "Focus first input on open"), and
+ * AccessibleDialog focuses the panel's first focusable on the open frame.
+ * user-event resolves the target of every keystroke from
+ * `document.activeElement`, so a test that starts typing before that timer has
+ * fired loses the rest of what it types to the auto-focused field — the
+ * password ends up empty or truncated, which disables the submit button and
+ * sends the submit handlers down their early-return paths. The timer is
+ * scheduled once per view, so waiting for the focus to land first makes every
+ * later keystroke deterministic.
+ */
+async function waitForAutoFocus(inputId: string) {
+  await waitFor(
+    () => {
+      expect(document.activeElement?.id).toBe(inputId);
+    },
+    { timeout: 2000 },
+  );
+}
+
 beforeEach(() => {
   resetAuthState();
   // Reset here (not just at the end of the test that flips it) so a failed
@@ -182,6 +203,7 @@ describe("AuthModal", () => {
 
     const user = userEvent.setup();
     render(<AuthModal />);
+    await waitForAutoFocus("auth-email");
 
     await user.type(screen.getByLabelText("Email address"), "op@example.com");
     await user.type(screen.getByLabelText("Password"), "hunter22");
@@ -221,6 +243,7 @@ describe("AuthModal", () => {
           screen.getByRole("heading", { name: "Create Account" }),
         ).toBeTruthy();
       });
+      await waitForAutoFocus("signup-email");
     }
 
     it("disables Create Account for a password missing a special character, and enables it once the policy is met", async () => {
@@ -269,13 +292,13 @@ describe("AuthModal", () => {
 
       fireEvent.keyDown(passwordInput, { key: "Enter" });
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            "Password is too weak. Add numbers and special characters.",
-          ),
-        ).toBeTruthy();
-      });
+      expect(
+        await screen.findByText(
+          "Password is too weak. Add numbers and special characters.",
+          {},
+          { timeout: 5000 },
+        ),
+      ).toBeTruthy();
       expect(signUpMock).not.toHaveBeenCalled();
     });
   });
@@ -291,6 +314,7 @@ describe("AuthModal", () => {
           screen.getAllByRole("heading", { name: "Set New Password" }),
         ).toHaveLength(1);
       });
+      await waitForAutoFocus("reset-password");
     }
 
     it("disables Update Password for a password missing a special character, and enables it once the policy is met", async () => {
@@ -332,13 +356,13 @@ describe("AuthModal", () => {
 
       fireEvent.keyDown(passwordInput, { key: "Enter" });
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            "Password is too weak. Add numbers and special characters.",
-          ),
-        ).toBeTruthy();
-      });
+      expect(
+        await screen.findByText(
+          "Password is too weak. Add numbers and special characters.",
+          {},
+          { timeout: 5000 },
+        ),
+      ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();
     });
   });

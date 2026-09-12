@@ -42,6 +42,25 @@ function resetAuthState() {
   });
 }
 
+/**
+ * The page focuses the active view's first input 80ms after `view` changes
+ * (LoginPage.tsx, "Focus first input on view change"). user-event resolves the
+ * target of every keystroke from `document.activeElement`, so a test that
+ * starts typing before that timer has fired loses the rest of what it types to
+ * the auto-focused field — the password ends up empty or truncated, which
+ * disables the submit button and sends the submit handler down an
+ * early-return path. The timer is scheduled once per view, so waiting for the
+ * focus to land first makes every later keystroke deterministic.
+ */
+async function waitForAutoFocus(inputId: string) {
+  await waitFor(
+    () => {
+      expect(document.activeElement?.id).toBe(inputId);
+    },
+    { timeout: 2000 },
+  );
+}
+
 beforeEach(() => {
   resetAuthState();
   supabaseConfigured.value = true;
@@ -72,6 +91,7 @@ describe("LoginPage", () => {
       await waitFor(() => {
         expect(screen.getByLabelText("New password")).toBeTruthy();
       });
+      await waitForAutoFocus("reset-new-password");
     }
 
     it("disables Update Password for a password missing a special character, and enables it once the policy is met", async () => {
@@ -116,13 +136,13 @@ describe("LoginPage", () => {
 
       fireEvent.keyDown(passwordInput, { key: "Enter" });
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            "Password is too weak. Add numbers and special characters.",
-          ),
-        ).toBeTruthy();
-      });
+      expect(
+        await screen.findByText(
+          "Password is too weak. Add numbers and special characters.",
+          {},
+          { timeout: 5000 },
+        ),
+      ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();
     });
   });

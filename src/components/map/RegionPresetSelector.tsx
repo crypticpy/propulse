@@ -332,7 +332,7 @@ export function RegionPresetSelector({
                       <span
                         className="
                           flex-shrink-0
-                          text-[10px] font-mono
+                          text-xs font-mono
                           text-su-muted
                           bg-su-line/10
                           w-5 h-5

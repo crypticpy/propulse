@@ -47,13 +47,18 @@
  * the absorption leaf. Evaluating the whole circuit once at a single midpoint,
  * as the shipped code does, is a different quantity with a different magnitude.
  *
- * Mirror height: `hr = min(1490 / M(3000)F2 - 176, 500)` km. This is the
- * relation the reference itself uses for its long-hop branch, and it is the
- * only hr this leaf claims. The full P.533-14 section 5.1 G-polynomial mirror
- * height (which additionally depends on foF2/foE ratio and hop length) is
- * **not implemented here**; neither is a true hmF2. `estimateHmF2`, the
- * `250 + 100 (1 - cos z)` heuristic that used to stand in for this, has no
- * physical basis and is removed rather than reused.
+ * Mirror height: `hr = min(1490 / M(3000)F2 - 176, 500)` km, P.533-14
+ * equation (2). It is the height section 3.5.1.1 determines the hop count at
+ * and the height section 5.2.1 takes F2 mode elevations from, and it is the
+ * only hr this leaf claims. The full P.533-14 section 5.1 mirror height, which
+ * additionally depends on the foF2/foE ratio, the operating frequency and the
+ * hop length, is a different quantity and lives in `reflectionHeight.ts`
+ * (#1108); `physics/modeSet.ts` uses it for the E-layer screening elevation of
+ * section 4 and equation (2) for everything else, and its header carries the
+ * evidence for why the two are not interchangeable. A true hmF2 is still not
+ * modelled anywhere: `estimateHmF2`, the `250 + 100 (1 - cos z)` heuristic that
+ * used to stand in for this, has no physical basis and is removed rather than
+ * reused.
  */
 
 import { EARTH_RADIUS_KM } from "./route";

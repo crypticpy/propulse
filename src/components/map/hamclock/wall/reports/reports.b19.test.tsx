@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarReport } from "./SolarReport";
 import { XrayReport } from "./XrayReport";
 import { SolarWindReport } from "./SolarWindReport";
+import { assertEveryTabDoesNotOverflow } from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   solar: vi.fn(),
@@ -594,5 +595,27 @@ describe("SolarWindReport", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("—");
     expect(screen.getByText("NO DATA")).toBeTruthy();
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the X-ray report body or boxes, on every tab", async () => {
+    const user = userEvent.setup();
+    render(<XrayReport open onClose={vi.fn()} />);
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "X-ray",
+      user,
+    );
+  });
+
+  it("does not clip the Solar wind report body or boxes, on every tab", async () => {
+    const user = userEvent.setup();
+    render(<SolarWindReport open onClose={vi.fn()} />);
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "Solar wind",
+      user,
+    );
   });
 });

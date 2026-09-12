@@ -50,6 +50,7 @@ import {
 } from "@/lib/map/satelliteGeometry";
 import {
   CATEGORY_META,
+  filterGlobeVisibleSatellites,
   formatFreqMHz,
   formatLatLon,
 } from "@/lib/utils/satellite";
@@ -932,20 +933,14 @@ export function SatelliteOverlay() {
     return () => clearInterval(id);
   }, []);
 
-  // Filter satellites: ISS dedup when dedicated tracker is active + user tracking prefs
-  const filteredSatellites = useMemo(() => {
-    let sats = satellites;
-    // Remove ISS from general overlay when dedicated ISS tracker is active
-    if (issTrackerActive) {
-      sats = sats.filter((s) => s.noradId !== 25544);
-    }
-    // Apply user tracking preferences (default "all" = no filter)
-    if (trackedNoradIds !== "all") {
-      const idSet = new Set(trackedNoradIds);
-      sats = sats.filter((s) => idSet.has(s.noradId));
-    }
-    return sats;
-  }, [satellites, issTrackerActive, trackedNoradIds]);
+  const filteredSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
 
   const handleSelect = useCallback(
     (noradId: number) => {

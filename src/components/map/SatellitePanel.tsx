@@ -16,6 +16,8 @@ import { Card } from "@/components/ui/Card";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useMapStore } from "@/stores/mapStore";
+import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
+import { filterGlobeVisibleSatellites } from "@/lib/utils/satellite";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
 import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import type {
@@ -645,6 +647,9 @@ export function SatellitePanel({
   } = useSatellites();
   const filterCategory = useMapStore((s) => s.satelliteCategoryFilter);
   const setFilterCategory = useMapStore((s) => s.setSatelliteCategoryFilter);
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
   // Custom TLE dialog state
   const [showCustomTLE, setShowCustomTLE] = useState(false);
@@ -653,9 +658,18 @@ export function SatellitePanel({
   const { alertsEnabled, notificationSupported, requestPermission } =
     useSatelliteAlerts();
 
-  // Filter and sort satellites
+  const globeVisibleSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
+
+  // Filter and sort satellites (same globe predicate as SatelliteOverlay)
   const filteredSatellites = useMemo(() => {
-    let filtered = satellites;
+    let filtered = globeVisibleSatellites;
 
     // Apply category filter
     if (filterCategory !== "all") {
@@ -684,23 +698,25 @@ export function SatellitePanel({
       // Then alphabetically
       return a.name.localeCompare(b.name);
     });
-  }, [satellites, filterCategory]);
+  }, [globeVisibleSatellites, filterCategory]);
 
   // Count visible satellites
   const visibleCount = useMemo(
-    () => satellites.filter((s) => s.isVisible).length,
-    [satellites],
+    () => globeVisibleSatellites.filter((s) => s.isVisible).length,
+    [globeVisibleSatellites],
   );
 
   const handleSelect = useCallback(
     (noradId: number) => {
       if (selectedSatellite?.noradId === noradId) {
         selectSatellite(null);
+        setSatelliteModalId(null);
       } else {
         selectSatellite(noradId);
+        setSatelliteModalId(noradId);
       }
     },
-    [selectedSatellite, selectSatellite],
+    [selectedSatellite, selectSatellite, setSatelliteModalId],
   );
 
   const handleBack = useCallback(() => {
@@ -773,7 +789,9 @@ export function SatellitePanel({
 
           {/* Summary stats */}
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-su-muted">{satellites.length} tracked</span>
+            <span className="text-su-muted">
+              {globeVisibleSatellites.length} tracked
+            </span>
             {visibleCount > 0 && (
               <span className="text-green-400">{visibleCount} visible</span>
             )}
@@ -821,7 +839,7 @@ export function SatellitePanel({
             </span>
           )}
           <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-su-line/10 text-su-muted">
-            {satellites.length} sats
+            {globeVisibleSatellites.length} sats
           </span>
 
           <Link
@@ -966,6 +984,12 @@ export function SatellitePanel({
         {/* Satellite list (when no satellite is selected) */}
         {!selectedSatellite && isAvailable && (
           <div className="flex flex-col h-full">
+            {issTrackerActive && (
+              <p className="text-xs text-su-muted px-1 mb-1.5 flex-shrink-0">
+                ISS is shown in the dedicated ISS tracker, not this list.
+              </p>
+            )}
+
             {/* Category filter bar */}
             <div className="flex gap-1 mb-2 flex-shrink-0 overflow-x-auto scrollbar-hide">
               {categoryFilters.map((filter) => (

@@ -8,6 +8,16 @@
 
 import type { SatelliteCategory } from "@/types/satellite";
 
+/** NORAD catalog ID for the International Space Station */
+export const ISS_NORAD_ID = 25544;
+
+export interface GlobeSatelliteVisibilityOptions {
+  /** When true, ISS is rendered by ISSTrackerOverlay instead of the general overlay */
+  issTrackerActive: boolean;
+  /** User tracking prefs from satellitePrefsStore */
+  trackedNoradIds: "all" | number[];
+}
+
 // ---------------------------------------------------------------------------
 // Category Display Metadata
 // ---------------------------------------------------------------------------
@@ -58,4 +68,31 @@ export function formatLatLon(lat: number, lon: number): string {
   const latDir = lat >= 0 ? "N" : "S";
   const lonDir = lon >= 0 ? "E" : "W";
   return `${Math.abs(lat).toFixed(1)}\u00B0${latDir} ${Math.abs(lon).toFixed(1)}\u00B0${lonDir}`;
+}
+
+// ---------------------------------------------------------------------------
+// Globe visibility (shared by overlay + satellite pickers)
+// ---------------------------------------------------------------------------
+
+/** Satellites the globe overlay can render markers for. */
+export function filterGlobeVisibleSatellites<T extends { noradId: number }>(
+  satellites: T[],
+  { issTrackerActive, trackedNoradIds }: GlobeSatelliteVisibilityOptions,
+): T[] {
+  let visible = satellites;
+  if (issTrackerActive) {
+    visible = visible.filter((sat) => sat.noradId !== ISS_NORAD_ID);
+  }
+  if (trackedNoradIds !== "all") {
+    const tracked = new Set(trackedNoradIds);
+    visible = visible.filter((sat) => tracked.has(sat.noradId));
+  }
+  return visible;
+}
+
+export function isHiddenByIssTracker(
+  noradId: number,
+  issTrackerActive: boolean,
+): boolean {
+  return issTrackerActive && noradId === ISS_NORAD_ID;
 }

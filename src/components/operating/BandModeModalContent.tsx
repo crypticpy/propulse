@@ -119,7 +119,7 @@ function SectionLabel({
     <div className="flex items-center gap-2">
       <div className="w-[3px] h-3 rounded-full bg-plasma-orange" />
       <span className="text-xs font-semibold text-su-muted">{children}</span>
-      {hint && <span className="text-[10px] text-su-muted ml-0">{hint}</span>}
+      {hint && <span className="text-xs text-su-muted ml-0">{hint}</span>}
     </div>
   );
 }
@@ -314,7 +314,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
           >
             Band &amp; Mode
           </h2>
-          <p className="text-[11px] text-su-muted mt-0.5">
+          <p className="text-xs text-su-muted mt-0.5">
             Choose your operating band and mode{" "}
             <span className="text-su-muted">
               (<kbd className="font-mono">B</kbd> /{" "}
@@ -327,7 +327,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
             {contestSessionId && (
               <button
                 onClick={handleContestLockToggle}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   contestLocked
                     ? "bg-amber-500/20 text-amber-400"
                     : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
@@ -401,7 +401,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: sourceColor }}
               />
-              <span className="text-[11px] font-medium text-su-muted">
+              <span className="text-xs font-medium text-su-muted">
                 {activeSource === "cat"
                   ? "via CAT"
                   : activeSource === "wsjtx"
@@ -413,7 +413,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
               {subBandSegment && (
                 <>
                   <span className="text-su-muted">&middot;</span>
-                  <span className="text-[11px] text-su-muted">
+                  <span className="text-xs text-su-muted">
                     {subBandSegment} segment
                   </span>
                 </>
@@ -515,14 +515,14 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                                   className="w-3 h-3 flex-shrink-0 relative"
                                 />
                                 <span
-                                  className="text-[8px] font-bold uppercase tracking-wider relative"
+                                  className="text-xs font-bold uppercase tracking-wider relative"
                                   style={{ color: statusColor }}
                                 >
                                   {statusInfo.label}
                                 </span>
                               </>
                             ) : (
-                              <span className="text-[8px] text-su-muted relative">
+                              <span className="text-xs text-su-muted relative">
                                 --
                               </span>
                             )}
@@ -564,7 +564,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   })}
                 </div>
                 {unsupportedCount > 0 && radioBands && (
-                  <p className="text-[10px] text-su-muted mt-2 flex items-center gap-1.5">
+                  <p className="text-xs text-su-muted mt-2 flex items-center gap-1.5">
                     <svg
                       className="w-3 h-3 flex-shrink-0"
                       fill="none"
@@ -656,7 +656,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   })}
                 </div>
                 {unsupportedModeCount > 0 && radioModes && (
-                  <p className="text-[10px] text-su-muted mt-2 flex items-center gap-1.5">
+                  <p className="text-xs text-su-muted mt-2 flex items-center gap-1.5">
                     <svg
                       className="w-3 h-3 flex-shrink-0"
                       fill="none"
@@ -711,15 +711,15 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     {activeRadio.maxPower && (
-                      <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-[10px] font-mono text-su-muted border border-su-line/20">
+                      <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-xs font-mono text-su-muted border border-su-line/20">
                         {activeRadio.maxPower}W
                       </span>
                     )}
-                    <span className="text-[10px] text-su-muted">
+                    <span className="text-xs text-su-muted">
                       {activeRadio.bands?.length ?? 0} bands supported
                     </span>
                   </div>
-                  <p className="text-[10px] text-su-muted italic mt-1.5">
+                  <p className="text-xs text-su-muted italic mt-1.5">
                     Band and mode grids are filtered to your radio's
                     capabilities
                   </p>
@@ -730,7 +730,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   navigate("/shack");
                   onClose();
                 }}
-                className="mt-2 text-[11px] text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+                className="mt-2 text-xs text-plasma-orange hover:text-plasma-orange/80 transition-colors"
               >
                 Change radio &rarr;
               </button>
@@ -754,7 +754,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   <p className="text-sm font-semibold text-amber-400">
                     No radio profile configured
                   </p>
-                  <p className="text-[11px] text-su-muted mt-1">
+                  <p className="text-xs text-su-muted mt-1">
                     Without a radio profile, band filtering and power limits
                     won't be personalized to your station.
                   </p>
@@ -764,13 +764,13 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         navigate("/shack");
                         onClose();
                       }}
-                      className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+                      className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     >
                       Configure in Shack &rarr;
                     </button>
                     <button
                       onClick={() => setRadioWarningDismissed(true)}
-                      className="text-[10px] text-su-muted hover:text-su-text transition-colors"
+                      className="text-xs text-su-muted hover:text-su-text transition-colors"
                     >
                       Continue with defaults
                     </button>
@@ -812,7 +812,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 Presets
               </span>
               {presets.length > 0 && (
-                <span className="text-[10px] text-su-muted">
+                <span className="text-xs text-su-muted">
                   ({presets.length} saved)
                 </span>
               )}
@@ -836,20 +836,20 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         value={presetName}
                         onChange={(e) => setPresetName(e.target.value)}
                         placeholder="Name this preset..."
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-[11px] font-mono text-su-text placeholder:text-su-muted outline-none focus:border-su-line/50 transition-colors"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-xs font-mono text-su-text placeholder:text-su-muted outline-none focus:border-su-line/50 transition-colors"
                         onBlur={() => {
                           if (!presetName.trim()) {
                             setIsAddingPreset(false);
                           }
                         }}
                       />
-                      <span className="text-[10px] text-su-muted font-mono whitespace-nowrap">
+                      <span className="text-xs text-su-muted font-mono whitespace-nowrap">
                         {activeBand} {activeMode}
                       </span>
                       <button
                         type="submit"
                         disabled={!presetName.trim()}
-                        className="px-2.5 py-1.5 rounded-lg bg-plasma-orange/15 text-[10px] font-semibold text-plasma-orange hover:bg-plasma-orange/25 disabled:opacity-30 transition-colors"
+                        className="px-2.5 py-1.5 rounded-lg bg-plasma-orange/15 text-xs font-semibold text-plasma-orange hover:bg-plasma-orange/25 disabled:opacity-30 transition-colors"
                       >
                         Save
                       </button>
@@ -858,11 +858,11 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     <button
                       onClick={() => setIsAddingPreset(true)}
                       disabled={presets.length >= 8}
-                      className="px-3 py-1.5 rounded-lg bg-su-line/10 text-[11px] text-su-muted hover:bg-su-line/20 hover:text-su-text transition-colors border border-su-line/20 border-dashed disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 rounded-lg bg-su-line/10 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text transition-colors border border-su-line/20 border-dashed disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       + Save this as preset
                       {presets.length >= 8 && (
-                        <span className="ml-1 text-[9px] text-su-muted">
+                        <span className="ml-1 text-xs text-su-muted">
                           (max 8)
                         </span>
                       )}
@@ -897,14 +897,14 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                               style={{ backgroundColor: presetBandColor }}
                             />
                             <div className="text-left pr-2.5 py-1.5">
-                              <div className="text-[11px] font-medium text-su-muted">
+                              <div className="text-xs font-medium text-su-muted">
                                 {preset.name}
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-bold font-mono text-su-text">
+                                <span className="text-xs font-bold font-mono text-su-text">
                                   {preset.band}
                                 </span>
-                                <span className="text-[9px] text-su-muted">
+                                <span className="text-xs text-su-muted">
                                   {preset.mode}
                                 </span>
                               </div>
@@ -933,7 +933,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     })}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-su-muted italic">
+                  <p className="text-xs text-su-muted italic">
                     No presets saved yet. Save your current band and mode for
                     quick recall.
                   </p>
@@ -965,7 +965,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 <span className="text-xs font-semibold text-su-muted group-hover:text-su-text transition-colors">
                   Recent
                 </span>
-                <span className="text-[10px] text-su-muted">
+                <span className="text-xs text-su-muted">
                   ({uniqueHistory.length})
                 </span>
               </button>
@@ -988,13 +988,13 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           className="w-[3px] h-4 rounded-r-full"
                           style={{ backgroundColor: hColor }}
                         />
-                        <span className="text-[11px] font-mono text-su-muted">
+                        <span className="text-xs font-mono text-su-muted">
                           {entry.band}
                         </span>
-                        <span className="text-[11px] text-su-muted">
+                        <span className="text-xs text-su-muted">
                           {entry.mode}
                         </span>
-                        <span className="text-[9px] text-su-muted">
+                        <span className="text-xs text-su-muted">
                           {timeAgo}
                         </span>
                       </button>

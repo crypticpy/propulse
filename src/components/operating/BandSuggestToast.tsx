@@ -141,7 +141,7 @@ export function BandSuggestToast() {
             </span>{" "}
             just opened
           </div>
-          <div className="text-[10px] text-su-muted truncate">
+          <div className="text-xs text-su-muted truncate">
             {toast.message}
           </div>
         </div>

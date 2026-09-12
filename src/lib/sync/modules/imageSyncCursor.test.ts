@@ -19,10 +19,14 @@ describe("imageSyncCursor", () => {
     });
   });
 
-  it("builds gt vs compound delta filters", () => {
+  it("forces a full scan for a legacy timestamp-only cursor", () => {
     expect(
       imageSyncDeltaFilter(parseImageSyncCursor("2026-01-01T00:00:00.000Z")),
-    ).toEqual({ op: "gt", createdAt: "2026-01-01T00:00:00.000Z" });
+    ).toBeNull();
+    expect(imageSyncDeltaFilter(parseImageSyncCursor(null))).toBeNull();
+  });
+
+  it("builds a compound delta filter once the cursor carries an id", () => {
     expect(
       imageSyncDeltaFilter(
         parseImageSyncCursor("2026-01-01T00:00:00.000Z|img-a"),
@@ -54,9 +58,9 @@ describe("imageSyncCursor", () => {
     ];
     const processed = new Set(["img-a", "img-c"]);
 
-    expect(
-      computeImagePullCheckpoint(rows, (id) => processed.has(id)),
-    ).toBe("2026-01-01T00:00:00.000Z|img-a");
+    expect(computeImagePullCheckpoint(rows, (id) => processed.has(id))).toBe(
+      "2026-01-01T00:00:00.000Z|img-a",
+    );
   });
 
   it("keeps equal-timestamp rows discoverable when one fails", () => {
@@ -67,9 +71,9 @@ describe("imageSyncCursor", () => {
     ];
     const processed = new Set(["img-a"]);
 
-    expect(
-      computeImagePullCheckpoint(rows, (id) => processed.has(id)),
-    ).toBe(`${t}|img-a`);
+    expect(computeImagePullCheckpoint(rows, (id) => processed.has(id))).toBe(
+      `${t}|img-a`,
+    );
   });
 
   it("does not advance when an equal-timestamp row fails before a later success", () => {

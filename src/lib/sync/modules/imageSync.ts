@@ -216,10 +216,10 @@ export const imageSync: SyncModule = {
       .order("created_at", { ascending: true })
       .order("id", { ascending: true });
 
+    // A null filter means a full scan: either the first pull or the one-time
+    // migration of a legacy timestamp-only cursor (see imageSyncDeltaFilter).
     const deltaFilter = imageSyncDeltaFilter(parseImageSyncCursor(since));
-    if (deltaFilter?.op === "gt") {
-      query = query.gt("created_at", deltaFilter.createdAt);
-    } else if (deltaFilter?.op === "compound") {
+    if (deltaFilter) {
       query = query.or(
         `created_at.gt.${deltaFilter.createdAt},and(created_at.eq.${deltaFilter.createdAt},id.gt.${deltaFilter.afterId})`,
       );

@@ -4,7 +4,10 @@ const mocks = vi.hoisted(() => ({
   getAllImageIds: vi.fn(),
   storeImageWithId: vi.fn(),
   download: vi.fn(),
-  queryResult: { data: [] as unknown[], error: null as { message: string } | null },
+  queryResult: {
+    data: [] as unknown[],
+    error: null as { message: string } | null,
+  },
   queryCalls: [] as Array<[string, unknown[]]>,
 }));
 
@@ -15,7 +18,15 @@ vi.mock("@/lib/db/imageStore", () => ({
 }));
 
 vi.mock("@/stores/shackStore", () => ({
-  useShackStore: { getState: () => ({ radios: [], antennas: [], feedlines: [], accessories: [], inlineComponents: [] }) },
+  useShackStore: {
+    getState: () => ({
+      radios: [],
+      antennas: [],
+      feedlines: [],
+      accessories: [],
+      inlineComponents: [],
+    }),
+  },
 }));
 
 vi.mock("@/stores/profileStore", () => ({
@@ -36,8 +47,7 @@ vi.mock("@/lib/supabase", () => ({
       builder.then = (
         resolve: (value: unknown) => void,
         reject?: (reason: unknown) => void,
-      ) =>
-        Promise.resolve(mocks.queryResult).then(resolve, reject);
+      ) => Promise.resolve(mocks.queryResult).then(resolve, reject);
       return builder;
     },
     storage: {
@@ -134,7 +144,10 @@ describe("imageSync.pull cursor (#324)", () => {
 
     mocks.getAllImageIds.mockResolvedValue(["img-b"]);
     mocks.queryCalls = [];
-    mocks.download.mockResolvedValue({ data: new Blob(["retry"]), error: null });
+    mocks.download.mockResolvedValue({
+      data: new Blob(["retry"]),
+      error: null,
+    });
 
     const cursor = await imageSync.pull(USER, since);
 
@@ -146,15 +159,29 @@ describe("imageSync.pull cursor (#324)", () => {
       80,
     );
     expect(cursor).toBe("2026-01-02T00:00:00.000Z|img-b");
-    expect(mocks.queryCalls).toContainEqual([
-      "gt",
-      ["created_at", since],
-    ]);
+  });
+
+  it("re-scans without a delta filter when the saved cursor is legacy timestamp-only", async () => {
+    const since = "2026-01-01T00:00:00.000Z";
+    mocks.queryResult = {
+      data: [row("img-a", "2026-01-01T00:00:00.000Z")],
+      error: null,
+    };
+
+    const cursor = await imageSync.pull(USER, since);
+
+    expect(
+      mocks.queryCalls.some(([method]) => method === "gt" || method === "or"),
+    ).toBe(false);
+    expect(cursor).toBe("2026-01-01T00:00:00.000Z|img-a");
   });
 
   it("uses a compound delta filter when the saved cursor includes an id suffix", async () => {
     const since = "2026-01-01T00:00:00.000Z|img-a";
-    mocks.queryResult = { data: [row("img-b", "2026-01-01T00:00:00.000Z")], error: null };
+    mocks.queryResult = {
+      data: [row("img-b", "2026-01-01T00:00:00.000Z")],
+      error: null,
+    };
 
     await imageSync.pull(USER, since);
 

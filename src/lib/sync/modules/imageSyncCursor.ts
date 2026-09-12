@@ -69,18 +69,24 @@ export function computeImagePullCheckpoint(
   return checkpoint;
 }
 
+/**
+ * Build the delta filter for a pull.
+ *
+ * `null` means "scan everything". That covers the first ever pull and also the
+ * one-time migration of a legacy timestamp-only cursor: the old implementation
+ * advanced that cursor past failed downloads, so a `created_at > cursor` filter
+ * would hide exactly the rows this cursor scheme exists to recover. The scan
+ * persists a compound cursor, after which normal delta filtering resumes.
+ */
 export function imageSyncDeltaFilter(
   cursor: ImageSyncCursor,
-): { op: "gt"; createdAt: string } | { op: "compound"; createdAt: string; afterId: string } | null {
-  if (!cursor.createdAt) {
+): { op: "compound"; createdAt: string; afterId: string } | null {
+  if (!cursor.createdAt || !cursor.afterId) {
     return null;
   }
-  if (cursor.afterId) {
-    return {
-      op: "compound",
-      createdAt: cursor.createdAt,
-      afterId: cursor.afterId,
-    };
-  }
-  return { op: "gt", createdAt: cursor.createdAt };
+  return {
+    op: "compound",
+    createdAt: cursor.createdAt,
+    afterId: cursor.afterId,
+  };
 }

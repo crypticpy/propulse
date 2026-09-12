@@ -484,7 +484,7 @@ export function PinFlyout({
               {displayName}
             </span>
             {pin.category === "friend" && (
-              <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-medium border border-green-500/30">
+              <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30">
                 Friend
               </span>
             )}
@@ -507,7 +507,7 @@ export function PinFlyout({
         {expirationInfo && (
           <div className="mt-1">
             <span
-              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+              className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
                 expirationInfo.isExpired
                   ? "bg-red-500/20 text-red-400 border border-red-500/30"
                   : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
@@ -533,11 +533,11 @@ export function PinFlyout({
       {/* ── Recent Activity ── */}
       <div className="px-3 py-1.5 border-b border-su-line/40">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider">
+          <span className="text-su-muted text-xs font-medium uppercase tracking-wider">
             Recent Activity
           </span>
           {nearbySpots.length > 0 && (
-            <span className="text-cyan-400 text-[10px] font-mono">
+            <span className="text-cyan-400 text-xs font-mono">
               {nearbySpots.length}
             </span>
           )}
@@ -553,17 +553,17 @@ export function PinFlyout({
                   onSpotSelect?.(spot, position);
                   onClose();
                 }}
-                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
+                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-xs leading-tight hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
                 aria-label={`Select ${spot.dx} and view details`}
               >
                 <span className="text-su-text font-mono truncate max-w-[80px]">
                   {spot.dx}
                 </span>
-                <span className="text-su-muted font-mono text-[10px]">
+                <span className="text-su-muted font-mono text-xs">
                   {formatFrequency(spot.frequency)}
                 </span>
                 <span
-                  className="rounded px-1 text-[10px] font-bold"
+                  className="rounded px-1 text-xs font-bold"
                   style={{
                     backgroundColor: getModeColor(spot.mode),
                     color: inkOnFill(getModeColor(spot.mode)),
@@ -571,7 +571,7 @@ export function PinFlyout({
                 >
                   {spot.mode || "?"}
                 </span>
-                <span className="text-su-muted text-[10px]">
+                <span className="text-su-muted text-xs">
                   {formatSpotAge(spot.time)}
                 </span>
               </button>
@@ -585,14 +585,14 @@ export function PinFlyout({
       {/* ── Open Bands (only if we have data) ── */}
       {openBands.length > 0 && (
         <div className="px-3 py-1.5 border-b border-su-line/40">
-          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider block mb-1">
+          <span className="text-su-muted text-xs font-medium uppercase tracking-wider block mb-1">
             Open Bands
           </span>
           <div className="flex flex-wrap gap-1">
             {openBands.map(({ band, color }) => (
               <span
                 key={band}
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium"
+                className="px-1.5 py-0.5 rounded text-xs font-mono font-medium"
                 style={{
                   backgroundColor: color,
                   color: inkOnFill(color),

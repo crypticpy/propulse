@@ -864,7 +864,7 @@ export function DXNewsTicker({
         <div
           ref={contentRef}
           data-testid="dx-ticker-track"
-          className="inline-flex items-center font-mono text-[11px] text-su-muted"
+          className="inline-flex items-center font-mono text-xs text-su-muted"
           style={{
             fontSize: "var(--dx-ticker-font-size, 11px)",
             animationName: KEYFRAMES_NAME,
@@ -900,13 +900,13 @@ export function DXNewsTicker({
 
         {breakInItem && (
           <div
-            className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-[11px]"
+            className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-xs"
             style={{ fontSize: "var(--dx-ticker-font-size, 11px)" }}
             role="status"
             aria-live="assertive"
             data-testid="ticker-break-in"
           >
-            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-su-text">
+            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-xs font-black uppercase tracking-wider text-su-text">
               Break-in
             </span>
             {breakInItem.detail ? (
@@ -1057,7 +1057,7 @@ function RssTickerDetail({
     >
       {headline && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-su-muted">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-wider text-su-muted">
             <span>{headline.feed.label}</span>
             {headline.item.publishedAt && (
               <>
@@ -1092,7 +1092,7 @@ function RssTickerDetail({
 function TickerMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-su-muted">
+      <p className="font-mono text-xs uppercase tracking-wider text-su-muted">
         {label}
       </p>
       <p className="mt-1 font-orbitron text-base font-semibold text-su-text">

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   calculateReflectionPoints,
   crossingAt,
@@ -13,6 +13,30 @@ import {
   routeSampleAtFraction,
 } from "@/lib/propagation/geometry/route";
 import { sfiToR12 } from "./ionosphere";
+
+/**
+ * `hopGeometry` is spied on rather than replaced. `traceRayPath` picks its hop
+ * count from `minimumHopCount` at the same mirror height, so the geometry it
+ * then solves is always supported and the unsupported branch is not reachable
+ * from the public entry point today. Pinning the mapping at this seam is what
+ * keeps the route leaf's `reason` from being dropped again the day a caller
+ * does reach it.
+ */
+const geometryMocks = vi.hoisted(() => ({ hopGeometry: vi.fn() }));
+vi.mock("@/lib/propagation/geometry/hop", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/propagation/geometry/hop")>();
+  return { ...actual, hopGeometry: geometryMocks.hopGeometry };
+});
+// The shared setup file restores every spy after each test, which drops a
+// default implementation set once at module load, so the real solver is put
+// back before each test rather than only at import time.
+const actualHopModule = await vi.importActual<
+  typeof import("@/lib/propagation/geometry/hop")
+>("@/lib/propagation/geometry/hop");
+beforeEach(() => {
+  geometryMocks.hopGeometry.mockImplementation(actualHopModule.hopGeometry);
+});
 
 const DATE = new Date("2026-06-21T18:00:00Z");
 
@@ -165,6 +189,26 @@ describe("traceRayPath", () => {
     expect(result.hops).toHaveLength(0);
     expect(result.isPathViable).toBe(false);
     expect(result.summary).toContain("no ray path");
+  });
+
+  it("an unsupported circuit carries the below_horizon reason, not only a detail string", () => {
+    geometryMocks.hopGeometry.mockImplementationOnce(() => ({
+      kind: "unsupported" as const,
+      reason: "below_horizon" as const,
+      detail: "stub: the mirror cannot reach this hop length",
+      elevationAngleRad: -0.1,
+      maximumHopGroundDistanceKm: 3863,
+    }));
+    const result = trace("short");
+    expect(result.support.kind).toBe("geometrically_unsupported");
+    // A detail string is prose. A caller that wants to say "too far for one
+    // bounce" rather than the generic wording has to narrow on the reason, so
+    // the reason is what has to survive the trip out of the geometry leaf.
+    if (result.support.kind !== "geometrically_unsupported") {
+      throw new Error("unreachable");
+    }
+    expect(result.support.reason).toBe("below_horizon");
+    expect(result.hops).toHaveLength(0);
   });
 
   it("declares what it stands in for", () => {

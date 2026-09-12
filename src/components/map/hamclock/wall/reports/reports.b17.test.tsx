@@ -8,6 +8,12 @@ import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
+import { getMUFAtLocation } from "@/lib/api/muf";
+import {
+  calculateDLayerAbsorption,
+  calculateZenithAngle,
+  getAbsorptionAtLocation,
+} from "@/lib/utils/ionosphere";
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -65,6 +71,27 @@ vi.mock("@/stores/hamclockStore", () => ({
       setBandFocus: mocks.setBandFocus,
     }),
 }));
+
+/**
+ * `traceRayPath` is spied on, not replaced. The engine picks its hop count so
+ * that the geometry it solves is always supported, so the unsupported
+ * take-off states are not reachable by choosing a target; they are reachable
+ * by the type, which is what the report has to render honestly.
+ */
+const rayTraceMocks = vi.hoisted(() => ({ traceRayPath: vi.fn() }));
+vi.mock("@/lib/utils/rayTrace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/rayTrace")>();
+  return { ...actual, traceRayPath: rayTraceMocks.traceRayPath };
+});
+const actualRayTrace = await vi.importActual<
+  typeof import("@/lib/utils/rayTrace")
+>("@/lib/utils/rayTrace");
+
+/** The `dd` beside a `.hcr-kv` term, read by its visible label. */
+function kvValue(dialog: HTMLElement, label: string): string {
+  const term = within(dialog).getByText(label);
+  return term.nextElementSibling?.textContent ?? "";
+}
 
 /** Austin, TX — the QTH shared by every fixture below. At 18Z with SFI 140
  * this is a known point (19.9 MHz MUF, top band 17m) already pinned by
@@ -142,6 +169,9 @@ const NO_NOWCAST = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The shared setup file restores every spy after each test, so the real
+  // engine is put back here rather than once at module load.
+  rayTraceMocks.traceRayPath.mockImplementation(actualRayTrace.traceRayPath);
   vi.setSystemTime(new Date("2026-09-05T18:00:00Z"));
   mocks.location.mockReturnValue(AUSTIN);
   mocks.sfi.mockReturnValue(140);
@@ -424,6 +454,127 @@ describe("MufReport engine strip and hops (HW-57)", () => {
       expect(fot).toBeLessThan(muf);
       expect(luf).toBeLessThan(fot);
     });
+  });
+});
+
+describe("MufReport absorption context and take-off angle (#1108)", () => {
+  it("D-layer loss uses the QTH position and the displayed instant", () => {
+    const at = new Date("2026-09-05T18:00:00Z");
+    const muf = getMUFAtLocation(AUSTIN.lat, AUSTIN.lon, 140, at);
+    const zenith = calculateZenithAngle(AUSTIN.lat, AUSTIN.lon, at);
+    const positioned = getAbsorptionAtLocation(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      at,
+      muf,
+      140,
+      90,
+    );
+    const standin = calculateDLayerAbsorption(muf, zenith, 140, 90);
+    // The fixture is only a test if the two disagree at Austin: the stand-in
+    // is 45 N in March, and this is 30.27 N in September.
+    expect(positioned.toFixed(1)).not.toBe(standin.toFixed(1));
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(kvValue(dialog, "D-layer loss")).toBe(`${positioned.toFixed(1)} dB`);
+  });
+
+  it("D-layer loss follows the map's time machine rather than the wall clock", () => {
+    mocks.timeOffset.mockReturnValue(6);
+    const shifted = new Date("2026-09-06T00:00:00Z");
+    const muf = getMUFAtLocation(AUSTIN.lat, AUSTIN.lon, 140, shifted);
+    const expected = getAbsorptionAtLocation(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      shifted,
+      muf,
+      140,
+      90,
+    );
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(kvValue(dialog, "D-layer loss")).toBe(`${expected.toFixed(1)} dB`);
+  });
+
+  it("take-off angle matches the trace's own elevationAngleDeg", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      elevationAngleDeg: 12.4,
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+    // The report used to solve the geometry a second time, from the mean hop
+    // length and the first hop's height, and could disagree with the engine
+    // about the same circuit.
+    expect(kvValue(dialog, "Take-off")).toBe("12.4°");
+  });
+
+  it("says the target is too far for one bounce instead of showing a clamped angle", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      hops: [],
+      elevationAngleDeg: 0,
+      support: {
+        kind: "geometrically_unsupported" as const,
+        reason: "below_horizon" as const,
+        detail: "stub: the mirror cannot reach this hop length",
+      },
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+
+    expect(kvValue(dialog, "Take-off")).toBe("TOO FAR FOR ONE BOUNCE");
+    expect(
+      within(dialog).getByText(
+        "At this reflecting height the target is farther away than a single bounce can reach, so the ray would leave below the horizon. There is no take-off angle to report.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "No hops to show. At this reflecting height the target is farther than one bounce can reach.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("says home and target are the same place when the route is ambiguous", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      hops: [],
+      elevationAngleDeg: 0,
+      support: {
+        kind: "ambiguous_geometry" as const,
+        reason: "coincident_endpoints" as const,
+        detail: "stub: the endpoints determine no great circle",
+      },
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+
+    expect(kvValue(dialog, "Take-off")).toBe("SAME PLACE AS HOME");
+    expect(
+      within(dialog).getByText(
+        "Home and target are the same place, so there is no path between them to trace.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "No hops to show. Home and target are the same place.",
+      ),
+    ).toBeTruthy();
   });
 });
 

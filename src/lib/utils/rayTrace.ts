@@ -61,6 +61,7 @@ import {
   hopGeometry,
   MAX_HOP_COUNT,
   minimumHopCount,
+  type UnsupportedHopReason,
 } from "@/lib/propagation/geometry/hop";
 import {
   dRegionAbsorption,
@@ -149,7 +150,9 @@ export interface RayPathLosses {
  * the target produces, returns zero hops; treating `hops[0]` or an
  * initial-value-free `reduce` as safe is how that becomes a crash rather than
  * a "no path" row. `reason` carries the route leaf's own classification so a
- * caller can say "same place" rather than the generic wording.
+ * caller can say "same place", and the geometry leaf's own classification is
+ * carried the same way so a caller can say "too far for one bounce", rather
+ * than either falling back to the generic wording.
  */
 export type RayPathSupport =
   | { kind: "supported" }
@@ -158,7 +161,11 @@ export type RayPathSupport =
       reason: AmbiguousRouteReason;
       detail: string;
     }
-  | { kind: "geometrically_unsupported"; detail: string };
+  | {
+      kind: "geometrically_unsupported";
+      reason: UnsupportedHopReason;
+      detail: string;
+    };
 
 export interface ReflectionPoint {
   lat: number;
@@ -573,7 +580,11 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   });
   if (geometry.kind !== "supported") {
     return emptyResult(
-      { kind: "geometrically_unsupported", detail: geometry.detail },
+      {
+        kind: "geometrically_unsupported",
+        reason: geometry.reason,
+        detail: geometry.detail,
+      },
       pathMode,
       frequencyMHz,
       assumptions,

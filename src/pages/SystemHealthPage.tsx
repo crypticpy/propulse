@@ -681,31 +681,31 @@ function ArchitectureDiagram({
     {
       label: "Space Weather",
       sublabel: "NOAA / DSCOVR",
-      y: 24,
+      y: 10,
       color: ACCENT_TOKEN_COLORS["plasma-orange"],
     },
     {
       label: "Spot Networks",
       sublabel: "DX Cluster / RBN / PSK",
-      y: 76,
+      y: 78,
       color: ACCENT_TOKEN_COLORS["signal-green"],
     },
     {
       label: "Callsign DBs",
       sublabel: "QRZ / HamQTH / Callook",
-      y: 128,
+      y: 146,
       color: ACCENT_TOKEN_COLORS["nebula-blue"],
     },
     {
       label: "Logbook Sync",
       sublabel: "LoTW / eQSL / Club Log",
-      y: 180,
+      y: 214,
       color: ACCENT_TOKEN_COLORS["cosmic-cyan"],
     },
     {
       label: "Satellites",
       sublabel: "NORAD / Space-Track",
-      y: 232,
+      y: 282,
       color: ACCENT_TOKEN_COLORS["aurora-purple"],
     },
   ];
@@ -713,8 +713,8 @@ function ArchitectureDiagram({
   return (
     <div className="w-full overflow-x-auto">
       <svg
-        viewBox="0 0 680 270"
-        className="w-full min-w-[500px] h-auto"
+        viewBox="0 0 680 354"
+        className="w-full min-w-[42.5rem] h-auto"
         role="img"
         aria-label="Data flow architecture diagram showing Propulse browser connecting through Vercel Edge Functions to five upstream API groups"
       >
@@ -740,9 +740,9 @@ function ArchitectureDiagram({
         {/* Propulse Browser box */}
         <rect
           x="10"
-          y="100"
+          y="135"
           width="140"
-          height="60"
+          height="70"
           rx="10"
           fill="rgb(var(--su-accent-rgb) / 0.08)"
           stroke={ACCENT_TOKEN_COLORS["plasma-orange"]}
@@ -750,7 +750,7 @@ function ArchitectureDiagram({
         />
         <text
           x="80"
-          y="126"
+          y="161"
           textAnchor="middle"
           className="fill-su-text text-xs font-semibold"
           fontFamily="Orbitron, sans-serif"
@@ -759,7 +759,7 @@ function ArchitectureDiagram({
         </text>
         <text
           x="80"
-          y="144"
+          y="185"
           textAnchor="middle"
           className="fill-su-muted text-xs"
         >
@@ -769,9 +769,9 @@ function ArchitectureDiagram({
         {/* Vercel Edge Functions box */}
         <rect
           x="240"
-          y="100"
+          y="135"
           width="150"
-          height="60"
+          height="70"
           rx="10"
           fill="rgb(var(--su-info-rgb) / 0.06)"
           stroke={ACCENT_TOKEN_COLORS["cosmic-cyan"]}
@@ -779,7 +779,7 @@ function ArchitectureDiagram({
         />
         <text
           x="315"
-          y="126"
+          y="161"
           textAnchor="middle"
           className="fill-su-text text-xs font-semibold"
           fontFamily="Orbitron, sans-serif"
@@ -788,7 +788,7 @@ function ArchitectureDiagram({
         </text>
         <text
           x="315"
-          y="144"
+          y="185"
           textAnchor="middle"
           className="fill-su-muted text-xs"
         >
@@ -798,15 +798,15 @@ function ArchitectureDiagram({
         {/* Connection: Browser -> Edge */}
         <line
           x1="150"
-          y1="130"
+          y1="170"
           x2="240"
-          y2="130"
+          y2="170"
           stroke={lineColor}
           strokeWidth="1.5"
           strokeDasharray="4 3"
           opacity="0.6"
         />
-        <use href="#pulse-dot" x="195" y="130" className="arch-pulse">
+        <use href="#pulse-dot" x="195" y="170" className="arch-pulse">
           <animateMotion
             dur="2s"
             repeatCount="indefinite"
@@ -820,9 +820,9 @@ function ArchitectureDiagram({
             {/* Connection line */}
             <line
               x1="390"
-              y1="130"
+              y1="170"
               x2="480"
-              y2={g.y + 22}
+              y2={g.y + 31}
               stroke={lineColor}
               strokeWidth="1"
               strokeDasharray="4 3"
@@ -833,7 +833,7 @@ function ArchitectureDiagram({
               x="480"
               y={g.y}
               width="185"
-              height="44"
+              height="62"
               rx="8"
               fill="rgb(var(--su-line-rgb) / 0.02)"
               stroke={g.color}
@@ -842,7 +842,7 @@ function ArchitectureDiagram({
             />
             <text
               x="572"
-              y={g.y + 18}
+              y={g.y + 24}
               textAnchor="middle"
               className="fill-su-text text-xs font-semibold"
             >
@@ -850,7 +850,7 @@ function ArchitectureDiagram({
             </text>
             <text
               x="572"
-              y={g.y + 33}
+              y={g.y + 48}
               textAnchor="middle"
               className="fill-su-muted text-xs"
             >

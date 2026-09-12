@@ -261,7 +261,7 @@ export function SatellitesPage() {
     >
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-bold text-su-text">Satellite Database</h1>
           {!isLoading && satellites.length > 0 && (
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-su-line/20 text-su-muted border border-su-line/40">
@@ -356,8 +356,8 @@ export function SatellitesPage() {
           return (
             <div key={category} className="space-y-3">
               {/* Category header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${meta?.color ?? "text-su-muted"} ${meta?.bg ?? "bg-su-line/20"}`}
                   >

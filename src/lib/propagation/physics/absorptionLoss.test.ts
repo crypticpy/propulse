@@ -143,6 +143,29 @@ describe("penetrationPoints", () => {
     expect(result.detail).toContain("300.0 km");
   });
 
+  it("rejects a reflection height at or below the 90 km penetration layer", () => {
+    for (const reflectionHeightKm of [90, 89.9, 0, -1, Number.NaN]) {
+      expect(() =>
+        penetrationPoints({ route: MEDIUM, hopCount: 2, reflectionHeightKm }),
+      ).toThrow(RangeError);
+    }
+    // 90.5 km reaches about 2144 km in one hop, so MEDIUM's 1874 km
+    // three-hop hops are inside it.
+    const justAbove = penetrationPoints({
+      route: MEDIUM,
+      hopCount: 3,
+      reflectionHeightKm: 90.5,
+    });
+    expect(justAbove.kind).toBe("points");
+    if (justAbove.kind !== "points") throw new Error("expected points");
+    // Entry precedes exit and the crossings stay inside the hop.
+    expect(justAbove.points[0].fraction).toBeGreaterThan(0);
+    expect(justAbove.points[1].fraction).toBeGreaterThan(
+      justAbove.points[0].fraction,
+    );
+    expect(justAbove.points[1].fraction).toBeLessThan(1);
+  });
+
   it("lets a caller state a different reflection height", () => {
     // The reference's own reading, deviation 2: the mode's height, here
     // 500 km, which does reach a 4466 km hop where 300 km does not.
@@ -511,7 +534,7 @@ describe("absorptionLoss", () => {
     ).not.toThrow();
   });
 
-  it("rejects a non-finite or non-positive gyrofrequency from the sampler, when supplied", () => {
+  it("rejects a non-finite or negative gyrofrequency from the sampler, and accepts zero on the dip equator", () => {
     expect(() =>
       absorptionLoss({
         ...base,
@@ -524,9 +547,18 @@ describe("absorptionLoss", () => {
     expect(() =>
       absorptionLoss({
         ...base,
-        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0 }),
+        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: -0.1 }),
       }),
     ).toThrow(RangeError);
+    // fL = |fH sin(dip)| is exactly zero on the magnetic dip equator, and
+    // equation (20)'s (f + fL)^2 stays finite there.
+    const equator = absorptionLoss({
+      ...base,
+      sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0 }),
+    });
+    expect(equator.kind).toBe("absorption");
+    if (equator.kind !== "absorption") throw new Error("expected absorption");
+    expect(Number.isFinite(equator.lossDb)).toBe(true);
     expect(() =>
       absorptionLoss({
         ...base,

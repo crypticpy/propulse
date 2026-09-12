@@ -212,6 +212,20 @@ export function penetrationPoints(
     hopCount,
     reflectionHeightKm = PENETRATION_REFLECTION_HEIGHT_KM,
   } = inputs;
+  // The crossings exist only when the ray climbs through the penetration
+  // layer on its way to the reflection height. At exactly 90 km the entry and
+  // exit coincide, and below it `hopGeometry` would place each hop's entry
+  // after its exit, so the override must sit strictly above the layer.
+  if (
+    !Number.isFinite(reflectionHeightKm) ||
+    reflectionHeightKm <= PENETRATION_HEIGHT_KM
+  ) {
+    throw new RangeError(
+      `reflectionHeightKm must be finite and above the ` +
+        `${String(PENETRATION_HEIGHT_KM)} km penetration height, received ` +
+        `${String(reflectionHeightKm)}.`,
+    );
+  }
   const geometry = hopGeometry({
     groundDistanceKm: route.groundDistanceKm,
     hopCount,
@@ -393,14 +407,16 @@ function validateSampledState(
         `received ${String(state.modifiedDipDeg)}.`,
     );
   }
+  // Zero is legitimate: fL = |fH sin(dip)| vanishes on the magnetic dip
+  // equator, and equation (20)'s (f + fL)^2 divisor stays well defined there.
   if (
     state.longitudinalGyrofrequencyMHz !== undefined &&
     (!Number.isFinite(state.longitudinalGyrofrequencyMHz) ||
-      state.longitudinalGyrofrequencyMHz <= 0)
+      state.longitudinalGyrofrequencyMHz < 0)
   ) {
     throw new RangeError(
-      `${where}: longitudinalGyrofrequencyMHz must be positive and finite, ` +
-        `received ${String(state.longitudinalGyrofrequencyMHz)}.`,
+      `${where}: longitudinalGyrofrequencyMHz must be non-negative and ` +
+        `finite, received ${String(state.longitudinalGyrofrequencyMHz)}.`,
     );
   }
 }

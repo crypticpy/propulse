@@ -180,7 +180,6 @@ import {
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
-import type { FireHotspot } from "@/lib/api/fires";
 import type { WsprSpot } from "@/lib/api/wspr";
 import {
   useContestQsoLocations,
@@ -224,6 +223,9 @@ import {
   subscribeFlatMapDiagnostics,
 } from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
+import { createEquirectangularProjection } from "@/lib/map/projection";
+import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
+import { drawFiresLayer } from "./layers/firesLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1268,43 +1270,6 @@ function drawLightning(
       strike.currentKA > LIGHTNING_STRONG_KA
         ? LIGHTNING_COLOR_STRONG
         : LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw fire hotspot markers on the 2D map
- * Renders NASA FIRMS fire detections as orange/red dots scaled by FRP
- */
-function drawFires(
-  ctx: CanvasRenderingContext2D,
-  hotspots: FireHotspot[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const hp of hotspots) {
-    if (hp.confidence === "low") continue;
-
-    const { x, y } = latLonToCanvas(hp.lat, hp.lon, width, height);
-    const radius = Math.max(1.5, Math.min(6, hp.frp / 80)) / zoomDamp;
-
-    // Outer glow
-    ctx.globalAlpha = 0.2;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff6600";
-    ctx.fill();
-
-    // Inner core
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff2200";
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -5852,6 +5817,12 @@ export function FlatMapView({
     const ctx = beginFlatMapCanvasFrame(canvas, viewportSize, dpr, zoom);
     if (!ctx) return;
 
+    const projection = createEquirectangularProjection({
+      width: renderWidth,
+      height: renderHeight,
+      zoomScale: zoom.scale,
+    });
+
     // Draw earthquake markers
     if (layers.earthquakes && earthquakeData.length > 0) {
       drawEarthquakes(
@@ -5887,7 +5858,7 @@ export function FlatMapView({
 
     // Draw fire hotspots
     if (layers.fires && fireHotspots.length > 0) {
-      drawFires(ctx, fireHotspots, renderWidth, renderHeight, zoom.scale);
+      drawFiresLayer(ctx, fireHotspots, projection, FLAT_LAYER_PROFILE);
     }
 
     // Draw WSPR propagation paths

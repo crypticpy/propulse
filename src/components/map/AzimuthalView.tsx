@@ -74,7 +74,9 @@ import {
   LIGHTNING_COLOR_STRONG,
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
-import type { FireHotspot } from "@/lib/api/fires";
+import { createAzimuthalProjection } from "@/lib/map/projection";
+import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
+import { drawFiresLayer } from "./layers/firesLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1619,45 +1621,6 @@ function drawAzLightning(
   ctx.restore();
 }
 
-/**
- * Draw fire hotspot markers on azimuthal projection
- */
-function drawAzFires(
-  ctx: CanvasRenderingContext2D,
-  hotspots: FireHotspot[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const hp of hotspots) {
-    if (hp.confidence === "low") continue;
-
-    const point = azimuthalProject(hp.lat, hp.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    const radius = Math.max(1.5, Math.min(5, hp.frp / 100));
-
-    // Outer glow
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff6600";
-    ctx.fill();
-
-    // Inner core
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff2200";
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -2700,6 +2663,19 @@ export function AzimuthalView({
     ctx.scale(zoom, zoom);
     ctx.translate(-CENTER, -CENTER);
 
+    // zoomDamp is deliberately 1: the azimuthal hazard layers draw inside the
+    // zoom transform above without additional damping today. The pill code's
+    // Math.max(0.5, zoom) damping is a different, later decision (#1091).
+    const projection = createAzimuthalProjection({
+      centerLat: center.lat,
+      centerLon: center.lon,
+      centerX: CENTER,
+      centerY: CENTER,
+      radius: RADIUS,
+      zoomScale: zoom,
+      zoomDamp: 1,
+    });
+
     // Draw terminator line (if terminator layer is enabled)
     if (layers.terminator) {
       drawTerminator(ctx, displayTime, center.lat, center.lon);
@@ -2888,7 +2864,7 @@ export function AzimuthalView({
       drawAzLightning(ctx, lightningStrikes, center.lat, center.lon);
     }
     if (layers.fires && fireHotspots.length > 0) {
-      drawAzFires(ctx, fireHotspots, center.lat, center.lon);
+      drawFiresLayer(ctx, fireHotspots, projection, AZIMUTHAL_LAYER_PROFILE);
     }
 
     // Highlighted arc for selected DX cluster spot

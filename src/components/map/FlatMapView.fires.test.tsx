@@ -47,6 +47,13 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
   useViewMapSpots: () => EMPTY_FEED,
 }));
 
+// The mounted map shell also reads the logbook. Keep that unrelated read
+// deterministic so IndexedDB cannot resolve after this binding test tears down.
+vi.mock("@/lib/db/logStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/logStore")>()),
+  getAllLogEntries: vi.fn(async () => []),
+}));
+
 // frp 240 / FLAT_LAYER_PROFILE.fires.frpPerRadiusPx (80) = 3, within [1.5, 6].
 // Under AZIMUTHAL_LAYER_PROFILE (frpPerRadiusPx 100) the same hotspot would
 // draw a 2.4px core instead -- that divergence is exactly what this test

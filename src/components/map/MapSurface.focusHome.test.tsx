@@ -315,6 +315,7 @@ function openPopoverWithoutFocus(opener: Element) {
 /** Click a member row, then close the card the row opened. */
 async function openThenCloseSpotCard(callsign: string) {
   const user = userEvent.setup();
+  const listener = vi.spyOn(document, "addEventListener");
   await user.click(
     await screen.findByRole("button", {
       name: new RegExp(`Select ${callsign} and view details`, "i"),
@@ -327,6 +328,11 @@ async function openThenCloseSpotCard(callsign: string) {
   // a no-op, which under a loaded parallel run reads as a flake rather than a
   // failure, so wait for the first of them to land.
   await waitFor(() => expect(document.activeElement).toBe(card));
+  // Focus and Escape registration use separate timers. Wait for both.
+  await waitFor(() =>
+    expect(listener.mock.calls.some(([event]) => event === "keydown")).toBe(true),
+  );
+  listener.mockRestore();
   await user.keyboard("{Escape}");
   await waitFor(() =>
     expect(screen.queryByRole("dialog", { name: cardName })).toBeNull(),

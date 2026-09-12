@@ -43,7 +43,7 @@ export function ActiveKitChip({ className = "" }: { className?: string }) {
         onChange={(event) => {
           if (event.target.value) setActiveChain(event.target.value);
         }}
-        className="min-w-0 max-w-[140px] truncate rounded-lg border border-su-line/40 bg-void-black/80 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-su-muted hover:border-plasma-orange/40"
+        className="min-w-0 max-w-[140px] truncate rounded-lg border border-su-line/40 bg-void-black/80 px-2 py-1 font-mono text-xs uppercase tracking-wide text-su-muted hover:border-plasma-orange/40"
       >
         {chains.map((item) => (
           <option key={item.id} value={item.id}>
@@ -52,7 +52,7 @@ export function ActiveKitChip({ className = "" }: { className?: string }) {
         ))}
       </select>
       {erp != null && (
-        <span className="shrink-0 font-mono text-[10px] text-plasma-orange">
+        <span className="shrink-0 font-mono text-xs text-plasma-orange">
           {band} {formatErp(erp)}
         </span>
       )}

@@ -782,7 +782,7 @@ export function DXNewsTicker({
       <div
         className={`relative flex items-center overflow-hidden select-none ${className}`}
         style={{
-          height: "var(--dx-ticker-height, 30px)",
+          height: "max(2rem, var(--dx-ticker-height, 2rem))",
           background: "rgba(10, 10, 26, 0.85)",
           borderTop: "1px solid rgba(255, 255, 255, 0.1)",
           maskImage:
@@ -816,7 +816,7 @@ export function DXNewsTicker({
         <span
           className="font-mono font-bold uppercase tracking-wider"
           style={{
-            fontSize: "var(--dx-ticker-badge-size, 10px)",
+            fontSize: "max(0.75rem, var(--dx-ticker-badge-size, 0.75rem))",
             letterSpacing: "0.5px",
             background: "rgba(255, 107, 53, 0.9)",
             color: "#000",
@@ -842,7 +842,7 @@ export function DXNewsTicker({
           <span aria-hidden="true">⚙</span> NEWS
         </button>
         <button
-          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
+          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))" }}
           type="button"
           onClick={() => setSettingsOpen(true)}
           className="ml-0.5 rounded p-0.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
@@ -864,9 +864,9 @@ export function DXNewsTicker({
         <div
           ref={contentRef}
           data-testid="dx-ticker-track"
-          className="inline-flex items-center font-mono text-[11px] text-su-muted"
+          className="inline-flex items-center font-mono text-xs text-su-muted"
           style={{
-            fontSize: "var(--dx-ticker-font-size, 11px)",
+            fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))",
             animationName: KEYFRAMES_NAME,
             animationDuration: `${animationDuration}s`,
             animationTimingFunction: "linear",
@@ -900,13 +900,13 @@ export function DXNewsTicker({
 
         {breakInItem && (
           <div
-            className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-[11px]"
-            style={{ fontSize: "var(--dx-ticker-font-size, 11px)" }}
+            className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-xs"
+            style={{ fontSize: "max(0.75rem, var(--dx-ticker-font-size, 0.75rem))" }}
             role="status"
             aria-live="assertive"
             data-testid="ticker-break-in"
           >
-            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-su-text">
+            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-xs font-black uppercase tracking-wider text-su-text">
               Break-in
             </span>
             {breakInItem.detail ? (
@@ -1057,7 +1057,7 @@ function RssTickerDetail({
     >
       {headline && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-su-muted">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-wider text-su-muted">
             <span>{headline.feed.label}</span>
             {headline.item.publishedAt && (
               <>
@@ -1092,7 +1092,7 @@ function RssTickerDetail({
 function TickerMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-su-muted">
+      <p className="font-mono text-xs uppercase tracking-wider text-su-muted">
         {label}
       </p>
       <p className="mt-1 font-orbitron text-base font-semibold text-su-text">

@@ -44,7 +44,7 @@ export function ContestLiteHudSheet({
             </span>
             <Link
               to="/contest"
-              className="text-[10px] text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors"
+              className="text-xs text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors"
               title="Open full Contest view"
             >
               Full view →
@@ -70,7 +70,7 @@ export function ContestLiteHudSheet({
           <ContestVoiceControls sessionId={sessionId} />
 
           <Card className="p-3">
-            <div className="text-[11px] text-su-muted">
+            <div className="text-xs text-su-muted">
               Focus entry: <span className="font-mono text-su-text">Alt+E</span> •
               Voice toggle:{" "}
               <span className="font-mono text-su-text">Ctrl+Shift+.</span>

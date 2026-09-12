@@ -24,7 +24,7 @@ export function AzimuthalSpotClusterButtons({
           <button
             key={cluster.key}
             type="button"
-            className="pointer-events-auto absolute flex items-center justify-center rounded-full border border-cosmic-cyan/80 bg-deep-space/90 font-mono text-[10px] font-bold text-cosmic-cyan shadow-[0_0_12px_rgba(34,211,238,0.35)] transition hover:scale-110 hover:bg-cosmic-cyan/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-su-text"
+            className="pointer-events-auto absolute flex items-center justify-center rounded-full border border-cosmic-cyan/80 bg-deep-space/90 font-mono text-xs font-bold text-cosmic-cyan shadow-[0_0_12px_rgba(34,211,238,0.35)] transition hover:scale-110 hover:bg-cosmic-cyan/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-su-text"
             style={{
               left: cluster.left,
               top: cluster.top,

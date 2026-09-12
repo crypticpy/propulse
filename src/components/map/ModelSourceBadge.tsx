@@ -28,7 +28,7 @@ interface ModelSourceBadgeProps {
 export function ModelSourceBadge({ source, className }: ModelSourceBadgeProps) {
   return (
     <span
-      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-help whitespace-nowrap ${
+      className={`text-xs font-mono px-1.5 py-0.5 rounded border cursor-help whitespace-nowrap ${
         TONE_CLASSES[source.tone]
       } ${className ?? ""}`}
       title={`${source.label.toUpperCase()}\n${source.detail}`}

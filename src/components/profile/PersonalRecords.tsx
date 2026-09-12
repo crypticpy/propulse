@@ -173,7 +173,7 @@ function RecordCard({
     <div className="flex-shrink-0 w-40 bg-su-line/10 border border-su-line/40 rounded-xl p-3">
       <div className="mb-2">{icon}</div>
       <div className="font-mono text-lg font-bold text-su-text">{value}</div>
-      <div className="text-[10px] text-su-muted uppercase tracking-wider">
+      <div className="text-xs text-su-muted uppercase tracking-wider">
         {label}
       </div>
       {detail && <div className="text-xs text-su-muted mt-0.5">{detail}</div>}

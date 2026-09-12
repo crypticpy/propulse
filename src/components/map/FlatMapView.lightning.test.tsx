@@ -54,6 +54,13 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
   useViewMapSpots: () => EMPTY_FEED,
 }));
 
+// The map shell also reads logbook data; keep that unrelated async read
+// inside this fixture's lifetime instead of starting real IndexedDB work.
+vi.mock("@/lib/db/logStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/logStore")>()),
+  getAllLogEntries: vi.fn(async () => []),
+}));
+
 // intensity = max(0.3, min(1, 100/200)) = 0.5; core radius = 3 * 0.5 = 1.5.
 const STRIKE: LightningStrike = {
   lat: -15,

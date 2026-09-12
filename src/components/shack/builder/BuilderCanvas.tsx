@@ -418,11 +418,7 @@ export function BuilderCanvas({
   );
 
   const handleFeedlineRunDrop = useCallback(
-    (
-      e: React.DragEvent,
-      feedlineRunId: string,
-      nodeIndex: number,
-    ) => {
+    (e: React.DragEvent, feedlineRunId: string, nodeIndex: number) => {
       e.preventDefault();
       e.stopPropagation();
       setActiveDropIndex(null);
@@ -431,7 +427,11 @@ export function BuilderCanvas({
       if (!equipJson) return;
       try {
         const { type: equipType, id: equipId } = JSON.parse(equipJson);
-        if (equipType && equipId) {
+        if (
+          equipType === "inline" &&
+          typeof equipId === "string" &&
+          equipId.length > 0
+        ) {
           onDropEquipment(equipType, equipId, nodeIndex, feedlineRunId);
         }
       } catch {
@@ -442,8 +442,12 @@ export function BuilderCanvas({
   );
 
   const handleFeedlineRunDragOver = useCallback((e: React.DragEvent) => {
+    // Payload bytes are protected during dragover; the source supplies a
+    // type marker so only inline gear advertises this target as droppable.
+    if (!e.dataTransfer.types.includes("application/x-equipment-inline"))
+      return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
+    e.dataTransfer.dropEffect = "move";
   }, []);
 
   // ── Zoom handler (native wheel — passive:false to prevent page scroll) ──
@@ -942,6 +946,7 @@ export function BuilderCanvas({
                 return (
                   <g
                     key={`node-${i}`}
+                    data-feedline-run-drop={run.id}
                     onDragOver={handleFeedlineRunDragOver}
                     onDrop={(e) => handleFeedlineRunDrop(e, run.id, i)}
                   >

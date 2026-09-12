@@ -584,7 +584,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors
                        ${
                          copySuccess
-                           ? "bg-signal-green/20 border border-signal-green/50 text-signal-green"
+                           ? "bg-signal-green/20 border border-signal-green/50 text-su-text"
                            : "bg-nebula-blue border border-su-line/40 text-su-muted hover:text-su-text hover:border-su-line/50"
                        }`}
           >
@@ -593,7 +593,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
           <button
             onClick={handleExport}
             className="flex-1 px-4 py-2.5 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                       text-plasma-orange hover:bg-plasma-orange/30
+                       text-su-text hover:bg-plasma-orange/20
                        transition-colors font-medium"
           >
             Export
@@ -638,7 +638,7 @@ function FormatButton({
     >
       <div
         className={`text-sm font-medium ${
-          isSelected ? "text-plasma-orange" : "text-su-muted"
+          isSelected ? "text-su-text" : "text-su-muted"
         }`}
       >
         {label}

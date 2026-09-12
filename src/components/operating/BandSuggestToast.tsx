@@ -149,7 +149,7 @@ export function BandSuggestToast() {
         {/* Switch button */}
         <button
           onClick={handleSwitch}
-          className="px-3 py-1.5 rounded-lg bg-signal-green/20 text-signal-green text-xs font-medium hover:bg-signal-green/30 transition-colors flex-shrink-0"
+          className="px-3 py-1.5 rounded-lg bg-signal-green/20 text-su-text text-xs font-medium hover:bg-signal-green/20 transition-colors flex-shrink-0"
         >
           Switch
         </button>

@@ -165,7 +165,7 @@ export function ContestContributions({
                     key={entity.id}
                     className="
                       text-xs px-2 py-0.5 rounded
-                      bg-alert-red/10 text-alert-red/80 border border-alert-red/20
+                      bg-alert-red/10 text-su-text border border-alert-red/20
                     "
                   >
                     {entity.name} ({entity.prefix})
@@ -187,7 +187,7 @@ export function ContestContributions({
                     key={`${entity.id}-${band}`}
                     className="
                       text-xs px-2 py-0.5 rounded
-                      bg-signal-green/10 text-signal-green/80 border border-signal-green/20
+                      bg-signal-green/10 text-su-text border border-signal-green/20
                     "
                   >
                     {entity.prefix} / {band}
@@ -209,7 +209,7 @@ export function ContestContributions({
                     key={state}
                     className="
                       text-xs px-2 py-0.5 rounded
-                      bg-nebula-blue/10 text-nebula-blue/80 border border-nebula-blue/20
+                      bg-nebula-blue/10 text-su-text border border-nebula-blue/20
                     "
                   >
                     {state}
@@ -231,7 +231,7 @@ export function ContestContributions({
                     key={zone}
                     className="
                       text-xs px-2 py-0.5 rounded
-                      bg-plasma-orange/10 text-plasma-orange/80 border border-plasma-orange/20
+                      bg-plasma-orange/10 text-su-text border border-plasma-orange/20
                     "
                   >
                     Zone {zone}

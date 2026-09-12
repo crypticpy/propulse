@@ -268,7 +268,7 @@ export function HealthStatusIndicator({
           <div className="px-3 py-2 space-y-3">
             {/* Bridge section */}
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-su-muted font-semibold">
+              <span className="text-xs uppercase tracking-wider text-su-muted font-semibold">
                 Bridge
               </span>
               <Link
@@ -304,7 +304,7 @@ export function HealthStatusIndicator({
               </Link>
               {health.bridgeError && health.bridgeState !== "connected" && (
                 <p
-                  className="mt-1 text-[10px] text-su-muted leading-tight line-clamp-2"
+                  className="mt-1 text-xs text-su-muted leading-tight line-clamp-2"
                   title={health.bridgeError}
                 >
                   {health.bridgeError}
@@ -315,7 +315,7 @@ export function HealthStatusIndicator({
                 <Link
                   to="/setup"
                   onClick={() => setExpanded(false)}
-                  className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-plasma-orange hover:underline"
+                  className="inline-flex items-center gap-1 mt-1.5 text-xs text-plasma-orange hover:underline"
                 >
                   Setup Guide →
                 </Link>
@@ -324,7 +324,7 @@ export function HealthStatusIndicator({
 
             {/* API Services section */}
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-su-muted font-semibold">
+              <span className="text-xs uppercase tracking-wider text-su-muted font-semibold">
                 API Services
               </span>
               <div className="mt-1 space-y-1.5 max-h-[280px] overflow-y-auto">
@@ -333,7 +333,7 @@ export function HealthStatusIndicator({
                     Array.from(groupByProvider(health.services)).map(
                       ([provider, svcs]) => (
                         <div key={provider}>
-                          <span className="text-[9px] uppercase tracking-wider text-su-muted font-medium">
+                          <span className="text-xs uppercase tracking-wider text-su-muted font-medium">
                             {provider}
                           </span>
                           <div className="mt-0.5 space-y-1">
@@ -347,18 +347,18 @@ export function HealthStatusIndicator({
                                   <span className="text-xs text-su-muted min-w-0 truncate flex-1">
                                     {svc.name}
                                     {svc.isUpstream && (
-                                      <span className="text-[9px] text-su-muted bg-su-line/10 px-1 py-0.5 rounded ml-1">
+                                      <span className="text-xs text-su-muted bg-su-line/10 px-1 py-0.5 rounded ml-1">
                                         upstream
                                       </span>
                                     )}
                                   </span>
-                                  <span className="text-[10px] text-su-muted whitespace-nowrap">
+                                  <span className="text-xs text-su-muted whitespace-nowrap">
                                     {serviceDetail(svc)}
                                   </span>
                                 </div>
                                 {svc.status === "error" && svc.userMessage && (
                                   <p
-                                    className="ml-4 mt-0.5 text-[10px] text-su-muted leading-tight line-clamp-2"
+                                    className="ml-4 mt-0.5 text-xs text-su-muted leading-tight line-clamp-2"
                                     title={svc.userMessage}
                                   >
                                     {svc.userMessage}
@@ -380,7 +380,7 @@ export function HealthStatusIndicator({
                         <span className="text-xs text-su-muted min-w-0 truncate flex-1">
                           {svc.name}
                         </span>
-                        <span className="text-[10px] text-su-muted whitespace-nowrap">
+                        <span className="text-xs text-su-muted whitespace-nowrap">
                           {serviceDetail(svc)}
                         </span>
                       </div>
@@ -391,13 +391,13 @@ export function HealthStatusIndicator({
 
           {/* Footer */}
           <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               Refreshes every 30s
             </span>
             <Link
               to="/health"
               onClick={() => setExpanded(false)}
-              className="text-[10px] text-su-muted hover:text-plasma-orange transition-colors"
+              className="text-xs text-su-muted hover:text-plasma-orange transition-colors"
             >
               View full dashboard
             </Link>

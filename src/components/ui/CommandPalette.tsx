@@ -704,7 +704,7 @@ export function CommandPalette({
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-su-line/20 border border-su-line/40 rounded text-[10px] text-su-muted font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-su-line/20 border border-su-line/40 rounded text-xs text-su-muted font-mono">
             ESC
           </kbd>
         </div>
@@ -726,7 +726,7 @@ export function CommandPalette({
             groupedItems.map((group) => (
               <div key={group.category}>
                 {/* Category header */}
-                <div className="text-[10px] uppercase tracking-wider text-su-muted px-3 py-1.5 select-none">
+                <div className="text-xs uppercase tracking-wider text-su-muted px-3 py-1.5 select-none">
                   {CATEGORY_LABELS[group.category]}
                 </div>
 
@@ -782,7 +782,7 @@ export function CommandPalette({
 
         {/* Footer hint */}
         <div className="flex items-center justify-between px-4 py-2 border-t border-su-line/40 bg-su-line/10">
-          <div className="flex items-center gap-3 text-[10px] text-su-muted">
+          <div className="flex items-center gap-3 text-xs text-su-muted">
             <span className="flex items-center gap-1">
               <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 &uarr;

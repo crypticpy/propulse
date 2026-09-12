@@ -181,7 +181,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                   onClick={() => {
                     retryAll();
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded bg-plasma-orange/15 text-su-text
+                  className="text-xs px-2 py-0.5 rounded bg-plasma-orange/15 text-su-text
                              hover:bg-plasma-orange/20 transition-colors font-medium"
                   type="button"
                 >
@@ -230,26 +230,26 @@ export function SyncStatusIndicator(): JSX.Element | null {
                     <span className="text-xs font-medium text-su-text">
                       {serviceLabel(item.service)}
                     </span>
-                    <span className="text-[10px] text-su-muted">
+                    <span className="text-xs text-su-muted">
                       {item.entryIds.length} QSO
                       {item.entryIds.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] text-su-muted">
+                    <span className="text-xs text-su-muted">
                       {statusLabel(item.status)}
                     </span>
                     {item.retryCount > 0 && (
-                      <span className="text-[10px] text-su-muted">
+                      <span className="text-xs text-su-muted">
                         ({item.retryCount}/{item.maxRetries})
                       </span>
                     )}
-                    <span className="text-[10px] text-su-muted">
+                    <span className="text-xs text-su-muted">
                       {formatTimeAgo(item.createdAt)}
                     </span>
                   </div>
                   {item.lastError && (
-                    <p className="text-[10px] text-alert-red/80 mt-0.5 truncate">
+                    <p className="text-xs text-alert-red/80 mt-0.5 truncate">
                       {item.lastError}
                     </p>
                   )}
@@ -283,7 +283,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
 
           {/* Footer */}
           <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               Auto-retries every 10s
             </span>
             {items.length > 0 && (
@@ -292,7 +292,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                   const store = useSyncQueueStore.getState();
                   store.clearFailed();
                 }}
-                className="text-[10px] text-su-muted hover:text-su-text transition-colors"
+                className="text-xs text-su-muted hover:text-su-text transition-colors"
                 type="button"
               >
                 Clear failed

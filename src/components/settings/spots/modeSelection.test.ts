@@ -6,6 +6,7 @@ import {
   categoryState,
   defaultFilters,
   filtersAreDefault,
+  isAllModesSelected,
   isModeSelected,
   modeCatalog,
   selectAllModes,
@@ -169,6 +170,19 @@ describe("filter defaults (FILTER-04)", () => {
     expect(defaultFilters().modes.all).toBe(true);
     expect(defaultFilters().modes.includeUnknown).toBe(true);
     expect(defaultFilters().modes.includeInferred).toBe(true);
+  });
+
+  it("treats every category selected as All even when all is still false", () => {
+    const threeCategories: ModeSelection = {
+      all: false,
+      categories: ["phone", "cw", "digital"],
+      modes: [],
+      includeUnknown: true,
+      includeInferred: true,
+    };
+    expect(isAllModesSelected(threeCategories)).toBe(true);
+    expect(isAllModesSelected(ALL)).toBe(true);
+    expect(isAllModesSelected(toggleModeCategory(ALL, "digital"))).toBe(false);
   });
 
   it("detects a narrowed filter set", () => {

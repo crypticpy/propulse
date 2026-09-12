@@ -10,6 +10,7 @@ import {
   SPOT_SOURCES,
   categoryState,
   filtersAreDefault,
+  isAllModesSelected,
   isModeSelected,
   modeCatalog,
   selectAllModes,
@@ -151,6 +152,7 @@ export function ActivitySection({
   );
   const modes = filters.modes;
   const normalized = normalizeModeSelection(modes);
+  const allModes = isAllModesSelected(modes);
   const catalog = modeCatalog();
   // Instance-scoped ids: two panels editing two working copies must never
   // collide on DOM id, or label association breaks for both.
@@ -178,9 +180,9 @@ export function ActivitySection({
             <input
               id={uid("mode-all")}
               type="checkbox"
-              checked={normalized.all}
+              checked={allModes}
               onChange={() => {
-                if (!normalized.all) {
+                if (!allModes) {
                   controller.patchFilters({ modes: selectAllModes(modes) });
                 }
               }}
@@ -189,7 +191,7 @@ export function ActivitySection({
             <span className="text-sm text-su-text">All modes</span>
           </label>
 
-          {normalized.all && (
+          {allModes && (
             <p className="text-xs text-su-muted">
               No specific modes chosen — showing all modes.
             </p>

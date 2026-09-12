@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { useSpotsPreferences } from "../useSpotsPreferences";
@@ -61,7 +61,7 @@ describe("GroupingSection", () => {
     expect(latest?.spots.grouping.detail).toBe("grid4");
   });
 
-  it("writes the minimum group size slider within 2-50", () => {
+  it("writes the minimum group size slider within 2-50", async () => {
     let latest: SpotsPreferencesController | undefined;
     mount((controller) => {
       latest = controller;
@@ -69,13 +69,19 @@ describe("GroupingSection", () => {
     const slider = screen.getByRole("slider", { name: "Minimum group size" });
 
     fireSlider(slider, 45);
-    expect(latest?.spots.grouping.minGroupSize).toBe(45);
+    await waitFor(() => {
+      expect(latest?.spots.grouping.minGroupSize).toBe(45);
+    });
 
     fireSlider(slider, 0);
-    expect(latest?.spots.grouping.minGroupSize).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      expect(latest?.spots.grouping.minGroupSize).toBeGreaterThanOrEqual(2);
+    });
 
     fireSlider(slider, 999);
-    expect(latest?.spots.grouping.minGroupSize).toBeLessThanOrEqual(50);
+    await waitFor(() => {
+      expect(latest?.spots.grouping.minGroupSize).toBeLessThanOrEqual(50);
+    });
   });
 
   it("does not touch filters, path style or animate scope when grouping changes", async () => {

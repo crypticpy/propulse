@@ -10,6 +10,7 @@ import {
   SegmentedButton,
   SettingSlider,
 } from "../../ui";
+import { useDebouncedSliderCommit } from "../useDebouncedSliderCommit";
 import type { GroupingPreferences, SpotsPreferencesController } from "../types";
 
 type GroupingLevel = "regions" | "grid";
@@ -26,6 +27,10 @@ export function GroupingSection({
   const grouping = controller.spots.grouping;
   const level = levelFromDetail(grouping.detail);
   const enabledId = `${controller.instanceId}-grouping-enabled`;
+  const [minGroupSize, commitMinGroupSize] = useDebouncedSliderCommit(
+    grouping.minGroupSize,
+    (value) => controller.patchGrouping({ minGroupSize: value }),
+  );
   // Every projection renders groups since #746 — the flat map draws cluster
   // glyphs on its 2D canvas — so these controls are no longer gated.
 
@@ -114,14 +119,12 @@ export function GroupingSection({
           description="Below this count, individual mapped reports are drawn instead of a
             group. Label placement never manufactures a more precise position
             than the underlying report has."
-          value={grouping.minGroupSize}
+          value={minGroupSize}
           min={2}
           max={50}
           step={1}
           formatValue={(value) => `${value} reports`}
-          onChange={(value) =>
-            controller.patchGrouping({ minGroupSize: value })
-          }
+          onChange={commitMinGroupSize}
         />
       </fieldset>
     </section>

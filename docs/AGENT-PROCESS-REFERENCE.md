@@ -104,10 +104,15 @@ ln -sfn <path-to-shared>/ml/.venv ml/.venv     # if the ML venv lives in another
 npm run hooks:install
 ```
 
+`ghr` and `ghb` below are `~/.config/propulse-reader/ghr` and
+`~/.config/propulse-bot/ghb`, `gh` authenticated as the read and write Apps;
+see AGENTS.md's "GitHub API budget" section. `gh project …` commands keep
+plain `gh`, the owner token.
+
 Finding open PRs that touch your files:
 
 ```bash
-gh pr list --state open --json number,title,headRefName,files \
+ghr pr list --state open --json number,title,headRefName,files \
   --jq '.[] | select(.files[].path | test("src/components/map/")) | {number,title,headRefName}'
 ```
 
@@ -138,24 +143,24 @@ gh project item-edit --project-id PVT_kwHOAsYuns4Bij4g --id <ITEM_ID> \
 Reading threads:
 
 ```bash
-gh issue view <N> --comments
-gh pr view <N> --comments
-gh api graphql -f query='{ repository(owner:"crypticpy", name:"propulse") { pullRequest(number:<N>) {
+ghr issue view <N> --comments
+ghr pr view <N> --comments
+ghr api graphql -f query='{ repository(owner:"crypticpy", name:"propulse") { pullRequest(number:<N>) {
   reviewThreads(first:50) { nodes { id isResolved path comments(first:1) { nodes { body } } } } } } }'
-gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"<THREAD_ID>"}) { thread { isResolved } } }'
+ghb api graphql -f query='mutation { resolveReviewThread(input:{threadId:"<THREAD_ID>"}) { thread { isResolved } } }'
 ```
 
 Replying to an inline review comment:
 
 ```bash
-gh api -X POST repos/crypticpy/propulse/pulls/<N>/comments/<COMMENT_ID>/replies -f body="Fixed in <sha>."
+ghb api -X POST repos/crypticpy/propulse/pulls/<N>/comments/<COMMENT_ID>/replies -f body="Fixed in <sha>."
 ```
 
 Merging and cleaning up:
 
 ```bash
-gh pr view <N> --json mergeable,mergeStateStatus,statusCheckRollup
-gh pr merge <N> --merge
+ghr pr view <N> --json mergeable,mergeStateStatus,statusCheckRollup
+ghb pr merge <N> --merge
 git push origin --delete <branch>          # until auto-delete is on
 ```
 
@@ -173,7 +178,7 @@ first (`P1 bug` before `P2 core` before `P3 expansion`), oldest first inside a
 priority. Then:
 
 ```bash
-gh issue list --label ready --label "size:M" --state open \
+ghr issue list --label ready --label "size:M" --state open \
   --json number,title,labels --jq '.[] | "\(.number) \(.title)"'
 ```
 
@@ -207,8 +212,8 @@ the GitHub UI — and mirrored as a "**Blocked by** …" line in the body when t
 blocker is a *pull request* (the API rejects PRs as dependency targets):
 
 ```bash
-gh api repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by
-gh api --method POST repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by -F issue_id=<BLOCKER_DB_ID>
+ghr api repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by
+ghb api --method POST repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by -F issue_id=<BLOCKER_DB_ID>
 ```
 
 **Working it.** Fresh worktree off `origin/main`, never the primary checkout.

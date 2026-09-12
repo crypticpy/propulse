@@ -161,6 +161,16 @@ Git hooks (install with `npm run hooks:install`):
 - Keep commits focused; avoid mixing refactors, generated data, and feature work
 - If a push is intentionally large, use: `ALLOW_LARGE_PUSH=1 git push ...`
 
+### GitHub API routing
+
+Three GitHub Apps split the shared owner-token GraphQL budget:
+
+- `~/.config/propulse-reader/ghr` for every read and poll
+- `~/.config/propulse-bot/ghb` for every write (comments, resolves, merges, design reviews)
+- `~/.config/propulse-board/ghp`, reserved for Project #4 board work, currently inert (user-owned project, org-only App permission)
+
+The owner token (plain `gh`) is only for Project #4, `gh pr create`/`gh pr edit`, and the `@codex review` trigger. See AGENTS.md's "GitHub API budget" section for the full policy.
+
 ### Repo Hygiene
 
 Do not commit generated/build artifacts: `node_modules/`, `dist/`, `dev-dist/`, `bridge/dist/`, `collector/dist/`, `.next/`, `coverage/`, `.cache/`, `.vite/`, `.turbo/`, `*.tsbuildinfo`

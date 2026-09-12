@@ -68,6 +68,12 @@ export function AuthModal() {
     handleConfirmBlur,
     submitForView,
   } = useAuthForm({
+    // `switchView` is declared below (it closes over this hook's own
+    // setConfirmError/setSuccessMessage/setPassword/setConfirmPassword, so it
+    // can't be hoisted above the useAuthForm call it would otherwise
+    // precede). That's safe here: these callbacks only run later, from
+    // event handlers dispatched after render completes, by which point
+    // `switchView` is already assigned — never during render itself.
     // Sign-up and forgot-password both land on the same check_email view.
     onSignUpSuccess: () => switchView("check_email"),
     onForgotPasswordSuccess: () => switchView("check_email"),

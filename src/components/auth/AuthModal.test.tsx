@@ -310,6 +310,23 @@ describe("AuthModal", () => {
       ).toBeTruthy();
       expect(signUpMock).not.toHaveBeenCalled();
     });
+
+    it("on success, switches to the check_email view and shows the address that was typed", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      await user.type(screen.getByLabelText("Password"), "Password1!");
+      await user.type(screen.getByLabelText("Confirm password"), "Password1!");
+      await user.click(screen.getByRole("button", { name: "Create Account" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Check Your Email" }),
+        ).toBeTruthy();
+      });
+      expect(screen.getByText("op@example.com")).toBeTruthy();
+    });
   });
 
   describe("reset_password view: account password policy gate", () => {
@@ -373,6 +390,51 @@ describe("AuthModal", () => {
         ),
       ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();
+    });
+
+    it("on success, shows the success message and closes the modal 1500ms later", async () => {
+      vi.useFakeTimers();
+      render(<AuthModal />);
+      act(() => {
+        useAuthStore.setState({ isRecoveryMode: true });
+      });
+      // Let the recovery-mode open settle, then the modal's own 80ms
+      // focus-on-open timer fire, the same way the other fake-timer tests
+      // above advance past both.
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      const passwordInput = screen.getByLabelText("New password");
+      fireEvent.change(passwordInput, { target: { value: "Password1!" } });
+      fireEvent.change(screen.getByLabelText("Confirm new password"), {
+        target: { value: "Password1!" },
+      });
+
+      // No <form> exists to submit — Enter in the password field calls
+      // handleUpdatePassword() directly via handleKeyDown, the same bypass
+      // path the tests above use, so this works under fake timers without
+      // needing user-event's advanceTimers option.
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      // Flush the microtasks handleUpdatePassword awaits (fake timers only
+      // fake timer callbacks, not promise resolution).
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText("Password updated successfully.")).toBeTruthy();
+      expect(useAuthUIStore.getState().isOpen).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(useAuthUIStore.getState().isOpen).toBe(false);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      vi.useRealTimers();
     });
   });
 });

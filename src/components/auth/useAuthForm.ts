@@ -18,6 +18,9 @@
  * and session-expired banner, and both files' own effects (recovery mode,
  * focus-on-open, reset-on-close) stay local to each component.
  *
+ * `sentTo` is written on every successful forgot-password request (and on
+ * sign-up); only AuthModal renders it, on its check_email view.
+ *
  * This hook must not import from AuthModal or LoginPage.
  */
 
@@ -133,12 +136,25 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
   // Dispatches Enter-to-submit for the views both callers share. Each
   // component's own handleKeyDown still owns its view-specific cases
   // (AuthModal has none beyond these four; LoginPage adds magic_link).
+  // A switch with an exhaustive `never` default means a fifth AuthFormView
+  // is a compile error here, instead of silently falling through to
+  // handleUpdatePassword the way an if/else chain's final `return` would.
   const submitForView = useCallback(
     (view: AuthFormView) => {
-      if (view === "signin") return handleSignIn();
-      if (view === "signup") return handleSignUp();
-      if (view === "forgot") return handleForgotPassword();
-      return handleUpdatePassword();
+      switch (view) {
+        case "signin":
+          return handleSignIn();
+        case "signup":
+          return handleSignUp();
+        case "forgot":
+          return handleForgotPassword();
+        case "reset_password":
+          return handleUpdatePassword();
+        default: {
+          const exhaustiveCheck: never = view;
+          throw new Error(`Unhandled AuthFormView: ${exhaustiveCheck}`);
+        }
+      }
     },
     [handleSignIn, handleSignUp, handleForgotPassword, handleUpdatePassword],
   );

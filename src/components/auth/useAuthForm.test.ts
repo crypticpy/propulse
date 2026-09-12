@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   supabaseConfigured,
   signInWithPasswordMock,
+  signUpMock,
   resetPasswordForEmailMock,
   updateUserMock,
   getSupabaseMock,
 } = vi.hoisted(() => ({
   supabaseConfigured: { value: true },
   signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
+  signUpMock: vi.fn().mockResolvedValue({ error: null }),
   resetPasswordForEmailMock: vi.fn().mockResolvedValue({ error: null }),
   updateUserMock: vi.fn().mockResolvedValue({ error: null }),
   getSupabaseMock: vi.fn(),
@@ -41,11 +43,13 @@ beforeEach(() => {
   resetAuthState();
   supabaseConfigured.value = true;
   signInWithPasswordMock.mockClear().mockResolvedValue({ error: null });
+  signUpMock.mockClear().mockResolvedValue({ error: null });
   resetPasswordForEmailMock.mockClear().mockResolvedValue({ error: null });
   updateUserMock.mockClear().mockResolvedValue({ error: null });
   getSupabaseMock.mockReset().mockReturnValue({
     auth: {
       signInWithPassword: signInWithPasswordMock,
+      signUp: signUpMock,
       resetPasswordForEmail: resetPasswordForEmailMock,
       updateUser: updateUserMock,
     },
@@ -96,6 +100,52 @@ describe("useAuthForm", () => {
     // Neither field the handler doesn't own moves on success.
     expect(result.current.email).toBe("op@example.com");
     expect(result.current.password).toBe("should-not-move");
+  });
+
+  it("sign-up calls signUp with the trimmed email and password, records where the account was created, fires the success callback once, and leaves confirmError untouched", async () => {
+    const onSignUpSuccess = vi.fn();
+    const { result } = renderHook(() => useAuthForm({ onSignUpSuccess }));
+
+    act(() => {
+      result.current.setEmail("  op@example.com  ");
+      result.current.setPassword("Password1!");
+      result.current.setConfirmPassword("Password1!");
+    });
+
+    await act(async () => {
+      await result.current.handleSignUp();
+    });
+
+    expect(signUpMock).toHaveBeenCalledWith({
+      email: "op@example.com",
+      password: "Password1!",
+    });
+    expect(result.current.sentTo).toBe("op@example.com");
+    expect(onSignUpSuccess).toHaveBeenCalledTimes(1);
+    expect(result.current.confirmError).toBe("");
+  });
+
+  it("sign-up does not fire the success callback when Supabase sign-up returns an error", async () => {
+    signUpMock.mockResolvedValueOnce({
+      error: { message: "Email already registered" },
+    });
+    const onSignUpSuccess = vi.fn();
+    const { result } = renderHook(() => useAuthForm({ onSignUpSuccess }));
+
+    act(() => {
+      result.current.setEmail("op@example.com");
+      result.current.setPassword("Password1!");
+      result.current.setConfirmPassword("Password1!");
+    });
+
+    await act(async () => {
+      await result.current.handleSignUp();
+    });
+
+    await waitFor(() => {
+      expect(useAuthStore.getState().error).toBe("Email already registered");
+    });
+    expect(onSignUpSuccess).not.toHaveBeenCalled();
   });
 
   describe("update-password: account password policy gate", () => {

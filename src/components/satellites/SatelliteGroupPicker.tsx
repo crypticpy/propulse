@@ -106,7 +106,7 @@ function GroupRow({ group }: { group: SatelliteGroupInfo }) {
             {group.label}
           </span>
         </div>
-        <p className="text-[11px] text-su-muted truncate">
+        <p className="text-xs text-su-muted truncate">
           {group.description}
         </p>
       </div>
@@ -129,7 +129,7 @@ function CategorySection({
 }) {
   return (
     <div className="bg-su-line/10 border border-su-line/20 rounded-lg px-3 py-2">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-su-muted mb-1">
+      <div className="text-xs font-bold uppercase tracking-wider text-su-muted mb-1">
         {CATEGORY_LABELS[category] ?? category}
       </div>
       <div className="divide-y divide-su-line/20">
@@ -183,7 +183,7 @@ export function SatelliteGroupPicker() {
           <span className="text-sm font-medium text-su-text">
             Satellite Sources
           </span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-su-line/20 text-su-muted border border-su-line/40">
+          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-su-line/20 text-su-muted border border-su-line/40">
             {enabledCount}
           </span>
         </div>
@@ -207,7 +207,7 @@ export function SatelliteGroupPicker() {
       {/* Expandable content */}
       {isExpanded && (
         <div className="px-4 pb-4 space-y-3">
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             Expand your satellite database with additional Celestrak groups.
             Default: Amateur Radio only.
           </p>
@@ -223,14 +223,14 @@ export function SatelliteGroupPicker() {
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-1">
-            <p className="text-[10px] text-su-muted">
+            <p className="text-xs text-su-muted">
               Additional groups may increase load time. Data refreshes every 4-6
               hours.
             </p>
             {hasNonDefault && (
               <button
                 onClick={resetDefaults}
-                className="text-[11px] text-su-muted hover:text-plasma-orange transition-colors whitespace-nowrap ml-3"
+                className="text-xs text-su-muted hover:text-plasma-orange transition-colors whitespace-nowrap ml-3"
               >
                 Reset to Default
               </button>

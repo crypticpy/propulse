@@ -469,21 +469,18 @@ describe("the receiver", () => {
   it.each([
     ["an empty string", ""],
     ["a number", 42],
-  ])(
-    "refuses an unavailable setting whose reason is %s",
-    (_label, reason) => {
-      const detail = refusedWith(
-        {
-          manMadeNoise: {
-            kind: "unavailable",
-            reason: reason as unknown as string,
-          },
+  ])("refuses an unavailable setting whose reason is %s", (_label, reason) => {
+    const detail = refusedWith(
+      {
+        manMadeNoise: {
+          kind: "unavailable",
+          reason: reason as unknown as string,
         },
-        "unsupported_noise_environment",
-      );
-      expect(detail).toContain("reason");
-    },
-  );
+      },
+      "unsupported_noise_environment",
+    );
+    expect(detail).toContain("reason");
+  });
 
   it("admits an unavailable setting with a non-empty reason", () => {
     expect(
@@ -519,7 +516,11 @@ describe("the receiver", () => {
       for (const slopeDbPerDecade of [0, MAX_NOISE_SLOPE_DB_PER_DECADE]) {
         expect(
           ask({
-            manMadeNoise: { kind: "explicit", famAt1MHzDb: 63.5, slopeDbPerDecade },
+            manMadeNoise: {
+              kind: "explicit",
+              famAt1MHzDb: 63.5,
+              slopeDbPerDecade,
+            },
           }).kind,
         ).toBe("admitted");
       }
@@ -533,7 +534,11 @@ describe("the receiver", () => {
     ])("refuses slopeDbPerDecade that is %s", (_label, slopeDbPerDecade) => {
       refusedWith(
         {
-          manMadeNoise: { kind: "explicit", famAt1MHzDb: 63.5, slopeDbPerDecade },
+          manMadeNoise: {
+            kind: "explicit",
+            famAt1MHzDb: 63.5,
+            slopeDbPerDecade,
+          },
         },
         "unsupported_noise_environment",
       );
@@ -644,9 +649,12 @@ describe("the power budget", () => {
     ["Infinity", Number.POSITIVE_INFINITY],
     ["-Infinity", Number.NEGATIVE_INFINITY],
     ["NaN", Number.NaN],
-  ])("refuses transmitterPowerDbKw that is %s", (_label, transmitterPowerDbKw) => {
-    refusedWith({ transmitterPowerDbKw }, "unsupported_power_budget");
-  });
+  ])(
+    "refuses transmitterPowerDbKw that is %s",
+    (_label, transmitterPowerDbKw) => {
+      refusedWith({ transmitterPowerDbKw }, "unsupported_power_budget");
+    },
+  );
 
   it.each(["transmitterGainDbi", "receiverGainDbi"] as const)(
     "admits %s at both ends of its declared range",
@@ -721,5 +729,34 @@ describe("nothing throws, whatever it is handed", () => {
     const before = JSON.stringify(request);
     circuitDomain(request);
     expect(JSON.stringify(request)).toBe(before);
+  });
+});
+
+describe("malformed JSON diagnostics", () => {
+  it.each([
+    "frequencyMHz",
+    "month",
+    "utcHour",
+    "r12",
+    "bandwidthHz",
+    "transmitterPowerDbKw",
+    "pathDirection",
+  ])("refuses %s even when its JSON value shadows Object.toString", (field) => {
+    const value: unknown = JSON.parse('{"toString":null}');
+    const result = circuitDomain({ ...BASE, [field]: value } as CircuitRequest);
+    expect(result.kind).toBe("out_of_domain");
+  });
+  it("refuses malformed coordinate and noise fields without coercion errors", () => {
+    const value: unknown = JSON.parse('{"toString":null}');
+    for (const overrides of [
+      { transmitter: { latitudeDeg: value, longitudeDeg: 0 } },
+      { manMadeNoise: { kind: value } },
+      { manMadeNoise: { kind: "unavailable", reason: value } },
+      { manMadeNoise: { kind: "explicit", famAt1MHzDb: value } },
+    ]) {
+      expect(
+        circuitDomain({ ...BASE, ...overrides } as CircuitRequest).kind,
+      ).toBe("out_of_domain");
+    }
   });
 });

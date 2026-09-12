@@ -334,7 +334,8 @@ export interface RefusedCircuitRequest {
 }
 
 export type CircuitDomainResult =
-  AdmittedCircuitRequest | RefusedCircuitRequest;
+  | AdmittedCircuitRequest
+  | RefusedCircuitRequest;
 
 /**
  * Admit a circuit request, or name the bound it missed.
@@ -348,7 +349,7 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   if (!isPlainObject(request)) {
     return refuse(
       "malformed_request",
-      `the request is ${String(request)}; a circuit request must be an ` +
+      `the request is ${describeValue(request)}; a circuit request must be an ` +
         "object naming a transmitter, a receiver, a frequency, and the " +
         "rest of the fields this function checks below.",
     );
@@ -376,7 +377,7 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   ) {
     return refuse(
       "unsupported_path_length",
-      `the route is ${String(route.groundDistanceKm)} km; ` +
+      `the route is ${describeValue(route.groundDistanceKm)} km; ` +
         `${MODEL_ID} models path lengths above 0 km and up to the ` +
         `${MAX_ROUTE_DISTANCE_KM.toFixed(1)} km circumference of the declared sphere.`,
     );
@@ -385,16 +386,16 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   if (!isInteger(request.month, MIN_MONTH, MAX_MONTH)) {
     return refuse(
       "unsupported_month",
-      `the month is ${String(request.month)}; the CCIR numerical map is a set of ` +
+      `the month is ${describeValue(request.month)}; the CCIR numerical map is a set of ` +
         `monthly coefficient blocks and ${MODEL_ID} reads integer months ` +
-        `${String(MIN_MONTH)} to ${String(MAX_MONTH)}.`,
+        `${describeValue(MIN_MONTH)} to ${describeValue(MAX_MONTH)}.`,
     );
   }
   if (!isInteger(request.utcHour, MIN_UTC_HOUR, MAX_UTC_HOUR)) {
     return refuse(
       "unsupported_utc_hour",
-      `the UTC hour is ${String(request.utcHour)}; ${MODEL_ID} reads integer ` +
-        `hours ${String(MIN_UTC_HOUR)} to ${String(MAX_UTC_HOUR)}.`,
+      `the UTC hour is ${describeValue(request.utcHour)}; ${MODEL_ID} reads integer ` +
+        `hours ${describeValue(MIN_UTC_HOUR)} to ${describeValue(MAX_UTC_HOUR)}.`,
     );
   }
 
@@ -405,10 +406,10 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   ) {
     return refuse(
       "unsupported_frequency_band",
-      `the frequency is ${String(request.frequencyMHz)} MHz; P.533-14 recommends ` +
+      `the frequency is ${describeValue(request.frequencyMHz)} MHz; P.533-14 recommends ` +
         `its method "for the prediction of sky-wave propagation at frequencies ` +
         `between 2 and 30 MHz", so the declared domain of ${MODEL_ID} is ` +
-        `${String(MIN_FREQUENCY_MHZ)} to ${String(MAX_FREQUENCY_MHZ)} MHz inclusive. ` +
+        `${describeValue(MIN_FREQUENCY_MHZ)} to ${describeValue(MAX_FREQUENCY_MHZ)} MHz inclusive. ` +
         "The frequency is not clamped into it.",
     );
   }
@@ -420,9 +421,9 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   ) {
     return refuse(
       "unsupported_solar_index",
-      `R12 is ${String(request.r12)}; the CCIR numerical maps are fitted up to ` +
-        `R12 ${String(MAX_R12_IN_DOMAIN)}, so the declared domain is ` +
-        `${String(MIN_R12)} to ${String(MAX_R12_IN_DOMAIN)}. The provider would clip a ` +
+      `R12 is ${describeValue(request.r12)}; the CCIR numerical maps are fitted up to ` +
+        `R12 ${describeValue(MAX_R12_IN_DOMAIN)}, so the declared domain is ` +
+        `${describeValue(MIN_R12)} to ${describeValue(MAX_R12_IN_DOMAIN)}. The provider would clip a ` +
         "higher value and report the clip; answering a question the caller did " +
         "not ask is worse than refusing the one it did.",
     );
@@ -431,7 +432,7 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   if (!Number.isFinite(request.bandwidthHz) || request.bandwidthHz <= 0) {
     return refuse(
       "unsupported_bandwidth",
-      `the noise bandwidth is ${String(request.bandwidthHz)} Hz; equation (45)'s ` +
+      `the noise bandwidth is ${describeValue(request.bandwidthHz)} Hz; equation (45)'s ` +
         "10 log10 b needs a positive finite bandwidth.",
     );
   }
@@ -459,7 +460,7 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
     if (!isPlainObject(point)) {
       return refuse(
         "unsupported_coordinates",
-        `the ${name} is ${String(point)}; a terrestrial endpoint must be an ` +
+        `the ${name} is ${describeValue(point)}; a terrestrial endpoint must be an ` +
           "object with a finite latitude and longitude.",
       );
     }
@@ -471,7 +472,7 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
     ) {
       return refuse(
         "unsupported_coordinates",
-        `the ${name} is at ${String(point.latitudeDeg)}, ${String(point.longitudeDeg)}; ` +
+        `the ${name} is at ${describeValue(point.latitudeDeg)}, ${describeValue(point.longitudeDeg)}; ` +
           "a terrestrial endpoint has a finite latitude in [-90, 90] and a " +
           "finite longitude in [-360, 360] degrees.",
       );
@@ -496,7 +497,7 @@ function checkPathDirection(
   if (!(PATH_DIRECTIONS as readonly string[]).includes(pathDirection)) {
     return refuse(
       "unsupported_path_direction",
-      `the path direction is "${String(pathDirection)}"; geometry/route.ts ` +
+      `the path direction is "${describeValue(pathDirection)}"; geometry/route.ts ` +
         `resolves a route as one of ${PATH_DIRECTIONS.join(", ")}.`,
     );
   }
@@ -524,7 +525,7 @@ function checkPowerBudget(
     if (!Number.isFinite(value)) {
       return refuse(
         "unsupported_power_budget",
-        `${name} is ${String(value)} ${unit}; equations (43) and (44) of ` +
+        `${name} is ${describeValue(value)} ${unit}; equations (43) and (44) of ` +
           `P.533-14 need a finite power budget, so ${MODEL_ID} refuses the ` +
           "request rather than letting solveCircuit fail on one it should " +
           "never have admitted.",
@@ -534,7 +535,7 @@ function checkPowerBudget(
   if (request.otherLossesDb !== undefined && request.otherLossesDb < 0) {
     return refuse(
       "unsupported_power_budget",
-      `the other losses are ${String(request.otherLossesDb)} dB; ` +
+      `the other losses are ${describeValue(request.otherLossesDb)} dB; ` +
         "otherLossesDb is a loss added to the budget by equation (44), so it " +
         "cannot be negative.",
     );
@@ -581,8 +582,8 @@ function checkPowerBudget(
     if (value < min || value > max) {
       return refuse(
         "unsupported_power_budget",
-        `${name} is ${String(value)} ${unit}; ${MODEL_ID} bounds it to ` +
-          `${String(min)} to ${String(max)} ${unit}, a range wide enough ` +
+        `${name} is ${describeValue(value)} ${unit}; ${MODEL_ID} bounds it to ` +
+          `${describeValue(min)} to ${describeValue(max)} ${unit}, a range wide enough ` +
           "for any real station, so a value outside it is refused rather " +
           "than carried into a downstream power sum that assumes a " +
           "physical input.",
@@ -598,7 +599,7 @@ function checkManMadeNoise(
   if (!isPlainObject(setting)) {
     return refuse(
       "unsupported_noise_environment",
-      `the man-made noise setting is ${String(setting)}; it must be one of ` +
+      `the man-made noise setting is ${describeValue(setting)}; it must be one of ` +
         "category, explicit or unavailable.",
     );
   }
@@ -607,7 +608,7 @@ function checkManMadeNoise(
       return refuse(
         "unsupported_noise_environment",
         `the unavailable man-made noise setting gives reason as ` +
-          `${String(setting.reason)}; a caller declaring the figure ` +
+          `${describeValue(setting.reason)}; a caller declaring the figure ` +
           "unavailable must say why, as a non-empty string, so the solver " +
           "can label the noise-dependent columns with it.",
       );
@@ -630,7 +631,7 @@ function checkManMadeNoise(
         return refuse(
           "unsupported_noise_environment",
           `the explicit man-made noise setting gives ${name} as ` +
-            `${String(value)} dB; P.372-17 equation (17) needs finite values.`,
+            `${describeValue(value)} dB; P.372-17 equation (17) needs finite values.`,
         );
       }
     }
@@ -644,7 +645,7 @@ function checkManMadeNoise(
       if (value < 0) {
         return refuse(
           "unsupported_noise_environment",
-          `${name} is ${String(value)} dB; P.842-5's decile deviations are ` +
+          `${name} is ${describeValue(value)} dB; P.842-5's decile deviations are ` +
             "non-negative magnitudes that signalDeciles.ts's " +
             "snrDecileDeviations applies directionally (fa - dl for the " +
             "lower decile, fa + du for the upper), so a negative value would " +
@@ -655,9 +656,9 @@ function checkManMadeNoise(
       if (value > MAX_DECILE_DEVIATION_DB) {
         return refuse(
           "unsupported_noise_environment",
-          `${name} is ${String(value)} dB; ITU-R P.372's published decile ` +
+          `${name} is ${describeValue(value)} dB; ITU-R P.372's published decile ` +
             `deviations are single- or double-digit dB, so ${MODEL_ID} ` +
-            `bounds it to 0 to ${String(MAX_DECILE_DEVIATION_DB)} dB, wide ` +
+            `bounds it to 0 to ${describeValue(MAX_DECILE_DEVIATION_DB)} dB, wide ` +
             "enough for any real receiver, so a value outside it is refused " +
             "rather than carried unbounded into signalDeciles.ts's noise sum.",
         );
@@ -671,10 +672,10 @@ function checkManMadeNoise(
     ) {
       return refuse(
         "unsupported_noise_environment",
-        `the slope d is ${String(setting.slopeDbPerDecade)} dB/decade; ` +
+        `the slope d is ${describeValue(setting.slopeDbPerDecade)} dB/decade; ` +
           "P.372-17 Table 1 publishes 27.7 for curves A to C, so " +
           `${MODEL_ID} bounds a caller-supplied slope to 0 to ` +
-          `${String(MAX_NOISE_SLOPE_DB_PER_DECADE)} dB/decade, wide enough ` +
+          `${describeValue(MAX_NOISE_SLOPE_DB_PER_DECADE)} dB/decade, wide enough ` +
           "for any real curve, so a value outside it is refused rather " +
           "than carried unbounded into equation (17)'s Fam.",
       );
@@ -687,10 +688,10 @@ function checkManMadeNoise(
     ) {
       return refuse(
         "unsupported_noise_environment",
-        `the explicit man-made noise figure is ${String(setting.famAt1MHzDb)} dB; ` +
+        `the explicit man-made noise figure is ${describeValue(setting.famAt1MHzDb)} dB; ` +
           "P.372-17 equation (17) needs a finite c, the value of Fam at 1 MHz, " +
-          `and ${MODEL_ID} bounds it to ${String(MIN_NOISE_FIGURE_DB)} to ` +
-          `${String(MAX_NOISE_FIGURE_DB)} dB, the range ITU-R P.372's noise ` +
+          `and ${MODEL_ID} bounds it to ${describeValue(MIN_NOISE_FIGURE_DB)} to ` +
+          `${describeValue(MAX_NOISE_FIGURE_DB)} dB, the range ITU-R P.372's noise ` +
           "figure tables span above kT0b.",
       );
     }
@@ -700,7 +701,7 @@ function checkManMadeNoise(
     return refuse(
       "unsupported_noise_environment",
       `the man-made noise setting kind is ` +
-        `"${String((setting as { kind: unknown }).kind)}"; it must be one of ` +
+        `"${describeValue((setting as { kind: unknown }).kind)}"; it must be one of ` +
         "category, explicit or unavailable.",
     );
   }
@@ -709,7 +710,7 @@ function checkManMadeNoise(
   ) {
     return refuse(
       "unsupported_noise_environment",
-      `the man-made noise category is "${String(setting.category)}"; ` +
+      `the man-made noise category is "${describeValue(setting.category)}"; ` +
         "ITU-R P.372-17 Table 1 names " +
         `${MAN_MADE_NOISE_CATEGORIES.join(", ")}. A category from outside that ` +
         "table has no published c and d, so it is refused rather than mapped " +
@@ -743,4 +744,12 @@ function refuse(
     detail,
     declaredDomain: DECLARED_DOMAIN,
   };
+}
+
+/** Format boundary diagnostics without invoking caller-controlled coercion. */
+function describeValue(value: unknown): string {
+  if (value !== null && typeof value === "object") {
+    return Array.isArray(value) ? "[array]" : "[object]";
+  }
+  return String(value);
 }

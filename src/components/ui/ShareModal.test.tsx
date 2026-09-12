@@ -145,11 +145,21 @@ it("shows copy success as feedback rather than a pressed state and resets after 
   });
   expect(copyToClipboard).toHaveBeenCalledWith(url.value);
   const copied = screen.getByRole("button", { name: "Copied" });
-  expect(copied.classList.contains("su-tone-success")).toBe(true);
+  for (const className of [
+    "su-treatment",
+    "su-treatment--subtle",
+    "su-treatment--interactive",
+    "su-tone-success",
+  ]) expect(copied.classList.contains(className)).toBe(true);
   expect(copied.hasAttribute("aria-pressed")).toBe(false);
   act(() => vi.advanceTimersByTime(2000));
   const copy = screen.getByRole("button", { name: "Copy" });
-  expect(copy.classList.contains("su-tone-accent")).toBe(true);
+  for (const className of [
+    "su-treatment",
+    "su-treatment--subtle",
+    "su-treatment--interactive",
+    "su-tone-accent",
+  ]) expect(copy.classList.contains(className)).toBe(true);
   expect(copy.hasAttribute("aria-pressed")).toBe(false);
 });
 

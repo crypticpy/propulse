@@ -3,6 +3,7 @@
  * as inline pills with severity-appropriate colors and icons.
  */
 
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
 import type { ChainWarning } from "@/lib/chainOrdering";
 
 interface ChainWarningBannerProps {
@@ -17,14 +18,16 @@ export function ChainWarningBanner({ warnings }: ChainWarningBannerProps) {
       {warnings.map((warning) => (
         <div
           key={warning.code}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
-            warning.severity === "warning"
-              ? "bg-caution-amber/10 text-caution-amber border border-caution-amber/20"
-              : "bg-nebula-blue/10 text-nebula-blue border border-nebula-blue/20"
-          }`}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${stationTreatmentClasses(
+            {
+              tone: warning.severity === "warning" ? "warning" : "neutral",
+              treatment: "subtle",
+            },
+          )}`}
         >
           {/* Icon: triangle for warning, info circle for info */}
           <svg
+            aria-hidden="true"
             className="w-3.5 h-3.5 shrink-0"
             fill="none"
             viewBox="0 0 24 24"

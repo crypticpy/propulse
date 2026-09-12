@@ -145,3 +145,38 @@ An optional `--prs` path accepts a cached `ghr pr list --json number,title,headR
 The maintained scanner at the pinned baseline scans 2,068 production text files and finds 28,752 overlapping lexical candidates. It separately scans 230 design-preview text files and finds 265 candidates. These are not violation counts or counts of visible controls. The initial exploratory scan counted four additional generated source files and missed two native color-input references; fixture tests corrected those differences in the maintained scanner. The separate domain audit identified 44 ownership contracts and 21 setting fields; its matches overlap the UI scan and must not be added to that total.
 
 The census is lexical, not an AST, reachability or computed-style proof. Comments and noncolor tokens can be candidates; dynamic classes, API colors and numeric shader colors require manual review. Binary/vendor assets are retained as classified exceptions. No claim of exhaustive per-element accessibility approval follows from a zero-unclassified-family ledger. Each migration task resolves its individual candidates and records retained exceptions.
+
+
+## Batch 19 replacement coverage (COLOR-03)
+
+The four consumers now use `stationTreatmentClasses` instead of local tint,
+foreground, hover and focus combinations. This maps all eight entries from
+paused #1239; its source-string guard is not introduced into main.
+
+| Original guarded state | Central treatment | Maintained replacement coverage |
+| --- | --- | --- |
+| Detail active | success subtle, pressed | Equipment integration: Active label, indicator, callback and pressed state. |
+| Detail inactive | success subtle, unpressed | Equipment integration: Set Active callback and distinct inactive tone. |
+| Hero active | success subtle, pressed | Equipment integration: Active label, indicator, callback and pressed state. |
+| Chain warning | warning subtle | Banner integration: severity icon and full message. |
+| Chain information | neutral subtle | Banner integration: information icon and full message; the former nebula-blue was a panel alias. |
+| Share selected navigation | accent subtle, pressed | Share integration: label, underline, pressed state and content transitions. |
+| Share copied action | success subtle | Share integration: success/check feedback and two-second reset, without toggle semantics. |
+| Share idle Copy | accent subtle | Share integration: copy callback and failure feedback, without toggle semantics. |
+
+The neighboring Hero inactive action remains neutral; inactive Share navigation
+uses neutral subtle treatment. Shared recipe tests own the numerical ink and
+state-fill contract; consumer tests own behavior and portal wiring.
+
+Equipment Detail and Hero reading bodies are registered intentional fixed-dark
+surfaces. Their existing raw dark shells, artwork and rank effects remain under
+decorative ownership. Optional scoped tokens are forwarded to an outer portal
+element, with `su-fixed-dark` on the inner reading body, so inline Light tokens
+cannot override the boundary. Share forwards optional scoped tokens normally.
+Without a provider, all three portals inherit document tokens instead of
+injecting the context's default theme.
+
+This slice does not certify adjacent Edit/Delete actions, rank artwork, export
+QR graphics or the whole equipment card. Those keep their existing ownership
+under the broader UI/domain migration. Preserved hue PR branches remain intact
+until final epic reconciliation records their verified supersession.

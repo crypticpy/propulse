@@ -1,3 +1,5 @@
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
+import { useOptionalStationTheme } from "@/components/station-ui/context";
 /** @deprecated Use EquipmentHeroCard instead — this modal is superseded by the XL hero card. */
 
 import { useEffect, useRef, useCallback } from "react";
@@ -128,6 +130,7 @@ export function EquipmentDetailModal({
   onSetActive,
   isActive,
 }: EquipmentDetailModalProps) {
+  const scopedTheme = useOptionalStationTheme();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const accentHex = ACCENT_HEX[equipmentType] ?? ACCENT_HEX.radio;
 
@@ -173,7 +176,10 @@ export function EquipmentDetailModal({
   const hasGroups = groups && groups.length > 0;
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[400] flex items-center justify-center p-4"
+      style={scopedTheme?.tokens}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
@@ -182,7 +188,7 @@ export function EquipmentDetailModal({
 
       {/* Modal panel */}
       <div
-        className="relative z-10 bg-[#0f1420] border border-su-line/40 rounded-2xl shadow-2xl
+        className="su-fixed-dark relative z-10 bg-[#0f1420] border border-su-line/40 rounded-2xl shadow-2xl
                    max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto
                    animate-in zoom-in-95 fade-in"
         role="dialog"
@@ -325,18 +331,19 @@ export function EquipmentDetailModal({
                 <button
                   type="button"
                   onClick={onSetActive}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-center
-                             transition-colors min-h-[44px]
-                             focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-green/50
-                             ${
-                               isActive
-                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green"
-                                 : "bg-signal-green/10 border border-signal-green/20 text-signal-green hover:bg-signal-green/20"
-                             }`}
+                  aria-pressed={Boolean(isActive)}
+                  className={`flex-1 py-2.5 rounded-lg border text-sm font-medium text-center
+                             transition-colors duration-200 min-h-[44px] ${stationTreatmentClasses(
+                               {
+                                 tone: "success",
+                                 treatment: "subtle",
+                                 interactive: true,
+                               },
+                             )}`}
                 >
                   {isActive ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
                       Active
                     </span>
                   ) : (

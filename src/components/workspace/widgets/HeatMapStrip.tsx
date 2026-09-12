@@ -147,8 +147,8 @@ export function HeatMapStrip(_props: HeatMapStripProps = {}) {
         className="flex min-w-0 items-center gap-2 rounded-lg border border-su-line/40 bg-su-panel/90 px-2 py-1.5"
         data-testid="heatmap-strip"
       >
-        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-su-muted">Heat map</span>
-        <span className="truncate text-[10px] text-su-muted">{idle}</span>
+        <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-su-muted">Heat map</span>
+        <span className="truncate text-xs text-su-muted">{idle}</span>
       </div>
     );
   }
@@ -162,7 +162,7 @@ export function HeatMapStrip(_props: HeatMapStripProps = {}) {
       className="flex min-w-0 items-center gap-2 rounded-lg border border-su-line/40 bg-su-panel/90 px-2 py-1.5"
       data-testid="heatmap-strip"
     >
-      <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-su-muted">Heat map</span>
+      <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-su-muted">Heat map</span>
       <span
         className="inline-block h-3 w-3 shrink-0 rounded-full"
         style={{ background: color }}
@@ -171,7 +171,7 @@ export function HeatMapStrip(_props: HeatMapStripProps = {}) {
       <span className="shrink-0 text-xs font-bold text-su-text">
         {headline.band.toUpperCase()} → {headline.continent}
       </span>
-      <span className="truncate text-[10px] text-su-muted">{`${totalCount} DX in window · ${sentence}`}</span>
+      <span className="truncate text-xs text-su-muted">{`${totalCount} DX in window · ${sentence}`}</span>
     </div>
   );
 }

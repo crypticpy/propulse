@@ -71,7 +71,7 @@ const QSORow = memo(function QSORow({
         {qso.callsign}
         {qso.isDupe && (
           <span
-            className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-alert-red"
+            className="ml-2 inline-flex items-center gap-0.5 text-xs text-alert-red"
             role="status"
             aria-label="Duplicate contact"
           >
@@ -125,7 +125,7 @@ const QSORow = memo(function QSORow({
         )}
         {qso.flags?.edited && (
           <span
-            className="ml-1 text-[10px] text-yellow-500"
+            className="ml-1 text-xs text-yellow-500"
             title="Edited"
             aria-label="This QSO has been edited"
           >

@@ -47,10 +47,10 @@ interface SatelliteDetailModalProps {
 
 /** Status badge color mapping */
 const STATUS_COLORS: Record<string, string> = {
-  active: "text-signal-green bg-signal-green/15 border-signal-green/30",
+  active: "text-su-text bg-signal-green/15 border-signal-green/30",
   "semi-active":
-    "text-caution-amber bg-caution-amber/15 border-caution-amber/30",
-  inactive: "text-alert-red bg-alert-red/15 border-alert-red/30",
+    "text-su-text bg-caution-amber/15 border-caution-amber/30",
+  inactive: "text-su-text bg-alert-red/15 border-alert-red/30",
   unknown: "text-su-muted bg-su-line/10 border-su-line/60",
 };
 
@@ -60,17 +60,17 @@ const AMSAT_STATUS_STYLES: Record<
   { badge: string; dot: string; label: string }
 > = {
   active: {
-    badge: "bg-signal-green/15 text-signal-green border-signal-green/30",
+    badge: "bg-signal-green/15 text-su-text border-signal-green/30",
     dot: "bg-signal-green animate-pulse",
     label: "Active",
   },
   "semi-active": {
-    badge: "bg-caution-amber/15 text-caution-amber border-caution-amber/30",
+    badge: "bg-caution-amber/15 text-su-text border-caution-amber/30",
     dot: "bg-caution-amber",
     label: "Intermittent",
   },
   inactive: {
-    badge: "bg-alert-red/15 text-alert-red border-alert-red/30",
+    badge: "bg-alert-red/15 text-su-text border-alert-red/30",
     dot: "bg-alert-red",
     label: "Inactive",
   },
@@ -103,18 +103,18 @@ function getTleAgeBadge(age: "fresh" | "aging" | "stale") {
       return {
         label: "Fresh",
         className:
-          "bg-signal-green/15 text-signal-green border-signal-green/30",
+          "bg-signal-green/15 text-su-text border-signal-green/30",
       };
     case "aging":
       return {
         label: "Aging",
         className:
-          "bg-caution-amber/15 text-caution-amber border-caution-amber/30",
+          "bg-caution-amber/15 text-su-text border-caution-amber/30",
       };
     case "stale":
       return {
         label: "Stale",
-        className: "bg-alert-red/15 text-alert-red border-alert-red/30",
+        className: "bg-alert-red/15 text-su-text border-alert-red/30",
       };
   }
 }

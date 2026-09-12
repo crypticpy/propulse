@@ -71,10 +71,10 @@ export function ManagerRoster({
     <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
+        <h3 className="text-xs uppercase tracking-widest text-su-muted">
           Net Managers
         </h3>
-        <span className="text-[10px] tabular-nums text-su-muted bg-su-line/10 rounded-full px-1.5 py-0.5">
+        <span className="text-xs tabular-nums text-su-muted bg-su-line/10 rounded-full px-1.5 py-0.5">
           {managers.length}
         </span>
       </div>
@@ -103,7 +103,7 @@ export function ManagerRoster({
 
                 {/* Role badge */}
                 <span
-                  className={`text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${ROLE_STYLES[m.role]}`}
+                  className={`text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${ROLE_STYLES[m.role]}`}
                 >
                   {m.role}
                 </span>
@@ -113,20 +113,20 @@ export function ManagerRoster({
                   <>
                     {confirmingId === m.userId ? (
                       <span className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] text-su-muted">
+                        <span className="text-xs text-su-muted">
                           Remove?
                         </span>
                         <button
                           type="button"
                           onClick={() => handleConfirmRemove(m.userId)}
-                          className="text-[10px] text-red-400 hover:text-red-300 font-medium"
+                          className="text-xs text-red-400 hover:text-red-300 font-medium"
                         >
                           Yes
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="text-[10px] text-su-muted hover:text-su-text font-medium"
+                          className="text-xs text-su-muted hover:text-su-text font-medium"
                         >
                           No
                         </button>
@@ -202,7 +202,7 @@ export function ManagerRoster({
 
           {/* Validation message */}
           {validationMsg && (
-            <p className="text-[11px] text-red-400">{validationMsg}</p>
+            <p className="text-xs text-red-400">{validationMsg}</p>
           )}
         </div>
       )}

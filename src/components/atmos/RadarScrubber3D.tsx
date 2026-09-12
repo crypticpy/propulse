@@ -180,11 +180,11 @@ export function RadarScrubber3D({
 
       {/* UTC timestamp + age */}
       <div className="flex flex-col items-center min-w-[42px]">
-        <span className="text-[10px] font-mono text-su-muted tabular-nums leading-tight">
+        <span className="text-xs font-mono text-su-muted tabular-nums leading-tight">
           {utcLabel}
         </span>
         {ageLabel && (
-          <span className="text-[8px] font-mono text-su-muted leading-tight">
+          <span className="text-xs font-mono text-su-muted leading-tight">
             {ageLabel}
           </span>
         )}
@@ -211,7 +211,7 @@ export function RadarScrubber3D({
 
       {/* Source badge */}
       {hasNexrad && (
-        <span className="text-[8px] font-mono font-bold text-signal-green/80 uppercase tracking-wider ml-0.5">
+        <span className="text-xs font-mono font-bold text-signal-green/80 uppercase tracking-wider ml-0.5">
           NEXRAD
         </span>
       )}

@@ -7,10 +7,10 @@ import { ActivationModal } from "./emcomm/ActivationModal";
 import type { ActivationLevel } from "@/types/emcomm";
 
 const LEVEL_BADGE_COLORS: Record<ActivationLevel, string> = {
-  monitoring: "bg-nebula-blue/20 text-nebula-blue",
-  standby: "bg-caution-amber/20 text-caution-amber",
-  partial: "bg-plasma-orange/20 text-plasma-orange",
-  full: "bg-alert-red/20 text-alert-red",
+  monitoring: "bg-nebula-blue/20 text-su-text",
+  standby: "bg-caution-amber/20 text-su-text",
+  partial: "bg-plasma-orange/20 text-su-text",
+  full: "bg-alert-red/20 text-su-text",
 };
 
 export function AtmosHeader() {

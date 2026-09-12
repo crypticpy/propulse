@@ -60,7 +60,7 @@ export function PhaseIndicator({
 
   return (
     <nav
-      className="flex w-full rounded-xl overflow-hidden border border-su-line/50 bg-su-line/10 backdrop-blur-sm"
+      className="grid grid-cols-4 w-full rounded-xl overflow-hidden border border-su-line/50 bg-su-line/10 backdrop-blur-sm"
       aria-label="Session phases"
     >
       {PHASES.map((phase, index) => {
@@ -79,7 +79,7 @@ export function PhaseIndicator({
             aria-current={isCurrent ? "step" : undefined}
             aria-label={`${phase.label}${isCurrent ? " (current)" : ""}${completed ? " (completed)" : ""}${disabled ? " (unavailable)" : ""}`}
             className={[
-              "flex-1 relative px-3 py-2.5 text-sm font-medium transition-all select-none",
+              "min-w-0 relative px-2 py-2.5 text-sm font-medium transition-all select-none",
               // Current phase
               isCurrent
                 ? "bg-plasma-orange/20 text-su-text font-bold animate-ncs-phase-glow"
@@ -139,7 +139,7 @@ export function PhaseIndicator({
 
             {/* Keyboard shortcut hint */}
             <span
-              className="absolute top-0.5 right-1 text-[11px] leading-none text-su-muted font-mono pointer-events-none bg-su-line/20 rounded px-0.5"
+              className="absolute top-0.5 right-1 text-xs leading-none text-su-muted font-mono pointer-events-none bg-su-line/20 rounded px-0.5"
               aria-hidden="true"
             >
               {index + 1}

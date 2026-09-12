@@ -21,9 +21,16 @@ interface MapOperationalState {
   /** Null follows session/CAT/WSJT-X state; a value is an explicit override. */
   manualScope: MapDataScope | null;
   workspaceOpen: boolean;
+  /**
+   * Whether a `/map/ops` popout opened by *this* window is still alive (#884
+   * round 15). A different fact from `workspaceOpen`, which is the inline
+   * dock; both feed the derived scope, neither is persisted or synced.
+   */
+  workspacePopoutOpen: boolean;
   selectedReport: SelectedReportAttribution | null;
   setManualScope: (scope: MapDataScope | null) => void;
   setWorkspaceOpen: (open: boolean) => void;
+  setWorkspacePopoutOpen: (open: boolean) => void;
   setSelectedReport: (report: SelectedReportAttribution | null) => void;
 }
 
@@ -37,9 +44,12 @@ export const useMapOperationalStore = create<MapOperationalState>()(
     (set) => ({
       manualScope: null,
       workspaceOpen: false,
+      workspacePopoutOpen: false,
       selectedReport: null,
       setManualScope: (manualScope) => set({ manualScope }),
       setWorkspaceOpen: (workspaceOpen) => set({ workspaceOpen }),
+      setWorkspacePopoutOpen: (workspacePopoutOpen) =>
+        set({ workspacePopoutOpen }),
       setSelectedReport: (selectedReport) => set({ selectedReport }),
     }),
     {

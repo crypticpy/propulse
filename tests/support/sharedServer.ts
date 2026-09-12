@@ -1,0 +1,89 @@
+import { realpath } from "node:fs/promises";
+import {
+  assertSharedServerIdentity,
+  portAvailable,
+  SINGLE_SERVER_RULE,
+} from "../../scripts/dev-session.mjs";
+
+/**
+ * The profile PROPULSE_E2E_GUEST implies: "connected" when set (guest.spec.ts
+ * needs disposable configured auth, not the local AuthGate bypass), "local"
+ * otherwise. Shared by this file's own globalSetup (assertSharedServerIdentity
+ * below) and by both playwright.config.ts/playwright.home.config.ts's opt-in
+ * autostart command (PROPULSE_E2E_ALLOW_START=1) — so a spawned server is
+ * always started with the exact profile globalSetup is about to require,
+ * never a mismatch that fails every guest test at globalSetup before any of
+ * them run.
+ */
+export function resolveE2EProfile(): "connected" | "local" {
+  return process.env.PROPULSE_E2E_GUEST === "1" ? "connected" : "local";
+}
+
+/**
+ * One shared machine-wide dev server, not a Playwright-managed one: both
+ * browser suites default to it (port 5173). PROPULSE_E2E_PORT is an
+ * orchestrator/human-only override for a one-off check against a different,
+ * already-running server; it does not itself start anything (see
+ * playwright.config.ts's PROPULSE_E2E_ALLOW_START gate). Agents never set
+ * this themselves — ask the orchestrator if the shared server isn't at 5173.
+ */
+export function resolveE2EPort(): number {
+  const port = Number(process.env.PROPULSE_E2E_PORT ?? 5173);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+    throw new Error(
+      "PROPULSE_E2E_PORT must be an integer from 1024 through 65535.",
+    );
+  }
+  return port;
+}
+
+/**
+ * Runs once before all tests (after webServer, if configured, has already
+ * started or confirmed reuse of a listener — see the plugin ordering in
+ * playwright/lib/runner: webServer setup precedes globalSetup). Fails fast
+ * with the single-server rule when nothing is listening, and refuses to
+ * reuse a listener that answers /__propulse_dev_session with either a
+ * different worktree's root (a same-port server from another checkout
+ * would otherwise let this branch's tests run silently against different
+ * source code) or the wrong profile: both Playwright commands request
+ * --profile local for the AuthGate bypass, except when PROPULSE_E2E_GUEST=1
+ * enables tests/home/guest.spec.ts (see the test.skip guard there), which
+ * needs a `connected`-profile server for its disposable configured auth —
+ * a `local` or `manual` shared server would otherwise pass the root check
+ * and then fail every test at AuthGate instead of naming the real cause.
+ */
+export default async function globalSetup(): Promise<void> {
+  const port = resolveE2EPort();
+  if (await portAvailable(port)) {
+    throw new Error(
+      `Nothing is listening on port ${port}. ${SINGLE_SERVER_RULE} This suite ` +
+        "does not start one for you unless PROPULSE_E2E_ALLOW_START=1 is set " +
+        "(see playwright.config.ts) — ask the orchestrator, or check " +
+        "`npm run dev:session -- status`.",
+    );
+  }
+  const origin = `http://127.0.0.1:${port}`;
+  const response = await fetch(`${origin}/__propulse_dev_session`, {
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `${origin} is listening but did not answer /__propulse_dev_session ` +
+        `(status ${response.status}). It may not be a ProPulse dev server.`,
+    );
+  }
+  const identity = (await response.json()) as {
+    root?: string;
+    profile?: string;
+  };
+  const thisRoot = await realpath(process.cwd());
+  const profile = resolveE2EProfile();
+  assertSharedServerIdentity(identity, {
+    root: thisRoot,
+    profile,
+    reason:
+      profile === "connected"
+        ? "PROPULSE_E2E_GUEST=1 requires the guest suite's connected-profile server"
+        : "both Playwright commands request --profile local for the AuthGate bypass",
+  });
+}

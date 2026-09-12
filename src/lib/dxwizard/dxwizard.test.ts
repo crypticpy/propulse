@@ -132,6 +132,37 @@ describe("dxwizard recommend", () => {
     }
   });
 
+  // Codex round 6 on PR #1081: `modelMode` used to fold RTTY into CW before
+  // handing the path to `getEnhancedBandConditions`. This is a wiring smoke
+  // test (the mid-latitude US->Japan path used elsewhere in this file is
+  // closed on every band at these solar params regardless of mode, so it
+  // can't show a per-mode threshold difference); the threshold-difference
+  // proof lives in signal.test.ts's `getSignalClass` case below, since that
+  // is the pure function `modelMode`'s value ultimately drives.
+  it("accepts RTTY as a first-class wizard mode without throwing", () => {
+    const result = buildWizardRecommendation({
+      station: { lat: 41.7, lon: -72.7, grid: "FN31" },
+      target: {
+        label: "Tokyo",
+        grid: "PM95",
+        lat: 35.68,
+        lon: 139.76,
+        source: "grid",
+      },
+      mode: "RTTY",
+      ituRegion: "ITU2",
+      licenseClass: "EXTRA",
+      currentKp: 2,
+      currentSfi: 150,
+      txPowerCeilingWatts: 100,
+      kitMaxPowerWatts: 100,
+      antennaGainDbi: 0,
+      pathMode: "short",
+      date: new Date("2026-03-15T18:00:00Z"),
+    });
+    expect(result.bands.length).toBeGreaterThan(0);
+  });
+
   it("applies long-path FSPL penalty vs short path", () => {
     const shared = {
       station: { lat: 41.7, lon: -72.7, grid: "FN31" },

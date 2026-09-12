@@ -25,8 +25,13 @@ import type {
 } from "@/types/social";
 import type { RankTier } from "@/types/rank";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
-import { useSocialStore } from "@/stores/socialStore";
+import {
+  followLoadFailedForViewer,
+  useSocialStore,
+  viewerFriendship,
+} from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useViewerFollowing } from "@/hooks/useViewerFollowing";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 // LocationManager moved to Settings — locations managed via /settings route
 import {
@@ -59,6 +64,7 @@ import { WhereToFindMe } from "@/components/profile/WhereToFindMe";
 import { OnAirToggle } from "@/components/profile/OnAirToggle";
 import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
+import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
@@ -103,6 +109,11 @@ function OtherProfileView({
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const requireAuth = useRequireAuth();
   const following = useSocialStore((s) => s.following);
+  const followingLoadedForUserId = useSocialStore(
+    (s) => s.followingLoadedForUserId,
+  );
+  const followingLoadError = useSocialStore((s) => s.followingLoadError);
+  const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
   const followUser = useSocialStore((s) => s.followUser);
   const unfollowUser = useSocialStore((s) => s.unfollowUser);
@@ -138,10 +149,11 @@ function OtherProfileView({
     return hourly;
   }, [viewerEntries]);
 
-  // Fetch following list for follow button state
-  useEffect(() => {
-    if (isAuthenticated) fetchFollowing();
-  }, [isAuthenticated, fetchFollowing]);
+  // Fetch following list for follow button state. Keyed on the viewer
+  // identity, not on `isAuthenticated`: an A-to-B account switch keeps that
+  // boolean true while authStore drops A's cache, and this view would never
+  // reload (#995 round 9).
+  useViewerFollowing();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -196,28 +208,21 @@ function OtherProfileView({
             : undefined,
           lastActiveAt: data.last_active_at ?? undefined,
           country: (data as Record<string, unknown>).country as
-            | string
-            | undefined,
+            string | undefined,
           interests: (data as Record<string, unknown>).interests as
-            | InterestTag[]
-            | undefined,
+            InterestTag[] | undefined,
           onAirStatus: (data as Record<string, unknown>).on_air_status as
-            | OnAirStatus
-            | null
-            | undefined,
+            OnAirStatus | null | undefined,
           skedAvailability: (data as Record<string, unknown>)
             .sked_availability as SkedAvailability | undefined,
           favoriteFreqs: (data as Record<string, unknown>).favorite_freqs as
-            | FavoriteFrequency[]
-            | undefined,
+            FavoriteFrequency[] | undefined,
           operatingHours: (data.stats_cache as Record<string, unknown> | null)
             ?.qsosByHourUtc as number[] | undefined,
           operatorRank: (data as Record<string, unknown>).operator_rank as
-            | string
-            | undefined,
+            string | undefined,
           rankPoints: (data as Record<string, unknown>).rank_points as
-            | number
-            | undefined,
+            number | undefined,
           lat: (data as Record<string, unknown>).lat as number | undefined,
           lon: (data as Record<string, unknown>).lon as number | undefined,
         });
@@ -288,8 +293,34 @@ function OtherProfileView({
   // Visibility shorthand
   const vis = profile.visibilitySettings;
 
-  // Follow state
-  const isFollowing = following.some((f) => f.id === profile.id);
+  // Follow state. Tri-state on purpose: until the following set is known to
+  // belong to the signed-in account the relationship is "unknown", and an
+  // unknown viewer is not a friend, so friends-only sections stay closed
+  // rather than opening on another account's cached relationships.
+  const friendship = viewerFriendship(
+    following,
+    followingLoadedForUserId,
+    authUserId,
+    profile.id,
+  );
+  const isFollowing = friendship === "friend";
+  // An unknown relation must never offer an action: "Follow" on a relation
+  // that already exists is a duplicate write on the follows primary key, and
+  // "Following" on one that does not is a lie. The control waits instead.
+  const relationshipKnown = friendship !== "unknown";
+  // A failed load leaves the relation unknown for the life of the mount. The
+  // gated control becomes the way out instead of sitting disabled forever.
+  const relationshipRetryable =
+    !relationshipKnown &&
+    followLoadFailedForViewer(followingLoadError, authUserId);
+
+  // One predicate for the published location: the grid line, "Where to find
+  // me" and the contact panel's coordinates are the same disclosure.
+  const locationDisclosed = isSectionVisibleToViewer(
+    vis,
+    "location",
+    friendship === "friend",
+  );
 
   const handleFollow = () => {
     requireAuth(() => followUser(profile.id), "Sign in to follow operators");
@@ -393,18 +424,18 @@ function OtherProfileView({
                 viewerLat={viewerStation?.lat}
                 viewerLon={viewerStation?.lon}
                 viewerGrid={viewerStation?.grid}
+                viewerIsFriend={isFollowing}
                 viewerStats={viewerStats as unknown as Record<string, unknown>}
                 viewerHours={viewerHours}
               />
               {/* Where to Find Me — read-only */}
-              {(!vis || vis.location !== "private") && (
+              {locationDisclosed && (
                 <div className={panelClass}>
                   <WhereToFindMe
                     hours={profile.operatingHours}
                     qsosByDate={
                       profile.statsCache?.qsosByDate as
-                        | Record<string, number>
-                        | undefined
+                        Record<string, number> | undefined
                     }
                     favoriteFreqs={profile.favoriteFreqs}
                     skedAvailability={profile.skedAvailability}
@@ -604,14 +635,21 @@ function OtherProfileView({
       onTabChange={setActiveTab}
       style={rankVars}
       actions={
-        <Button
-          variant={isFollowing ? "secondary" : "primary"}
-          onClick={
-            isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
-          }
-        >
-          {isFollowing ? "Following" : "Follow operator"}
-        </Button>
+        relationshipRetryable ? (
+          <Button variant="secondary" onClick={() => fetchFollowing()}>
+            Retry follow status
+          </Button>
+        ) : (
+          <Button
+            variant={isFollowing ? "secondary" : "primary"}
+            disabled={!relationshipKnown}
+            onClick={
+              isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
+            }
+          >
+            {isFollowing ? "Following" : "Follow operator"}
+          </Button>
+        )
       }
       identity={
         isMobile ? (
@@ -622,7 +660,7 @@ function OtherProfileView({
             <div>
               <h2>{profile.callsign || "UNKNOWN"}</h2>
               {profile.operatorName && <p>{profile.operatorName}</p>}
-              {profile.grid && (!vis || vis.location !== "private") && (
+              {profile.grid && locationDisclosed && (
                 <p className="su-hint su-mono">{profile.grid}</p>
               )}
             </div>
@@ -630,6 +668,11 @@ function OtherProfileView({
         ) : (
           <VisitorProfileCard
             profile={profile}
+            locationDisclosed={locationDisclosed}
+            relationshipKnown={relationshipKnown}
+            onRetryRelationship={
+              relationshipRetryable ? () => fetchFollowing() : undefined
+            }
             viewerInterests={viewerInterests}
             isFollowing={isFollowing}
             onFollow={handleFollow}

@@ -10,10 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarReport } from "./SolarReport";
 import { XrayReport } from "./XrayReport";
 import { SolarWindReport } from "./SolarWindReport";
-import {
-  assertReportDoesNotOverflow,
-  withReportLayout,
-} from "./assertReportDoesNotOverflow";
+import { assertEveryTabDoesNotOverflow } from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   solar: vi.fn(),
@@ -602,17 +599,23 @@ describe("SolarWindReport", () => {
 });
 
 describe("S6 overflow (#880)", () => {
-  it("does not clip the X-ray report body or boxes", () => {
+  it("does not clip the X-ray report body or boxes, on every tab", async () => {
+    const user = userEvent.setup();
     render(<XrayReport open onClose={vi.fn()} />);
-    withReportLayout(() => {
-      assertReportDoesNotOverflow(screen.getByRole("dialog"), "X-ray");
-    });
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "X-ray",
+      user,
+    );
   });
 
-  it("does not clip the Solar wind report body or boxes", () => {
+  it("does not clip the Solar wind report body or boxes, on every tab", async () => {
+    const user = userEvent.setup();
     render(<SolarWindReport open onClose={vi.fn()} />);
-    withReportLayout(() => {
-      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Solar wind");
-    });
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "Solar wind",
+      user,
+    );
   });
 });

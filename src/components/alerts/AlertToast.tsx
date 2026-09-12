@@ -296,7 +296,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
                   className={`
                     px-1.5 py-0.5 rounded text-[10px] font-mono font-bold
                     ${colors.bg} ${colors.text}
-                    flex-shrink-0 animate-pulse
+                    flex-shrink-0
                   `}
                 >
                   CRITICAL

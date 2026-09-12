@@ -1,10 +1,13 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   REPORT_BODY_SLOT_PX,
+  assertEveryTabDoesNotOverflow,
   assertReportDoesNotOverflow,
   installReportLayoutStub,
 } from "./assertReportDoesNotOverflow";
+import { HamClockTabs } from "../controls/HamClockTabs";
 import { EmcommReport } from "./EmcommReport";
 
 const rimMocks = vi.hoisted(() => ({
@@ -63,7 +66,9 @@ describe("assertReportDoesNotOverflow (#250 S6)", () => {
       render(<Fixture overflowHeight="200" />);
       expect(() =>
         assertReportDoesNotOverflow(screen.getByRole("dialog"), "Fixture"),
-      ).toThrow(/Fixture: \.hcr-box\[0\] overflows \(200px content > 48px slot\)/);
+      ).toThrow(
+        /Fixture: \.hcr-box\[0\] overflows \(200px content > 48px slot\)/,
+      );
     } finally {
       restore();
     }
@@ -87,7 +92,11 @@ describe("EmcommReport S6 overflow", () => {
 
   it("does not clip the idle report body", () => {
     rimMocks.rim.mockReturnValue({ rimResult: null, isLoading: false });
-    rimMocks.alerts.mockReturnValue({ alerts: [], isLoading: false, error: null });
+    rimMocks.alerts.mockReturnValue({
+      alerts: [],
+      isLoading: false,
+      error: null,
+    });
     const restore = installReportLayoutStub();
     try {
       render(<EmcommReport open onClose={() => {}} />);
@@ -130,11 +139,121 @@ describe("EmcommReport S6 overflow", () => {
         updatedAt: 0,
       },
     });
-    rimMocks.alerts.mockReturnValue({ alerts: [], isLoading: false, error: null });
+    rimMocks.alerts.mockReturnValue({
+      alerts: [],
+      isLoading: false,
+      error: null,
+    });
     const restore = installReportLayoutStub();
     try {
       render(<EmcommReport open onClose={() => {}} />);
       assertReportDoesNotOverflow(screen.getByRole("dialog"), "Emcomm");
+    } finally {
+      restore();
+    }
+  });
+});
+
+function TabbedFixture({
+  firstHeight,
+  secondHeight,
+}: {
+  firstHeight: string;
+  secondHeight: string;
+}) {
+  return (
+    <div role="dialog">
+      <div className="hcr-body">
+        <HamClockTabs
+          label="Fixture"
+          tabs={[
+            {
+              id: "one",
+              label: "ONE",
+              content: (
+                <div className="hcr-box" data-overflow-height={firstHeight}>
+                  one
+                </div>
+              ),
+            },
+            {
+              id: "two",
+              label: "TWO",
+              content: (
+                <div className="hcr-box" data-overflow-height={secondHeight}>
+                  two
+                </div>
+              ),
+            },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+describe("tab panels are measured, not skipped (#880 review)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("counts the mounted tab panel's content against the body slot", () => {
+    const restore = installReportLayoutStub();
+    try {
+      render(
+        <TabbedFixture
+          firstHeight={String(REPORT_BODY_SLOT_PX + 120)}
+          secondHeight="120"
+        />,
+      );
+      // Before the panel was measured this passed on the fixed flex
+      // remainder alone, which made every tabbed report's assertion vacuous.
+      expect(() =>
+        assertReportDoesNotOverflow(screen.getByRole("dialog"), "Fixture"),
+      ).toThrow(/Fixture: \.hcr-body overflows/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("checks a tab that is not mounted until it is selected", async () => {
+    const user = userEvent.setup();
+    render(
+      <TabbedFixture
+        firstHeight="120"
+        secondHeight={String(REPORT_BODY_SLOT_PX + 120)}
+      />,
+    );
+    await expect(
+      assertEveryTabDoesNotOverflow(
+        screen.getByRole("dialog"),
+        "Fixture",
+        user,
+      ),
+    ).rejects.toThrow(/Fixture · TWO: \.hcr-body overflows/);
+  });
+
+  it("lets a flexible fill slot shrink instead of reporting false clipping", () => {
+    const restore = installReportLayoutStub();
+    try {
+      render(
+        <div role="dialog">
+          <div className="hcr-body">
+            <div className="hcr-box" data-overflow-height="200">
+              fixed
+            </div>
+            <div className="hcr-cols hcr-cols--fill">
+              <div
+                className="hcr-box"
+                data-overflow-height={String(REPORT_BODY_SLOT_PX * 2)}
+              >
+                chart column
+              </div>
+            </div>
+          </div>
+        </div>,
+      );
+      expect(() =>
+        assertReportDoesNotOverflow(screen.getByRole("dialog"), "Fixture"),
+      ).not.toThrow();
     } finally {
       restore();
     }

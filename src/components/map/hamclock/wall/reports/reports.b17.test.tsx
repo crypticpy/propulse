@@ -6,9 +6,17 @@ import { bandFrequencyStepClassifier } from "@/lib/hamclock/engineComparison";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
+import { declaredMirrorHeightStandin } from "@/lib/utils/rayTrace";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
+import { getMUFAtLocation } from "@/lib/api/muf";
 import {
+  calculateDLayerAbsorption,
+  calculateZenithAngle,
+  getAbsorptionAtLocation,
+} from "@/lib/utils/ionosphere";
+import {
+  assertEveryTabDoesNotOverflow,
   assertReportDoesNotOverflow,
   withReportLayout,
 } from "./assertReportDoesNotOverflow";
@@ -30,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   reliability: vi.fn(),
   setBandFocus: vi.fn(),
   setSpotFilters: vi.fn(),
+  mirrorHeight: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -51,6 +60,9 @@ vi.mock("@/hooks/useStationCastContext", () => ({
 vi.mock("@/hooks/useNowCastBandPredictions", () => ({
   useNowCastBandPredictions: mocks.nowCast,
 }));
+vi.mock("@/hooks/useMirrorHeight", () => ({
+  useMirrorHeight: mocks.mirrorHeight,
+}));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
     selector({
@@ -70,6 +82,27 @@ vi.mock("@/stores/hamclockStore", () => ({
     }),
 }));
 
+/**
+ * `traceRayPath` is spied on, not replaced. The engine picks its hop count so
+ * that the geometry it solves is always supported, so the unsupported
+ * take-off states are not reachable by choosing a target; they are reachable
+ * by the type, which is what the report has to render honestly.
+ */
+const rayTraceMocks = vi.hoisted(() => ({ traceRayPath: vi.fn() }));
+vi.mock("@/lib/utils/rayTrace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/rayTrace")>();
+  return { ...actual, traceRayPath: rayTraceMocks.traceRayPath };
+});
+const actualRayTrace = await vi.importActual<
+  typeof import("@/lib/utils/rayTrace")
+>("@/lib/utils/rayTrace");
+
+/** The `dd` beside a `.hcr-kv` term, read by its visible label. */
+function kvValue(dialog: HTMLElement, label: string): string {
+  const term = within(dialog).getByText(label);
+  return term.nextElementSibling?.textContent ?? "";
+}
+
 /** Austin, TX — the QTH shared by every fixture below. At 18Z with SFI 140
  * this is a known point (19.9 MHz MUF, top band 17m) already pinned by
  * `wallTiles.test.tsx`, so the same instant is reused here for a MUF that
@@ -85,6 +118,34 @@ const AUSTIN = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 const LONDON = { lat: 51.5, lon: -0.13, name: "London", grid: "IO91wm" };
+
+const DECLARED_STANDIN = declaredMirrorHeightStandin("no_provider_supplied");
+/** A modelled height near the stand-in, so the hop count does not move and the
+ * only thing under test is the caption. 305 km reaches 3900 km per hop, so
+ * 7880 km is a 3F2 mode. */
+const MODELLED_MIRROR_HEIGHT = {
+  kind: "modelled" as const,
+  heightKm: 305.2,
+  m3000F2: 3.098,
+  foF2MHz: 6.4,
+  foEMHz: 2.2,
+  r12: 61.5,
+  frequencyMHz: 18.4,
+  groundDistanceKm: 7880,
+  dmaxKm: 4000,
+  hopCount: 3,
+  hopGroundDistanceKm: 7880 / 3,
+  branch: "5.1a" as const,
+  routeDirection: "short" as const,
+  controlPoints: [],
+  providerId: "ccir-numerical-map",
+  providerVersion: "1.0.0",
+  artifactHash: `sha256:${"a".repeat(64)}`,
+  validAt: "2026-09-05T18:00:00.000Z",
+  coordinates: { latitude: 30.27, longitude: -97.74 },
+  stateDigest: `sha256:${"b".repeat(64)}`,
+  assumptions: ["R12 came from the bundled climatology."],
+};
 
 function bandEntry(overrides: {
   band: string;
@@ -146,9 +207,13 @@ const NO_NOWCAST = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The shared setup file restores every spy after each test, so the real
+  // engine is put back here rather than once at module load.
+  rayTraceMocks.traceRayPath.mockImplementation(actualRayTrace.traceRayPath);
   vi.setSystemTime(new Date("2026-09-05T18:00:00Z"));
   mocks.location.mockReturnValue(AUSTIN);
   mocks.sfi.mockReturnValue(140);
+  mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
   mocks.mufSeries.mockReturnValue(null);
   mocks.kIndex.mockReturnValue({ data: [{ kp_index: 2 }], isLoading: false });
   mocks.solarFlux.mockReturnValue({ data: [{ flux: 140 }], isLoading: false });
@@ -431,6 +496,127 @@ describe("MufReport engine strip and hops (HW-57)", () => {
   });
 });
 
+describe("MufReport absorption context and take-off angle (#1108)", () => {
+  it("D-layer loss uses the QTH position and the displayed instant", () => {
+    const at = new Date("2026-09-05T18:00:00Z");
+    const muf = getMUFAtLocation(AUSTIN.lat, AUSTIN.lon, 140, at);
+    const zenith = calculateZenithAngle(AUSTIN.lat, AUSTIN.lon, at);
+    const positioned = getAbsorptionAtLocation(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      at,
+      muf,
+      140,
+      90,
+    );
+    const standin = calculateDLayerAbsorption(muf, zenith, 140, 90);
+    // The fixture is only a test if the two disagree at Austin: the stand-in
+    // is 45 N in March, and this is 30.27 N in September.
+    expect(positioned.toFixed(1)).not.toBe(standin.toFixed(1));
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(kvValue(dialog, "D-layer loss")).toBe(`${positioned.toFixed(1)} dB`);
+  });
+
+  it("D-layer loss follows the map's time machine rather than the wall clock", () => {
+    mocks.timeOffset.mockReturnValue(6);
+    const shifted = new Date("2026-09-06T00:00:00Z");
+    const muf = getMUFAtLocation(AUSTIN.lat, AUSTIN.lon, 140, shifted);
+    const expected = getAbsorptionAtLocation(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      shifted,
+      muf,
+      140,
+      90,
+    );
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(kvValue(dialog, "D-layer loss")).toBe(`${expected.toFixed(1)} dB`);
+  });
+
+  it("take-off angle matches the trace's own elevationAngleDeg", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      elevationAngleDeg: 12.4,
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+    // The report used to solve the geometry a second time, from the mean hop
+    // length and the first hop's height, and could disagree with the engine
+    // about the same circuit.
+    expect(kvValue(dialog, "Take-off")).toBe("12.4°");
+  });
+
+  it("says the target is too far for one bounce instead of showing a clamped angle", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      hops: [],
+      elevationAngleDeg: 0,
+      support: {
+        kind: "geometrically_unsupported" as const,
+        reason: "below_horizon" as const,
+        detail: "stub: the mirror cannot reach this hop length",
+      },
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+
+    expect(kvValue(dialog, "Take-off")).toBe("TOO FAR");
+    expect(
+      within(dialog).getByText(
+        "At this reflecting height the target is farther away than a single bounce can reach, so the ray would leave below the horizon. There is no take-off angle to report.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "No hops to show. At this reflecting height the target is farther than one bounce can reach.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("says home and target are the same place when the route is ambiguous", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    rayTraceMocks.traceRayPath.mockImplementation((args) => ({
+      ...actualRayTrace.traceRayPath(args),
+      hops: [],
+      elevationAngleDeg: 0,
+      support: {
+        kind: "ambiguous_geometry" as const,
+        reason: "coincident_endpoints" as const,
+        detail: "stub: the endpoints determine no great circle",
+      },
+    }));
+
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+
+    expect(kvValue(dialog, "Take-off")).toBe("SAME AS HOME");
+    expect(
+      within(dialog).getByText(
+        "Home and target are the same place, so there is no path between them to trace.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "No hops to show. Home and target are the same place.",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 describe("BestBandReport carries the strip above its table (HW-56)", () => {
   beforeEach(() => {
     mocks.verdicts.mockReturnValue({
@@ -545,12 +731,95 @@ describe("BestBandReport keeps NowCast on the ladder's own path (finding 7)", ()
   });
 });
 
-describe("S6 overflow (#880)", () => {
-  it("does not clip the MUF report body or boxes", () => {
+describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
+  async function hopsCaption(): Promise<string> {
+    const user = userEvent.setup();
     render(<MufReport open onClose={vi.fn()} />);
-    withReportLayout(() => {
-      assertReportDoesNotOverflow(screen.getByRole("dialog"), "MUF");
-    });
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
+    // The engine strip carries a caption of its own, so this reads the one
+    // inside the HOPS pane rather than the first in the dialog.
+    const caption = dialog.querySelector(
+      ".hcr-cols--hops .hcr-bandtable-caption",
+    );
+    expect(caption).toBeTruthy();
+    return caption?.textContent ?? "";
+  }
+
+  it("labels the hops caption when the trace ran on the 300 km stand-in", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
+
+    expect(await hopsCaption()).toContain("300 km assumed");
+  });
+
+  it("drops the label once a modelled height backs the trace, and traces on it", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
+
+    expect(await hopsCaption()).not.toContain("assumed");
+    // The provenance reached the engine rather than only the caption.
+    const call = rayTraceMocks.traceRayPath.mock.calls.at(-1);
+    expect(call?.[0].mirrorHeight).toEqual(MODELLED_MIRROR_HEIGHT);
+  });
+
+  it("hands the hook home and target, so the leaf resolves the circuit the trace walks", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
+
+    await hopsCaption();
+    const call = mocks.mirrorHeight.mock.calls.at(-1);
+    // Both ends, not a midpoint picked here: the leaf chooses the P.533-14
+    // Table 1c control points from the resolved route itself.
+    expect(call?.[0]).toBeCloseTo(AUSTIN.lat, 6);
+    expect(call?.[1]).toBeCloseTo(AUSTIN.lon, 6);
+    expect(call?.[2]).toBeCloseTo(LONDON.lat, 6);
+    expect(call?.[3]).toBeCloseTo(LONDON.lon, 6);
+  });
+
+  it("passes the trace's own frequency and instant to the mirror-height hook, and traces the short route", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
+
+    await hopsCaption();
+    const call = mocks.mirrorHeight.mock.calls.at(-1);
+    // The frequency and instant are the ones the trace runs at, so the
+    // height and the trace describe the same circuit.
+    const traced = rayTraceMocks.traceRayPath.mock.calls.at(-1);
+    expect(typeof call?.[5]).toBe("number");
+    expect(call?.[5]).toBe(traced?.[0].frequencyMHz);
+    expect(call?.[4]).toBe(traced?.[0].date);
+    // The leaf solves on the short route, and the trace is told to walk it.
+    expect(traced?.[0].pathMode).toBe("short");
+  });
+
+  it("hands the hook the QTH but no target when none is set, so the hook stays disabled", async () => {
+    mocks.target.mockReturnValue(null);
+    mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const call = mocks.mirrorHeight.mock.calls.at(-1);
+    expect(call?.[0]).toBeCloseTo(AUSTIN.lat, 6);
+    expect(call?.[1]).toBeCloseTo(AUSTIN.lon, 6);
+    // A circuit needs two ends. Without a target there is no circuit, the
+    // hook does not query, and the stand-in applies, which is fine because
+    // the trace needs a target anyway.
+    expect(call?.[2]).toBeNull();
+    expect(call?.[3]).toBeNull();
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the MUF report body or boxes, on either tab", async () => {
+    // A target is set so HOPS has the content it would really carry.
+    mocks.target.mockReturnValue(LONDON);
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "MUF",
+      user,
+    );
   });
 
   it("does not clip the Best band report body or boxes", () => {

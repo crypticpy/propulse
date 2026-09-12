@@ -147,6 +147,13 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
   useViewMapSpots: () => currentFeed,
 }));
 
+// The mounted map shell also reads the logbook. Keep that unrelated read
+// deterministic so IndexedDB cannot resolve after this binding test tears down.
+vi.mock("@/lib/db/logStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/logStore")>()),
+  getAllLogEntries: vi.fn(async () => []),
+}));
+
 interface CanvasOp {
   name: string;
   args: number[];

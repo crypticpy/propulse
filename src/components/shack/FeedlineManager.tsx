@@ -20,6 +20,7 @@ import {
   calculateTotalFeedlineLoss,
 } from "@/lib/data/feedlines";
 import { FeedlineLossSparkline } from "@/components/shack/FeedlineLossSparkline";
+import { useEquipmentUsedIn } from "@/components/shack/EquipmentUsedInContext";
 import {
   Button,
   Dialog,
@@ -238,6 +239,7 @@ export function FeedlineManager({
   const formId = useId();
   const feedlines = useUserFeedlines();
   const { addFeedline, updateFeedline, removeFeedline } = useShackStore();
+  const { openUsedIn } = useEquipmentUsedIn();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -384,6 +386,7 @@ export function FeedlineManager({
               onClick={() => setViewFeedlineId(f.id)}
               onEdit={() => openEdit(f)}
               onDelete={() => handleDelete(f.id)}
+              onShowUsedIn={() => openUsedIn({ instanceId: f.id, label: f.name })}
             />
           ))}
         </div>

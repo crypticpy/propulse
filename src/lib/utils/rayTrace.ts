@@ -1,36 +1,350 @@
 /**
- * Multi-Hop Ionospheric Ray Trace Engine
+ * Multi-hop ionospheric ray trace engine.
  *
- * Evaluates HF propagation viability by tracing a signal path through
- * multiple ionospheric reflection points along a great circle. At each
- * hop, the engine calculates the local f0F2, MUF, D-layer absorption,
- * and overall hop quality.
+ * This module is an adapter. The geometry lives in
+ * `src/lib/propagation/geometry` and the absorption in
+ * `src/lib/propagation/absorption`; what happens here is the assembly of a
+ * circuit from those leaves, the per-hop quality score, and the loss budget.
  *
- * Key physics models:
- * - f0F2 estimation via simplified Chapman model
- * - MUF via Martyn's secant law
- * - D-layer absorption via the shared ITU-R P.533 model (calculateDLayerAbsorption)
- * - Free-space path loss: FSPL = 32.45 + 20*log10(f) + 20*log10(d)
- * - Hop quality scoring combining MUF margin, absorption, and Kp effects
+ * Conventions and units:
+ *
+ *  - Distances are kilometres, frequencies MHz, losses dB.
+ *  - Nothing in this module rounds. `totalPathLossDb` is exactly the sum of
+ *    the itemised `losses`, to the last bit, so a caller can subtract one term
+ *    and get the rest. Rounding belongs in the component that renders a
+ *    number, not in the engine that computes it.
+ *  - Free-space spreading is taken over the **virtual slant range** of ITU-R
+ *    P.533-14 equation (19), not the ground range. On the 100 km / 300 km
+ *    audit fixture those differ by 15.688 dB, and the ground range is never
+ *    the distance a skywave actually travels.
+ *
+ * Declared assumptions, surfaced on `RayTraceResult.assumptions` rather than
+ * buried here:
+ *
+ *  1. The mirror reflection height. When the caller supplies
+ *     `mirrorHeightKm` the assumption names that value and claims nothing
+ *     else; when it does not, the declared 300 km stand-in is used and said
+ *     to be a stand-in. The correct source is `mirrorHeightFromM3000F2` fed
+ *     by the #953 climatology provider, which is asynchronous: a caller that
+ *     has resolved it above this entry point passes `mirrorHeight`, and
+ *     `RayTraceResult.mirrorHeight` then names that source rather than the
+ *     stand-in. The previous stand-in, a `250 + 100 (1 - cos z)` heuristic,
+ *     had no physical basis and is gone.
+ *  2. The modified magnetic dip that selects the diurnal absorption exponent
+ *     is computed here, by `modifiedDipAngle`, from the centred-dipole
+ *     geomagnetic latitude rather than a field model at 100 km. This module
+ *     chose that source, so this module is the layer that declares it; the
+ *     absorption leaf only reports the values it was handed.
+ *  3. The longitudinal gyrofrequency fL of equation (20) is computed here,
+ *     per D-region crossing, as |fH sin(dip)| from the six-degree Magfit field
+ *     expansion evaluated at the 100 km the recommendation specifies. This
+ *     module chose that source, so this module declares it; the absorption
+ *     leaf's 1.2 MHz scalar is no longer reached from this entry point.
  */
 
 import { classifyTerrain, getPathTerrainLoss } from "./terrain";
 import type { TerrainType } from "./terrain";
 import {
-  calculateDLayerAbsorption,
+  calculateF0E,
   calculateZenithAngle,
   estimateFoF2,
+  modifiedDipAngle,
   obliqueIncidenceAngle,
+  sfiToR12,
+  solarNoonZenithAngle,
 } from "./ionosphere";
 import { getGeomagneticLatitude } from "./geomagnetic";
-import { getLongPathPoints } from "./path";
+import {
+  D2R,
+  longitudinalGyrofrequencyMHz,
+} from "@/lib/propagation/ionosphere/modip";
+import {
+  resolveRoute,
+  routeSampleAtFraction,
+  type GeodeticPoint,
+  type AmbiguousRouteReason,
+  type ResolvedRoute,
+  type RouteResolution,
+} from "@/lib/propagation/geometry/route";
+import {
+  hopGeometry,
+  MAX_HOP_COUNT,
+  minimumHopCount,
+  type UnsupportedHopReason,
+} from "@/lib/propagation/geometry/hop";
+import type { F2ReflectionHeightBranch } from "@/lib/propagation/geometry/reflectionHeight";
+import {
+  dRegionAbsorption,
+  type DRegionCrossing,
+} from "@/lib/propagation/absorption/dRegion";
 
 const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
-const EARTH_RADIUS_KM = 6371;
-const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM;
 const TYPICAL_F2_HOP_KM = 3000;
 const MAX_HOPS = 12;
+
+/**
+ * Declared mirror reflection height, km. See assumption 1 in the module
+ * header. Exported so a caller that has a real M(3000)F2 can say so.
+ */
+export const DECLARED_MIRROR_HEIGHT_KM = 300;
+
+/** Why a trace fell back to the declared 300 km stand-in. Never absent. */
+export type MirrorHeightStandinReason =
+  | "no_provider_supplied"
+  | "provider_asset_unavailable"
+  | "provider_query_rejected"
+  | "circuit_unresolvable";
+
+/**
+ * One P.533-14 Table 1c control point a modelled height was evaluated at.
+ * A circuit up to dmax has one (`M`); a longer one has three, and the height
+ * is their mean.
+ */
+export interface MirrorHeightControlPoint {
+  readonly label: "T + d0/2" | "M" | "R - d0/2";
+  readonly latitude: number;
+  readonly longitude: number;
+  /** Section 5.1 height at this point for the circuit's mode, km. */
+  readonly heightKm: number;
+  readonly m3000F2: number;
+  readonly foF2MHz: number;
+  readonly foEMHz: number;
+  readonly r12: number;
+  readonly branch: F2ReflectionHeightBranch;
+}
+
+/**
+ * Where the mirror reflection height came from. Never absent from a result.
+ *
+ * The three variants are the three honest answers: a climatology solved it
+ * (`modelled`), the caller handed the engine a number and the engine claims
+ * nothing about it (`caller_supplied`), or nobody supplied one and the module's
+ * declared stand-in was used, with the reason (`declared_standin`).
+ * `mirrorHeight.ts` is the leaf that produces the first and the last.
+ */
+export type MirrorHeightProvenance =
+  | {
+      readonly kind: "modelled";
+      /**
+       * The ITU-R P.533-14 section 5.1 F2 mirror height for this frequency
+       * and circuit, km: the midpoint value for a circuit up to dmax, the
+       * mean over the Table 1c control points beyond it. See
+       * `propagation/geometry/reflectionHeight.ts` and `controlPoints`.
+       */
+      readonly heightKm: number;
+      /** M(3000)F2 at the midpoint control point. */
+      readonly m3000F2: number;
+      /** foF2 at the control point, MHz. */
+      readonly foF2MHz: number;
+      /** foE at the control point, MHz. */
+      readonly foEMHz: number;
+      /** The R12 the ionospheric state was actually evaluated at. */
+      readonly r12: number;
+      /** The operating frequency the height was solved for, MHz. */
+      readonly frequencyMHz: number;
+      /** The circuit ground distance the height was solved for, km. */
+      readonly groundDistanceKm: number;
+      /** dmax at the control point, restricted to 4000 km. Equations (5), (6). */
+      readonly dmaxKm: number;
+      /** The hop count the height was solved for. */
+      readonly hopCount: number;
+      /** d0 = groundDistanceKm / hopCount, km. */
+      readonly hopGroundDistanceKm: number;
+      /** Which of section 5.1's cases produced the midpoint height. */
+      readonly branch: F2ReflectionHeightBranch;
+      /** The route the circuit distance was resolved on. */
+      readonly routeDirection: "short" | "long";
+      /**
+       * Every Table 1c control point the height was evaluated at, in path
+       * order. One entry for a circuit up to dmax, three beyond it.
+       */
+      readonly controlPoints: readonly MirrorHeightControlPoint[];
+      readonly providerId: string;
+      readonly providerVersion: string;
+      /** `sha256:` of the coefficient asset the state was built from. */
+      readonly artifactHash: string;
+      /** The instant the climatology was read at. */
+      readonly validAt: string;
+      /** The place it was read at. */
+      readonly coordinates: {
+        readonly latitude: number;
+        readonly longitude: number;
+      };
+      /**
+       * `ionosphereStateDigest` of the state this height came from, or the
+       * literal `"unknown"` when no digest could be formed, matching
+       * `ContextSnapshot.sourceVersion`. Never an empty string.
+       */
+      readonly stateDigest: string;
+      /** The state's own assumption list, carried, not summarised. */
+      readonly assumptions: readonly string[];
+    }
+  | {
+      readonly kind: "caller_supplied";
+      readonly heightKm: number;
+      readonly detail: string;
+    }
+  | {
+      readonly kind: "declared_standin";
+      readonly heightKm: typeof DECLARED_MIRROR_HEIGHT_KM;
+      readonly reason: MirrorHeightStandinReason;
+      /** Why the modelled value was not used. Never an empty string. */
+      readonly detail: string;
+    };
+
+/**
+ * The one sentence every stand-in is described by, so the prose assumption and
+ * the structured provenance can never drift into two different explanations.
+ */
+const STANDIN_CAUSE: Readonly<Record<MirrorHeightStandinReason, string>> = {
+  no_provider_supplied:
+    "the caller supplied none: the #953 climatology provider that supplies " +
+    "M(3000)F2 is asynchronous and is not wired into this synchronous entry " +
+    "point yet",
+  provider_asset_unavailable:
+    "the #953 climatology provider's coefficient asset could not be loaded",
+  provider_query_rejected:
+    "the #953 climatology provider rejected the query for this place and " +
+    "instant",
+  circuit_unresolvable:
+    "the circuit's endpoints are coincident or antipodal, so no great-circle " +
+    "route fixes its control points",
+};
+
+/** The declared stand-in, labelled with why it was reached. */
+export function declaredMirrorHeightStandin(
+  reason: MirrorHeightStandinReason,
+): Extract<MirrorHeightProvenance, { kind: "declared_standin" }> {
+  return {
+    kind: "declared_standin",
+    heightKm: DECLARED_MIRROR_HEIGHT_KM,
+    reason,
+    detail:
+      `Mirror reflection height is the declared ${String(DECLARED_MIRROR_HEIGHT_KM)} km ` +
+      `stand-in, taken because ${STANDIN_CAUSE[reason]}.`,
+  };
+}
+
+/** A bare number from the caller: used, and not dressed up as a model output. */
+function callerSuppliedMirrorHeight(
+  mirrorHeightKm: number,
+): Extract<MirrorHeightProvenance, { kind: "caller_supplied" }> {
+  return {
+    kind: "caller_supplied",
+    heightKm: mirrorHeightKm,
+    detail:
+      `Mirror reflection height is the caller-supplied ${String(mirrorHeightKm)} km. ` +
+      "This engine makes no claim about where that value came from.",
+  };
+}
+
+/** What the trace actually used for the mirror height, as one sentence. */
+function mirrorHeightAssumption(provenance: MirrorHeightProvenance): string {
+  if (provenance.kind === "modelled") {
+    const points = provenance.controlPoints.length;
+    const where =
+      points > 1
+        ? `the mean over the ${String(points)} Table 1c control points ` +
+          `(${provenance.controlPoints.map((p) => `${p.label}: ${p.heightKm.toFixed(1)} km`).join(", ")})`
+        : `at the midpoint control point (case ${provenance.branch})`;
+    return (
+      `Mirror reflection height is the modelled ${provenance.heightKm.toFixed(1)} km, ` +
+      `the ITU-R P.533-14 section 5.1 F2 mirror height ${where} for ` +
+      `${provenance.frequencyMHz.toFixed(1)} MHz over the ${provenance.routeDirection} ` +
+      `route of ${provenance.groundDistanceKm.toFixed(0)} km as ${String(provenance.hopCount)} ` +
+      `${provenance.hopCount === 1 ? "hop" : "hops"} of ` +
+      `${provenance.hopGroundDistanceKm.toFixed(0)} km, solved at the midpoint from ` +
+      `foF2 = ${provenance.foF2MHz.toFixed(2)} MHz, foE = ${provenance.foEMHz.toFixed(2)} MHz, ` +
+      `M(3000)F2 = ${provenance.m3000F2.toFixed(3)}, R12 = ${provenance.r12.toFixed(1)} ` +
+      `and dmax = ${provenance.dmaxKm.toFixed(0)} km read from ` +
+      `${provenance.providerId} ${provenance.providerVersion} at ${provenance.validAt}.`
+    );
+  }
+  return provenance.detail;
+}
+
+/** Tolerances inside which a modelled provenance describes this circuit. */
+const PROVENANCE_DISTANCE_TOLERANCE_KM = 1;
+const PROVENANCE_FREQUENCY_TOLERANCE_MHZ = 0.01;
+const PROVENANCE_INSTANT_TOLERANCE_MS = 60 * 1000;
+
+/**
+ * Why a modelled provenance does not describe the circuit being traced, or
+ * null when it does. A modelled height is solved for one frequency, one
+ * route and one hop count, and its hop count is only meaningful on that
+ * circuit. `useMirrorHeight` rounds the frequency to 0.01 MHz, the distance
+ * to 1 km and the instant to the minute, so the tolerances are those.
+ */
+function modelledProvenanceMismatch(
+  provenance: Extract<MirrorHeightProvenance, { kind: "modelled" }>,
+  circuit: {
+    groundDistanceKm: number;
+    frequencyMHz: number;
+    pathMode: "short" | "long";
+    date: Date;
+  },
+): string | null {
+  const reasons: string[] = [];
+  if (provenance.routeDirection !== circuit.pathMode) {
+    reasons.push(
+      `it was solved on the ${provenance.routeDirection} route and this trace ` +
+        `walks the ${circuit.pathMode} one`,
+    );
+  }
+  if (
+    Math.abs(provenance.groundDistanceKm - circuit.groundDistanceKm) >
+    PROVENANCE_DISTANCE_TOLERANCE_KM
+  ) {
+    reasons.push(
+      `it was solved for ${provenance.groundDistanceKm.toFixed(0)} km and this ` +
+        `circuit is ${circuit.groundDistanceKm.toFixed(0)} km`,
+    );
+  }
+  if (
+    Math.abs(provenance.frequencyMHz - circuit.frequencyMHz) >
+    PROVENANCE_FREQUENCY_TOLERANCE_MHZ
+  ) {
+    reasons.push(
+      `it was solved for ${provenance.frequencyMHz.toFixed(2)} MHz and this ` +
+        `trace runs at ${circuit.frequencyMHz.toFixed(2)} MHz`,
+    );
+  }
+  const validAtMs = Date.parse(provenance.validAt);
+  if (
+    !Number.isFinite(validAtMs) ||
+    Math.abs(validAtMs - circuit.date.getTime()) >
+      PROVENANCE_INSTANT_TOLERANCE_MS
+  ) {
+    reasons.push(
+      `it was read at ${provenance.validAt} and this trace is for ` +
+        `${circuit.date.toISOString()}`,
+    );
+  }
+  return reasons.length === 0 ? null : reasons.join("; ");
+}
+
+/**
+ * Which of the three the caller asked for. A provenance wins over a bare
+ * number: it carries the height as well as its source.
+ */
+function mirrorHeightOf(params: RayTraceInput): MirrorHeightProvenance {
+  if (params.mirrorHeight !== undefined) return params.mirrorHeight;
+  if (params.mirrorHeightKm !== undefined) {
+    return callerSuppliedMirrorHeight(params.mirrorHeightKm);
+  }
+  return declaredMirrorHeightStandin("no_provider_supplied");
+}
+
+const DIP_ASSUMPTION =
+  "Modified magnetic dip at every D-region crossing is computed here by " +
+  "modifiedDipAngle() from the centred-dipole geomagnetic latitude, not by a " +
+  "field model evaluated at the 100 km ITU-R P.533-14 specifies.";
+
+const GYROFREQUENCY_ASSUMPTION =
+  "Longitudinal gyrofrequency is |fH sin(dip)| from the six-degree Magfit " +
+  "field expansion evaluated at 100 km at each D-region crossing, computed " +
+  "here and supplied to the absorption leaf, so that leaf's declared 1.2 MHz " +
+  "scalar is not used on this path.";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,7 +362,56 @@ export interface RayTraceInput {
   txPowerWatts?: number;
   /** Great-circle direction to trace. Defaults to the short path. */
   pathMode?: "short" | "long";
+  /**
+   * Mirror reflection height, km. Defaults to the declared 300 km constant.
+   * Supply `mirrorHeightFromM3000F2(m3000F2)` when a real M(3000)F2 is known,
+   * or `mirrorHeight` when its source can be named too.
+   */
+  mirrorHeightKm?: number;
+  /**
+   * Mirror reflection height with its source, from `resolveMirrorHeight`. When
+   * present it both sets the height and is carried onto the result verbatim,
+   * and it takes precedence over `mirrorHeightKm`.
+   */
+  mirrorHeight?: MirrorHeightProvenance;
 }
+
+/** The itemised loss budget. The parts sum exactly to `totalPathLossDb`. */
+export interface RayPathLosses {
+  /** Free-space spreading over the virtual slant range, dB. */
+  freeSpaceDb: number;
+  /** D-region absorption for every pass of the mode, dB. */
+  absorptionDb: number;
+  /** Ground reflection loss at the intermediate bounce points, dB. */
+  terrainDb: number;
+  /** Polarisation coupling loss, dB. */
+  polarisationDb: number;
+}
+
+/**
+ * Why a circuit has no ray path, when it has none.
+ *
+ * Every consumer that reads `hops` must narrow on this first. A circuit whose
+ * endpoints determine no great circle, which is what selecting your own QTH as
+ * the target produces, returns zero hops; treating `hops[0]` or an
+ * initial-value-free `reduce` as safe is how that becomes a crash rather than
+ * a "no path" row. `reason` carries the route leaf's own classification so a
+ * caller can say "same place", and the geometry leaf's own classification is
+ * carried the same way so a caller can say "too far for one bounce", rather
+ * than either falling back to the generic wording.
+ */
+export type RayPathSupport =
+  | { kind: "supported" }
+  | {
+      kind: "ambiguous_geometry";
+      reason: AmbiguousRouteReason;
+      detail: string;
+    }
+  | {
+      kind: "geometrically_unsupported";
+      reason: UnsupportedHopReason;
+      detail: string;
+    };
 
 export interface ReflectionPoint {
   lat: number;
@@ -81,68 +444,50 @@ export interface RayTraceResult {
   terrainLoss?: number;
   pathMode: "short" | "long";
   totalDistanceKm: number;
+  /** Virtual slant range of the whole mode, km. P.533-14 equation (19). */
+  virtualSlantRangeKm: number;
+  /** Itemised loss budget. Sums exactly to `totalPathLossDb`. */
+  losses: RayPathLosses;
+  /** Whether a ray path exists at all, and why not when it does not. */
+  support: RayPathSupport;
+  /** Take-off elevation angle of the mode, degrees. */
+  elevationAngleDeg: number;
+  /** Number of D-region passes, `2 * hops`. */
+  absorptionPassCount: number;
+  /** Everything this result stands in for rather than models. */
+  assumptions: readonly string[];
+  /** Where the mirror reflection height came from. Never absent. */
+  mirrorHeight: MirrorHeightProvenance;
 }
 
 export type PathViability =
-  | "excellent"
-  | "good"
-  | "marginal"
-  | "unlikely"
-  | "impossible";
+  "excellent" | "good" | "marginal" | "unlikely" | "impossible";
 
 // ---------------------------------------------------------------------------
 // Great-circle geometry
 // ---------------------------------------------------------------------------
 
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const phi1 = lat1 * DEG_TO_RAD;
-  const phi2 = lat2 * DEG_TO_RAD;
-  const deltaPhi = (lat2 - lat1) * DEG_TO_RAD;
-  const deltaLambda = (lon2 - lon1) * DEG_TO_RAD;
-
-  const a =
-    Math.sin(deltaPhi / 2) ** 2 +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return EARTH_RADIUS_KM * c;
+/**
+ * Resolve the great circle this trace runs on.
+ *
+ * Both directions come from one resolution, so the long path is the same
+ * circle traversed the other way rather than a separately sampled polyline.
+ */
+function routeFor(
+  input: Pick<
+    RayTraceInput,
+    "startLat" | "startLon" | "endLat" | "endLon" | "pathMode"
+  >,
+): RouteResolution {
+  return resolveRoute(
+    { latitudeDeg: input.startLat, longitudeDeg: input.startLon },
+    { latitudeDeg: input.endLat, longitudeDeg: input.endLon },
+    { direction: input.pathMode ?? "short" },
+  );
 }
 
-function slerp(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-  t: number,
-): { lat: number; lon: number } {
-  const phi1 = lat1 * DEG_TO_RAD;
-  const lambda1 = lon1 * DEG_TO_RAD;
-  const phi2 = lat2 * DEG_TO_RAD;
-  const lambda2 = lon2 * DEG_TO_RAD;
-
-  const d = haversineDistance(lat1, lon1, lat2, lon2) / EARTH_RADIUS_KM;
-  if (d < 1e-10) return { lat: lat1, lon: lon1 };
-
-  const sinD = Math.sin(d);
-  const a = Math.sin((1 - t) * d) / sinD;
-  const b = Math.sin(t * d) / sinD;
-
-  const x =
-    a * Math.cos(phi1) * Math.cos(lambda1) +
-    b * Math.cos(phi2) * Math.cos(lambda2);
-  const y =
-    a * Math.cos(phi1) * Math.sin(lambda1) +
-    b * Math.cos(phi2) * Math.sin(lambda2);
-  const z = a * Math.sin(phi1) + b * Math.sin(phi2);
-
-  return {
-    lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * RAD_TO_DEG,
-    lon: Math.atan2(y, x) * RAD_TO_DEG,
-  };
+function isResolved(route: RouteResolution): route is ResolvedRoute {
+  return route.kind === "resolved";
 }
 
 // ---------------------------------------------------------------------------
@@ -162,39 +507,6 @@ function slerp(
 // estimateFoF2 in ionosphere.ts so the ray-trace engine and the ionosphere
 // model no longer disagree (the previous local (1.2 + 0.016*SFI)*sqrt(cos chi)
 // heuristic produced ~3.6 MHz at SFI 150 noon, far below observed magnitudes).
-
-function estimateHmF2(zenithDeg: number): number {
-  const clampedZenith = Math.min(zenithDeg, 90);
-  const cosZ = Math.cos(clampedZenith * DEG_TO_RAD);
-  const hmF2 = 250 + 100 * (1 - cosZ);
-
-  if (zenithDeg > 90) {
-    const nightLift = Math.min((zenithDeg - 90) / 90, 1) * 50;
-    return Math.min(400, hmF2 + nightLift);
-  }
-  return Math.max(200, Math.min(400, hmF2));
-}
-
-/**
- * Ray take-off elevation angle for a symmetric single hop over a spherical
- * earth (ITU-R P.533 geometry). For a ground distance D and reflection height
- * h, with half-hop central angle psi = D / (2 * Re):
- *   tan(elevation) = [cos(psi) - Re/(Re + h)] / sin(psi)
- *
- * The previous flat-earth atan(h / (D/2)) overestimated the elevation (~11.3
- * deg vs ~4.3 deg on a 3000 km / 300 km hop) and so mis-stated the oblique MUF.
- */
-export function hopElevationAngle(
-  hopDistanceKm: number,
-  reflectionHeightKm: number,
-): number {
-  if (hopDistanceKm <= 0) return 90;
-  const psi = hopDistanceKm / (2 * EARTH_RADIUS_KM);
-  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + reflectionHeightKm);
-  const tanElev = (Math.cos(psi) - ratio) / Math.sin(psi);
-  const elevationDeg = Math.atan(tanElev) * RAD_TO_DEG;
-  return Math.max(1, elevationDeg);
-}
 
 /**
  * Oblique MUF via the secant law with proper spherical incidence geometry:
@@ -262,18 +574,16 @@ function scoreHop(
 // Public API
 // ---------------------------------------------------------------------------
 
-function samplePathFraction(
-  points: Array<{ lat: number; lon: number }>,
-  fraction: number,
-): { lat: number; lon: number } {
-  if (points.length === 0) return { lat: 0, lon: 0 };
-  const idx = Math.round(fraction * (points.length - 1));
-  const clamped = Math.max(0, Math.min(points.length - 1, idx));
-  return { lat: points[clamped].lat, lon: points[clamped].lon };
-}
-
 /**
- * Calculate equally-spaced ionospheric reflection points along a great-circle path.
+ * Equally spaced ionospheric reflection points along a great-circle path.
+ *
+ * The samples are exact points of the resolved circle at `(2i+1)/2n` of its
+ * length. There is no intermediate polyline and no index rounding, so the
+ * long path is sampled as precisely as the short path and a point near a pole
+ * or the date line is not snapped to a neighbouring vertex.
+ *
+ * Degenerate endpoints yield an empty array: no great circle is determined, so
+ * there is nothing to reflect from.
  */
 export function calculateReflectionPoints(
   startLat: number,
@@ -284,32 +594,30 @@ export function calculateReflectionPoints(
   date: Date,
   pathMode: "short" | "long" = "short",
 ): ReflectionPoint[] {
-  const shortKm = haversineDistance(startLat, startLon, endLat, endLon);
-  const totalDistanceKm =
-    pathMode === "long" ? EARTH_CIRCUMFERENCE_KM - shortKm : shortKm;
-  const points: ReflectionPoint[] = [];
-  const longPathPoints =
-    pathMode === "long"
-      ? getLongPathPoints(
-          startLat,
-          startLon,
-          endLat,
-          endLon,
-          Math.max(numHops * 20, 40),
-        )
-      : null;
+  // The loop below runs once per hop, so the count is an iteration bound the
+  // caller supplies. It is checked against the same limit the geometry solver
+  // applies, rather than trusted because it happens to be an integer.
+  if (!Number.isInteger(numHops) || numHops < 1 || numHops > MAX_HOP_COUNT) {
+    throw new RangeError(
+      `numHops must be an integer between 1 and ${String(MAX_HOP_COUNT)}, received ${String(numHops)}.`,
+    );
+  }
+  const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
+  if (!isResolved(route)) return [];
 
+  const points: ReflectionPoint[] = [];
   for (let i = 0; i < numHops; i++) {
     const fraction = (2 * i + 1) / (2 * numHops);
-    const { lat, lon } = longPathPoints
-      ? samplePathFraction(longPathPoints, fraction)
-      : slerp(startLat, startLon, endLat, endLon, fraction);
+    const { latitudeDeg: lat, longitudeDeg: lon } = routeSampleAtFraction(
+      route,
+      fraction,
+    );
     const zenith = calculateZenithAngle(lat, lon, date);
 
     points.push({
       lat,
       lon,
-      distanceFromStartKm: totalDistanceKm * fraction,
+      distanceFromStartKm: route.groundDistanceKm * fraction,
       fractionAlongPath: fraction,
       isDaytime: zenith < 90,
       solarZenithAngle: zenith,
@@ -319,7 +627,53 @@ export function calculateReflectionPoints(
 }
 
 /**
+ * Build the D-region crossing description for one point on the path.
+ *
+ * Exported so a test can reconstruct the very crossings the engine evaluates,
+ * rather than re-deriving them from a copy of this construction that is free
+ * to drift away from it.
+ */
+export function crossingAt(
+  point: GeodeticPoint,
+  date: Date,
+  sfi: number,
+): DRegionCrossing {
+  const zenithAngleDeg = calculateZenithAngle(
+    point.latitudeDeg,
+    point.longitudeDeg,
+    date,
+  );
+  return {
+    latitudeDeg: point.latitudeDeg,
+    monthIndex: date.getUTCMonth(),
+    modifiedDipDeg: modifiedDipAngle(point.latitudeDeg, point.longitudeDeg),
+    // fL is a property of where this crossing is, not of the mode: the
+    // crossings of a trans-equatorial circuit straddle the magnetic dip
+    // equator, where |fH sin(dip)| collapses to zero.
+    gyrofrequencyMHz: longitudinalGyrofrequencyMHz(
+      point.latitudeDeg * D2R,
+      point.longitudeDeg * D2R,
+    ),
+    // A zero foE is the night-time limit, where no E layer shields the D
+    // region. The penetration factor handles it; a division by zero does not.
+    foEMHz: Math.max(calculateF0E(zenithAngleDeg, sfi), 1e-6),
+    zenithAngleDeg,
+    zenithNoonAngleDeg: solarNoonZenithAngle(point.latitudeDeg, date),
+  };
+}
+
+/**
  * Evaluate ionospheric quality at a single reflection point.
+ *
+ * Absorption here is the one sample this function can take: it is given a
+ * reflection point and no route, so it evaluates the crossing there twice.
+ * `traceRayPath`, which does know the route, replaces it with the hop's own
+ * entry and exit penetration points. A caller holding only a point, such as
+ * the path MUF sampler, gets the midpoint reading and that is the honest best
+ * available from a point.
+ *
+ * Nothing here is rounded. The values are the values; a component that wants
+ * two decimal places is welcome to ask for them at the point of display.
  */
 export function evaluateHopQuality(
   reflectionLat: number,
@@ -329,18 +683,52 @@ export function evaluateHopQuality(
   sfi: number,
   kp: number,
   hopDistanceKm: number,
+  mirrorHeightKm: number = DECLARED_MIRROR_HEIGHT_KM,
 ): HopQuality {
   const zenith = calculateZenithAngle(reflectionLat, reflectionLon, date);
   const f0F2 = estimateFoF2(zenith, sfi);
-  const hmF2 = estimateHmF2(zenith);
-  const elevDeg = hopElevationAngle(hopDistanceKm, hmF2);
-  const muf = calculateMUF(f0F2, elevDeg, hmF2);
-  const absorptionDb = calculateDLayerAbsorption(
-    frequencyMHz,
-    zenith,
+  const geometry = hopGeometry({
+    groundDistanceKm: hopDistanceKm,
+    hopCount: 1,
+    mirrorHeightKm,
+  });
+
+  if (geometry.kind !== "supported") {
+    // The mode does not exist at this hop length. Report that, do not clamp
+    // the elevation angle and score it as usable.
+    return {
+      reflectionPoint: {
+        lat: reflectionLat,
+        lon: reflectionLon,
+        distanceFromStartKm: 0,
+        fractionAlongPath: 0,
+        isDaytime: zenith < 90,
+        solarZenithAngle: zenith,
+      },
+      f0F2,
+      hmF2: mirrorHeightKm,
+      muf: 0,
+      absorptionDb: 0,
+      isFrequencySupported: false,
+      qualityScore: 0,
+    };
+  }
+
+  const elevDeg = (geometry.elevationAngleRad * 180) / Math.PI;
+  const muf = calculateMUF(f0F2, elevDeg, mirrorHeightKm);
+  const crossing = crossingAt(
+    { latitudeDeg: reflectionLat, longitudeDeg: reflectionLon },
+    date,
     sfi,
-    elevDeg,
   );
+  const absorptionDb = dRegionAbsorption({
+    crossings: [crossing, crossing],
+    hopCount: 1,
+    frequencyMHz,
+    incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+    ssn: sfiToR12(sfi),
+  }).absorptionDb;
+
   const isFrequencySupported = frequencyMHz <= muf;
   const qualityScore = scoreHop(
     frequencyMHz,
@@ -360,10 +748,10 @@ export function evaluateHopQuality(
       isDaytime: zenith < 90,
       solarZenithAngle: zenith,
     },
-    f0F2: Math.round(f0F2 * 100) / 100,
-    hmF2: Math.round(hmF2),
-    muf: Math.round(muf * 100) / 100,
-    absorptionDb: Math.round(absorptionDb * 10) / 10,
+    f0F2,
+    hmF2: mirrorHeightKm,
+    muf,
+    absorptionDb,
     isFrequencySupported,
     qualityScore,
   };
@@ -385,14 +773,90 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     pathMode = "short",
   } = params;
 
-  const shortKm = haversineDistance(startLat, startLon, endLat, endLon);
-  const totalDistanceKm =
-    pathMode === "long" ? EARTH_CIRCUMFERENCE_KM - shortKm : shortKm;
-  const numHops = Math.max(
-    1,
-    Math.min(MAX_HOPS, Math.ceil(totalDistanceKm / TYPICAL_F2_HOP_KM)),
-  );
+  const mirrorHeight = mirrorHeightOf(params);
+  const mirrorHeightKm = mirrorHeight.heightKm;
+  const assumptions = [
+    mirrorHeightAssumption(mirrorHeight),
+    DIP_ASSUMPTION,
+    GYROFREQUENCY_ASSUMPTION,
+  ];
+  const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
+  if (!isResolved(route)) {
+    return emptyResult(
+      {
+        kind: "ambiguous_geometry",
+        reason: route.reason,
+        detail: route.detail,
+      },
+      pathMode,
+      frequencyMHz,
+      assumptions,
+      mirrorHeight,
+    );
+  }
+
+  const totalDistanceKm = route.groundDistanceKm;
+
+  // A modelled height was solved for one mode: P.533-14 section 5.1 makes hr
+  // a function of the hop length, so the trace must draw the hop count the
+  // height was computed for, or it applies a height solved for one hop of D
+  // to n hops of D/n. If that mode does not close at this height (a grazing
+  // hop), `hopGeometry` says so below and the trace reports it as
+  // geometrically unsupported rather than quietly choosing another count.
+  // A provenance solved for a different circuit is used for its height only,
+  // and the trace says so.
+  let modelledHopCount: number | null = null;
+  if (mirrorHeight.kind === "modelled") {
+    const mismatch = modelledProvenanceMismatch(mirrorHeight, {
+      groundDistanceKm: totalDistanceKm,
+      frequencyMHz,
+      pathMode,
+      date,
+    });
+    if (mismatch === null) {
+      modelledHopCount = mirrorHeight.hopCount;
+    } else {
+      assumptions.push(
+        "The modelled mirror height provenance describes a different circuit " +
+          `(${mismatch}); its ${mirrorHeight.heightKm.toFixed(1)} km is used ` +
+          "as a height only and the hop count is chosen here.",
+      );
+    }
+  }
+
+  // Never fewer hops than the mirror height can physically reach: choosing a
+  // hop count that needs a below-horizon ray is how the old engine ended up
+  // clamping the elevation angle.
+  const numHops =
+    modelledHopCount ??
+    Math.max(
+      minimumHopCount(totalDistanceKm, mirrorHeightKm),
+      Math.max(
+        1,
+        Math.min(MAX_HOPS, Math.ceil(totalDistanceKm / TYPICAL_F2_HOP_KM)),
+      ),
+    );
   const hopDistanceKm = totalDistanceKm / numHops;
+
+  const geometry = hopGeometry({
+    groundDistanceKm: totalDistanceKm,
+    hopCount: numHops,
+    mirrorHeightKm,
+  });
+  if (geometry.kind !== "supported") {
+    return emptyResult(
+      {
+        kind: "geometrically_unsupported",
+        reason: geometry.reason,
+        detail: geometry.detail,
+      },
+      pathMode,
+      frequencyMHz,
+      assumptions,
+      mirrorHeight,
+      totalDistanceKm,
+    );
+  }
 
   const reflectionPoints = calculateReflectionPoints(
     startLat,
@@ -404,7 +868,25 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     pathMode,
   );
 
-  const hops: HopQuality[] = reflectionPoints.map((rp) => {
+  // Absorption is evaluated at the 2n penetration points of the mode, not once
+  // at the path midpoint, and the n factor of equation (20) is the pass count.
+  // Hop k enters the layer at fraction 2k and leaves it at 2k + 1.
+  const crossings = geometry.penetrationFractions.map((fraction) =>
+    crossingAt(routeSampleAtFraction(route, fraction), date, sfi),
+  );
+  const ssn = sfiToR12(sfi);
+
+  const hopAbsorptions = Array.from({ length: numHops }, (_unused, index) =>
+    dRegionAbsorption({
+      crossings: [crossings[2 * index], crossings[2 * index + 1]],
+      hopCount: 1,
+      frequencyMHz,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn,
+    }),
+  );
+
+  const hops: HopQuality[] = reflectionPoints.map((rp, index) => {
     const hop = evaluateHopQuality(
       rp.lat,
       rp.lon,
@@ -413,12 +895,30 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
       sfi,
       kp,
       hopDistanceKm,
+      mirrorHeightKm,
     );
-    hop.reflectionPoint = rp;
-    return hop;
+    // `evaluateHopQuality` has only a reflection point to work from, so it
+    // samples absorption there. This hop has its own two penetration points,
+    // and a hop that straddles the terminator absorbs like neither end alone.
+    // Taking the same two crossings the mode total is built from is what makes
+    // the displayed per-hop figure, the limiting-hop choice and the total agree
+    // by construction instead of by coincidence.
+    const absorptionDb = hopAbsorptions[index].absorptionDb;
+    return {
+      ...hop,
+      reflectionPoint: rp,
+      absorptionDb,
+      qualityScore: scoreHop(
+        frequencyMHz,
+        hop.muf,
+        absorptionDb,
+        kp,
+        rp.lat,
+        rp.lon,
+      ),
+    };
   });
 
-  const totalAbsorptionDb = hops.reduce((sum, h) => sum + h.absorptionDb, 0);
   const isPathViable = hops.every((h) => h.isFrequencySupported);
 
   let limitingHop = 0;
@@ -430,38 +930,32 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     }
   }
 
-  const fspl = freeSpacePathLoss(frequencyMHz, totalDistanceKm);
-  const polarisationLossDb = 1.5;
+  // The mode total is the sum of the hops, not a second evaluation of the same
+  // crossings. Equation (20) is linear in the crossing terms, so summing the
+  // n single-hop losses is the n-hop loss exactly, and the two can no longer
+  // disagree about the circuit they describe.
+  const totalAbsorptionDb = hops.reduce(
+    (total, h) => total + h.absorptionDb,
+    0,
+  );
+  const absorptionPassCount = hopAbsorptions.reduce(
+    (total, a) => total + a.passCount,
+    0,
+  );
 
-  const longPathPoints =
-    pathMode === "long"
-      ? getLongPathPoints(
-          startLat,
-          startLon,
-          endLat,
-          endLon,
-          Math.max(numHops * 10, 20),
-        )
-      : null;
-  const bouncePoints: Array<{ lat: number; lon: number }> = [];
-  for (let i = 1; i < numHops; i++) {
-    const fraction = i / numHops;
-    bouncePoints.push(
-      longPathPoints
-        ? samplePathFraction(longPathPoints, fraction)
-        : slerp(startLat, startLon, endLat, endLon, fraction),
-    );
-  }
-  const terrainTypes = bouncePoints.map((p) => classifyTerrain(p.lat, p.lon));
+  const terrainTypes = bouncePointTerrain(route, numHops);
   const terrainLoss =
     terrainTypes.length > 0
       ? getPathTerrainLoss(terrainTypes, frequencyMHz)
       : 0;
 
-  const totalPathLossDb =
-    Math.round(
-      (fspl + totalAbsorptionDb + terrainLoss + polarisationLossDb) * 10,
-    ) / 10;
+  const losses: RayPathLosses = {
+    freeSpaceDb: freeSpacePathLoss(frequencyMHz, geometry.virtualSlantRangeKm),
+    absorptionDb: totalAbsorptionDb,
+    terrainDb: terrainLoss,
+    polarisationDb: POLARISATION_LOSS_DB,
+  };
+  const totalPathLossDb = sumLosses(losses);
 
   let overallScore: number;
   if (!isPathViable) {
@@ -497,7 +991,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
 
   return {
     hops,
-    totalAbsorptionDb: Math.round(totalAbsorptionDb * 10) / 10,
+    totalAbsorptionDb,
     totalPathLossDb,
     isPathViable,
     limitingHop,
@@ -507,6 +1001,81 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     terrainLoss,
     pathMode,
     totalDistanceKm,
+    virtualSlantRangeKm: geometry.virtualSlantRangeKm,
+    losses,
+    support: { kind: "supported" },
+    elevationAngleDeg: (geometry.elevationAngleRad * 180) / Math.PI,
+    absorptionPassCount,
+    assumptions: [...assumptions, ...hopAbsorptions[0].assumptions],
+    mirrorHeight,
+  };
+}
+
+const POLARISATION_LOSS_DB = 1.5;
+
+/**
+ * Total of the itemised budget.
+ *
+ * Written once and used once so the total can never be assembled from a
+ * different set of terms than the one reported, and never rounded on the way.
+ */
+function sumLosses(losses: RayPathLosses): number {
+  return (
+    losses.freeSpaceDb +
+    losses.absorptionDb +
+    losses.terrainDb +
+    losses.polarisationDb
+  );
+}
+
+/** Terrain at the intermediate ground bounces of an n-hop mode. */
+function bouncePointTerrain(
+  route: ResolvedRoute,
+  numHops: number,
+): TerrainType[] {
+  const types: TerrainType[] = [];
+  for (let i = 1; i < numHops; i++) {
+    const point = routeSampleAtFraction(route, i / numHops);
+    types.push(classifyTerrain(point.latitudeDeg, point.longitudeDeg));
+  }
+  return types;
+}
+
+/** A circuit with no ray path. Reported, not papered over with zeroes. */
+function emptyResult(
+  support: RayPathSupport,
+  pathMode: "short" | "long",
+  frequencyMHz: number,
+  assumptions: readonly string[],
+  mirrorHeight: MirrorHeightProvenance,
+  totalDistanceKm = 0,
+): RayTraceResult {
+  const losses: RayPathLosses = {
+    freeSpaceDb: 0,
+    absorptionDb: 0,
+    terrainDb: 0,
+    polarisationDb: 0,
+  };
+  const reason = support.kind === "supported" ? "supported" : support.detail;
+  return {
+    hops: [],
+    totalAbsorptionDb: 0,
+    totalPathLossDb: sumLosses(losses),
+    isPathViable: false,
+    limitingHop: 0,
+    overallScore: 0,
+    summary: `no ray path at ${frequencyMHz.toFixed(1)} MHz: ${reason}`,
+    terrainTypes: [],
+    terrainLoss: 0,
+    pathMode,
+    totalDistanceKm,
+    virtualSlantRangeKm: 0,
+    losses,
+    support,
+    elevationAngleDeg: 0,
+    absorptionPassCount: 0,
+    assumptions,
+    mirrorHeight,
   };
 }
 

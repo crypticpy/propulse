@@ -3,12 +3,48 @@ import {
   ISS_NORAD_ID,
   MAX_TRACK_DOTS,
   MAX_TRACK_LABELS,
+  SATELLITE_GLOBE_RADIUS,
+  SATELLITE_SURFACE_OFFSET,
+  latLonAltToVector3,
+  latLonToSurface,
+  orbitTrackPointToGlobeVector,
   selectLimitedFootprints,
   selectTrackDotIndices,
   selectTrackLabelIndices,
   shouldRenderIssDefaultTrack,
   type TrackLabelPoint,
 } from "./satelliteGeometry";
+
+// ---------------------------------------------------------------------------
+// orbitTrackPointToGlobeVector (#1082 — globe orbit rides at marker altitude)
+// ---------------------------------------------------------------------------
+
+describe("orbitTrackPointToGlobeVector", () => {
+  it("places a positive-altitude sample above SATELLITE_GLOBE_RADIUS + SATELLITE_SURFACE_OFFSET", () => {
+    const point = { lat: 51.6, lon: -0.5, alt: 408 };
+    const vec = orbitTrackPointToGlobeVector(point);
+
+    expect(vec.length()).toBeGreaterThan(
+      SATELLITE_GLOBE_RADIUS + SATELLITE_SURFACE_OFFSET,
+    );
+  });
+
+  it("coincides with the marker helper so the orbit line passes through the satellite", () => {
+    const point = { lat: -23.4, lon: 133.8, alt: 780 };
+    const track = orbitTrackPointToGlobeVector(point);
+    const marker = latLonAltToVector3(point.lat, point.lon, point.alt);
+
+    expect(track.distanceTo(marker)).toBe(0);
+  });
+
+  it("does not collapse to the surface helper used by true ground tracks", () => {
+    const point = { lat: 0, lon: -75, alt: 408 };
+    const orbit = orbitTrackPointToGlobeVector(point);
+    const surface = latLonToSurface(point.lat, point.lon);
+
+    expect(orbit.length()).toBeGreaterThan(surface.length());
+  });
+});
 
 // ---------------------------------------------------------------------------
 // selectTrackLabelIndices (#1029 review — bound orbit-track label count)

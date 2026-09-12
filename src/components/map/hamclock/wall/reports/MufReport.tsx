@@ -6,6 +6,7 @@ import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { useMirrorHeight } from "@/hooks/useMirrorHeight";
 import {
   getFrequencyLimits,
   getMUFAtLocation,
@@ -15,15 +16,11 @@ import {
 import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import {
-  calculateDLayerAbsorption,
+  getAbsorptionAtLocation,
   getIonosphericParameters,
   type IonosphericParameters,
 } from "@/lib/utils/ionosphere";
-import {
-  hopElevationAngle,
-  traceRayPath,
-  type RayTraceResult,
-} from "@/lib/utils/rayTrace";
+import { traceRayPath, type RayTraceResult } from "@/lib/utils/rayTrace";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -278,6 +275,92 @@ function safeTrace(
   }
 }
 
+/**
+ * What the take-off row says, in plain language.
+ *
+ * A circuit with no mode has no take-off angle, and the deprecated clamp this
+ * replaces reported +1 degree for one, which is a number a person can act on
+ * for a path that does not exist. Every string here is a statement about the
+ * circuit rather than about the engine, and none of them uses the model's own
+ * vocabulary. They are also short: `.hcr-kv dd` is `white-space: nowrap` in a
+ * two-column grid, so a long value pushes the label into its ellipsis. The
+ * `.hcr-note` sentence under the rows carries the explanation, not this cell.
+ */
+function takeoffRowValue(
+  hasTarget: boolean,
+  rayTrace: RayTraceResult | null,
+  tracedHops: RayTraceResult | null,
+): string {
+  if (!hasTarget) return "SET TARGET";
+  if (rayTrace === null) return "—";
+  switch (rayTrace.support.kind) {
+    case "supported":
+      return tracedHops === null
+        ? "—"
+        : `${tracedHops.elevationAngleDeg.toFixed(1)}°`;
+    case "ambiguous_geometry":
+      // Antipodal endpoints are ambiguous for a different reason, and telling
+      // someone their target on the far side of the world is the same place
+      // as home would be worse than saying nothing precise.
+      return rayTrace.support.reason === "coincident_endpoints"
+        ? "SAME AS HOME"
+        : "NO PATH";
+    case "geometrically_unsupported":
+      return rayTrace.support.reason === "below_horizon"
+        ? "TOO FAR"
+        : "NO PATH";
+  }
+}
+
+/** The sentence under the path rows, when there is something to explain. */
+function unsupportedPathExplanation(
+  rayTrace: RayTraceResult | null,
+): string | null {
+  if (rayTrace === null) return null;
+  if (
+    rayTrace.support.kind === "geometrically_unsupported" &&
+    rayTrace.support.reason === "below_horizon"
+  ) {
+    return (
+      "At this reflecting height the target is farther away than a single " +
+      "bounce can reach, so the ray would leave below the horizon. There is " +
+      "no take-off angle to report."
+    );
+  }
+  if (
+    rayTrace.support.kind === "ambiguous_geometry" &&
+    rayTrace.support.reason === "coincident_endpoints"
+  ) {
+    return (
+      "Home and target are the same place, so there is no path between them " +
+      "to trace."
+    );
+  }
+  return null;
+}
+
+/** The HOPS tab's empty state, named rather than blanket. */
+function noHopsMessage(rayTrace: RayTraceResult | null): string {
+  if (rayTrace !== null) {
+    if (
+      rayTrace.support.kind === "geometrically_unsupported" &&
+      rayTrace.support.reason === "below_horizon"
+    ) {
+      return (
+        "No hops to show. At this reflecting height the target is farther " +
+        "than one bounce can reach."
+      );
+    }
+    if (
+      rayTrace.support.kind === "ambiguous_geometry" &&
+      rayTrace.support.reason === "coincident_endpoints"
+    ) {
+      return "No hops to show. Home and target are the same place.";
+    }
+  }
+  return "No hops to show for this path right now.";
+}
+
 /** Highest HF_MODEL_BANDS band NowCast rates above 50% for this path, taken
  * as the model's implied top usable band — the same "top band" question the
  * physics column answers, from an independent source. */
@@ -484,6 +567,22 @@ export function MufReport({ open, onClose }: MufReportProps) {
     };
   }, [timeShifted, ladderReady, observedEntry]);
 
+  // The mirror height is a circuit quantity (P.533-14 section 5.1: it depends
+  // on the operating frequency and the hop length), so the hook gets both
+  // ends of the circuit and the frequency the trace runs at, and resolves the
+  // same short great-circle route `traceRayPath` walks. It picks its own
+  // control points (Table 1c). Without a target there is no circuit: the hook
+  // stays disabled and the stand-in applies, which is fine because the trace
+  // needs a target anyway.
+  const mirrorHeight = useMirrorHeight(
+    location?.lat ?? null,
+    location?.lon ?? null,
+    target?.lat ?? null,
+    target?.lon ?? null,
+    at,
+    limits?.fot ?? null,
+  );
+
   const rayTrace = useMemo(() => {
     if (!location || !target || muf === null || limits === null) return null;
     return safeTrace({
@@ -495,17 +594,31 @@ export function MufReport({ open, onClose }: MufReportProps) {
       date: at,
       sfi: sfi ?? 100,
       kp: currentKp ?? FALLBACK_KP,
+      mirrorHeight,
+      // The modelled height is solved on the short route; the trace must walk
+      // the same one or it would set the height aside as a mismatch.
+      pathMode: "short",
     });
-  }, [location, target, muf, limits, at, sfi, currentKp]);
+  }, [location, target, muf, limits, at, sfi, currentKp, mirrorHeight]);
 
   // QTH-only ionosphere diagnostics (spec §26.2's PATH facts) -- vertical
   // D-layer absorption at the QTH point, using the same MUF/FOT frequency the
   // headline reading already uses.
+  //
+  // The position and the displayed instant are both in scope here, so the
+  // absorption is evaluated where and when the rest of the panel is rather
+  // than at the declared 45 N / March / dip 60 stand-in a positionless call
+  // falls back to. `at` is the time-machine instant, not the wall clock: a
+  // time-shifted report whose absorption came from `new Date()` would
+  // disagree with every other number beside it. The obliquity stays vertical,
+  // which is what the row's own "QTH point estimate" label claims.
   const dLayerAbsorptionDb =
-    ionosphere && sfi != null
-      ? calculateDLayerAbsorption(
+    location && ionosphere && sfi != null
+      ? getAbsorptionAtLocation(
+          location.lat,
+          location.lon,
+          at,
           muf ?? limits?.fot ?? 0,
-          ionosphere.zenithAngle,
           sfi,
           90,
         )
@@ -513,22 +626,31 @@ export function MufReport({ open, onClose }: MufReportProps) {
 
   // Path diagnostics need a target and a viable trace; both read "SET
   // TARGET" / "—" rather than a fabricated number when either is missing.
-  const midpointHop = rayTrace
-    ? rayTrace.hops.reduce((closest, hop) =>
+  //
+  // A trace object is not the same thing as a traced path. A circuit whose
+  // endpoints determine no great circle, which is what selecting your own QTH
+  // as the target produces, yields a result with an empty `hops`. An
+  // initial-value-free `reduce` throws a TypeError on that array and
+  // `hops[0]` is undefined, so the emptiness is checked once here and every
+  // path row falls back to the same "—" a missing target already produces.
+  const tracedHops = rayTrace && rayTrace.hops.length > 0 ? rayTrace : null;
+  const midpointHop = tracedHops
+    ? tracedHops.hops.reduce((closest, hop) =>
         Math.abs(hop.reflectionPoint.fractionAlongPath - 0.5) <
         Math.abs(closest.reflectionPoint.fractionAlongPath - 0.5)
           ? hop
           : closest,
       )
     : null;
-  const takeoffAngleDeg = rayTrace
-    ? hopElevationAngle(
-        rayTrace.totalDistanceKm / rayTrace.hops.length,
-        rayTrace.hops[0].hmF2,
-      )
-    : null;
-  const limitingHopReason = rayTrace
-    ? rayTrace.isPathViable
+  // The engine already solved this circuit's geometry; the report reads its
+  // answer instead of solving it a second time from the mean hop length. The
+  // old second solve is how the report and the engine came to disagree about
+  // the same path, and it clamped a below-horizon ray to a manufactured
+  // +1 degree rather than saying no such mode exists.
+  const takeoffValue = takeoffRowValue(target !== null, rayTrace, tracedHops);
+  const pathExplanation = unsupportedPathExplanation(rayTrace);
+  const limitingHopReason = tracedHops
+    ? tracedHops.isPathViable
       ? "lowest-quality hop"
       : "exceeds MUF"
     : null;
@@ -640,32 +762,29 @@ export function MufReport({ open, onClose }: MufReportProps) {
               : "—"}
         </dd>
         <dt>Take-off</dt>
-        <dd>
-          {!target
-            ? "SET TARGET"
-            : takeoffAngleDeg == null
-              ? "—"
-              : `${takeoffAngleDeg.toFixed(1)}°`}
-        </dd>
+        <dd>{takeoffValue}</dd>
         <dt>Hops</dt>
         <dd>{!target ? "SET TARGET" : (rayTrace?.hops.length ?? "—")}</dd>
         <dt>Path loss</dt>
         <dd>
           {!target
             ? "SET TARGET"
-            : rayTrace
-              ? `${rayTrace.totalPathLossDb.toFixed(1)} dB`
+            : tracedHops
+              ? `${tracedHops.totalPathLossDb.toFixed(1)} dB`
               : "—"}
         </dd>
         <dt>Limiting hop</dt>
         <dd>
           {!target
             ? "SET TARGET"
-            : rayTrace
-              ? `#${rayTrace.limitingHop + 1} · ${limitingHopReason}`
+            : tracedHops
+              ? `#${tracedHops.limitingHop + 1} · ${limitingHopReason}`
               : "—"}
         </dd>
       </dl>
+      {pathExplanation === null ? null : (
+        <p className="hcr-note">{pathExplanation}</p>
+      )}
     </div>
   );
 
@@ -673,13 +792,19 @@ export function MufReport({ open, onClose }: MufReportProps) {
     <div className="hcr-cols hcr-cols--fill hcr-cols--hops">
       {!target ? (
         <p className="hcr-note">Pick a target on the map to trace a path.</p>
-      ) : !rayTrace ? (
-        <p className="hcr-note">No viable ray trace for this path right now.</p>
+      ) : !tracedHops ? (
+        <p className="hcr-note">{noHopsMessage(rayTrace)}</p>
       ) : (
         <div className="hcr-box">
           <p className="hcr-bandtable-caption">
-            {rayTrace.hops.length} hop{rayTrace.hops.length === 1 ? "" : "s"} ·{" "}
-            {rayTrace.summary}
+            {tracedHops.hops.length} hop
+            {tracedHops.hops.length === 1 ? "" : "s"} · {tracedHops.summary}
+            {/* The caption is already the dim token; the suffix says which
+                reflecting height these hops were solved at when it is the
+                stand-in, so a person does not read them as measured. */}
+            {tracedHops.mirrorHeight.kind === "declared_standin"
+              ? " · 300 km assumed"
+              : ""}
           </p>
           <div className="hcr-hoptable-head" aria-hidden="true">
             <span>#</span>
@@ -689,7 +814,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
             <span>Score</span>
           </div>
           <div className="hcr-bandtable">
-            {rayTrace.hops.map((hop, index) => (
+            {tracedHops.hops.map((hop, index) => (
               <button
                 key={index}
                 type="button"
@@ -719,7 +844,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
                 </span>
                 <span>{hop.absorptionDb.toFixed(1)} dB</span>
                 <span
-                  className={index === rayTrace.limitingHop ? "hc-warn" : ""}
+                  className={index === tracedHops.limitingHop ? "hc-warn" : ""}
                 >
                   {Math.round(hop.qualityScore)}
                 </span>
@@ -739,7 +864,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
               </tr>
             </thead>
             <tbody>
-              {rayTrace.hops.map((hop, index) => (
+              {tracedHops.hops.map((hop, index) => (
                 <tr key={index}>
                   <td>{index + 1}</td>
                   <td>{hop.reflectionPoint.lat.toFixed(2)}</td>

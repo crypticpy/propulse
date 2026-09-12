@@ -509,4 +509,67 @@ describe("buildLayerLegends", () => {
       spec.entries.find((e) => e.label === "20m")!.color,
     );
   });
+
+  describe("orbit track entry (#994 PR B)", () => {
+    it("adds an 'Orbit track' row only when satellites are on AND a track exists", () => {
+      const withoutTracks = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: false },
+      );
+      expect(withoutTracks.map((s) => s.key)).not.toContain(
+        "satelliteOrbitTrack",
+      );
+
+      const withTracks = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: true },
+      );
+      expect(withTracks.map((s) => s.key)).toContain("satelliteOrbitTrack");
+    });
+
+    it("never shows an orbit track entry when the satellites layer itself is off", () => {
+      const specs = buildLayerLegends(noLayers(), {
+        spotColorMode: "mode",
+        viewMode: "globe",
+        hasSatelliteTracks: true,
+      });
+      expect(specs.map((s) => s.key)).not.toContain("satelliteOrbitTrack");
+    });
+
+    it("has past/future swatches and a 10-min-marks note", () => {
+      const spec = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        { spotColorMode: "mode", viewMode: "globe", hasSatelliteTracks: true },
+      ).find((s) => s.key === "satelliteOrbitTrack")!;
+
+      expect(spec.title).toBe("Orbit track");
+      expect(spec.entries.map((e) => e.label)).toEqual(["Past", "Future"]);
+      expect(spec.note).toMatch(/10-min/);
+
+      // Legible su-text-toned swatches at clearly distinct alphas -- not the
+      // literal 0.18/0.45 rendered alphas, which at su-text's own brightness
+      // would still read but which the spec deliberately keeps decoupled
+      // from the per-satellite category color the real tracks draw in. Uses
+      // the live `--su-text-rgb` token (not a baked-in dark-palette rgba
+      // literal) so the swatch stays legible in the light theme too (#994 PR
+      // B round 3 Codex thread 2).
+      const past = spec.entries.find((e) => e.label === "Past")!;
+      const future = spec.entries.find((e) => e.label === "Future")!;
+      expect(past.color).toBe("rgb(var(--su-text-rgb) / 0.4)");
+      expect(future.color).toBe("rgb(var(--su-text-rgb) / 0.9)");
+    });
+
+    it("omits the orbit track entry in azimuthal, where satellites never render", () => {
+      const specs = buildLayerLegends(
+        { ...noLayers(), satellites: true },
+        {
+          spotColorMode: "mode",
+          viewMode: "azimuthal",
+          hasSatelliteTracks: true,
+        },
+      );
+      expect(specs.map((s) => s.key)).not.toContain("satellites");
+      expect(specs.map((s) => s.key)).not.toContain("satelliteOrbitTrack");
+    });
+  });
 });

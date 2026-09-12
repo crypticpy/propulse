@@ -15,10 +15,17 @@ import {
   decodeBcdFrequency,
   decodeBcdByte,
 } from "./civ/codec.js";
-import { CivCmd, CIV_SCOPE_SUB, ScopeMode, pixelToDb } from "./civ/types.js";
+import {
+  CivCmd,
+  CIV_SCOPE_SUB,
+  ScopeMode,
+  pixelToDb,
+  type CivSpectrumLine,
+} from "./civ/types.js";
 
 // Re-export types that consumers depend on
 export { ScopeMode, pixelToDb };
+export type { CivSpectrumLine };
 
 // ============================================================================
 // Constants
@@ -44,20 +51,6 @@ export interface CivClientConfig {
   port: number;
   /** CI-V address of the target radio (optional — accept any if omitted) */
   civAddress?: number;
-}
-
-/** A completed spectrum line ready for conversion to FFT frame */
-export interface CivSpectrumLine {
-  /** Center frequency in Hz */
-  centerHz: number;
-  /** Total span width in Hz */
-  spanHz: number;
-  /** Raw pixel amplitudes (0-200) */
-  pixels: Uint8Array;
-  /** Scope display mode */
-  scopeMode: ScopeMode;
-  /** Whether main (0) or sub (1) scope */
-  scopeIndex: number;
 }
 
 type SpectrumHandler = (line: CivSpectrumLine) => void;

@@ -82,3 +82,6 @@ ds-bundle/
 .design-sync/.cache-build.log
 .design-sync/learnings/
 .design-sync/node_modules
+
+# ITU-R HF reference clone and native/WASM build (PROP-06, never committed)
+ml/propagation_validation/reference/.build/

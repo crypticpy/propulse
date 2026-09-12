@@ -17,6 +17,8 @@ import type {
 import type { IngestionField } from "./CallsignLookupSuggestions";
 
 export interface IdentityImportDraft {
+  operatorName?: string;
+  grid?: string;
   license?: LicenseInfo;
   bio?: string;
   imageUrl?: string;
@@ -140,9 +142,11 @@ export function buildLookupImport(
 
   if (selectedFields.has("name") && result.name) {
     operatorName = result.name;
+    importDraft.operatorName = result.name;
   }
   if (selectedFields.has("grid") && result.grid) {
     grid = result.grid;
+    importDraft.grid = result.grid;
   }
 
   if (selectedFields.has("licenseClass") || selectedFields.has("country")) {
@@ -208,6 +212,7 @@ export function overlayStationLookupCoords(
   );
   return {
     ...station,
+    grid: active?.grid ?? station.grid,
     lat: active?.lat ?? lat,
     lon: active?.lon ?? lon,
     savedLocations,
@@ -268,7 +273,9 @@ export function useStationIdentityDraft() {
   const userIdentityDirty =
     callsign !== baseline.callsign ||
     operatorName !== baseline.operatorName ||
-    grid !== baseline.grid;
+    importDraft.operatorName !== undefined ||
+    grid !== baseline.grid ||
+    importDraft.grid !== undefined;
   const isDirty = userIdentityDirty || isIdentityImportDirty(importDraft);
 
   // Retain a user/import draft. Sync from station only when that draft is clean.
@@ -290,10 +297,14 @@ export function useStationIdentityDraft() {
     const resolved = {
       callsign: callsign !== baseline.callsign ? callsign : latest.callsign,
       operatorName:
-        operatorName !== baseline.operatorName
+        operatorName !== baseline.operatorName ||
+        importDraft.operatorName !== undefined
           ? operatorName
           : latest.operatorName,
-      grid: grid !== baseline.grid ? grid : latest.grid,
+      grid:
+        grid !== baseline.grid || importDraft.grid !== undefined
+          ? grid
+          : latest.grid,
     };
     const trimmedCallsign = resolved.callsign.toUpperCase().trim();
     if (

@@ -428,6 +428,32 @@ describe("lookup draft helpers (#353)", () => {
     expect(next.savedLocations[0]).toMatchObject({ lat: 41, lon: -72 });
   });
 
+  it("preserves every portable mirror when grid and coordinates are imported together", () => {
+    const station = seedStation();
+    const portable = station.savedLocations[1];
+    const next = saveIdentityWithLookup(
+      {
+        ...station,
+        activeLocationId: portable.id,
+        grid: portable.grid,
+        lat: portable.lat,
+        lon: portable.lon,
+      },
+      { callsign: station.callsign, operatorName: "", grid: "FN31" },
+      { grid: "FN31", lat: 41, lon: -72 },
+    );
+    expect(next).toMatchObject({
+      grid: portable.grid,
+      lat: portable.lat,
+      lon: portable.lon,
+    });
+    expect(next?.savedLocations[0]).toMatchObject({
+      grid: "FN31",
+      lat: 41,
+      lon: -72,
+    });
+  });
+
   it("does not replace the station when only license records are pending", () => {
     const station = seedStation();
     const next = saveIdentityWithLookup(

@@ -2,7 +2,7 @@
 
 Epic: [#1256](https://github.com/crypticpy/propulse/issues/1256). Census task: [#1257](https://github.com/crypticpy/propulse/issues/1257).
 
-Status: design direction reviewed; census tooling and ownership baseline in review. Application migration has not started. Source baseline: `5d6fc51396f220e5275f0651147029b197c9b8c3` (2026-09-12).
+Status: census and ownership baseline merged in #1268; shared recipe foundation implemented for COLOR-02 review. Broad application migration remains pending. Source baseline: `5d6fc51396f220e5275f0651147029b197c9b8c3` (2026-09-12).
 
 ## Contract
 
@@ -26,7 +26,7 @@ The owner authorized Codex to lead this epic with sub-agents and to perform the 
 | Startup and build aliases | Existing root fallback CSS and Tailwind aliases | Generate or consistency-test fallback values; don't maintain another hand-copied palette. |
 | Claude Design component mirrors | Existing `.design-sync` exports and previews | Preserve `Badge`/`StationBadge` compatibility while migrating. Record remote sync status separately from local source changes. |
 
-Proposed minimal API, to finalize with the first implementation slice:
+Shared API implemented by the foundation slice:
 
 ```ts
 stationTreatmentClasses({
@@ -38,7 +38,7 @@ stationTreatmentClasses({
 
 Return static, build-discoverable class names. CSS owns hover/focus/selected treatments, with explicit state selectors supported by actual callers. Extend existing primitives and retain compatibility adapters while consumers migrate. Do not create a third badge library or a universal polymorphic component. CSS used by global consumers must load without applying the scoped station typography/layout reset globally.
 
-Subtle status text defaults to `--su-text`; solid fills need independently resolved foregrounds. Validate actual composited surfaces and state layers. Existing station badge fills are opaque panel mixes at 6%, while legacy consumers use transparent tints at several strengths. Unifying these is a reviewed visual decision, not an assumption of pixel identity. `/20` is not a universal safety guarantee.
+The reviewed foundation uses an opaque 10% tone/panel mix at rest and an absolute 20% replacement on interactive hover/selection. Status and explicit secondary labels use `--su-text`; selected states do not stack another tint over the rest fill. Solid treatments resolve paired fill and canonical slate/off-white ink with a 4.6:1 margin, fitting only the control fill when needed while retaining raw/persisted accent identity. Solid hover keeps its pair and uses an underline. Existing Badge, Notice and action variants consume the recipe; quiet actions retain their transparent link treatment for the later consumer migration. See [supported treatment contract](../design-system/color-treatments.md). Validate actual composited surfaces and state layers. At the census baseline, station badge fills were opaque panel mixes at 6%, while legacy consumers use transparent tints at several strengths. Unifying these is a reviewed visual decision, not an assumption of pixel identity. `/20` is not a universal safety guarantee.
 
 ## Reviewed ownership ledger
 

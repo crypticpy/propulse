@@ -5,6 +5,7 @@
  */
 
 import type { ColorBlindMode } from "./colorblind";
+import { STATION_TREATMENT_TONES } from "./treatments";
 import {
   DEFAULT_ACCENT_HEX,
   hexToChannels,
@@ -233,6 +234,14 @@ export function applyThemeToDocument(
       `--su-fixed-dark-${role}-rgb`,
       fixedDarkTones[`--su-${role}-rgb`],
     );
+  }
+
+  // Solid pairs must follow the pinned surface's palette as a pair too.
+  for (const role of STATION_TREATMENT_TONES) {
+    if (role === "accent") continue;
+    for (const part of ["fill", "ink"] as const) {
+      root.style.setProperty(`--su-fixed-dark-solid-${role}-${part}`, fixedDarkTones[`--su-solid-${role}-${part}`]);
+    }
   }
 
   root.classList.toggle("dark", theme.isDark);

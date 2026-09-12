@@ -1,0 +1,98 @@
+/* Color-only recipes: safe to load globally without the station layout reset. */
+.su-tone-neutral {
+  --su-tone: var(--su-muted);
+  --su-treatment-solid-fill: var(--su-solid-neutral-fill);
+  --su-treatment-solid-ink: var(--su-solid-neutral-ink);
+}
+.su-tone-info {
+  --su-tone: var(--su-info);
+  --su-treatment-solid-fill: var(--su-solid-info-fill);
+  --su-treatment-solid-ink: var(--su-solid-info-ink);
+}
+.su-tone-success {
+  --su-tone: var(--su-success);
+  --su-treatment-solid-fill: var(--su-solid-success-fill);
+  --su-treatment-solid-ink: var(--su-solid-success-ink);
+}
+.su-tone-warning {
+  --su-tone: var(--su-warning);
+  --su-treatment-solid-fill: var(--su-solid-warning-fill);
+  --su-treatment-solid-ink: var(--su-solid-warning-ink);
+}
+.su-tone-danger {
+  --su-tone: var(--su-danger);
+  --su-treatment-solid-fill: var(--su-solid-danger-fill);
+  --su-treatment-solid-ink: var(--su-solid-danger-ink);
+}
+.su-tone-accent {
+  --su-tone: var(--su-accent);
+  --su-treatment-solid-fill: var(--su-solid-accent-fill);
+  --su-treatment-solid-ink: var(--su-solid-accent-ink);
+}
+.su-tone-purple {
+  --su-tone: var(--su-purple);
+  --su-treatment-solid-fill: var(--su-solid-purple-fill);
+  --su-treatment-solid-ink: var(--su-solid-purple-ink);
+}
+
+/* Recompute variables on each recipe root, including nested recipes. */
+.su-treatment.su-treatment {
+  --su-treatment-ink: var(--su-text);
+  --su-treatment-secondary-ink: var(--su-treatment-ink);
+  --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-rest-strength, 10%), var(--su-panel));
+  --su-treatment-edge: color-mix(in srgb, var(--su-tone) 55%, var(--su-panel));
+  color: var(--su-treatment-ink);
+  background-color: var(--su-treatment-fill);
+  border-color: var(--su-treatment-edge);
+}
+.su-treatment.su-treatment--outline {
+  --su-treatment-fill: var(--su-panel);
+  /* An outline control's boundary is essential, unlike a badge's tint edge. */
+  --su-treatment-edge: var(--su-text);
+}
+.su-treatment.su-treatment--solid {
+  --su-treatment-fill: var(--su-treatment-solid-fill);
+  --su-treatment-ink: var(--su-treatment-solid-ink);
+  --su-treatment-edge: var(--su-text);
+}
+.su-treatment .su-treatment-secondary {
+  color: var(--su-treatment-secondary-ink);
+}
+.su-treatment.su-treatment--interactive:is([aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
+  /* Offset ring is adjacent to the outside surface, not a solid control fill. */
+  outline: 2px solid var(--su-text);
+  outline-offset: 2px;
+}
+.su-treatment.su-treatment--interactive:not(.su-treatment--solid):is([aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
+  --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-active-strength, 20%), var(--su-panel));
+}
+@media (hover: hover) {
+  .su-treatment.su-treatment--interactive:not(:disabled):not([aria-disabled="true"]):hover {
+    /* A shape cue works for solid pairs without adding an untested overlay. */
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .su-treatment.su-treatment--interactive:not(.su-treatment--solid):not(:disabled):not([aria-disabled="true"]):hover {
+    --su-treatment-fill: color-mix(in srgb, var(--su-tone) var(--su-treatment-active-strength, 20%), var(--su-panel));
+  }
+}
+.su-treatment.su-treatment:focus-visible {
+  outline: 2px solid var(--su-text);
+  outline-offset: 3px;
+}
+.su-treatment.su-treatment:is(:disabled, [aria-disabled="true"]) {
+  opacity: 1;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+@media (forced-colors: active) {
+  .su-treatment.su-treatment {
+    color: ButtonText;
+    background-color: ButtonFace;
+    border-color: ButtonText;
+  }
+  .su-treatment .su-treatment-secondary { color: ButtonText; }
+  .su-treatment.su-treatment:is(:focus-visible, [aria-selected="true"], [aria-pressed="true"], [aria-checked="true"], [data-selected="true"]) {
+    outline-color: Highlight;
+  }
+}

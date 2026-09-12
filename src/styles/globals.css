@@ -1,3 +1,5 @@
+@import "../components/station-ui/treatments.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,6 +31,8 @@
   /* src/lib/themes/stationTokens.test.ts).       */
   /* See docs/designs/design-system/README.md     */
   /* ============================================ */
+  --su-treatment-rest-strength: 10%;
+  --su-treatment-active-strength: 20%;
   --su-canvas: #141827;
   --su-panel: #191e2e;
   --su-input: #111624;
@@ -44,6 +48,48 @@
   --su-warning: #f5cf79;
   --su-danger: #fda4af;
   --su-purple: #b975f0;
+
+  /* Solid treatment fallbacks; tested against stationTokens, never raw user colors. */
+  --su-solid-neutral-fill: #a0abba;
+  --su-solid-neutral-ink: #1e293b;
+  --su-solid-info-fill: #85c4d0;
+  --su-solid-info-ink: #1e293b;
+  --su-solid-success-fill: #8bdbb0;
+  --su-solid-success-ink: #1e293b;
+  --su-solid-warning-fill: #f5cf79;
+  --su-solid-warning-ink: #1e293b;
+  --su-solid-danger-fill: #fda4af;
+  --su-solid-danger-ink: #1e293b;
+  --su-solid-accent-fill: #ff6b35;
+  --su-solid-accent-ink: #1e293b;
+  --su-solid-purple-fill: #b975f0;
+  --su-solid-purple-ink: #1e293b;
+  --su-solid-neutral-fill-rgb: 160 171 186;
+  --su-solid-neutral-ink-rgb: 30 41 59;
+  --su-solid-info-fill-rgb: 133 196 208;
+  --su-solid-info-ink-rgb: 30 41 59;
+  --su-solid-success-fill-rgb: 139 219 176;
+  --su-solid-success-ink-rgb: 30 41 59;
+  --su-solid-warning-fill-rgb: 245 207 121;
+  --su-solid-warning-ink-rgb: 30 41 59;
+  --su-solid-danger-fill-rgb: 253 164 175;
+  --su-solid-danger-ink-rgb: 30 41 59;
+  --su-solid-accent-fill-rgb: 255 107 53;
+  --su-solid-accent-ink-rgb: 30 41 59;
+  --su-solid-purple-fill-rgb: 185 117 240;
+  --su-solid-purple-ink-rgb: 30 41 59;
+  --su-fixed-dark-solid-neutral-fill: #a0abba;
+  --su-fixed-dark-solid-neutral-ink: #1e293b;
+  --su-fixed-dark-solid-info-fill: #85c4d0;
+  --su-fixed-dark-solid-info-ink: #1e293b;
+  --su-fixed-dark-solid-success-fill: #8bdbb0;
+  --su-fixed-dark-solid-success-ink: #1e293b;
+  --su-fixed-dark-solid-warning-fill: #f5cf79;
+  --su-fixed-dark-solid-warning-ink: #1e293b;
+  --su-fixed-dark-solid-danger-fill: #fda4af;
+  --su-fixed-dark-solid-danger-ink: #1e293b;
+  --su-fixed-dark-solid-purple-fill: #b975f0;
+  --su-fixed-dark-solid-purple-ink: #1e293b;
 
   /* Channel triplets for Tailwind opacity modifiers (text-su-text/70) */
   --su-canvas-rgb: 20 24 39;
@@ -107,6 +153,19 @@
   --su-warning-rgb: var(--su-fixed-dark-warning-rgb);
   --su-danger: var(--su-fixed-dark-danger);
   --su-danger-rgb: var(--su-fixed-dark-danger-rgb);
+
+  --su-solid-neutral-fill: var(--su-fixed-dark-solid-neutral-fill);
+  --su-solid-neutral-ink: var(--su-fixed-dark-solid-neutral-ink);
+  --su-solid-info-fill: var(--su-fixed-dark-solid-info-fill);
+  --su-solid-info-ink: var(--su-fixed-dark-solid-info-ink);
+  --su-solid-success-fill: var(--su-fixed-dark-solid-success-fill);
+  --su-solid-success-ink: var(--su-fixed-dark-solid-success-ink);
+  --su-solid-warning-fill: var(--su-fixed-dark-solid-warning-fill);
+  --su-solid-warning-ink: var(--su-fixed-dark-solid-warning-ink);
+  --su-solid-danger-fill: var(--su-fixed-dark-solid-danger-fill);
+  --su-solid-danger-ink: var(--su-fixed-dark-solid-danger-ink);
+  --su-solid-purple-fill: var(--su-fixed-dark-solid-purple-fill);
+  --su-solid-purple-ink: var(--su-fixed-dark-solid-purple-ink);
 
   /* `purple` (aurora-purple) is a decorative accent, not a status tone, so it
    * takes no colour-blind swap and needs no --su-fixed-dark-* indirection:

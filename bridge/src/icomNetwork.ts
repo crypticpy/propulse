@@ -24,55 +24,11 @@
  */
 
 import dgram from "node:dgram";
-import { type CivFrame } from "./civ/codec.js";
-import {
-  readFrequency,
-  setFrequency,
-  readMode,
-  setMode,
-  readPtt,
-  setPtt,
-  readSmeter,
-  readPowerMeter,
-  readSwrMeter,
-  readAlcMeter,
-  readLevel,
-  setLevel,
-  readFunction,
-  setFunction,
-  setAgc,
-  setVfo,
-  setSplit,
-  readSplit,
-  setRit,
-  setXit,
-  readRit,
-  readXit,
-  readRitXitOffset,
-  setCwSpeed,
-  setIfShift,
-  startScope,
-  stopScope,
-  startScopeDataOutput,
-  stopScopeDataOutput,
-  setAntenna,
-  parseFrequencyResponse,
-  parseModeResponse,
-  parsePttResponse,
-  parseMeterResponse,
-  parseLevelResponse,
-  parseFunctionResponse,
-  parseSplitResponse,
-  parseRitXitEnableResponse,
-  parseRitXitOffsetResponse,
-  parseIfShiftResponse,
-  parseAgcResponse,
-} from "./civ/commands.js";
+import { readFrequency } from "./civ/commands.js";
 import {
   type CivAddress,
   CIV_CONTROLLER_ADDR,
   ICOM_MODELS,
-  rawSmeterToDbm,
 } from "./civ/types.js";
 import { CivSession } from "./civ/session.js";
 import type { RigStatus } from "./types.js";
@@ -111,9 +67,6 @@ const DEFAULT_POLL_INTERVAL = 200;
 /** Keepalive interval for the control channel (ms) */
 const KEEPALIVE_INTERVAL_MS = 500;
 
-/** Max consecutive errors before disconnecting */
-const MAX_CONSECUTIVE_ERRORS = 10;
-
 /** Login timeout (ms) */
 const LOGIN_TIMEOUT_MS = 5000;
 
@@ -134,7 +87,6 @@ const PKT_TYPE = {
 
 /** Default audio sample rate */
 const DEFAULT_AUDIO_SAMPLE_RATE = 48000;
-const OPTIONAL_POLL_INTERVAL_CYCLES = 5;
 
 // ─── Event Handler Types ──────────────────────────────────────────────────────
 
@@ -174,17 +126,10 @@ export class IcomNetworkBackend {
   // CI-V command queue and frame dispatch
   private readonly session: CivSession;
 
-  // Polling and keepalive
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private pollInFlight = false;
+  // Keepalive
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private keepaliveMisses = 0;
-  private consecutiveErrors = 0;
   private _isConnected = false;
-
-  // Last known state for change detection
-  private lastStatus: RigStatus | null = null;
-  private lastSmeterDbm: number | null = null;
 
   // Audio streaming
   private audioEnabled = false;
@@ -195,9 +140,6 @@ export class IcomNetworkBackend {
   private errorHandlers: ErrorHandler[] = [];
   private spectrumHandlers: SpectrumHandler[] = [];
   private audioHandlers: AudioHandler[] = [];
-
-  // Track which optional fields are unsupported (avoid repeated errors)
-  private warnedUnsupported = new Set<string>();
 
   constructor(config: IcomNetworkConfig) {
     this.config = {
@@ -238,17 +180,14 @@ export class IcomNetworkBackend {
       },
       {
         onSpectrumLine: (line) => this.emitSpectrumLine(line),
-        onUnsolicitedFrequency: (frequency) => {
-          if (!this.lastStatus) return;
-          this.lastStatus = { ...this.lastStatus, frequency };
-          this.emitStatus(this.lastStatus);
-        },
-        onUnsolicitedMode: (mode) => {
-          if (!this.lastStatus) return;
-          this.lastStatus = { ...this.lastStatus, mode };
-          this.emitStatus(this.lastStatus);
+        onStatus: (status) => this.emitStatus(status),
+        onSmeter: (dbm) => this.emitSmeter(dbm),
+        onFatalPollError: (message) => {
+          this.emitError(message);
+          this.stop();
         },
       },
+      this.addr,
     );
   }
 
@@ -285,18 +224,17 @@ export class IcomNetworkBackend {
 
     await this.login();
     this._isConnected = true;
-    this.consecutiveErrors = 0;
     this.startKeepalive();
-    this.startPolling();
+    this.session.startPolling(this.config.pollInterval);
   }
 
   /** Stop the backend: close sockets, stop polling */
   stop(): void {
-    this.stopPolling();
+    this.session.stopPolling();
     this.stopKeepalive();
     this.session.resetSpectrum();
     this.stopAudioInternal();
-    this.pollInFlight = false;
+    this.session.resetPollState();
 
     this.session.cancelPending();
 
@@ -322,7 +260,6 @@ export class IcomNetworkBackend {
     this.closeAllSockets();
     this.session.resetParser();
     this._isConnected = false;
-    this.lastStatus = null;
     this.sessionSentId = 0;
     this.sessionRcvdId = 0;
     this.civSeq = 0;
@@ -375,141 +312,91 @@ export class IcomNetworkBackend {
   // ── Rig Control Commands ──────────────────────────────────────────────────
 
   async setFrequency(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFrequency(this.addr, hz),
-      "Set frequency",
-    );
+    await this.session.setFrequency(hz);
   }
 
   async setMode(mode: string, _passband?: number): Promise<void> {
-    await this.session.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
+    await this.session.setMode(mode, _passband);
   }
 
   async setPTT(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
+    await this.session.setPTT(on);
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    await this.session.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
+    await this.session.setVFO(vfo);
   }
 
   async setSplit(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setSplit(this.addr, on), "Set split");
+    await this.session.setSplit(on);
   }
 
   async setFunc(func: string, on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, func, on),
-      `Set function ${func}`,
-    );
+    await this.session.setFunc(func, on);
   }
 
   async setLevel(level: string, value: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setLevel(this.addr, level, value),
-      `Set level ${level}`,
-    );
+    await this.session.setLevel(level, value);
   }
 
   async getLevel(level: string): Promise<number> {
-    const frame = await this.session.sendCommand(readLevel(this.addr, level));
-    if (!frame) return 0;
-    return parseLevelResponse(frame) ?? 0;
+    return this.session.getLevel(level);
   }
 
   async getFunc(func: string): Promise<boolean> {
-    const frame = await this.session.sendCommand(readFunction(this.addr, func));
-    if (!frame) return false;
-    return parseFunctionResponse(frame) ?? false;
+    return this.session.getFunc(func);
   }
 
   async setAgc(mode: number): Promise<void> {
-    await this.session.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
+    await this.session.setAgc(mode);
   }
 
   async setPassband(hz: number): Promise<void> {
-    // CI-V doesn't have a direct passband command — set filter width via mode
-    // For now, this is a no-op. Filter width is set implicitly via setMode.
-    void hz;
+    await this.session.setPassband(hz);
   }
 
   async setAntenna(index: string): Promise<void> {
-    const port = parseInt(index, 10);
-    if (!isNaN(port)) {
-      await this.session.sendAndWaitOk(
-        setAntenna(this.addr, port),
-        "Set antenna",
-      );
-    }
+    await this.session.setAntenna(index);
   }
 
   async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setRit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setRit(enabled, offsetHz);
   }
 
   async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setXit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setXit(enabled, offsetHz);
   }
 
   async setAnf(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "ANF", enabled),
-      "Set ANF",
-    );
+    await this.session.setAnf(enabled);
   }
 
   async setQsk(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "BKIN", enabled),
-      "Set QSK",
-    );
+    await this.session.setQsk(enabled);
   }
 
   async setVox(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "VOX", enabled),
-      "Set VOX",
-    );
+    await this.session.setVox(enabled);
   }
 
   async setCwSpeed(wpm: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setCwSpeed(this.addr, wpm),
-      "Set CW speed",
-    );
+    await this.session.setCwSpeed(wpm);
   }
 
   async setIfShift(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
+    await this.session.setIfShift(hz);
   }
 
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(true);
-    await this.session.sendAndWaitOk(
-      startScope(this.addr),
-      "Enable scope display",
-    );
-    await this.session.sendAndWaitOk(
-      startScopeDataOutput(this.addr),
-      "Enable scope data output",
-    );
+    await this.session.startSpectrum();
   }
 
   async stopSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(false);
-    await this.session.sendAndWaitOk(
-      stopScopeDataOutput(this.addr),
-      "Disable scope data output",
-    );
-    await this.session.sendAndWaitOk(
-      stopScope(this.addr),
-      "Disable scope display",
-    );
+    await this.session.stopSpectrum();
   }
+
 
   // ── Audio Stream Control ──────────────────────────────────────────────────
 
@@ -734,310 +621,6 @@ export class IcomNetworkBackend {
     }
 
     this.emitAudio(samples, DEFAULT_AUDIO_SAMPLE_RATE);
-  }
-
-  // ── Internal: Polling ─────────────────────────────────────────────────────
-
-  private startPolling(): void {
-    if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => {
-      this.triggerPollCycle();
-    }, this.config.pollInterval);
-    // Run first poll immediately
-    this.triggerPollCycle();
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  private triggerPollCycle(): void {
-    if (this.pollInFlight) return;
-    this.pollInFlight = true;
-    void this.pollCycle().finally(() => {
-      this.pollInFlight = false;
-    });
-  }
-
-  private pollCount = 0;
-
-  private async pollCycle(): Promise<void> {
-    if (!this._isConnected) return;
-    this.pollCount++;
-    const pollOptionalFields =
-      !this.lastStatus || this.pollCount % OPTIONAL_POLL_INTERVAL_CYCLES === 0;
-
-    try {
-      const status = await this.readFullStatus(pollOptionalFields);
-      this.consecutiveErrors = 0;
-
-      // Emit S-meter separately (always changes)
-      if (status.smeter !== undefined) {
-        const dbm = status.smeter;
-        if (dbm !== this.lastSmeterDbm) {
-          this.lastSmeterDbm = dbm;
-          this.emitSmeter(dbm);
-        }
-      }
-
-      // Emit status if anything changed (excluding smeter)
-      if (this.hasStatusChanged(status)) {
-        this.lastStatus = status;
-        this.emitStatus(status);
-      }
-    } catch {
-      this.consecutiveErrors++;
-      if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        this.emitError(
-          `Too many consecutive errors (${this.consecutiveErrors}), disconnecting`,
-        );
-        this.stop();
-      }
-    }
-  }
-
-  private async readFullStatus(
-    pollOptionalFields: boolean,
-  ): Promise<RigStatus> {
-    const status: RigStatus = this.lastStatus
-      ? { ...this.lastStatus, connected: true }
-      : { connected: true };
-
-    // Frequency (required)
-    const freqFrame = await this.session.sendCommand(readFrequency(this.addr));
-    if (freqFrame) {
-      const freq = parseFrequencyResponse(freqFrame);
-      if (freq !== null) status.frequency = freq;
-    }
-
-    // Mode (required)
-    const modeFrame = await this.session.sendCommand(readMode(this.addr));
-    if (modeFrame) {
-      const result = parseModeResponse(modeFrame);
-      if (result) status.mode = result.mode;
-    }
-
-    // PTT
-    const pttFrame = await this.session.sendCommand(readPtt(this.addr));
-    if (pttFrame) {
-      const ptt = parsePttResponse(pttFrame);
-      if (ptt !== null) status.ptt = ptt;
-    }
-
-    // S-meter
-    const smeterFrame = await this.session.sendCommand(readSmeter(this.addr));
-    if (smeterFrame) {
-      const raw = parseMeterResponse(smeterFrame);
-      if (raw !== null) status.smeter = rawSmeterToDbm(raw);
-    }
-
-    // TX metering (only when transmitting)
-    if (status.ptt) {
-      const txMeter: NonNullable<RigStatus["txMeter"]> = {};
-
-      const pwrFrame = await this.session.sendCommand(
-        readPowerMeter(this.addr),
-      );
-      if (pwrFrame) {
-        const raw = parseMeterResponse(pwrFrame);
-        if (raw !== null) txMeter.powerW = (raw / 241) * 100; // Scale to watts
-      }
-
-      const swrFrame = await this.session.sendCommand(readSwrMeter(this.addr));
-      if (swrFrame) {
-        const raw = parseMeterResponse(swrFrame);
-        if (raw !== null) txMeter.swr = 1 + (raw / 241) * 2; // 1.0 to 3.0 scale
-      }
-
-      const alcFrame = await this.session.sendCommand(readAlcMeter(this.addr));
-      if (alcFrame) {
-        const raw = parseMeterResponse(alcFrame);
-        if (raw !== null) txMeter.alc = raw / 241;
-      }
-
-      status.txMeter = txMeter;
-    }
-
-    // Split
-    const splitFrame = await this.session.sendCommand(readSplit(this.addr));
-    if (splitFrame) {
-      const split = parseSplitResponse(splitFrame);
-      if (split !== null) status.split = split;
-    }
-
-    if (pollOptionalFields) {
-      // RIT
-      await this.pollOptional("RIT", async () => {
-        const ritFrame = this.requireOptionalFrame(
-          "RIT",
-          await this.session.sendCommand(readRit(this.addr)),
-        );
-        const enabled = parseRitXitEnableResponse(ritFrame);
-        if (enabled === null) {
-          throw new Error("RIT parse failed");
-        }
-        const offsetFrame = this.requireOptionalFrame(
-          "RIT_OFFSET",
-          await this.session.sendCommand(readRitXitOffset(this.addr)),
-        );
-        const offsetHz = parseRitXitOffsetResponse(offsetFrame);
-        if (offsetHz === null) {
-          throw new Error("RIT offset parse failed");
-        }
-        status.rit = { enabled, offsetHz };
-      });
-
-      // XIT
-      await this.pollOptional("XIT", async () => {
-        const xitFrame = this.requireOptionalFrame(
-          "XIT",
-          await this.session.sendCommand(readXit(this.addr)),
-        );
-        const enabled = parseRitXitEnableResponse(xitFrame);
-        if (enabled === null) {
-          throw new Error("XIT parse failed");
-        }
-        status.xit = { enabled, offsetHz: status.rit?.offsetHz ?? 0 };
-      });
-
-      // ANF
-      await this.pollOptional("ANF", async () => {
-        const frame = this.requireOptionalFrame(
-          "ANF",
-          await this.session.sendCommand(readFunction(this.addr, "ANF")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("ANF parse failed");
-        }
-        status.anf = val;
-      });
-
-      // QSK (BKIN)
-      await this.pollOptional("QSK", async () => {
-        const frame = this.requireOptionalFrame(
-          "QSK",
-          await this.session.sendCommand(readFunction(this.addr, "BKIN")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("QSK parse failed");
-        }
-        status.qsk = val;
-      });
-
-      // VOX
-      await this.pollOptional("VOX", async () => {
-        const frame = this.requireOptionalFrame(
-          "VOX",
-          await this.session.sendCommand(readFunction(this.addr, "VOX")),
-        );
-        const val = parseFunctionResponse(frame);
-        if (val === null) {
-          throw new Error("VOX parse failed");
-        }
-        status.vox = val;
-      });
-
-      // AGC
-      await this.pollOptional("AGC", async () => {
-        const frame = this.requireOptionalFrame(
-          "AGC",
-          await this.session.sendCommand(readFunction(this.addr, "AGC")),
-        );
-        const val = parseAgcResponse(frame);
-        if (val === null) {
-          throw new Error("AGC parse failed");
-        }
-        status.agcMode = val;
-      });
-
-      // CW Speed
-      await this.pollOptional("KEYSPD", async () => {
-        const frame = this.requireOptionalFrame(
-          "KEYSPD",
-          await this.session.sendCommand(readLevel(this.addr, "KEYSPD")),
-        );
-        const val = parseLevelResponse(frame);
-        if (val === null) {
-          throw new Error("KEYSPD parse failed");
-        }
-        status.cwSpeed = val;
-      });
-
-      // IF Shift
-      await this.pollOptional("IF_SHIFT", async () => {
-        const frame = this.requireOptionalFrame(
-          "IF_SHIFT",
-          await this.session.sendCommand(readLevel(this.addr, "IF_SHIFT")),
-        );
-        const raw = parseLevelResponse(frame);
-        if (raw === null) {
-          throw new Error("IF_SHIFT parse failed");
-        }
-        status.ifShift = parseIfShiftResponse(raw);
-      });
-    }
-
-    return status;
-  }
-
-  /** Poll an optional field, suppressing repeated errors for unsupported features */
-  private async pollOptional(
-    name: string,
-    fn: () => Promise<void>,
-  ): Promise<void> {
-    if (this.warnedUnsupported.has(name)) return;
-    try {
-      await fn();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const shouldDisable =
-        message.includes("timed out") || message.includes("rejected by radio");
-      if (shouldDisable) {
-        this.warnedUnsupported.add(name);
-        console.warn(
-          `[icom-network] Disabling optional poll ${name}: ${message}`,
-        );
-      } else {
-        console.warn(`[icom-network] Optional poll ${name} failed: ${message}`);
-      }
-    }
-  }
-
-  private requireOptionalFrame(name: string, frame: CivFrame | null): CivFrame {
-    if (!frame) {
-      throw new Error(`${name} timed out`);
-    }
-    if (frame.isNg) {
-      throw new Error(`${name} rejected by radio`);
-    }
-    return frame;
-  }
-
-  /** Check if status has meaningfully changed (excluding S-meter) */
-  private hasStatusChanged(status: RigStatus): boolean {
-    if (!this.lastStatus) return true;
-    const prev = this.lastStatus;
-    return (
-      prev.frequency !== status.frequency ||
-      prev.mode !== status.mode ||
-      prev.ptt !== status.ptt ||
-      prev.vfo !== status.vfo ||
-      prev.split !== status.split ||
-      prev.anf !== status.anf ||
-      prev.qsk !== status.qsk ||
-      prev.vox !== status.vox ||
-      prev.agcMode !== status.agcMode ||
-      prev.cwSpeed !== status.cwSpeed ||
-      prev.ifShift !== status.ifShift ||
-      prev.rit?.enabled !== status.rit?.enabled ||
-      prev.rit?.offsetHz !== status.rit?.offsetHz ||
-      prev.xit?.enabled !== status.xit?.enabled
-    );
   }
 
   // ── Internal: Keepalive ─────────────────────────────────────────────────

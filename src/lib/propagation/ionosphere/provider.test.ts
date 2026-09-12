@@ -12,6 +12,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import fixtures from "./fixtures/reference-parity.json";
+import gyrofrequencyCases from "./fixtures/longitudinal-gyrofrequency.cases.json";
 import manifest from "./assets/manifest.json";
 import {
   loadNumericalMapAsset,
@@ -44,6 +45,15 @@ import {
   type IonosphereQuery,
 } from "./types";
 import { MODEL_YEAR_DAYS } from "./solar";
+import {
+  D2R,
+  D_REGION_FIELD_HEIGHT_KM,
+  longitudinalGyrofrequencyMHz,
+  magneticField,
+  MAP_DIP_HEIGHT_KM,
+  modifiedDipLatitudeRad,
+  R2D,
+} from "./modip";
 
 const assetBytes: AssetByteSource = async () => {
   const file = path.join(process.cwd(), manifest.asset.path);
@@ -1180,5 +1190,161 @@ describe("provider registry", () => {
     expect(state.providerId).toBe(provider.id);
     expect(state.providerVersion).toBe(provider.version);
     expect(state.artifactHash).toBe(manifest.asset.sha256);
+  });
+});
+
+describe("the longitudinal gyrofrequency at 100 km (#1108)", () => {
+  const AUSTIN = gyrofrequencyCases.cases[0];
+
+  it("reports the magnetic dip and gyrofrequency at 100 km as well as at 300 km", async () => {
+    const provider = await freshProvider();
+    const state = provider.state({
+      ...DETERMINISM_PROBE_QUERY,
+      coordinates: canonicalCoordinates(
+        AUSTIN.latitude_deg,
+        AUSTIN.longitude_deg,
+      ),
+    });
+    // The state's own canonical coordinates, so the comparison is against the
+    // field the provider actually evaluated and not a re-derivation that can
+    // differ in the last bit of the longitude wrap.
+    const latitudeRad = state.coordinates.latitude * D2R;
+    const longitudeRad = state.coordinates.longitude * D2R;
+    const at100 = magneticField(
+      latitudeRad,
+      longitudeRad,
+      D_REGION_FIELD_HEIGHT_KM,
+    );
+    const at300 = magneticField(latitudeRad, longitudeRad, MAP_DIP_HEIGHT_KM);
+
+    expect(D_REGION_FIELD_HEIGHT_KM).toBe(100);
+    expect(state.magneticDip100kmDeg).toBe(at100.dipRad * R2D);
+    expect(state.gyrofrequency100kmMHz).toBe(at100.gyrofrequencyMHz);
+    expect(state.longitudinalGyrofrequency100kmMHz).toBe(
+      longitudinalGyrofrequencyMHz(latitudeRad, longitudeRad),
+    );
+    // The 300 km pair is still there and still the 300 km pair: the new fields
+    // are a second quantity, not a re-siting of the old one.
+    expect(state.magneticDip300kmDeg).toBe(at300.dipRad * R2D);
+    expect(state.gyrofrequency300kmMHz).toBe(at300.gyrofrequencyMHz);
+    expect(state.magneticDip100kmDeg).not.toBe(state.magneticDip300kmDeg);
+  });
+
+  it("names the 100 km evaluation in the state's assumptions", async () => {
+    const provider = await freshProvider();
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    const line = state.assumptions.find((entry) =>
+      entry.includes("longitudinal gyrofrequency"),
+    );
+    expect(line).toBeDefined();
+    expect(line).toContain("100 km");
+    expect(line).toContain("300 km");
+  });
+
+  it("declares the longitudinal gyrofrequency as a supported capability", () => {
+    expect(CAPABILITIES.longitudinalGyrofrequency.status).toBe("supported");
+  });
+
+  it("puts the 100 km fields inside the state digest", async () => {
+    const provider = await freshProvider();
+    const state = provider.state(DETERMINISM_PROBE_QUERY);
+    const digest = await ionosphereStateDigest(state);
+    const tweak = (patch: Partial<Record<string, unknown>>) =>
+      ionosphereStateDigest({ ...state, ...patch } as typeof state);
+    expect(
+      await tweak({ magneticDip100kmDeg: state.magneticDip100kmDeg + 1 }),
+    ).not.toBe(digest);
+    expect(
+      await tweak({ gyrofrequency100kmMHz: state.gyrofrequency100kmMHz + 1 }),
+    ).not.toBe(digest);
+    expect(
+      await tweak({
+        longitudinalGyrofrequency100kmMHz:
+          state.longitudinalGyrofrequency100kmMHz + 1,
+      }),
+    ).not.toBe(digest);
+  });
+
+  it("still evaluates the modip coordinate at 300 km (R7)", () => {
+    // The CCIR foF2 coefficients were fitted against sin(modip) with modip from
+    // this expansion at 300 km. Moving that height degrades grid parity by two
+    // orders of magnitude, so the 100 km call must stay a separate quantity.
+    for (const probe of gyrofrequencyCases.cases) {
+      const latitudeRad = probe.latitude_deg * D2R;
+      const longitudeRad = probe.longitude_deg * D2R;
+      const at300 = magneticField(latitudeRad, longitudeRad, MAP_DIP_HEIGHT_KM);
+      const at100 = magneticField(
+        latitudeRad,
+        longitudeRad,
+        D_REGION_FIELD_HEIGHT_KM,
+      );
+      const modip = modifiedDipLatitudeRad(latitudeRad, longitudeRad);
+      expect(modip).toBe(
+        Math.atan(at300.dipRad / Math.sqrt(Math.cos(latitudeRad))),
+      );
+      expect(modip).not.toBe(
+        Math.atan(at100.dipRad / Math.sqrt(Math.cos(latitudeRad))),
+      );
+    }
+    expect(MAP_DIP_HEIGHT_KM).toBe(300);
+  });
+
+  it("matches the fixture cases to 1e-6 MHz", () => {
+    const tolerance =
+      gyrofrequencyCases.tolerance.longitudinal_gyrofrequency_mhz;
+    for (const probe of gyrofrequencyCases.cases) {
+      const latitudeRad = probe.latitude_deg * D2R;
+      const longitudeRad = probe.longitude_deg * D2R;
+      const field = magneticField(
+        latitudeRad,
+        longitudeRad,
+        D_REGION_FIELD_HEIGHT_KM,
+      );
+      expect(field.dipRad * R2D).toBeCloseTo(probe.dip_100km_deg, 6);
+      expect(field.gyrofrequencyMHz).toBeCloseTo(
+        probe.gyrofrequency_100km_mhz,
+        6,
+      );
+      expect(
+        Math.abs(
+          longitudinalGyrofrequencyMHz(latitudeRad, longitudeRad) -
+            probe.longitudinal_gyrofrequency_100km_mhz,
+        ),
+      ).toBeLessThan(tolerance);
+      expect(
+        Math.abs(
+          longitudinalGyrofrequencyMHz(
+            latitudeRad,
+            longitudeRad,
+            MAP_DIP_HEIGHT_KM,
+          ) - probe.longitudinal_gyrofrequency_300km_mhz,
+        ),
+      ).toBeLessThan(tolerance);
+      // The factor the corrected fL puts on equation (20)'s loss. A ratio, not
+      // a decibel shift: equation (20) is already a loss in dB.
+      const fL = longitudinalGyrofrequencyMHz(latitudeRad, longitudeRad);
+      expect(
+        Math.abs(((14 + 1.2) / (14 + fL)) ** 2 - probe.absorption_factor_14mhz),
+      ).toBeLessThan(gyrofrequencyCases.tolerance.absorption_factor);
+      expect(
+        Math.abs(((7 + 1.2) / (7 + fL)) ** 2 - probe.absorption_factor_7mhz),
+      ).toBeLessThan(gyrofrequencyCases.tolerance.absorption_factor);
+    }
+  });
+
+  it("moves fL at Austin when the field is read at 300 km instead of 100 km", () => {
+    // Small, but it is the difference between the height P.533-14 equation (20)
+    // specifies and the height that happens to be on the state object already.
+    const latitudeRad = AUSTIN.latitude_deg * D2R;
+    const longitudeRad = AUSTIN.longitude_deg * D2R;
+    const at100 = longitudinalGyrofrequencyMHz(latitudeRad, longitudeRad);
+    const at300 = longitudinalGyrofrequencyMHz(
+      latitudeRad,
+      longitudeRad,
+      MAP_DIP_HEIGHT_KM,
+    );
+    expect(at100 - at300).toBeCloseTo(0.112392, 6);
+    const deltaDb = 20 * Math.log10((14 + at300) / (14 + at100));
+    expect(deltaDb).toBeCloseTo(-0.064485, 6);
   });
 });

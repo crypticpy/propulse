@@ -71,7 +71,13 @@ export {
 } from "./types";
 
 export { foE, phi12FromR12, type FoEResult } from "./foE";
-export { magneticField, modifiedDipLatitudeRad } from "./modip";
+export {
+  longitudinalGyrofrequencyMHz,
+  magneticField,
+  modifiedDipLatitudeRad,
+  D_REGION_FIELD_HEIGHT_KM,
+  MAP_DIP_HEIGHT_KM,
+} from "./modip";
 export {
   blendBySolarIndex,
   evaluateMap,

@@ -60,7 +60,14 @@ import {
   type NumericalMapAsset,
 } from "./assets/loader";
 import { foE } from "./foE";
-import { D2R, magneticField, R2D } from "./modip";
+import {
+  D2R,
+  D_REGION_FIELD_HEIGHT_KM,
+  longitudinalGyrofrequencyMHz,
+  magneticField,
+  MAP_DIP_HEIGHT_KM,
+  R2D,
+} from "./modip";
 import {
   bilinearInterpolation,
   blendBySolarIndex,
@@ -94,7 +101,7 @@ import {
 } from "./types";
 
 export const PROVIDER_ID = "ccir-numerical-map";
-export const PROVIDER_VERSION = "1.0.0";
+export const PROVIDER_VERSION = "1.1.0";
 
 /**
  * SILSO version 2.0 sunspot numbers are about 1.43 times the classic series the
@@ -174,6 +181,10 @@ export const CAPABILITIES: Readonly<
     reason:
       "P.533-14 models non-deviative absorption with an empirical loss term " +
       "and never forms a collision-frequency profile.",
+  },
+  longitudinalGyrofrequency: {
+    status: "supported",
+    note: "|fH sin(dip)| at 100 km from the P.1239 section 2 field expansion, MHz",
   },
 });
 
@@ -629,7 +640,21 @@ function buildState(
     );
   }
 
-  const field = magneticField(latitudeRad, longitudeRad, 300);
+  const field = magneticField(latitudeRad, longitudeRad, MAP_DIP_HEIGHT_KM);
+  const dRegionField = magneticField(
+    latitudeRad,
+    longitudeRad,
+    D_REGION_FIELD_HEIGHT_KM,
+  );
+  assumptions.push(
+    "The longitudinal gyrofrequency fL = |fH sin(dip)| of P.533-14 equation " +
+      `(20) is evaluated at ${D_REGION_FIELD_HEIGHT_KM} km, the height the ` +
+      "recommendation specifies for D-region absorption. That is a separate " +
+      `call from the ${MAP_DIP_HEIGHT_KM} km evaluation the CCIR map's modip ` +
+      "coordinate is defined at, which is unchanged: the two heights are " +
+      "different quantities and moving the map's would degrade its foF2 " +
+      "parity by two orders of magnitude.",
+  );
 
   return deepFreeze({
     providerId: PROVIDER_ID,
@@ -659,6 +684,12 @@ function buildState(
     },
     magneticDip300kmDeg: field.dipRad * R2D,
     gyrofrequency300kmMHz: field.gyrofrequencyMHz,
+    magneticDip100kmDeg: dRegionField.dipRad * R2D,
+    gyrofrequency100kmMHz: dRegionField.gyrofrequencyMHz,
+    longitudinalGyrofrequency100kmMHz: longitudinalGyrofrequencyMHz(
+      latitudeRad,
+      longitudeRad,
+    ),
     assumptions,
   });
 }
@@ -738,8 +769,8 @@ function quantise(value: number): string {
  * rounding it here would let two states that say different things share one
  * identity (200.0000001 and 200.0000002 both clip to 160 and both read "200.0"
  * in the assumptions, so `requestedR12` is the only thing telling them apart).
- * A *derived model output* - foF2, M(3000)F2, foE, the solar geometry, the dip
- * and the gyrofrequency - is rounded onto the 1e-6 tolerance grid, which
+ * A *derived model output* - foF2, M(3000)F2, foE, the solar geometry, and the
+ * dip and gyrofrequency at both heights - is rounded onto the 1e-6 tolerance grid, which
  * absorbs the 1-ulp spread engines are permitted in `Math.sin` and `Math.pow`
  * while staying four orders of magnitude finer than the model's own
  * uncertainty. The two kinds never mix.
@@ -784,6 +815,9 @@ export async function ionosphereStateDigest(
     quantise(state.solar.solarNoonUtcHours),
     quantise(state.magneticDip300kmDeg),
     quantise(state.gyrofrequency300kmMHz),
+    quantise(state.magneticDip100kmDeg),
+    quantise(state.gyrofrequency100kmMHz),
+    quantise(state.longitudinalGyrofrequency100kmMHz),
     state.assumptions,
   ]);
   const subtle = globalThis.crypto?.subtle;
@@ -828,7 +862,7 @@ export const DETERMINISM_PROBE_QUERY: IonosphereQuery = deepFreeze({
 });
 
 export const DETERMINISM_PROBE_DIGEST: ArtifactHash =
-  "sha256:1d57d04de4b339fb8554f6517ebb4e8bcd303b8a8ca0a3e87223f9841ad5df60";
+  "sha256:a751b037e7af90f53a37520d53d0bd3763baea39cd01263a379b20ca24fa64eb";
 
 const registry = new Map<string, IonosphereProvider>();
 

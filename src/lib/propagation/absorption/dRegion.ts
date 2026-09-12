@@ -21,7 +21,10 @@
  *
  * Equation (20), for an `n`-hop mode:
  *
- *      Li = n (1 + 0.0067 SSN) AT / ((f + fL)^2 cos(i_110))
+ *      Li = n (1 + 0.0067 SSN) <AT / (f + fL)^2> / cos(i_110)
+ *
+ * where `<.>` is the mean over the mode's D-region crossings and both `AT` and
+ * `fL` are evaluated at each crossing.
  *
  * `AT` is the absorption term of equation (21),
  *
@@ -62,11 +65,22 @@
  * **Declared approximations.** Each is surfaced on the result's `assumptions`
  * rather than hidden:
  *
- *  1. `fL`, the longitudinal gyrofrequency, is the scalar 1.2 MHz whenever a
- *     caller supplies none. P.533-14 wants `|fH sin(dip)|` evaluated at
- *     100 km. This module chose that default, so this module declares it. The
- *     gap it leaves is bounded by the spread of `|fH sin(dip)|` over the
- *     globe, roughly 0 to 1.6 MHz, which at 14 MHz is about 0.9 dB in `Li`.
+ *  1. `fL`, the longitudinal gyrofrequency, is the scalar 1.2 MHz only when
+ *     neither the crossing nor the mode supplies one. P.533-14 wants
+ *     `|fH sin(dip)|` evaluated at 100 km, which is a property of *where each
+ *     crossing is*, so `DRegionCrossing.gyrofrequencyMHz` carries it and the
+ *     `(f + fL)^2` divide happens inside the per-crossing mean rather than
+ *     outside it. With a uniform `fL` that expression is algebraically the
+ *     single-scalar form, which `dRegion.test.ts` pins as an identity. The gap
+ *     the stand-in leaves is a *multiplier* on this loss, not a decibel
+ *     offset: `Li(fL) / Li(1.2) = ((f + 1.2) / (f + fL))^2`, since the crossing
+ *     terms, the SSN factor and `cos i_110` are common to both. At 14 MHz that
+ *     factor runs from 1.1788 at the magnetic dip equator to 0.9265 at high
+ *     southern dip, measured over the whole globe. What that costs a circuit
+ *     in decibels is `Li(1.2) * (factor - 1)` and therefore depends on the
+ *     circuit: on a lit vertical 14 MHz sample at SFI 140 it is about
+ *     +0.41 dB and -0.09 dB at those two places, which is an example and not
+ *     a bound.
  *  2. The modified magnetic dip that selects `p`, the `foE` that scales `phi`
  *     and the zenith angles all arrive on the caller's crossings. This module
  *     did not choose their source and asserts nothing about it: the
@@ -91,10 +105,28 @@ export const MAX_ABS_LATITUDE_DEG = 70;
 
 const AT_NOON_CLIP_DEG = 69.99;
 
-const FL_ASSUMPTION =
-  "Longitudinal gyrofrequency fL is this module's declared 1.2 MHz scalar, " +
-  "used because the caller supplied no value: ITU-R P.533-14 wants " +
-  "|fH sin(dip)| evaluated at 100 km.";
+/**
+ * The stand-in statement, which names how many crossings actually fell back to
+ * the declared scalar. A partly supplied mode is the case a single boolean
+ * would misreport, so the count is in the sentence.
+ */
+function flAssumption(standInCrossings: number, passCount: number): string {
+  const where =
+    standInCrossings === passCount
+      ? "every crossing"
+      : `${standInCrossings} of ${passCount} crossings`;
+  return (
+    `Longitudinal gyrofrequency fL is this module's declared ` +
+    `${DEFAULT_GYROFREQUENCY_MHZ} MHz scalar at ${where}, used because no ` +
+    "value was supplied for them: ITU-R P.533-14 wants |fH sin(dip)| " +
+    "evaluated at 100 km."
+  );
+}
+
+/** Named once so the assumption and the doc block cannot drift apart. */
+const FL_SUPPLIED_ASSUMPTION =
+  "Longitudinal gyrofrequency fL was supplied by the caller and is applied " +
+  "per crossing inside the mean, not as one scalar for the whole mode.";
 
 /**
  * The dip statement is a fact about the inputs this call was given, not about
@@ -240,6 +272,14 @@ export interface DRegionCrossing {
   readonly zenithAngleDeg: number;
   /** Solar zenith angle at this crossing's local noon, degrees. */
   readonly zenithNoonAngleDeg: number;
+  /**
+   * Longitudinal gyrofrequency `|fH sin(dip)|` at this crossing, MHz.
+   *
+   * Optional. A crossing without one falls back to the mode-wide
+   * `DRegionAbsorptionInputs.gyrofrequencyMHz`, and that to this module's
+   * declared 1.2 MHz scalar, which is announced in `assumptions`.
+   */
+  readonly gyrofrequencyMHz?: number;
 }
 
 /**
@@ -283,17 +323,33 @@ export interface DRegionAbsorptionInputs {
   readonly incidenceAngle110Rad: number;
   /** Smoothed sunspot number. */
   readonly ssn: number;
-  /** Longitudinal gyrofrequency, MHz. Defaults to the declared 1.2 scalar. */
+  /**
+   * Longitudinal gyrofrequency for the whole mode, MHz.
+   *
+   * The default for any crossing that carries none of its own. Absent both
+   * here and on every crossing, the declared 1.2 scalar is used and said so.
+   */
   readonly gyrofrequencyMHz?: number;
 }
 
 export interface DRegionAbsorption {
   /** Loss of the whole `n`-hop mode, dB. Positive. */
   readonly absorptionDb: number;
-  /** Mean absorption term over the crossings. */
+  /**
+   * Mean absorption term over the crossings, dimensionless.
+   *
+   * Reported for inspection only. Since #1108 the `(f + fL)^2` divide happens
+   * inside the mean, so `absorptionDb` is not this number divided by one
+   * scalar unless every crossing carried the same `fL`.
+   */
   readonly absorptionTerm: number;
   /** Absorption term at each crossing, in the order supplied. */
   readonly perCrossingTerms: readonly number[];
+  /**
+   * The longitudinal gyrofrequency actually applied at each crossing, MHz, in
+   * the order supplied. A reader can see which crossings got the stand-in.
+   */
+  readonly gyrofrequenciesMHz: readonly number[];
   /** Number of D-region passes, `2 * hopCount`. */
   readonly passCount: number;
   /** Equivalent vertical-incidence frequency, MHz. */
@@ -317,8 +373,16 @@ export function dRegionAbsorption(
     frequencyMHz,
     incidenceAngle110Rad,
     ssn,
-    gyrofrequencyMHz = DEFAULT_GYROFREQUENCY_MHZ,
+    gyrofrequencyMHz: modeGyrofrequencyMHz = DEFAULT_GYROFREQUENCY_MHZ,
   } = inputs;
+  // Whether the stand-in was used is a fact about what the caller passed, not
+  // about the number's value: a caller that legitimately computes 1.2 MHz was
+  // previously told it had supplied nothing.
+  const modeFlSupplied = inputs.gyrofrequencyMHz !== undefined;
+  const standInCrossings = modeFlSupplied
+    ? 0
+    : crossings.filter((crossing) => crossing.gyrofrequencyMHz === undefined)
+        .length;
 
   if (!Number.isInteger(hopCount) || hopCount < 1) {
     throw new RangeError(
@@ -343,23 +407,36 @@ export function dRegionAbsorption(
   const perCrossingTerms = crossings.map((crossing) =>
     absorptionTerm(crossing, verticalFrequencyMHz),
   );
+  const gyrofrequenciesMHz = crossings.map(
+    (crossing) => crossing.gyrofrequencyMHz ?? modeGyrofrequencyMHz,
+  );
   const meanTerm =
     perCrossingTerms.reduce((total, term) => total + term, 0) / passCount;
+  // The divide is inside the mean because fL is a property of where the
+  // crossing is: a circuit whose crossings straddle the magnetic dip equator
+  // has no single honest fL. With a uniform fL this is exactly the old
+  // `meanTerm / (f + fL)^2`, which `dRegion.test.ts` pins as an identity.
+  const meanTermOverDivisor =
+    perCrossingTerms.reduce(
+      (total, term, index) =>
+        total + term / (frequencyMHz + gyrofrequenciesMHz[index]) ** 2,
+      0,
+    ) / passCount;
 
   const absorptionDb =
-    (hopCount * (1 + 0.0067 * ssn) * meanTerm) /
-    ((frequencyMHz + gyrofrequencyMHz) ** 2 * cosIncidence);
+    (hopCount * (1 + 0.0067 * ssn) * meanTermOverDivisor) / cosIncidence;
 
   const dipStatement = dipAssumption(crossings);
   const assumptions =
-    gyrofrequencyMHz === DEFAULT_GYROFREQUENCY_MHZ
-      ? [FL_ASSUMPTION, dipStatement]
-      : [dipStatement];
+    standInCrossings === 0
+      ? [FL_SUPPLIED_ASSUMPTION, dipStatement]
+      : [flAssumption(standInCrossings, crossings.length), dipStatement];
 
   return {
     absorptionDb,
     absorptionTerm: meanTerm,
     perCrossingTerms,
+    gyrofrequenciesMHz,
     passCount,
     verticalFrequencyMHz,
     assumptions,

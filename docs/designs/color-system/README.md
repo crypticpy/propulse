@@ -147,6 +147,42 @@ The maintained scanner at the pinned baseline scans 2,068 production text files 
 The census is lexical, not an AST, reachability or computed-style proof. Comments and noncolor tokens can be candidates; dynamic classes, API colors and numeric shader colors require manual review. Binary/vendor assets are retained as classified exceptions. No claim of exhaustive per-element accessibility approval follows from a zero-unclassified-family ledger. Each migration task resolves its individual candidates and records retained exceptions.
 
 
+## Shared appearance contract (S00 / #1285)
+
+`src/lib/appearance/types.ts` defines scalar setting metadata and explicit parse
+results. `settingValues.ts` separates missing patches, invalid edits, valid
+values and resets: invalid or missing input preserves the current override,
+while `resetSetting` returns the declared default only when explicitly called.
+A nullable field owns the meaning of null. Range metadata does not silently
+clamp or round persisted values; each field parser retains its existing policy.
+Scopes describe meaning rather than storage ownership.
+
+`colorValues.ts` recognizes only formats a field opts into: exact `auto`, hex
+(with six digits by default), bounded numeric comma-form RGB/RGBA, and
+allowlisted channel-token expressions such as `rgb(var(--su-muted-rgb))`.
+Recognized values retain their source spelling. Unsupported existing strings
+remain a separate lossless legacy envelope; they may round-trip unchanged but
+are not accepted as new edits. Serialize that envelope back to the existing
+string, never persist the editing metadata object or resolve a token to the
+current theme's literal color. Null/reset and independent opacity controls do
+not become color strings.
+
+This contract introduces no store, migration version, DOM dependency or global
+registry. Scalar defaults are immutable; workspace collections keep their own
+fresh-copy reset behavior. The following adoption tasks still own real defaults,
+options and consumers: global theme/accessibility, map controls and independent
+opacity keys, SDR controls/LUTs, workspace heatmaps, HamClock display and pins.
+Until those tasks migrate their owners, this foundation is not evidence that
+individual controls have been centralized.
+
+Persistence boundaries remain explicit: themeStore's local theme blob,
+settingsStore version39, workspace version3, wall display version11, independent
+beacon/NVIS keys, and pin entity data retain their current shapes. Saved views
+continue accepting legacy customSecondary; preference sync and saved-view theme
+payloads do not gain saturation incidentally. Existing limited backup/LAN
+allowlists, capture order and account/epoch protections remain transfer-adapter
+responsibilities. W22 participant evidence remains a separate final-cutover gate.
+
 ## Batch 19 replacement coverage (COLOR-03)
 
 The four consumers now use `stationTreatmentClasses` instead of local tint,

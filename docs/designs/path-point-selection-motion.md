@@ -46,7 +46,13 @@ behaviour byte for byte when no props are passed.
 - `color?: string`, default the existing `PULSE_COLOR`. The selection mount
   passes a resolved `--su-accent`.
 - `startAtMs?: number`. Origin for the settle-in, so re-selecting the same
-  point restarts the one shot. Defaults to `flashPoint.at`.
+  point restarts the one shot. Defaults to `flashPoint.at`. `selectedId` alone
+  cannot produce this value: `handleSelect` calls `setSelectedId(id)` with the
+  id that is already selected, React bails out of the update, and the mounted
+  `FlashPulse` never sees a new prop. `RayPathArc` therefore stores a
+  selection generation alongside the id (see §6) and passes it as `startAtMs`
+  (and as the mount `key`), so a second click on an already-selected row or
+  hit area re-fires the one shot.
 - `hold?: boolean`, default `false`. Keeps the steady halo painted after the
   one shot instead of ending at opacity 0.
 - `reducedMotion?: boolean`, default `false`. Skips the expansion and paints
@@ -56,13 +62,20 @@ behaviour byte for byte when no props are passed.
   `useGlobeOcclusion` subscription per point. When absent, the component keeps
   its own `useGlobeOcclusion` call.
 
-Clock: `FlashPulse` reads `MapAnimationContext` with `useContext` (the context
-is already exported from `src/components/map/hooks/useMapAnimationFrame.ts`)
-and registers its per-frame callback there when a clock is present. Its
-existing `useFrame` body early-returns in that case. Both hooks are called
-unconditionally on every render, so there is no conditional-hook hazard, and
-the selection instance mounted inside `RayPathArc`'s `MapAnimationClock`
-(`RayPathArc.tsx:753`) costs zero extra R3F subscriptions.
+Clock: the choice is made at a component boundary, not inside one body.
+`useFrame` subscribes to R3F on mount whatever its callback does, so a body
+that early-returns still costs one subscription per instance and still runs a
+callback under `prefers-reduced-motion`. `FlashPulse` stays the public
+component and becomes a thin chooser: it reads `MapAnimationContext` with
+`useContext` (the context is already exported from
+`src/components/map/hooks/useMapAnimationFrame.ts`) and renders either
+`FlashPulseClocked` (registers its callback with that context, no `useFrame`)
+or `FlashPulseFrame` (the existing `useFrame` path) — never both. Each child
+calls exactly one clock hook unconditionally, so there is no conditional-hook
+hazard, and the selection instance mounted inside `RayPathArc`'s
+`MapAnimationClock` (`RayPathArc.tsx:753`) adds no R3F subscription. With
+`reducedMotion`, the chooser mounts the static hold meshes and neither child,
+so there is no frame callback at all.
 
 `IonosphereBounceHighlight` gains one prop: `suppressed?: boolean`.
 
@@ -194,6 +207,15 @@ One source of truth: the `selectedId` state in `RayPathArc`
 `handleClose` (`:722`) and `handleTraceClick` (`:728`). Both surfaces read that
 one value.
 
+`selectedId` stays the semantic owner, but it cannot be the motion trigger on
+its own: `handleSelect` re-selecting the current id calls `setSelectedId` with
+an unchanged value, React bails out, and nothing re-renders. `handleSelect`
+therefore also bumps a selection generation — one extra `useState`, e.g.
+`selectedAt` set to `Date.now()` (or a monotonic counter) on **every** call,
+including a repeat of the same id. That generation is what feeds `startAtMs`
+and the `key` on the selection `FlashPulse`; `selectedId` still decides which
+point is selected and is still what both surfaces compare against.
+
 - The globe reads it inside the `pointSet.points.map` mount (`:818-839`) by
   comparing `point.id === selectedId`, and mounts exactly one selection
   `FlashPulse` for the match.
@@ -227,28 +249,51 @@ Everything stays inside the existing bands from
 
 No value reaches `GLOBE_LAYER_ORDER.volumes` (`11`) from below or
 `GLOBE_LAYER_ORDER.hud` (`13`) from above, so the treatment stays inside arcs
-and markers as required. Materials keep `depthWrite: false`; the flat tangent
-discs keep `depthTest: false` with the `useGlobeOcclusion` CPU fade, which is
-case (b) of the stacking contract and already how `FlashPulse` behaves.
+and markers as required. Materials keep `depthWrite: false`.
+
+Depth testing splits by radius, because case (b) of the stacking contract is
+scoped to tile-hugging markers below the depth dome (`r = 1.000002`, under
+`GLOBE_MIN_OVERLAY_RADIUS = 1.003`) and its CPU fade is radius-blind:
+`getGlobeOcclusionOpacity(lat, lon, frame)` builds a **unit** surface normal,
+so it fades anything past the surface limb regardless of altitude.
+
+- Surface points (`SURFACE_OFFSET`, today's `FlashPulse` mount): keep
+  `depthTest: false` plus the `useGlobeOcclusion` fade — case (b), unchanged.
+- Elevated points (ray apex, shell highlights, any
+  `heightToRadius(displayHeightKm)` anchor): keep `depthTest: true`. They sit
+  above `GLOBE_MIN_OVERLAY_RADIUS`, so the depth dome occludes the far side
+  correctly and they stay visible where an elevated point genuinely clears the
+  surface horizon. Reusing case (b) there would pop them out at the surface
+  limb instead. No `occlusionOpacity` is applied to them.
+
+Making the occlusion maths radius-aware is the alternative; it is a change to
+`src/lib/map/globeOcclusion.ts` shared by every caller, so it is out of scope
+for this sheet and not required by it.
 
 ## 8. Build plan
 
 Files to touch, seven total, well under the fifteen cap:
 
 1. `src/components/map/FlashPulse.tsx`: the optional props, the three motion
-   profiles, `resolveSelectionTone()`, map-clock registration.
+   profiles, `resolveSelectionTone()`, and the clock split (`FlashPulse`
+   chooser plus `FlashPulseClocked` / `FlashPulseFrame` children in the same
+   file).
 2. `src/components/map/RayPathArc.tsx`: `suppressed` on
-   `IonosphereBounceHighlight` (`:386-492`, mount `:809-818`), and one
-   selection or hover `FlashPulse` mounted from `selectedId` / `hoveredId`
-   inside the same `pointSet.points.map` block that already computes each
-   point's radius and occlusion opacity.
+   `IonosphereBounceHighlight` (`:386-492`, mount `:809-818`), the selection
+   generation bumped in `handleSelect` (`:710`), and one selection or hover
+   `FlashPulse` mounted from `selectedId` / `hoveredId` inside the same
+   `pointSet.points.map` block that already computes each point's radius and
+   occlusion opacity.
 3. `src/components/map/FlashPulse.test.tsx` (new): default props preserve
    today's behaviour, each variant's opacity and scale at `t=0`, `t=mid` and
-   `t=hold`, and `reducedMotion` producing no frame callback.
+   `t=hold`, `reducedMotion` mounting neither clock child (no `useFrame`
+   subscription and no context registration), and a changed `startAtMs`
+   restarting the one shot for an unchanged `point`.
 4. `src/components/map/RayPathArc.mountShape.test.ts` (existing, source
    contract style): assert exactly one selection pulse is mounted, that it is
-   keyed on `selectedId`, and that the highlight at that id receives
-   `suppressed`.
+   keyed on the selection generation, that `handleSelect` bumps that
+   generation even when the id is unchanged, and that the highlight at that id
+   receives `suppressed`.
 5. `src/components/map/PathPointInspector.test.tsx` (existing): assert the
    globe selection and the list row read the same `selectedId`.
 6. `src/lib/map/globeRenderOrder.test.ts` (existing): assert every renderOrder

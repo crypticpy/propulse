@@ -174,13 +174,13 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
         }
         hover:scale-[1.02] hover:shadow-xl
       `}
-      style={{ marginBottom: 8 }}
+      style={{ marginBottom: 8, maxWidth: "min(100%, calc(100vw - 2rem))" }}
     >
       <div className="p-3">
         <div className="flex items-start gap-2">
           {/* Callsign + frequency */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={`text-sm font-mono font-bold ${colors.accent}`}>
                 {spot.callsign}
               </span>
@@ -191,7 +191,7 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="text-xs font-mono text-su-text">
                 {freq} kHz
               </span>

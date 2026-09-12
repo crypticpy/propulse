@@ -54,7 +54,7 @@ export function MUFLegend({ className = "" }: MUFLegendProps) {
  */
 export function MUFLegendCompact({ className = "" }: MUFLegendProps) {
   return (
-    <div className={`flex items-center gap-2 text-[10px] ${className}`}>
+    <div className={`flex items-center gap-2 text-xs ${className}`}>
       <span className="text-su-muted">MUF:</span>
       <div className="flex items-center gap-0.5">
         {MUF_BANDS.map((band) => (

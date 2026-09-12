@@ -364,7 +364,7 @@ const HeatCell = memo(function HeatCell({
   if (count === 0) {
     return (
       <td className="px-1 py-0.5 text-center">
-        <span className="text-[10px] font-mono text-su-line">-</span>
+        <span className="text-xs font-mono text-su-line">-</span>
       </td>
     );
   }
@@ -379,7 +379,7 @@ const HeatCell = memo(function HeatCell({
   return (
     <td className="px-1 py-0.5 text-center">
       <span
-        className="inline-block min-w-[24px] px-1 py-0.5 rounded text-[10px] font-mono font-bold"
+        className="inline-block min-w-[24px] px-1 py-0.5 rounded text-xs font-mono font-bold"
         style={{
           backgroundColor: `rgba(255, 170, 0, ${opacity})`,
           color: intensity > 0.5 ? "#1a1a2e" : "#ffa500",
@@ -472,7 +472,7 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
           <h3 className="text-sm font-orbitron font-bold text-su-muted group-hover:text-su-text transition-colors">
             Rate Sheet
           </h3>
-          <span className="text-[10px] text-su-muted font-mono">
+          <span className="text-xs text-su-muted font-mono">
             ({qsos.filter((q) => !q.isDupe).length} Qs)
           </span>
         </button>
@@ -487,22 +487,22 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-su-line/40">
-                  <th className="px-2 py-1 text-left text-[10px] uppercase tracking-wider text-su-muted font-medium">
+                  <th className="px-2 py-1 text-left text-xs uppercase tracking-wider text-su-muted font-medium">
                     Period
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
+                  <th className="px-2 py-1 text-right text-xs uppercase tracking-wider text-su-muted font-medium">
                     QSOs
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
+                  <th className="px-2 py-1 text-right text-xs uppercase tracking-wider text-su-muted font-medium">
                     Rate
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
+                  <th className="px-2 py-1 text-right text-xs uppercase tracking-wider text-su-muted font-medium">
                     Pts
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
+                  <th className="px-2 py-1 text-right text-xs uppercase tracking-wider text-su-muted font-medium">
                     Total
                   </th>
-                  <th className="px-2 py-1 text-[10px] uppercase tracking-wider text-su-muted font-medium w-24">
+                  <th className="px-2 py-1 text-xs uppercase tracking-wider text-su-muted font-medium w-24">
                     &nbsp;
                   </th>
                 </tr>
@@ -526,7 +526,7 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
 
           {/* Summary row */}
           {rows.length > 0 && (
-            <div className="flex items-center gap-4 text-[10px] text-su-muted border-t border-su-line/20 pt-2">
+            <div className="flex items-center gap-4 text-xs text-su-muted border-t border-su-line/20 pt-2">
               <span>
                 Total:{" "}
                 <span className="text-su-muted font-mono">
@@ -561,20 +561,20 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
           {bandHourMatrix.bands.length > 1 &&
             bandHourMatrix.hours.length > 0 && (
               <div className="pt-2 border-t border-su-line/20">
-                <h4 className="text-[10px] uppercase tracking-wider text-su-muted font-medium mb-2">
+                <h4 className="text-xs uppercase tracking-wider text-su-muted font-medium mb-2">
                   Band x Hour
                 </h4>
                 <div className="overflow-x-auto">
                   <table className="border-collapse">
                     <thead>
                       <tr>
-                        <th className="px-1 py-0.5 text-[10px] text-su-muted font-medium text-left">
+                        <th className="px-1 py-0.5 text-xs text-su-muted font-medium text-left">
                           &nbsp;
                         </th>
                         {bandHourMatrix.bands.map((band) => (
                           <th
                             key={band}
-                            className="px-1 py-0.5 text-[10px] text-su-muted font-mono font-medium text-center"
+                            className="px-1 py-0.5 text-xs text-su-muted font-mono font-medium text-center"
                           >
                             {band}
                           </th>
@@ -584,7 +584,7 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
                     <tbody>
                       {bandHourMatrix.hours.map((hour) => (
                         <tr key={hour} className="border-b border-su-line/20">
-                          <td className="px-1 py-0.5 text-[10px] text-su-muted font-mono">
+                          <td className="px-1 py-0.5 text-xs text-su-muted font-mono">
                             Hr {hour + 1}
                           </td>
                           {bandHourMatrix.bands.map((band) => {

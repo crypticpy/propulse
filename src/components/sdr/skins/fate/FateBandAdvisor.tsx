@@ -47,7 +47,7 @@
  *        <span className="shrink-0 bg-caution-amber/20 text-caution-amber ...">DXCC</span>
  *      )}
  *      {isNewMult && d.parsedCallsign && (
- *        <span className="shrink-0 bg-amber-500/15 text-amber-400 text-[9px] font-bold px-1 rounded leading-normal">
+ *        <span className="shrink-0 bg-amber-500/15 text-amber-400 text-xs font-bold px-1 rounded leading-normal">
  *          MULT!
  *        </span>
  *      )}
@@ -56,7 +56,7 @@
  *      )}
  *
  * 4. BADGE STYLE:
- *    `bg-amber-500/15 text-amber-400 text-[9px] font-bold px-1 rounded`
+ *    `bg-amber-500/15 text-amber-400 text-xs font-bold px-1 rounded`
  *    Gold text on subtle amber background, small rounded pill.
  *    The `leading-normal` class keeps vertical alignment consistent with
  *    the adjacent DXCC and NEW badges.
@@ -182,10 +182,10 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
   if (!bandRatings) {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
-        <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
+        <span className="text-xs text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
           Propagation
         </span>
-        <span className="text-[9px] text-su-muted italic">
+        <span className="text-xs text-su-muted italic">
           No propagation data
         </span>
       </div>
@@ -194,7 +194,7 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
 
   return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
-      <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
+      <span className="text-xs text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
         Propagation
       </span>
 
@@ -226,7 +226,7 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
               />
               {/* Band name */}
               <span
-                className="text-[9px] font-semibold font-mono"
+                className="text-xs font-semibold font-mono"
                 style={{
                   color: isCurrent ? r.bandColor : "rgba(255,255,255,0.55)",
                 }}
@@ -240,7 +240,7 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
 
       {/* Compact SFI / Kp readout */}
       {latestKp !== null && latestSfi !== null && (
-        <span className="text-[8px] text-su-muted font-mono ml-auto shrink-0 tabular-nums">
+        <span className="text-xs text-su-muted font-mono ml-auto shrink-0 tabular-nums">
           SFI {Math.round(latestSfi)} · Kp {latestKp}
         </span>
       )}

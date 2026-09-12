@@ -38,26 +38,26 @@ const SEVERITY_COLORS: Record<
   minor: {
     border: "border-signal-green/30",
     bg: "bg-signal-green/10",
-    text: "text-signal-green",
-    badge: "bg-signal-green/20 text-signal-green border-signal-green/40",
+    text: "text-su-text",
+    badge: "bg-signal-green/20 text-su-text border-signal-green/40",
   },
   moderate: {
     border: "border-caution-amber/30",
     bg: "bg-caution-amber/10",
-    text: "text-caution-amber",
-    badge: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+    text: "text-su-text",
+    badge: "bg-caution-amber/20 text-su-text border-caution-amber/40",
   },
   major: {
     border: "border-plasma-orange/30",
     bg: "bg-plasma-orange/10",
-    text: "text-plasma-orange",
-    badge: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
+    text: "text-su-text",
+    badge: "bg-plasma-orange/20 text-su-text border-plasma-orange/40",
   },
   extreme: {
     border: "border-alert-red/30",
     bg: "bg-alert-red/10",
-    text: "text-alert-red",
-    badge: "bg-alert-red/20 text-alert-red border-alert-red/40",
+    text: "text-su-text",
+    badge: "bg-alert-red/20 text-su-text border-alert-red/40",
   },
 };
 

@@ -452,9 +452,13 @@ export function absorptionLoss(
       `monthIndex must be an integer 0..11, received ${String(monthIndex)}.`,
     );
   }
-  if (!Number.isFinite(rayPathElevationRad) || rayPathElevationRad <= 0) {
+  if (
+    !Number.isFinite(rayPathElevationRad) ||
+    rayPathElevationRad <= 0 ||
+    rayPathElevationRad > Math.PI / 2
+  ) {
     throw new RangeError(
-      `rayPathElevationRad must be a positive finite angle, received ` +
+      `rayPathElevationRad must be a finite angle within (0, pi/2], received ` +
         `${String(rayPathElevationRad)}.`,
     );
   }

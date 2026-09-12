@@ -202,7 +202,7 @@ export function ShareCard() {
               >
                 {t.label}
               </span>
-              <span className="block text-[10px] text-su-muted truncate mt-0.5">
+              <span className="block text-xs text-su-muted truncate mt-0.5">
                 {t.description}
               </span>
               {!unlocked && (
@@ -219,7 +219,7 @@ export function ShareCard() {
                     <rect x="3" y="8" width="10" height="7" rx="1.5" />
                     <path d="M5 8V5a3 3 0 016 0v3" />
                   </svg>
-                  <span className="text-[9px] text-su-muted capitalize">
+                  <span className="text-xs text-su-muted capitalize">
                     {t.minRank}
                   </span>
                 </span>

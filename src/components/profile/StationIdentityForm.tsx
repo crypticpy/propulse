@@ -16,64 +16,17 @@ import { LocationInput } from "@/components/settings/LocationInput";
 import { useCallsignIngestion } from "@/hooks/useCallsignIngestion";
 import type { IngestionResult } from "@/hooks/useCallsignIngestion";
 import { useProfileStore } from "@/stores/profileStore";
-import type { LicenseCountry, LicenseClass } from "@/types/user";
 import { CallsignLookupSuggestions } from "./CallsignLookupSuggestions";
 import type {
   IngestionField,
   CurrentValues,
 } from "./CallsignLookupSuggestions";
+import {
+  buildLookupImport,
+  type IdentityImportDraft,
+} from "./identityLookupDraft";
 
-// ─── Country / License class mapping helpers ────────────────────────────────
-
-const COUNTRY_MAP: Record<string, LicenseCountry> = {
-  "united states": "US",
-  usa: "US",
-  us: "US",
-  canada: "CA",
-  "united kingdom": "UK",
-  uk: "UK",
-  "great britain": "UK",
-  england: "UK",
-  germany: "DE",
-  japan: "JP",
-  australia: "AU",
-  "new zealand": "NZ",
-  france: "FR",
-  spain: "ES",
-  italy: "IT",
-  brazil: "BR",
-  mexico: "MX",
-};
-
-function mapCountry(name: string): LicenseCountry {
-  return COUNTRY_MAP[name.toLowerCase().trim()] ?? "OTHER";
-}
-
-const LICENSE_CLASS_MAP: Record<string, LicenseClass> = {
-  e: "EXTRA",
-  extra: "EXTRA",
-  a: "ADVANCED",
-  advanced: "ADVANCED",
-  g: "GENERAL",
-  general: "GENERAL",
-  t: "TECHNICIAN",
-  technician: "TECHNICIAN",
-  n: "NOVICE",
-  novice: "NOVICE",
-  foundation: "FOUNDATION",
-  intermediate: "INTERMEDIATE",
-  full: "FULL",
-};
-
-function mapLicenseClass(raw: string): LicenseClass {
-  const mapped = LICENSE_CLASS_MAP[raw.toLowerCase().trim()];
-  if (!mapped) {
-    console.warn(
-      `[Propulse] Unknown license class "${raw}", defaulting to GENERAL`,
-    );
-  }
-  return mapped ?? ("GENERAL" as LicenseClass);
-}
+const EMPTY_IMPORT: IdentityImportDraft = {};
 
 export interface StationIdentityFormProps {
   callsign: string;
@@ -88,6 +41,9 @@ export interface StationIdentityFormProps {
   setCallsignError: (v: string | null) => void;
   gridError: string | null;
   setGridError: (v: string | null) => void;
+  /** Lookup fields applied into the cancellable draft (not yet saved). */
+  importDraft?: IdentityImportDraft;
+  onImportDraft?: (draft: IdentityImportDraft) => void;
   /** Render compact layout for sidebar inline edit */
   compact?: boolean;
   /** Optional id prefix for label htmlFor (e.g. "mobile", "profile") */
@@ -109,6 +65,8 @@ export function StationIdentityForm({
   setCallsignError,
   gridError,
   setGridError,
+  importDraft = EMPTY_IMPORT,
+  onImportDraft,
   compact = false,
   idPrefix = "profile",
   hideSaveButton = false,
@@ -123,14 +81,15 @@ export function StationIdentityForm({
 
   // Multi-source callsign ingestion — only show suggestions for new callsigns
   const lastIngestedCallsign = useProfileStore((s) => s.lastIngestedCallsign);
-  const alreadyIngested =
-    callsign.trim().toUpperCase() === lastIngestedCallsign;
+  const ingestedCallsign =
+    importDraft.lastIngestedCallsign || lastIngestedCallsign;
+  const alreadyIngested = callsign.trim().toUpperCase() === ingestedCallsign;
   const { result: ingestionResult, loading } = useCallsignIngestion(
     alreadyIngested ? "" : callsign,
   );
   const [dismissed, setDismissed] = useState(false);
 
-  // Build current values for conflict detection
+  // Build current values for conflict detection (committed + draft)
   const license = useProfileStore((s) => s.license);
   const bio = useProfileStore((s) => s.bio);
   const station = useProfileStore((s) => s.station);
@@ -139,86 +98,27 @@ export function StationIdentityForm({
     () => ({
       name: operatorName || undefined,
       grid: grid || undefined,
-      country: license?.country,
-      licenseClass: license?.class,
-      bio: bio || undefined,
-      lat: station?.lat,
-      lon: station?.lon,
+      country: importDraft.license?.country ?? license?.country,
+      licenseClass: importDraft.license?.class ?? license?.class,
+      bio: importDraft.bio ?? (bio || undefined),
+      lat: importDraft.lat ?? station?.lat,
+      lon: importDraft.lon ?? station?.lon,
     }),
-    [operatorName, grid, license, bio, station?.lat, station?.lon],
+    [operatorName, grid, importDraft, license, bio, station?.lat, station?.lon],
   );
 
   const handleApply = useCallback(
     (result: IngestionResult, selectedFields: Set<IngestionField>) => {
-      if (selectedFields.has("name") && result.name) {
-        setOperatorName(result.name);
-      }
-      if (selectedFields.has("grid") && result.grid) {
-        setGrid(result.grid);
-      }
-
-      // License fields → profileStore.setLicense
-      if (selectedFields.has("licenseClass") || selectedFields.has("country")) {
-        const country =
-          selectedFields.has("country") && result.country
-            ? mapCountry(result.country)
-            : (license?.country ?? ("US" as LicenseCountry));
-        const cls =
-          selectedFields.has("licenseClass") && result.licenseClass
-            ? mapLicenseClass(result.licenseClass)
-            : (license?.class ?? ("GENERAL" as LicenseClass));
-
-        useProfileStore.getState().setLicense({
-          country,
-          class: cls,
-          expirationDate:
-            selectedFields.has("licenseClass") && result.expiryDate
-              ? result.expiryDate
-              : (license?.expirationDate ?? null),
-          grantDate:
-            selectedFields.has("licenseClass") && result.grantDate
-              ? result.grantDate
-              : license?.grantDate,
-          licenseId:
-            selectedFields.has("licenseId") && result.licenseId
-              ? result.licenseId
-              : license?.licenseId,
-        });
-      }
-
-      // Bio → profileStore.setBio
-      if (selectedFields.has("bio") && result.bio) {
-        useProfileStore.getState().setBio(result.bio);
-      }
-
-      // Image → profileStore.setProfileImageUrl
-      if (selectedFields.has("imageUrl") && result.imageUrl) {
-        useProfileStore.getState().setProfileImageUrl(result.imageUrl);
-      }
-
-      // Lat/Lon → update station
-      if (
-        selectedFields.has("latLon") &&
-        result.lat != null &&
-        result.lon != null
-      ) {
-        const currentStation = useProfileStore.getState().station;
-        if (currentStation) {
-          useProfileStore.getState().setStation({
-            ...currentStation,
-            lat: result.lat,
-            lon: result.lon,
-          });
-        }
-      }
-
-      // Mark callsign as ingested so we don't show again on next visit
-      useProfileStore
-        .getState()
-        .setLastIngestedCallsign(callsign.trim().toUpperCase());
-      setDismissed(true);
+      const built = buildLookupImport(
+        result,
+        selectedFields,
+        callsign,
+      );
+      if (built.operatorName) setOperatorName(built.operatorName);
+      if (built.grid) setGrid(built.grid);
+      onImportDraft?.(built.importDraft);
     },
-    [callsign, setOperatorName, setGrid, license],
+    [callsign, setOperatorName, setGrid, onImportDraft],
   );
 
   return (

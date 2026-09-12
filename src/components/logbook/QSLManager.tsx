@@ -287,24 +287,24 @@ function ServiceCard({
       <p className="text-xs text-su-muted mb-3">{service.description}</p>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))" }}>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-su-text">
             {service.totalUploaded}
           </p>
-          <p className="text-[10px] text-su-muted">Uploaded</p>
+          <p className="text-xs text-su-muted">Uploaded</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-signal-green">
             {service.totalConfirmed}
           </p>
-          <p className="text-[10px] text-su-muted">Confirmed</p>
+          <p className="text-xs text-su-muted">Confirmed</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-caution-amber">
             {service.pendingUploads}
           </p>
-          <p className="text-[10px] text-su-muted">Pending</p>
+          <p className="text-xs text-su-muted">Pending</p>
         </div>
       </div>
 
@@ -316,7 +316,7 @@ function ServiceCard({
 
       {/* Action buttons */}
       {service.status !== "not_configured" ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => onSync(service.id)}
             disabled={syncing}
@@ -402,12 +402,12 @@ function ActivityLogEntry({ event }: { event: ActivityEvent }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-su-text">{serviceLabel}</span>
-          <span className="text-[10px] text-su-muted">{event.action}</span>
+          <span className="text-xs text-su-muted">{event.action}</span>
         </div>
         <p className="text-xs text-su-muted truncate">{event.message}</p>
       </div>
 
-      <span className="text-[10px] text-su-muted flex-shrink-0 font-mono">
+      <span className="text-xs text-su-muted flex-shrink-0 font-mono">
         {formatTimestamp(event.timestamp)}
       </span>
     </div>
@@ -644,7 +644,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-orbitron text-lg font-bold text-su-text flex items-center gap-2">
             <svg
@@ -668,7 +668,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </div>
 
         {/* Global actions */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleSyncAll}
             disabled={syncingAll || configuredCount === 0}
@@ -727,10 +727,10 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         </h3>
 
         {/* Aggregate stats */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))" }}>
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-xl font-bold text-su-text">{stats.totalQSOs}</p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Total QSOs
             </p>
           </div>
@@ -738,7 +738,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-plasma-orange">
               {stats.totalUploaded}
             </p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Uploaded
             </p>
           </div>
@@ -746,15 +746,15 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-signal-green">
               {stats.totalConfirmed}
             </p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Confirmed
             </p>
           </div>
         </div>
 
         {/* Per-service breakdown */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto" role="region" aria-label="QSL service breakdown" tabIndex={0}>
+          <table className="w-full text-sm" style={{ minWidth: "28rem", borderSpacing: "0.75rem 0", borderCollapse: "separate" }}>
             <thead>
               <tr className="text-su-muted text-xs">
                 <th className="text-left py-1.5">Service</th>

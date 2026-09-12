@@ -100,16 +100,16 @@ export function RankBadge({
   switch (size) {
     case "sm":
       sizeClasses = "px-1.5 py-0";
-      textSize = "text-[9px]";
+      textSize = "text-xs";
       break;
     case "lg":
       sizeClasses = "px-2.5 py-1";
-      textSize = "text-[11px]";
+      textSize = "text-xs";
       break;
     case "md":
     default:
       sizeClasses = "px-2 py-0.5";
-      textSize = "text-[10px]";
+      textSize = "text-xs";
       break;
   }
 

@@ -199,6 +199,20 @@
  * allowlist stays whole-token so a hinted spelling of an allowlisted colour
  * is not cleared. Census of `src/` for `text-[length:`: 0 -- matcher-proved,
  * and the census runs as an assertion so the first one cannot land unnoticed.
+ *
+ * #808 batch 1 (dx tail, `fix/subtext-xs-dx-808-a`): re-census on `6b36ce97`
+ * after #825/#830 landed. `src/components/dx/` now holds 3 sub-floor sites
+ * across 2 files -- the dead-code bucket #825 left un-raised
+ * (`WorkStationPanel.tsx`, 2 sites; `DXSpotOverlay.tsx`, 1). Mount audit
+ * unchanged: zero render sites outside each file's own export and
+ * `index.ts`. This PR raises all 3 to `text-xs` and adds both files to
+ * `FILES` so the guard covers the full directory. Layout check on the raised
+ * rows: `WorkStationPanel` metric labels sit in a `grid grid-cols-2` with
+ * action buttons in `flex flex-wrap`; `DXSpotOverlay` tooltip keeps
+ * `whitespace-nowrap` on the chip (decorative hover chrome, not a truncating
+ * row). Zero allowlist entries. `src/components/dx/` sub-floor census is
+ * complete for Tailwind classes. Canvas tooltip sizing is additionally
+ * covered by DXSpotOverlay.canvasText.test.ts (scale and containing box).
  */
 
 import { fileURLToPath } from "node:url";
@@ -243,6 +257,9 @@ const FILES = [
   "src/components/dx/PredictionsCard.tsx",
   "src/components/dx/modals/HistoryDetailModal.tsx",
   "src/components/dx/BandScope.tsx",
+  // #808 batch 1 dx tail -- see module doc above.
+  "src/components/dx/WorkStationPanel.tsx",
+  "src/components/dx/DXSpotOverlay.tsx",
   // #832 map round -- see module doc above for the full census and split.
   "src/components/map/SatellitePanel.tsx",
   "src/components/map/layers/SatelliteDetailModal.tsx",
@@ -317,8 +334,7 @@ const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
  * written as an arbitrary, which does not follow Settings -> Text Size),
  * rem/em/pt values at or below 12px, and `text-[clamp(` in the audited set.
  */
-const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
+const INLINE_SIZE_RE = /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface SubFloorSite {
   file: string;
@@ -395,10 +411,10 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
       const stillPresent = findSubFloorSites(entry.file).some((site) =>
         site.text.includes(entry.match),
       );
-    expect(
-      stillPresent,
-      `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
-    ).toBe(true);
+      expect(
+        stillPresent,
+        `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
+      ).toBe(true);
     }
   });
 });
@@ -585,22 +601,21 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
     expect(functionValuedTextValues("text-[clamp(0.5rem,2vw,1rem)]")).toEqual([
       "text-[clamp(0.5rem,2vw,1rem)]",
     ]);
-    expect(
-      functionValuedTextValues("text-[calc(0.75rem-2px)]").length,
-    ).toBe(1);
+    expect(functionValuedTextValues("text-[calc(0.75rem-2px)]").length).toBe(1);
     expect(functionValuedTextValues("text-[min(0.7rem,2vw)]").length).toBe(1);
     expect(functionValuedTextValues("text-[max(0.6rem,1vw)]").length).toBe(1);
     expect(
-      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]").length,
+      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]")
+        .length,
     ).toBe(1);
     expect(functionValuedTextValues("text-xs").length).toBe(0);
     expect(functionValuedTextValues("text-[11px]").length).toBe(0);
     expect(functionValuedTextValues("text-[0.9rem]").length).toBe(0);
 
     // The allowlist is matched on the whole token, never as a prefix.
-    expect(
-      functionValuedTextValues("hover:text-[var(--hc-fg)]").length,
-    ).toBe(0);
+    expect(functionValuedTextValues("hover:text-[var(--hc-fg)]").length).toBe(
+      0,
+    );
     expect(functionValuedTextValues("text-[var(--su-text)]").length).toBe(1);
     expect(functionValuedTextValues("text-[var(--hc-fg-2)]").length).toBe(1);
   });

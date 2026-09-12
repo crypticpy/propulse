@@ -69,7 +69,7 @@ export function Ft8DecodeList({
 
   if (decodes.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-[11px] text-su-text/80">
+      <div className="px-3 py-4 text-center text-xs text-su-text/80">
         Waiting for decodes...
       </div>
     );
@@ -82,7 +82,7 @@ export function Ft8DecodeList({
       className="overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
       style={{ maxHeight }}
     >
-      <table className="w-full text-[10px] leading-tight">
+      <table className="w-full text-xs leading-tight">
         <thead className="sticky top-0 bg-void-black/90 text-su-text/80">
           <tr>
             <th className="px-1 py-1 text-left font-medium">UTC</th>

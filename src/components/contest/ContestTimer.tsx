@@ -145,7 +145,7 @@ const CountdownClock = memo(function CountdownClock({
           {timeDisplay}
         </span>
         {hasStarted && (
-          <span className="text-[10px] text-su-muted">
+          <span className="text-xs text-su-muted">
             {hasEnd && !isContestOver ? "rem" : "elapsed"}
           </span>
         )}
@@ -167,7 +167,7 @@ const CountdownClock = memo(function CountdownClock({
       >
         {timeDisplay}
       </div>
-      <div className="text-[10px] text-su-muted uppercase tracking-wider mt-0.5">
+      <div className="text-xs text-su-muted uppercase tracking-wider mt-0.5">
         {isContestOver ? "Contest Over" : hasEnd ? "Remaining" : "Elapsed"}
       </div>
       {/* Show elapsed separately only when countdown is shown */}
@@ -205,7 +205,7 @@ const OffTimeProgressBar = memo(function OffTimeProgressBar({
             style={{ width: `${percent}%` }}
           />
         </div>
-        <span className="text-[10px] font-mono text-su-muted tabular-nums">
+        <span className="text-xs font-mono text-su-muted tabular-nums">
           {Math.round(percent)}%
         </span>
       </div>
@@ -223,7 +223,7 @@ const OffTimeProgressBar = memo(function OffTimeProgressBar({
       </div>
 
       {/* Labels */}
-      <div className="flex items-center justify-between text-[10px] text-su-muted">
+      <div className="flex items-center justify-between text-xs text-su-muted">
         <span className="font-mono tabular-nums">
           {formatMinutes(status.totalOperatingMinutes)} operating
         </span>
@@ -308,10 +308,10 @@ const BreakTimeIndicator = memo(function BreakTimeIndicator({
   if (compact) {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-[10px] text-caution-amber font-mono tabular-nums">
+        <span className="text-xs text-caution-amber font-mono tabular-nums">
           {idleDisplay}
         </span>
-        <span className="text-[10px] text-su-muted">idle</span>
+        <span className="text-xs text-su-muted">idle</span>
       </div>
     );
   }
@@ -404,7 +404,7 @@ export const ContestTimer = memo(function ContestTimer({
 
           {/* Remaining operating time */}
           <div className="text-center">
-            <span className="text-[10px] text-su-muted uppercase tracking-wider">
+            <span className="text-xs text-su-muted uppercase tracking-wider">
               Operating time left:{" "}
             </span>
             <span
@@ -427,7 +427,7 @@ export const ContestTimer = memo(function ContestTimer({
 
       {/* No off-time rules indicator */}
       {!offTimeRules && (
-        <div className="text-center text-[10px] text-su-muted">
+        <div className="text-center text-xs text-su-muted">
           No off-time rules
         </div>
       )}

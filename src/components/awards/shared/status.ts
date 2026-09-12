@@ -15,7 +15,7 @@ export function statusBg(status: SlotStatus): string {
     case "confirmed":
       return "bg-signal-green/20 border-signal-green/50";
     case "worked_unconfirmed":
-      return "bg-caution-yellow/20 border-caution-yellow/50";
+      return "bg-caution-amber/20 border-caution-amber/50";
     case "needed":
       return "bg-su-panel/40 border-su-line/40";
   }
@@ -26,7 +26,7 @@ export function statusText(status: SlotStatus): string {
     case "confirmed":
       return "text-signal-green";
     case "worked_unconfirmed":
-      return "text-caution-yellow";
+      return "text-caution-amber";
     case "needed":
       return "text-su-muted";
   }

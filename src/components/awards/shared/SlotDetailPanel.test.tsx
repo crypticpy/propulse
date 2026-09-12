@@ -83,4 +83,27 @@ describe("SlotDetailPanel", () => {
     expect(screen.getAllByText("Needed")).toHaveLength(1);
     expect(screen.queryByText("Bands")).toBeNull();
   });
+
+  it("colours a tone: 'status' field with the status ink class, and leaves a plain field untouched", () => {
+    render(
+      <SlotDetailPanel
+        title="Test Slot"
+        status="confirmed"
+        fields={[
+          { label: "Plain", value: "Plain value" },
+          { label: "Status", value: "Confirmed", tone: "status" },
+        ]}
+        bands={[]}
+        modes={[]}
+        ariaLabel="Details for Test Slot"
+        onClose={vi.fn()}
+      />,
+    );
+
+    const plainValue = screen.getByText("Plain value");
+    expect(plainValue.className).toBe("text-su-text");
+
+    const statusValue = screen.getByText("Confirmed", { selector: "p" });
+    expect(statusValue.className).toBe("text-signal-green");
+  });
 });

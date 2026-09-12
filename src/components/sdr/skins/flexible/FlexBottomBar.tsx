@@ -97,7 +97,7 @@ export const FlexBottomBar = memo(function FlexBottomBar({
 
         {/* TX badge */}
         {ptt && (
-          <span className="rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none">
+          <span className="rounded bg-alert-red px-1.5 py-0.5 text-xs font-bold text-su-canvas leading-none">
             TX
           </span>
         )}

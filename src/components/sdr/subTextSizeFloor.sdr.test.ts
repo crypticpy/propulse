@@ -66,13 +66,6 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "held at 7px so this batch does not edit accentTintContrast.test.ts (#844 / PR #1163)",
   },
-  {
-    file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
-    match:
-      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
-    reason:
-      "held at 10px so this batch does not edit pulseTextContrast.test.ts (#878)",
-  },
 ];
 
 interface SubFloorSite {

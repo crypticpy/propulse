@@ -269,7 +269,7 @@ const AUDITED_SITES: AuditedSite[] = [
     file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
     what: "TX badge (LIVE pulse stays on the decorative dot)",
     anchor:
-      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
+      "rounded bg-alert-red px-1.5 py-0.5 text-xs font-bold text-su-canvas leading-none",
   },
   {
     file: "src/components/sdr/skins/fate/FateBottomBar.tsx",

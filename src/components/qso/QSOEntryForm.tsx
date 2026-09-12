@@ -86,7 +86,7 @@ function CompactField({
     <div className="flex flex-col gap-0.5">
       <label
         htmlFor={id}
-        className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
+        className="text-xs uppercase tracking-wider text-su-muted leading-none select-none"
       >
         {label}
       </label>
@@ -728,7 +728,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           <div className="flex flex-col gap-0.5">
             <label
               htmlFor="qso-chain"
-              className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
+              className="text-xs uppercase tracking-wider text-su-muted leading-none select-none"
             >
               Signal path
             </label>
@@ -770,7 +770,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           <div className="flex flex-col gap-0.5">
             <label
               htmlFor="qso-tx-power"
-              className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
+              className="text-xs uppercase tracking-wider text-su-muted leading-none select-none"
             >
               TX Power (W)
             </label>
@@ -850,7 +850,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
       <div className="flex flex-col gap-0.5">
         <label
           htmlFor="qso-notes"
-          className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
+          className="text-xs uppercase tracking-wider text-su-muted leading-none select-none"
         >
           Notes
         </label>

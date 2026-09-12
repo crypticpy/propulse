@@ -205,7 +205,7 @@ export function FireFlyout({
             Active Fire Detection
           </span>
         </div>
-        <div className="text-[10px] text-su-muted mt-0.5 font-mono">
+        <div className="text-xs text-su-muted mt-0.5 font-mono">
           NASA FIRMS · VIIRS (last 24h)
         </div>
       </div>

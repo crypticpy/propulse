@@ -26,7 +26,7 @@ function GradientBar({
   return (
     <div className="space-y-0.5">
       <div className="h-1.5 w-full rounded-sm" style={{ background: bg }} />
-      <span className="text-[9px] font-mono text-su-muted">{label}</span>
+      <span className="text-xs font-mono text-su-muted">{label}</span>
     </div>
   );
 }
@@ -40,7 +40,7 @@ function DotRow({
 }) {
   return (
     <div className="space-y-0.5">
-      <span className="text-[9px] font-mono text-su-muted">{label}</span>
+      <span className="text-xs font-mono text-su-muted">{label}</span>
       <div className="flex flex-col gap-0.5">
         {items.map((item) => (
           <div key={item.text} className="flex items-center gap-1">
@@ -48,7 +48,7 @@ function DotRow({
               className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: item.color }}
             />
-            <span className="text-[9px] font-mono text-su-muted">
+            <span className="text-xs font-mono text-su-muted">
               {item.text}
             </span>
           </div>
@@ -88,10 +88,10 @@ export function WeatherLegend() {
             }}
           />
           <div className="flex justify-between">
-            <span className="text-[8px] font-mono text-su-muted">5 dBZ</span>
-            <span className="text-[8px] font-mono text-su-muted">75 dBZ</span>
+            <span className="text-xs font-mono text-su-muted">5 dBZ</span>
+            <span className="text-xs font-mono text-su-muted">75 dBZ</span>
           </div>
-          <span className="text-[9px] font-mono text-su-muted">
+          <span className="text-xs font-mono text-su-muted">
             Radar (NEXRAD + RainViewer)
           </span>
         </div>

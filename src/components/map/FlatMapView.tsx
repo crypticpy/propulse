@@ -131,7 +131,10 @@ import {
   type AwardEntityStatus,
 } from "@/hooks/useAwardProgress";
 import type { LabelOptions } from "@/stores/mapStore";
-import { getStandardMapCanvas } from "@/lib/utils/standardMap";
+import {
+  addWrappedRingPath,
+  getStandardMapCanvas,
+} from "@/lib/utils/standardMap";
 import {
   createFlatTileLayer,
   type FlatTileLayer,
@@ -369,71 +372,6 @@ function latLonToCanvas(
   const x = ((lon + 180) / 360) * width;
   const y = ((90 - lat) / 180) * height;
   return { x, y };
-}
-
-function addWrappedRingPath2D(
-  ctx: CanvasRenderingContext2D,
-  ring: [number, number][],
-  width: number,
-  height: number,
-): void {
-  if (ring.length < 2) return;
-
-  const baseXs: number[] = new Array(ring.length);
-  for (let i = 0; i < ring.length; i++) {
-    const lon = ring[i][1];
-    baseXs[i] = ((lon + 180) / 360) * width;
-  }
-
-  let maxDelta = 0;
-  let rotateStart = 0;
-  for (let i = 0; i < ring.length; i++) {
-    const next = (i + 1) % ring.length;
-    const delta = Math.abs(baseXs[next] - baseXs[i]);
-    if (delta > maxDelta) {
-      maxDelta = delta;
-      rotateStart = i;
-    }
-  }
-
-  const needsRotation = maxDelta > width / 2 && rotateStart !== 0;
-  const points = needsRotation
-    ? [...ring.slice(rotateStart), ...ring.slice(0, rotateStart)]
-    : ring;
-  const pointsBaseXs = needsRotation
-    ? [...baseXs.slice(rotateStart), ...baseXs.slice(0, rotateStart)]
-    : baseXs;
-
-  const xs: number[] = new Array(points.length);
-  let prevX = 0;
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-
-  for (let i = 0; i < points.length; i++) {
-    let x = pointsBaseXs[i];
-    if (i > 0) {
-      const delta = x - prevX;
-      if (delta > width / 2) x -= width;
-      else if (delta < -width / 2) x += width;
-    }
-    xs[i] = x;
-    prevX = x;
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-  }
-
-  const offsets = [-width, 0, width] as const;
-  for (const offset of offsets) {
-    if (maxX + offset < 0 || minX + offset > width) continue;
-    for (let i = 0; i < points.length; i++) {
-      const [lat] = points[i];
-      const y = ((90 - lat) / 180) * height;
-      const x = xs[i] + offset;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-  }
 }
 
 /**
@@ -2702,7 +2640,7 @@ function drawLabels(
     ctx.beginPath();
     for (const country of WORLD_COUNTRIES) {
       for (const ring of country.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();
@@ -2951,7 +2889,7 @@ function drawStateBorders(
   ctx.beginPath();
   for (const state of US_STATES) {
     for (const ring of state.borders) {
-      addWrappedRingPath2D(ctx, ring, width, height);
+      addWrappedRingPath(ctx, ring, width, height);
     }
   }
   ctx.stroke();
@@ -3000,7 +2938,7 @@ function drawWASOverlay(
     ctx.beginPath();
     for (const state of states) {
       for (const ring of state.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
         ctx.closePath();
       }
     }
@@ -3092,7 +3030,7 @@ function drawNightBoostedBorders(
     ctx.beginPath();
     for (const country of WORLD_COUNTRIES) {
       for (const ring of country.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();
@@ -3105,7 +3043,7 @@ function drawNightBoostedBorders(
     ctx.beginPath();
     for (const state of US_STATES) {
       for (const ring of state.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();

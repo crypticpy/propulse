@@ -264,15 +264,21 @@ function drawSpotTooltip(
 
   ctx.save();
 
+  // Match text-xs and the app's root text scale; size the box from both rows.
+  const rootFont =
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+    16;
+  const fontSize = rootFont * 0.75;
+  const lineHeight = fontSize * 1.4;
   // Measure text
-  ctx.font = "bold 11px monospace";
+  ctx.font = `bold ${fontSize}px monospace`;
   const labelWidth = ctx.measureText(label).width;
-  ctx.font = "9px monospace";
+  ctx.font = `${fontSize}px monospace`;
   const subLabelWidth = ctx.measureText(subLabel).width;
   const boxWidth = Math.max(labelWidth, subLabelWidth) + 12;
-  const boxHeight = 28;
+  const boxHeight = lineHeight * 2 + 8;
   const boxX = x - boxWidth / 2;
-  const boxY = y - 35;
+  const boxY = y - boxHeight - 7;
 
   // Background
   ctx.fillStyle = "rgba(10, 10, 26, 0.95)";
@@ -293,13 +299,13 @@ function drawSpotTooltip(
 
   // Text
   ctx.fillStyle = bandColor.color;
-  ctx.font = "bold 11px monospace";
+  ctx.font = `bold ${fontSize}px monospace`;
   ctx.textAlign = "center";
-  ctx.fillText(label, x, boxY + 12);
+  ctx.fillText(label, x, boxY + 4 + fontSize);
 
   ctx.fillStyle = "#9ca3af";
-  ctx.font = "9px monospace";
-  ctx.fillText(subLabel, x, boxY + 23);
+  ctx.font = `${fontSize}px monospace`;
+  ctx.fillText(subLabel, x, boxY + 4 + lineHeight + fontSize);
 
   // Pointer triangle
   ctx.fillStyle = "rgba(10, 10, 26, 0.95)";

@@ -211,7 +211,8 @@
  * action buttons in `flex flex-wrap`; `DXSpotOverlay` tooltip keeps
  * `whitespace-nowrap` on the chip (decorative hover chrome, not a truncating
  * row). Zero allowlist entries. `src/components/dx/` sub-floor census is
- * complete.
+ * complete for Tailwind classes. Canvas tooltip sizing is additionally
+ * covered by DXSpotOverlay.canvasText.test.ts (scale and containing box).
  */
 
 import { fileURLToPath } from "node:url";
@@ -333,8 +334,7 @@ const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
  * written as an arbitrary, which does not follow Settings -> Text Size),
  * rem/em/pt values at or below 12px, and `text-[clamp(` in the audited set.
  */
-const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
+const INLINE_SIZE_RE = /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface SubFloorSite {
   file: string;
@@ -411,10 +411,10 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
       const stillPresent = findSubFloorSites(entry.file).some((site) =>
         site.text.includes(entry.match),
       );
-    expect(
-      stillPresent,
-      `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
-    ).toBe(true);
+      expect(
+        stillPresent,
+        `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
+      ).toBe(true);
     }
   });
 });
@@ -601,22 +601,21 @@ describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () 
     expect(functionValuedTextValues("text-[clamp(0.5rem,2vw,1rem)]")).toEqual([
       "text-[clamp(0.5rem,2vw,1rem)]",
     ]);
-    expect(
-      functionValuedTextValues("text-[calc(0.75rem-2px)]").length,
-    ).toBe(1);
+    expect(functionValuedTextValues("text-[calc(0.75rem-2px)]").length).toBe(1);
     expect(functionValuedTextValues("text-[min(0.7rem,2vw)]").length).toBe(1);
     expect(functionValuedTextValues("text-[max(0.6rem,1vw)]").length).toBe(1);
     expect(
-      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]").length,
+      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]")
+        .length,
     ).toBe(1);
     expect(functionValuedTextValues("text-xs").length).toBe(0);
     expect(functionValuedTextValues("text-[11px]").length).toBe(0);
     expect(functionValuedTextValues("text-[0.9rem]").length).toBe(0);
 
     // The allowlist is matched on the whole token, never as a prefix.
-    expect(
-      functionValuedTextValues("hover:text-[var(--hc-fg)]").length,
-    ).toBe(0);
+    expect(functionValuedTextValues("hover:text-[var(--hc-fg)]").length).toBe(
+      0,
+    );
     expect(functionValuedTextValues("text-[var(--su-text)]").length).toBe(1);
     expect(functionValuedTextValues("text-[var(--hc-fg-2)]").length).toBe(1);
   });

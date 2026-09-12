@@ -750,7 +750,7 @@ export const CATSettings = memo(function CATSettings({
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
-          <p className="text-[11px] text-su-muted pb-2">
+          <p className="text-xs text-su-muted pb-2">
             WFView CI-V TCP server for waterfall data
           </p>
         </div>
@@ -920,7 +920,7 @@ export const CATSettings = memo(function CATSettings({
             </div>
           </div>
 
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             Direct USB serial connection via CI-V protocol. Spectrum data flows
             through the same connection.
           </p>
@@ -992,12 +992,12 @@ export const CATSettings = memo(function CATSettings({
               />
             </div>
           </div>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             RS-BA1 network connection. Requires ICOM RS-BA1 IP Remote Control
             Software running on the radio or gateway.
           </p>
           {credentialMessage ? (
-            <p className="text-[11px] text-caution-yellow">
+            <p className="text-xs text-caution-yellow">
               {credentialMessage}
             </p>
           ) : null}
@@ -1068,7 +1068,7 @@ export const CATSettings = memo(function CATSettings({
             <div className="grid grid-cols-2 gap-2">
               {/* Frequency */}
               <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
-                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
+                <div className="text-xs text-su-muted uppercase tracking-wider mb-0.5">
                   Frequency
                 </div>
                 <div className="text-sm font-mono text-su-text font-medium">
@@ -1078,7 +1078,7 @@ export const CATSettings = memo(function CATSettings({
 
               {/* Mode */}
               <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
-                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
+                <div className="text-xs text-su-muted uppercase tracking-wider mb-0.5">
                   Mode
                 </div>
                 <div className="text-sm font-mono text-su-text font-medium">
@@ -1088,7 +1088,7 @@ export const CATSettings = memo(function CATSettings({
 
               {/* Band */}
               <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
-                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
+                <div className="text-xs text-su-muted uppercase tracking-wider mb-0.5">
                   Band
                 </div>
                 <div className="text-sm font-mono text-su-text font-medium">
@@ -1098,7 +1098,7 @@ export const CATSettings = memo(function CATSettings({
 
               {/* PTT */}
               <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
-                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
+                <div className="text-xs text-su-muted uppercase tracking-wider mb-0.5">
                   PTT
                 </div>
                 <div
@@ -1112,7 +1112,7 @@ export const CATSettings = memo(function CATSettings({
             {/* S-Meter Visualization */}
             <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] text-su-muted uppercase tracking-wider">
+                <span className="text-xs text-su-muted uppercase tracking-wider">
                   S-Meter
                 </span>
                 <span className="text-xs font-mono text-su-text font-medium">

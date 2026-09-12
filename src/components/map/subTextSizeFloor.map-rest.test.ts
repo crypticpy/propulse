@@ -17,7 +17,7 @@
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -142,4 +142,32 @@ it("detects equivalent alternate and fixed-floor font sizes", () => {
     "text-[14px]",
   ])
     expect(hasAlternateFloorSize(token), token).toBe(false);
+});
+
+
+it("keeps a pin flyout inside a resized viewport with stale pointer coordinates", async () => {
+  const { createElement } = await import("react");
+  const { render, act } = await import("@testing-library/react");
+  const { PinFlyout } = await import("./PinFlyout");
+  vi.stubGlobal("innerWidth", 390);
+  vi.stubGlobal("innerHeight", 900);
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockReturnValue({ width: 240, height: 325 } as DOMRect);
+  const view = render(createElement(PinFlyout, {
+    visible: true, position: { x: 370, y: 880 }, spots: [],
+    pin: { id: "fixture", grid: "FN31", lat: 41, lon: -73, createdAt: "2026-09-12T00:00:00Z" },
+    onSetTarget: () => {}, onClose: () => {},
+  }));
+  try {
+    const flyout = view.getByRole("dialog");
+    expect(flyout.style.top).toBe("540px");
+    vi.stubGlobal("innerHeight", 600);
+    vi.stubGlobal("innerWidth", 300);
+    act(() => window.dispatchEvent(new Event("resize")));
+    expect(flyout.style.top).toBe("265px");
+    expect(flyout.style.left).toBe("50px");
+  } finally {
+    view.unmount(); measure.mockRestore(); vi.unstubAllGlobals();
+  }
 });

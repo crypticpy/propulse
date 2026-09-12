@@ -317,7 +317,11 @@ export function PinFlyout({
       );
     }
 
-    return { x: adjustedX, y: adjustedY };
+    // A viewport resize can leave the last pointer outside the new bounds.
+    return {
+      x: Math.max(EDGE_PADDING, Math.min(adjustedX, viewportWidth - FLYOUT_WIDTH - EDGE_PADDING)),
+      y: Math.max(EDGE_PADDING, Math.min(adjustedY, viewportHeight - flyoutHeight - EDGE_PADDING)),
+    };
   }, [position, flyoutHeight, viewport]);
 
   // ------- Formatted coordinates -------

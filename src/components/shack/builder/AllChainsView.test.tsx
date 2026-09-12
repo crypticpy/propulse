@@ -75,6 +75,10 @@ const chain: StationChain = {
 };
 beforeEach(() => {
   vi.useFakeTimers();
+  // jsdom does not implement scrollIntoView; AllChainsView calls it from a
+  // real-timer effect in the "focuses Configure" test below, which can fire
+  // after the test body returns and throw an uncaught exception otherwise.
+  Element.prototype.scrollIntoView = vi.fn();
   useShackStore.setState({
     ...initial,
     stationChains: [structuredClone(chain)],

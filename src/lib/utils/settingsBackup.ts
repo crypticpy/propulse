@@ -20,6 +20,13 @@ import { useWatchStore, type WatchItem } from "@/stores/watchStore";
 import { usePinStore } from "@/stores/pinStore";
 import { useAlertsStore } from "@/stores/alertsStore";
 import type { GearDeletionTable } from "@/lib/sync/shackDeletionIntent";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  collectBackupGearRefs,
+  filterBlockedGearFromBackup,
+  resolveRestoreGearBlocks,
+  type SkippedRestoreGearItem,
+} from "@/lib/utils/settingsBackupGearRestore";
 import type { MapPin } from "@/types/pin";
 import type { UserStation, UserPreferences } from "@/types/user";
 import type {
@@ -148,6 +155,7 @@ export interface ValidationResult {
 export interface ImportResult {
   success: boolean;
   error?: string;
+  skippedGear?: SkippedRestoreGearItem[];
   imported: {
     userPreferences: boolean;
     mapSettings: boolean;
@@ -362,6 +370,27 @@ export async function readBackupFile(
 }
 
 /**
+ * Import settings from a validated backup, skipping gear tombstoned or
+ * purged on the server and reporting those items (#1078).
+ */
+export async function importSettingsBackup(
+  backup: SettingsBackup,
+): Promise<ImportResult> {
+  const userId = useAuthStore.getState().user?.id;
+  if (userId && isSupabaseConfigured) {
+    const refs = collectBackupGearRefs(backup);
+    const { blockedKeys, skipped } = await resolveRestoreGearBlocks(
+      userId,
+      refs,
+    );
+    const filtered = filterBlockedGearFromBackup(backup, blockedKeys);
+    const result = importSettings(filtered);
+    return skipped.length > 0 ? { ...result, skippedGear: skipped } : result;
+  }
+  return importSettings(backup);
+}
+
+/**
  * Import settings from a validated backup
  * @param backup - Validated backup object to import
  * @returns Import result with details about what was applied
@@ -415,9 +444,8 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           // A backup import replaces radios/customRadios wholesale; any id
           // dropped by that replacement must be tombstoned the same as a
           // local remove* action, or the next sync pull will resurrect it
-          // on other devices (#326). Resurrecting gear that was already
-          // tombstoned elsewhere because the backup itself still contains
-          // it is the reverse problem and is out of scope for this PR.
+          // on other devices (#326). Tombstoned/purged gear in the backup
+          // itself is filtered by importSettingsBackup before apply (#1078).
           const droppedRadioIds =
             radios !== undefined
               ? droppedIds(
@@ -479,10 +507,8 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
         // This wholesale replace bypasses the store's remove* actions, so
         // any id dropped here must be tombstoned by hand — otherwise a
-        // sync pull re-adds it on other devices. Restoring a backup that
-        // itself still contains gear already tombstoned elsewhere
-        // (resurrection via import) is the reverse problem and is out of
-        // scope for this PR (#326 follow-up).
+        // sync pull re-adds it on other devices. Tombstoned/purged gear in
+        // the backup itself is filtered by importSettingsBackup (#1078).
         const droppedAntennaIds = droppedIds(currentShack.antennas, nextAntennas);
         const droppedFeedlineIds = droppedIds(
           currentShack.feedlines,

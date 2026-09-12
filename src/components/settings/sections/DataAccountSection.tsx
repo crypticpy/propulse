@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   downloadSettingsBackup,
   readBackupFile,
-  importSettings,
+  importSettingsBackup,
   getBackupSummary,
   type SettingsBackup,
   type ValidationResult,
@@ -119,30 +119,42 @@ export function DataAccountSection() {
   );
 
   // ── Confirm import ───────────────────────────────────────────────
-  const handleConfirmImport = useCallback(() => {
+  const handleConfirmImport = useCallback(async () => {
     if (!pendingImport) return;
 
     setIsImporting(true);
-    const result = importSettings(pendingImport.backup);
+    try {
+      const result = await importSettingsBackup(pendingImport.backup);
 
-    if (result.success) {
-      const importedSections = Object.entries(result.imported)
-        .filter(([, imported]) => imported)
-        .map(([section]) => section)
-        .join(", ");
-      setBackupStatus({
-        type: "success",
-        message: `Settings imported successfully. Imported: ${importedSections}`,
-      });
-    } else {
+      if (result.success) {
+        const importedSections = Object.entries(result.imported)
+          .filter(([, imported]) => imported)
+          .map(([section]) => section)
+          .join(", ");
+        const skippedGear = result.skippedGear?.length
+          ? ` Skipped deleted gear: ${result.skippedGear
+              .map((item) => `${item.label} (${item.reason})`)
+              .join(", ")}.`
+          : "";
+        setBackupStatus({
+          type: "success",
+          message: `Settings imported successfully. Imported: ${importedSections}.${skippedGear}`,
+        });
+      } else {
+        setBackupStatus({
+          type: "error",
+          message: result.error || "Import failed",
+        });
+      }
+    } catch (e) {
       setBackupStatus({
         type: "error",
-        message: result.error || "Import failed",
+        message: `Import failed: ${e instanceof Error ? e.message : "Unknown error"}`,
       });
+    } finally {
+      setPendingImport(null);
+      setIsImporting(false);
     }
-
-    setPendingImport(null);
-    setIsImporting(false);
   }, [pendingImport]);
 
   // ── Cancel import ────────────────────────────────────────────────

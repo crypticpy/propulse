@@ -153,7 +153,7 @@ describe("shackGearTombstone", () => {
     expect(ack).toEqual([]);
   });
 
-  it("acks a zero-row update once a follow-up read confirms the row is gone", async () => {
+  it("acks a zero-row update once a follow-up read confirms the row is gone (purged tombstone, #1078)", async () => {
     const table = makeTableMock(
       { data: [], error: null },
       { data: null, error: null },

@@ -5,26 +5,22 @@
  * Five views: sign-in, sign-up, forgot password, check email, and reset password.
  * Auto-closes and resolves the pending callback when auth succeeds.
  * Detects recovery mode to auto-show the reset password view.
+ *
+ * The sign-in / sign-up / forgot-password / reset-password field state and
+ * handlers are shared with LoginPage via useAuthForm (#1093 layer 2). This
+ * file keeps its own chrome: the modal shell, the check_email view, and the
+ * fade transition between views.
  */
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useId,
-  useRef,
-  useMemo,
-} from "react";
+import { useState, useEffect, useCallback, useId, useRef } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import {
-  evaluatePasswordStrength,
-  meetsAccountPasswordPolicy,
-} from "@/lib/auth/passwordStrength";
+import { meetsAccountPasswordPolicy } from "@/lib/auth/passwordStrength";
+import { useAuthForm } from "./useAuthForm";
 
 type ModalView =
   "signin" | "signup" | "forgot" | "check_email" | "reset_password";
@@ -42,17 +38,6 @@ export function AuthModal() {
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
   const isRecoveryMode = useAuthStore((s) => s.isRecoveryMode);
-  const signInWithPassword = useAuthStore((s) => s.signInWithPassword);
-  const signUpWithPassword = useAuthStore((s) => s.signUpWithPassword);
-  const resetPassword = useAuthStore((s) => s.resetPassword);
-  const updatePassword = useAuthStore((s) => s.updatePassword);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [sentTo, setSentTo] = useState("");
-  const [confirmError, setConfirmError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   // Track whether views are transitioning for animation
   const [transitioning, setTransitioning] = useState(false);
@@ -62,11 +47,35 @@ export function AuthModal() {
   const titleId = useId();
   const descriptionId = useId();
 
-  // Password strength for current password value
-  const strength = useMemo(
-    () => (password.length > 0 ? evaluatePasswordStrength(password) : null),
-    [password],
-  );
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    confirmPassword,
+    setConfirmPassword,
+    sentTo,
+    setSentTo,
+    confirmError,
+    setConfirmError,
+    successMessage,
+    setSuccessMessage,
+    strength,
+    handleSignIn,
+    handleSignUp,
+    handleForgotPassword,
+    handleUpdatePassword,
+    handleConfirmBlur,
+    submitForView,
+  } = useAuthForm({
+    // Sign-up and forgot-password both land on the same check_email view.
+    onSignUpSuccess: () => switchView("check_email"),
+    onForgotPasswordSuccess: () => switchView("check_email"),
+    onUpdatePasswordSuccess: () => {
+      setSuccessMessage("Password updated successfully.");
+      setTimeout(() => closeAuthModal(), 1500);
+    },
+  });
 
   // ── Recovery mode: auto-open modal with reset_password view ──────
   useEffect(() => {
@@ -79,7 +88,15 @@ export function AuthModal() {
       setPassword("");
       setConfirmPassword("");
     }
-  }, [isRecoveryMode, openAuthModal, clearError]);
+  }, [
+    isRecoveryMode,
+    openAuthModal,
+    clearError,
+    setConfirmError,
+    setSuccessMessage,
+    setPassword,
+    setConfirmPassword,
+  ]);
 
   // ── Auto-close when auth succeeds ────────────────────────────────
   useEffect(() => {
@@ -108,7 +125,16 @@ export function AuthModal() {
       setSuccessMessage("");
       clearError();
     }
-  }, [isOpen, clearError]);
+  }, [
+    isOpen,
+    clearError,
+    setEmail,
+    setPassword,
+    setConfirmPassword,
+    setSentTo,
+    setConfirmError,
+    setSuccessMessage,
+  ]);
 
   // ── View transition helper ───────────────────────────────────────
   const switchView = useCallback(
@@ -125,96 +151,31 @@ export function AuthModal() {
         setTransitioning(false);
       }, 150);
     },
-    [clearError],
+    [
+      clearError,
+      setConfirmError,
+      setSuccessMessage,
+      setPassword,
+      setConfirmPassword,
+    ],
   );
 
   // ── Handlers ─────────────────────────────────────────────────────
-  const handleSignIn = useCallback(async () => {
-    if (!email.trim() || !password) return;
-    await signInWithPassword(email.trim(), password);
-  }, [email, password, signInWithPassword]);
-
-  const handleSignUp = useCallback(async () => {
-    if (!email.trim() || !password) return;
-    if (password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 8) {
-      setConfirmError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!meetsAccountPasswordPolicy(password)) {
-      setConfirmError(
-        "Password is too weak. Add numbers and special characters.",
-      );
-      return;
-    }
-    await signUpWithPassword(email.trim(), password);
-    // If signup succeeded (no error), show check_email
-    if (!useAuthStore.getState().error) {
-      setSentTo(email.trim());
-      switchView("check_email");
-    }
-  }, [email, password, confirmPassword, signUpWithPassword, switchView]);
-
-  const handleForgotPassword = useCallback(async () => {
-    if (!email.trim()) return;
-    await resetPassword(email.trim());
-    if (!useAuthStore.getState().error) {
-      setSentTo(email.trim());
-      switchView("check_email");
-    }
-  }, [email, resetPassword, switchView]);
-
-  const handleUpdatePassword = useCallback(async () => {
-    if (!password) return;
-    if (password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 8) {
-      setConfirmError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!meetsAccountPasswordPolicy(password)) {
-      setConfirmError(
-        "Password is too weak. Add numbers and special characters.",
-      );
-      return;
-    }
-    await updatePassword(password);
-    if (!useAuthStore.getState().error) {
-      setSuccessMessage("Password updated successfully.");
-      setTimeout(() => closeAuthModal(), 1500);
-    }
-  }, [password, confirmPassword, updatePassword, closeAuthModal]);
-
-  const handleConfirmBlur = useCallback(() => {
-    if (confirmPassword && password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-    } else {
-      setConfirmError("");
-    }
-  }, [password, confirmPassword]);
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        if (displayView === "signin") handleSignIn();
-        else if (displayView === "signup") handleSignUp();
-        else if (displayView === "forgot") handleForgotPassword();
-        else if (displayView === "reset_password") handleUpdatePassword();
+        if (
+          displayView === "signin" ||
+          displayView === "signup" ||
+          displayView === "forgot" ||
+          displayView === "reset_password"
+        ) {
+          submitForView(displayView);
+        }
       }
     },
-    [
-      displayView,
-      handleSignIn,
-      handleSignUp,
-      handleForgotPassword,
-      handleUpdatePassword,
-    ],
+    [displayView, submitForView],
   );
 
   // ── View titles ──────────────────────────────────────────────────

@@ -98,12 +98,15 @@
 import { firstNonFiniteField } from "./finiteResult";
 import {
   longPathMuf,
+  LONG_PATH_MIN_DISTANCE_KM,
+  MAX_ROUTE_DISTANCE_KM,
   type LongPathMufResult,
   type LongPathMufSampler,
   type ResolvedLongPathMuf,
 } from "./longPath/fM";
 import {
   longPathLuf,
+  LUF_MAX_R12,
   type LongPathLufResult,
   type ResolvedLongPathLuf,
 } from "./longPath/fL";
@@ -111,6 +114,11 @@ import {
   EARTH_RADIUS_KM,
   type ResolvedRoute,
 } from "@/lib/propagation/geometry/route";
+
+// Re-exported under this module's own name (item D): fM.ts is the single
+// declaration of LONG_PATH_MIN_DISTANCE_KM, and this module forwards the
+// imported binding rather than redeclaring `= 7000` a second time.
+export { LONG_PATH_MIN_DISTANCE_KM };
 
 /** The constant of equation (40), dB. */
 export const FREE_SPACE_FIELD_CONSTANT_DB = 139.6; // equation (40)
@@ -124,11 +132,11 @@ export const MAX_FOCUS_GAIN_DB = 15; // section 5.3.3, after equation (41)
 /** Ly, dB. See deviation 1. */
 export const LY_DB = -0.14; // section 5.3.3, "The present recommended value"
 
-/** Section 5.3's lower distance bound, km. */
-export const LONG_PATH_MIN_DISTANCE_KM = 7000; // section 5.3
-
 /** Section 5.3's bound above which this is the only method, km. */
 export const LONG_PATH_ONLY_DISTANCE_KM = 9000; // section 5.3
+
+/** Whole hours in a day, for validating utcHour before either leaf runs. */
+const HOURS_PER_DAY = 24;
 
 /** Pt when the caller states none: one kilowatt. */
 export const DEFAULT_TRANSMITTER_POWER_DB_KW = 0;
@@ -371,6 +379,47 @@ export function longPathFieldStrength(
       D,
     );
   }
+  if (D > MAX_ROUTE_DISTANCE_KM) {
+    return unsupported(
+      "out_of_domain",
+      `the route is ${D.toFixed(1)} km, longer than the ` +
+        `${MAX_ROUTE_DISTANCE_KM.toFixed(1)} km circumference of the ` +
+        `declared sphere, so it is not a path length.`,
+      D,
+    );
+  }
+  // monthIndex, utcHour and r12 are hoisted here, ahead of `longPathMuf`,
+  // rather than left for `longPathLuf` to discover deep inside 48 wasted
+  // sampler evaluations: a bad calendar or sunspot input is this leaf's own
+  // domain question, not a MUF question, and should say so before any
+  // sampler runs.
+  if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return unsupported(
+      "out_of_domain",
+      `monthIndex must be a whole month 0..11, received ` +
+        `${String(monthIndex)}; Tables 4 and 5 have one column per month.`,
+      D,
+    );
+  }
+  if (!Number.isInteger(utcHour) || utcHour < 0 || utcHour >= HOURS_PER_DAY) {
+    return unsupported(
+      "out_of_domain",
+      `utcHour must be a whole hour 0..23, received ${String(utcHour)}. ` +
+        `Both fM and fL read an hourly table and cannot be asked for a ` +
+        `fractional hour without inventing an interpolation the ` +
+        `recommendation does not state.`,
+      D,
+    );
+  }
+  if (!Number.isFinite(r12) || r12 < 0 || r12 > LUF_MAX_R12) {
+    return unsupported(
+      "out_of_domain",
+      `R12 must be finite, not negative and at most ` +
+        `${String(LUF_MAX_R12)} (an envelope; no real sunspot series comes ` +
+        `close), received ${String(r12)}.`,
+      D,
+    );
+  }
   if (!Number.isFinite(frequencyMHz) || frequencyMHz <= 0) {
     return unsupported(
       "out_of_domain",
@@ -446,6 +495,13 @@ export function longPathFieldStrength(
     assumptions.push(
       `Gap from equation (41) was ${unlimited.toFixed(2)} dB and section ` +
         `5.3.3 limits it to ${String(MAX_FOCUS_GAIN_DB)} dB.`,
+    );
+  }
+  if (luf.fLMHz >= muf.fMMHz) {
+    assumptions.push(
+      `fL (${luf.fLMHz.toFixed(3)} MHz) is at or above fM ` +
+        `(${muf.fMMHz.toFixed(3)} MHz), an inverted or degenerate passband ` +
+        `that equation (39) still evaluates without a stated exception.`,
     );
   }
 

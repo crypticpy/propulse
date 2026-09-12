@@ -349,4 +349,56 @@ describe("what section 5.4 refuses rather than guesses", () => {
     expect(result.detail).toContain("xShort");
     expect(result.detail).toContain("Infinity");
   });
+
+  it.each([
+    {
+      name: "shortPathDb = Number.MAX_VALUE, an even more extreme overflow than the 1e6 case above",
+      overrides: { shortPathDb: Number.MAX_VALUE, longPathDb: -50 },
+      expectedReason: "non_finite_result" as const,
+    },
+    {
+      name: "longPathDb = Number.MAX_VALUE, the same overflow on the other side",
+      overrides: { shortPathDb: -50, longPathDb: Number.MAX_VALUE },
+      expectedReason: "non_finite_result" as const,
+    },
+    {
+      name: "groundDistanceKm = Number.MAX_VALUE, resolves as long_path_only rather than overflowing, since equation (42) never runs outside the blend window",
+      overrides: {
+        groundDistanceKm: Number.MAX_VALUE,
+        shortPathDb: -50,
+        longPathDb: -50,
+      },
+      expectedReason: null,
+    },
+    {
+      name: "groundDistanceKm = -Number.MAX_VALUE, not a usable path length",
+      overrides: {
+        groundDistanceKm: -Number.MAX_VALUE,
+        shortPathDb: -50,
+        longPathDb: -50,
+      },
+      expectedReason: "out_of_domain" as const,
+    },
+    {
+      name: "shortPathDb and longPathDb both deeply negative but finite, which this leaf's own contract still admits",
+      overrides: { shortPathDb: -1000, longPathDb: -1000 },
+      expectedReason: null,
+    },
+  ])(
+    "hostile input, item H's table: $name",
+    ({ overrides, expectedReason }) => {
+      const result = distanceBlend({ groundDistanceKm: 8000, ...overrides });
+      if (expectedReason === null) {
+        expect(result.kind).toBe("resolved");
+        if (result.kind === "resolved") {
+          expect(Number.isFinite(result.fieldStrengthDb)).toBe(true);
+        }
+      } else {
+        expect(result.kind).toBe("unsupported");
+        if (result.kind === "unsupported") {
+          expect(result.reason).toBe(expectedReason);
+        }
+      }
+    },
+  );
 });

@@ -39,7 +39,9 @@ import {
   LONG_PATH_MIRROR_HEIGHT_KM,
   MAX_ROUTE_DISTANCE_KM,
   SAMPLED_FOF2_MAX_MHZ,
+  SAMPLED_FOF2_MIN_MHZ,
   SAMPLED_GYROFREQUENCY_MAX_MHZ,
+  SAMPLED_GYROFREQUENCY_MIN_MHZ,
   SAMPLED_M3000F2_MAX,
   type LongPathMufState,
   type ResolvedLongPathMuf,
@@ -265,7 +267,7 @@ describe("equation (32), the K factor", () => {
     const byHand =
       1.2 +
       0.2 * (fBM / noon) +
-      0.2 * (Math.cbrt(noon / fBM) - 1) +
+      0.2 * ((noon / fBM) ** (1 / 3) - 1) +
       0.4 * (min / noon) ** 2;
     expect(kFactor(fBM, noon, min, coefficients)).toBeCloseTo(byHand, 12);
   });
@@ -678,13 +680,17 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     const result = longPathMuf({
       route: stretched(EASTBOUND, 8095.11),
       utcHour: 12,
-      sample: () => ({ foF2MHz: 0, m3000F2: 3, gyrofrequency300kmMHz: 0 }),
+      sample: () => ({
+        foF2MHz: 0,
+        m3000F2: 3,
+        gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MIN_MHZ,
+      }),
     });
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") return;
     expect(result.reason).toBe("out_of_domain");
     expect(result.detail).toContain("foF2MHz");
-    expect(result.detail).toContain("greater than 0");
+    expect(result.detail).toContain("at least 0.1");
   });
 
   it("declines a finite but non-physical sampled m3000F2, such as a missing-data sentinel", () => {
@@ -711,7 +717,7 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     if (result.kind !== "unsupported") return;
     expect(result.reason).toBe("out_of_domain");
     expect(result.detail).toContain("gyrofrequency300kmMHz");
-    expect(result.detail).toContain("0 or greater");
+    expect(result.detail).toContain("at least 0.1");
   });
 
   it("declines a sampled foF2 just above its envelope, which is a margin and not a physics limit", () => {
@@ -788,19 +794,68 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     expect(Number.isFinite(atGyroBound.fMMHz)).toBe(true);
   });
 
-  it("admits gyrofrequency300kmMHz = 0 and a tiny positive foF2, the legitimate boundary", () => {
-    const result = resolved(
+  it("admits the lower envelope boundary exactly: foF2 = 0.1, gyrofrequency = 0.1", () => {
+    const atFoF2Floor = resolved(
       longPathMuf({
         route: stretched(EASTBOUND, 8095.11),
         utcHour: 12,
         sample: () => ({
-          foF2MHz: 1e-9,
+          foF2MHz: SAMPLED_FOF2_MIN_MHZ,
           m3000F2: 3,
-          gyrofrequency300kmMHz: 0,
+          gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MIN_MHZ,
         }),
       }),
     );
-    expect(Number.isFinite(result.fMMHz)).toBe(true);
+    expect(Number.isFinite(atFoF2Floor.fMMHz)).toBe(true);
+  });
+
+  it("declines a sampled foF2 or gyrofrequency just below the lower envelope, which is a margin and not a physics limit", () => {
+    const belowFoF2 = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({
+        foF2MHz: SAMPLED_FOF2_MIN_MHZ - 0.001,
+        m3000F2: 3,
+        gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MIN_MHZ,
+      }),
+    });
+    expect(belowFoF2.kind).toBe("unsupported");
+    if (belowFoF2.kind === "unsupported") {
+      expect(belowFoF2.reason).toBe("out_of_domain");
+      expect(belowFoF2.detail).toContain("foF2MHz");
+    }
+
+    const belowGyro = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({
+        foF2MHz: SAMPLED_FOF2_MIN_MHZ,
+        m3000F2: 3,
+        gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MIN_MHZ - 0.001,
+      }),
+    });
+    expect(belowGyro.kind).toBe("unsupported");
+    if (belowGyro.kind === "unsupported") {
+      expect(belowGyro.reason).toBe("out_of_domain");
+      expect(belowGyro.detail).toContain("gyrofrequency300kmMHz");
+    }
+  });
+
+  it("declines a foF2 of 1e-3, which the old bound admitted and the K factor could turn into an absurd but still finite operational MUF", () => {
+    // Item A's whole rationale: 1e-3 MHz is finite and was positive under the
+    // old ">0" bound, so it passed every earlier check and could still swing
+    // equation (32)'s K-factor ratios by orders of magnitude between hours
+    // without ever producing a non-finite number. The tightened floor
+    // refuses it outright instead.
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({ foF2MHz: 1e-3, m3000F2: 3, gyrofrequency300kmMHz: 1.2 }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("foF2MHz");
   });
 
   it("never returns a NaN on any field of a resolved record", () => {
@@ -849,6 +904,35 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     }
     for (const value of numbers) {
       expect(Number.isFinite(value)).toBe(true);
+    }
+  });
+
+  it.each([
+    {
+      name: "foF2 = 1e-300, a near-zero missing-data sentinel item A now rejects outright",
+      state: { foF2MHz: 1e-300, m3000F2: 3, gyrofrequency300kmMHz: 1.2 },
+      expectRejected: true,
+    },
+    {
+      name: "gyrofrequency300kmMHz = 0, below item A's new floor",
+      state: { foF2MHz: 8, m3000F2: 3, gyrofrequency300kmMHz: 0 },
+      expectRejected: true,
+    },
+    {
+      name: "m3000F2 = 1e-300: unchanged by item A, still resolves, so it must be checked for finiteness rather than assumed rejected",
+      state: { foF2MHz: 8, m3000F2: 1e-300, gyrofrequency300kmMHz: 1.2 },
+      expectRejected: false,
+    },
+  ])("hostile sampled state: $name", ({ state, expectRejected }) => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => state,
+    });
+    if (expectRejected) {
+      expect(result.kind).toBe("unsupported");
+    } else {
+      expect(Number.isFinite(resolved(result).fMMHz)).toBe(true);
     }
   });
 });

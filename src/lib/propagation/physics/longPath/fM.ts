@@ -200,6 +200,21 @@ export const K_CONSTANT = 1.2; // equation (32)
 export const SAMPLED_FOF2_MAX_MHZ = 50;
 
 /**
+ * Lower envelope on the sampler's foF2, MHz. NOT a physics limit: no real F2
+ * layer collapses this close to zero, so a value below it is a missing-data
+ * sentinel rather than an ionosphere. Closed for the same reason the upper
+ * bound is: a foF2 admitted at the old ">0" boundary, such as 1e-3 MHz, is
+ * finite and positive and still passes every check, but it collapses fz and
+ * f4 near zero at whichever hour it lands on. If that hour is the noon fBM
+ * equation (32) reads, the K-factor's fBM/fBM,noon and
+ * (fBM,noon/fBM)^(1/3) ratios swing by orders of magnitude between hours,
+ * producing a finite but physically meaningless operational MUF that
+ * `firstNonFiniteField` cannot see, because it is finite. This envelope
+ * refuses the sampler before any of that happens.
+ */
+export const SAMPLED_FOF2_MIN_MHZ = 0.1;
+
+/**
  * Envelope on the sampler's M(3000)F2, dimensionless. NOT a physics limit:
  * the propagation factor is physically between about 1 and 4.
  */
@@ -210,6 +225,17 @@ export const SAMPLED_M3000F2_MAX = 6;
  * the terrestrial field gives at most about 1.7 MHz at the surface.
  */
 export const SAMPLED_GYROFREQUENCY_MAX_MHZ = 3;
+
+/**
+ * Lower envelope on the sampler's 300 km gyrofrequency, MHz. NOT a physics
+ * limit: the terrestrial field never actually collapses to zero at 300 km, so
+ * a value below this margin is a missing-data sentinel. Closed for the same
+ * reason as `SAMPLED_FOF2_MIN_MHZ`: fL.ts's own gyrofrequency input shares
+ * this same floor (`fL.ts` deviation-free bound, section 5.3.2's fH), so the
+ * mean of two control-point values this leaf produces stays inside the range
+ * the sibling leaf accepts.
+ */
+export const SAMPLED_GYROFREQUENCY_MIN_MHZ = 0.1;
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -538,6 +564,13 @@ function divideIntoHops(groundDistanceKm: number):
     }
     hopCount += 1;
   }
+  // Structurally unreachable for any D admitted by longPathMuf's own domain
+  // (LONG_PATH_MIN_DISTANCE_KM <= D <= MAX_ROUTE_DISTANCE_KM): elevation
+  // rises monotonically as hopCount grows and the hop shortens, so well
+  // before hopCount reaches LONG_PATH_MAX_HOP_COUNT the loop above always
+  // finds an elevation above LONG_PATH_MIN_ELEVATION_DEG. Kept as a
+  // defensive final case, not a reachable one; see fM.test.ts's "always
+  // finds a hop count well inside its own bound".
   return {
     kind: "none",
     detail:
@@ -574,10 +607,12 @@ const SAMPLED_STATE_BOUNDS: readonly {
   {
     name: "foF2MHz",
     description:
-      `a finite value greater than 0 and at most ` +
-      `${String(SAMPLED_FOF2_MAX_MHZ)} (an envelope; the highest foF2 ever ` +
-      `observed is around 20 MHz)`,
-    withinBound: (value) => value > 0 && value <= SAMPLED_FOF2_MAX_MHZ,
+      `a finite value of at least ${String(SAMPLED_FOF2_MIN_MHZ)} and at ` +
+      `most ${String(SAMPLED_FOF2_MAX_MHZ)} (an envelope; the highest foF2 ` +
+      `ever observed is around 20 MHz, and a value near zero is a ` +
+      `missing-data sentinel, not an ionosphere)`,
+    withinBound: (value) =>
+      value >= SAMPLED_FOF2_MIN_MHZ && value <= SAMPLED_FOF2_MAX_MHZ,
   },
   {
     name: "m3000F2",
@@ -590,11 +625,13 @@ const SAMPLED_STATE_BOUNDS: readonly {
   {
     name: "gyrofrequency300kmMHz",
     description:
-      `a finite value of 0 or greater and at most ` +
-      `${String(SAMPLED_GYROFREQUENCY_MAX_MHZ)} (an envelope; the ` +
-      `terrestrial field gives at most about 1.7 MHz at the surface)`,
+      `a finite value of at least ${String(SAMPLED_GYROFREQUENCY_MIN_MHZ)} ` +
+      `and at most ${String(SAMPLED_GYROFREQUENCY_MAX_MHZ)} (an envelope; ` +
+      `the terrestrial field gives at most about 1.7 MHz at the surface, ` +
+      `and a value near zero is a missing-data sentinel)`,
     withinBound: (value) =>
-      value >= 0 && value <= SAMPLED_GYROFREQUENCY_MAX_MHZ,
+      value >= SAMPLED_GYROFREQUENCY_MIN_MHZ &&
+      value <= SAMPLED_GYROFREQUENCY_MAX_MHZ,
   },
 ];
 

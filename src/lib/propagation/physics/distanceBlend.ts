@@ -74,9 +74,16 @@
  */
 
 import { firstNonFiniteField } from "./finiteResult";
+import { LONG_PATH_MIN_DISTANCE_KM } from "./longPath/fM";
 
-/** Section 5.4's lower bound, km. */
-export const BLEND_MIN_DISTANCE_KM = 7000; // section 5.4, equation (42)
+/**
+ * Section 5.4's lower bound, km. Section 5.3's own lower bound
+ * (`LONG_PATH_MIN_DISTANCE_KM`) is the same 7 000 km by definition, since the
+ * blend region begins exactly where the long-path method itself becomes
+ * admissible; declared here as an alias rather than a second independent
+ * `= 7000` so the two can never silently drift apart.
+ */
+export const BLEND_MIN_DISTANCE_KM = LONG_PATH_MIN_DISTANCE_KM; // section 5.4, equation (42)
 
 /** Section 5.4's upper bound, km. */
 export const BLEND_MAX_DISTANCE_KM = 9000; // section 5.4, equation (42)

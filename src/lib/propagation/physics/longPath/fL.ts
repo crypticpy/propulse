@@ -151,6 +151,19 @@
  *     PUBLISHED VALUE. It reaches equation (33) only through a September path
  *     whose midpoint is between 30 and 90 degrees north, where it changes
  *     (Aw + 1) by at most 1 per cent.
+ *  7. THE MIDNIGHT WRAP IN THE SUNSET-DECAY SCAN. THE TEXT does not state the
+ *     scan's loop bounds; equations (37) and (38) are given for a generic
+ *     hour tr with no statement of what "previous hour" means at hour 0, and
+ *     neither the pinned reference build's `FindfL()` nor any other file in
+ *     this repository's `docs/` states them either, so this is OUR READING,
+ *     not a documented disagreement: `applySunsetDecay` treats the 24-hour
+ *     curve as circular, reading hour 23 as the hour before hour 0
+ *     (`(now - 1 + HOURS_PER_DAY) % HOURS_PER_DAY`) rather than leaving hour
+ *     0 without a "previous hour" or refusing to test it for a transition.
+ *     A circular day is the only reading under which every one of the 24
+ *     hours gets the same transition test section 5.3.2 states for the
+ *     others, and the reference's own array indexing (deviation 2) is
+ *     circular by construction for the same reason.
  *
  * NO NaN AND NO SILENT CLAMP. Equation (33)'s square root can be asked for a
  * negative argument only if log_e(9.5e6/p') is negative, which needs a slant
@@ -167,7 +180,12 @@
 
 import tables from "../assets/p533-fl-tables.json";
 import { firstNonFiniteField } from "../finiteResult";
-import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
+import {
+  LONG_PATH_MIN_DISTANCE_KM,
+  MAX_ROUTE_DISTANCE_KM,
+  SAMPLED_GYROFREQUENCY_MAX_MHZ,
+  SAMPLED_GYROFREQUENCY_MIN_MHZ,
+} from "./fM";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import {
   routeSampleAtFraction,
@@ -190,8 +208,35 @@ export const LUF_COEFFICIENT = 5.3; // equation (33)
 /** Equation (33)'s sunspot coefficient. */
 export const LUF_SUNSPOT_COEFFICIENT = 0.009; // equation (33)
 
+/**
+ * Envelope on the input R12, dimensionless. NOT a physics limit in the
+ * classical smoothed-sunspot-number sense (the recommendation itself notes
+ * R12 "does not saturate for high values and can exceed 160"), but no
+ * published or reconstructed R12 series has ever approached this margin; a
+ * value above it is a missing-data sentinel, not a solar cycle.
+ */
+export const LUF_MAX_R12 = 400;
+
 /** Equation (33)'s numerator constant, km. */
 export const LUF_PATH_CONSTANT_KM = 9.5e6; // equation (33)
+
+/**
+ * Route-realistic ceiling on virtualSlantRangeKm / groundDistanceKm.
+ *
+ * `LUF_PATH_CONSTANT_KM` alone is an arbitrary, log-pole-derived ceiling
+ * (equation (33) only needs log_e(9.5e6/p') to stay positive, which p' being
+ * merely finite and positive does not guarantee if p' can be anywhere up to
+ * 9.5e6 km). A p' that large has no route behind it: `hopGeometry` never
+ * returns a slant range longer than about `MAX_VIRTUAL_SLANT_RANGE_RATIO`
+ * times the ground distance it was asked to close, for any hop length and
+ * mirror height this leaf or `fM.ts` admits. The true worst case, found by a
+ * numerical sweep of fM's own hop-division algorithm across its whole
+ * admitted domain (D from LONG_PATH_MIN_DISTANCE_KM upward), is a ratio of
+ * about 1.0537, at D = 7000 km exactly (a 3-hop division, each hop 2333.33
+ * km, elevation 8.82 degrees); the ratio falls as D grows past that. This
+ * constant is set with margin above that verified worst case.
+ */
+export const MAX_VIRTUAL_SLANT_RANGE_RATIO = 1.1;
 
 /** Equation (36)'s reference distance, km. */
 export const NIGHT_LUF_DISTANCE_KM = 3000; // equation (36)
@@ -293,9 +338,16 @@ export interface LongPathLufInputs {
  *
  * `monthIndex` is a whole 0..11 and is the caller's to check; `longPathLuf`
  * is the guard, and a table with one column per month has nothing to answer
- * with outside its own columns.
+ * with outside its own columns. This function is exported and callable
+ * directly, so it throws rather than silently indexing past the table, the
+ * same precedent as `assertMirrorHeight` in `geometry/hop.ts`.
  */
 export function subsolarLatitudeDeg(monthIndex: number): number {
+  if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    throw new RangeError(
+      `monthIndex must be a whole number 0..11, received ${String(monthIndex)}.`,
+    );
+  }
   return tables.table_4.subsolar_latitude_deg[monthIndex]; // Table 4
 }
 
@@ -308,12 +360,18 @@ export function subsolarLatitudeDeg(monthIndex: number): number {
  * and the only one Table 5's two rows admit.
  *
  * `monthIndex` is a whole 0..11 and is the caller's to check, for the same
- * reason `subsolarLatitudeDeg` says so.
+ * reason `subsolarLatitudeDeg` says so, and this function throws for the
+ * same reason: it is exported and callable directly.
  */
 export function winterAnomalyFactor(
   latitudeDeg: number,
   monthIndex: number,
 ): number {
+  if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    throw new RangeError(
+      `monthIndex must be a whole number 0..11, received ${String(monthIndex)}.`,
+    );
+  }
   const row =
     latitudeDeg < 0 ? tables.table_5.southern : tables.table_5.northern;
   const peak = row[monthIndex]; // Table 5, at 60 degrees
@@ -405,6 +463,8 @@ export function applySunsetDecay(
   const threshold = 2 * nightLuf; // section 5.3.2, "2*fLN"
   let tr: number | null = null;
   for (let now = 0; now < HOURS_PER_DAY && tr === null; now += 1) {
+    // Deviation 7: wraps circularly so hour 0 is tested against hour 23,
+    // our reading in the absence of a stated loop bound; see the header.
     const previous = (now - 1 + HOURS_PER_DAY) % HOURS_PER_DAY;
     // Deviation 4: the text's comparisons are strict, which is also what keeps
     // dt's denominator away from zero.
@@ -496,29 +556,41 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
       D,
     );
   }
-  if (!Number.isFinite(r12) || r12 < 0) {
+  if (!Number.isFinite(r12) || r12 < 0 || r12 > LUF_MAX_R12) {
     return unsupported(
-      `R12 must be finite and not negative, received ${String(r12)}.`,
-      D,
-    );
-  }
-  if (!Number.isFinite(gyrofrequencyMHz) || gyrofrequencyMHz < 0) {
-    return unsupported(
-      `fH must be finite and not negative, received ` +
-        `${String(gyrofrequencyMHz)} MHz.`,
+      `R12 must be finite, not negative and at most ` +
+        `${String(LUF_MAX_R12)} (an envelope; no real sunspot series comes ` +
+        `close), received ${String(r12)}.`,
       D,
     );
   }
   if (
-    !Number.isFinite(virtualSlantRangeKm) ||
-    virtualSlantRangeKm <= 0 ||
-    virtualSlantRangeKm >= LUF_PATH_CONSTANT_KM
+    !Number.isFinite(gyrofrequencyMHz) ||
+    gyrofrequencyMHz < SAMPLED_GYROFREQUENCY_MIN_MHZ ||
+    gyrofrequencyMHz > SAMPLED_GYROFREQUENCY_MAX_MHZ
   ) {
     return unsupported(
-      `p' must be positive and shorter than ` +
-        `${String(LUF_PATH_CONSTANT_KM)} km, received ` +
-        `${String(virtualSlantRangeKm)} km; equation (33) takes ` +
-        `log_e(9.5e6 / p'), which is zero or negative otherwise.`,
+      `fH must be finite and between ${String(SAMPLED_GYROFREQUENCY_MIN_MHZ)} ` +
+        `and ${String(SAMPLED_GYROFREQUENCY_MAX_MHZ)} MHz, the same envelope ` +
+        `fM.ts's sampler contract uses, received ${String(gyrofrequencyMHz)} MHz.`,
+      D,
+    );
+  }
+  const maxVirtualSlantRangeKm = MAX_VIRTUAL_SLANT_RANGE_RATIO * D;
+  if (
+    !Number.isFinite(virtualSlantRangeKm) ||
+    virtualSlantRangeKm <= 0 ||
+    virtualSlantRangeKm > maxVirtualSlantRangeKm
+  ) {
+    return unsupported(
+      `p' must be positive and at most ` +
+        `${String(MAX_VIRTUAL_SLANT_RANGE_RATIO)} times the ${D.toFixed(1)} km ` +
+        `ground distance (${maxVirtualSlantRangeKm.toFixed(1)} km), a ` +
+        `route-realistic bound no admitted hop geometry exceeds; received ` +
+        `${String(virtualSlantRangeKm)} km. (The older ` +
+        `${String(LUF_PATH_CONSTANT_KM)} km log-pole ceiling from equation ` +
+        `(33) is looser than this bound on every admitted route and is kept ` +
+        `only as the constant that equation appears with.)`,
       D,
     );
   }
@@ -535,6 +607,11 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
     hopCount,
     mirrorHeightKm: LUF_REFLECTION_HEIGHT_KM,
   });
+  // Structurally unreachable: fL's own hop cap (LUF_MAX_HOP_KM = 3000 km) at
+  // a 300 km mirror always closes, since even the worst case, an exact
+  // 3000 km hop, gives an elevation of about 4.26 degrees, well above the
+  // zero-or-negative elevation `hopGeometry` would need to refuse. Kept as
+  // a defensive final case, not a reachable one.
   if (geometry.kind !== "supported") {
     return unsupported(
       `a ${String(hopCount)}-hop division of ${D.toFixed(1)} km gives hops of ` +

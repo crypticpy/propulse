@@ -139,7 +139,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
             className={`flex-1 h-12 rounded-lg font-bold text-sm uppercase tracking-wider
                        transition-all duration-150 ${
                          selectedType === "pota"
-                           ? "bg-signal-green/20 text-signal-green border-2 border-signal-green/40"
+                           ? "bg-signal-green/20 text-su-text border-2 border-signal-green/40"
                            : "bg-space-900 text-su-text/80 border border-su-line/40 hover:text-su-text"
                        }`}
           >
@@ -206,7 +206,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
 
   const typeBadgeClasses =
     activationType === "pota"
-      ? "bg-signal-green/20 text-signal-green"
+      ? "bg-signal-green/20 text-su-text"
       : "bg-plasma-orange/20 text-su-text";
 
   return (
@@ -252,7 +252,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
         {/* Threshold status */}
         {isThresholdMet && (
           <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-signal-green/10 text-signal-green text-xs font-medium">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-signal-green/10 text-su-text text-xs font-medium">
               <svg
                 width="14"
                 height="14"
@@ -283,8 +283,8 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
             onClick={handleExport}
             disabled={qsoCount === 0 || isExporting}
             className="flex-1 h-11 rounded-lg font-medium text-sm
-                       bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/20
-                       hover:bg-nebula-blue/30 active:scale-[0.98]
+                       bg-nebula-blue/20 text-su-text border border-nebula-blue/20
+                       hover:bg-nebula-blue/20 active:scale-[0.98]
                        disabled:opacity-30 disabled:cursor-not-allowed
                        transition-all duration-150"
           >
@@ -297,7 +297,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
               type="button"
               onClick={() => setShowEndConfirm(true)}
               className="flex-1 h-11 rounded-lg font-medium text-sm
-                         bg-alert-red/10 text-alert-red border border-alert-red/20
+                         bg-alert-red/10 text-su-text border border-alert-red/20
                          hover:bg-alert-red/20 active:scale-[0.98]
                          transition-all duration-150"
             >

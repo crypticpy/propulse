@@ -216,11 +216,17 @@ import {
 } from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
 import { createEquirectangularProjection } from "@/lib/map/projection";
+import type { Projection } from "@/lib/map/projection";
 import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
 import { drawLightningLayer } from "./layers/lightningLayer";
+import {
+  drawCountryBordersLayer,
+  drawStateBordersLayer,
+  drawNightBoostedBordersLayer,
+} from "./layers/bordersLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -2394,23 +2400,15 @@ function drawLabels(
   viewportHeight = 0,
   gridLabelDetail = 2,
   lightTheme = false,
+  projection: Projection,
 ) {
   const lightStandard = standardMode && lightTheme;
   // Draw country border polygons
   if (opts.borders) {
-    ctx.strokeStyle = standardMode
-      ? lightStandard
-        ? "rgba(15, 23, 42, 0.6)"
-        : "rgba(255, 255, 255, 0.65)"
-      : "rgba(255, 255, 255, 0.3)";
-    ctx.lineWidth = standardMode ? 1.0 : 0.8;
-    ctx.beginPath();
-    for (const country of WORLD_COUNTRIES) {
-      for (const ring of country.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
+    drawCountryBordersLayer(ctx, projection, FLAT_LAYER_PROFILE, {
+      standardMode,
+      lightTheme,
+    });
   }
 
   // Draw country name labels
@@ -2642,24 +2640,14 @@ function drawLabels(
  */
 function drawStateBorders(
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
   standardMode: boolean,
-  lightTheme = false,
+  lightTheme: boolean,
+  projection: Projection,
 ) {
-  ctx.strokeStyle = standardMode
-    ? lightTheme
-      ? "rgba(15, 23, 42, 0.5)"
-      : "rgba(255, 255, 255, 0.45)"
-    : "rgba(255, 255, 255, 0.2)";
-  ctx.lineWidth = standardMode ? 0.7 : 0.5;
-  ctx.beginPath();
-  for (const state of US_STATES) {
-    for (const ring of state.borders) {
-      addWrappedRingPath(ctx, ring, width, height);
-    }
-  }
-  ctx.stroke();
+  drawStateBordersLayer(ctx, projection, FLAT_LAYER_PROFILE, {
+    standardMode,
+    lightTheme,
+  });
 }
 
 /**
@@ -2711,111 +2699,6 @@ function drawWASOverlay(
     }
     ctx.fill();
   }
-  ctx.restore();
-}
-
-/**
- * Draw borders with boosted opacity within the night-side clip region.
- * Uses the terminator to build a clip path, then re-draws country and/or
- * state borders at higher opacity so they remain visible on the dark side.
- */
-function drawNightBoostedBorders(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  width: number,
-  height: number,
-  drawCountry: boolean,
-  drawStates: boolean,
-) {
-  const subsolar = getSubsolarPoint(date);
-  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-
-  // Build clip path for the night side using the terminator
-  ctx.save();
-  ctx.beginPath();
-
-  // Generate terminator boundary points
-  const tanSubsolarLat = Math.tan(subsolarLatRad);
-  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
-
-  const terminatorPoints: { x: number; y: number }[] = [];
-  for (let lon = -180; lon <= 180; lon += 2) {
-    const lonRad = lon * (Math.PI / 180);
-    const deltaLon = lonRad - subsolarLonRad;
-    let lat: number;
-    if (isNearEquinox) {
-      lat = 0;
-    } else {
-      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
-    }
-    terminatorPoints.push(latLonToCanvas(lat, lon, width, height));
-  }
-
-  // Determine which side is the night side
-  // The anti-subsolar point is the center of the night side
-  const antiSubsolarLat = -subsolar.lat;
-  const antiSubsolarLon =
-    subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
-  const antiPoint = latLonToCanvas(
-    antiSubsolarLat,
-    antiSubsolarLon,
-    width,
-    height,
-  );
-
-  // Draw terminator as a path
-  for (let i = 0; i < terminatorPoints.length; i++) {
-    const p = terminatorPoints[i];
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
-  }
-
-  // Close the night side: extend to the edge that contains the anti-subsolar point
-  if (antiPoint.y < height / 2) {
-    // Night side is at the top
-    const lastP = terminatorPoints[terminatorPoints.length - 1];
-    ctx.lineTo(width, lastP.y);
-    ctx.lineTo(width, 0);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(0, terminatorPoints[0].y);
-  } else {
-    // Night side is at the bottom
-    const lastP = terminatorPoints[terminatorPoints.length - 1];
-    ctx.lineTo(width, lastP.y);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.lineTo(0, terminatorPoints[0].y);
-  }
-  ctx.closePath();
-  ctx.clip();
-
-  // Draw boosted country borders within the night clip
-  if (drawCountry) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-    ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    for (const country of WORLD_COUNTRIES) {
-      for (const ring of country.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
-  }
-
-  // Draw boosted state borders within the night clip
-  if (drawStates) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    for (const state of US_STATES) {
-      for (const ring of state.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
-  }
-
   ctx.restore();
 }
 
@@ -5427,6 +5310,18 @@ export function FlatMapView({
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
+    // This is a second `createEquirectangularProjection` instance -- the
+    // live-interaction surface below builds its own in a different effect --
+    // but from the same inputs (renderWidth/renderHeight, zoom.scale) that
+    // this "science" effect already has in scope, so the two agree.
+    // `project` is pure, so a shared instance isn't needed for correctness,
+    // only to avoid the (harmless) duplicate allocation.
+    const bordersProjection = createEquirectangularProjection({
+      width: renderWidth,
+      height: renderHeight,
+      zoomScale: zoom.scale,
+    });
+
     // RainViewer (+ NEXRAD) equirect overlay — after basemap underlay, before spots.
     if (layers.radar && radarCanvas) {
       context.save();
@@ -5520,6 +5415,7 @@ export function FlatMapView({
         0,
         2,
         themeId === "light",
+        bordersProjection,
       );
     }
     if (labelOptions.wasOverlay) {
@@ -5528,23 +5424,21 @@ export function FlatMapView({
     if (labelOptions.stateBorders) {
       drawStateBorders(
         context,
-        renderWidth,
-        renderHeight,
         isStandard,
         themeId === "light",
+        bordersProjection,
       );
     }
     if (
       layers.terminator &&
       (labelOptions.borders || labelOptions.stateBorders)
     ) {
-      drawNightBoostedBorders(
+      drawNightBoostedBordersLayer(
         context,
         displayTime,
-        renderWidth,
-        renderHeight,
-        labelOptions.borders,
-        labelOptions.stateBorders,
+        bordersProjection,
+        FLAT_LAYER_PROFILE,
+        { country: labelOptions.borders, states: labelOptions.stateBorders },
       );
     }
     if (layers.labels) {
@@ -5570,6 +5464,7 @@ export function FlatMapView({
         displaySize.height,
         gridLabelDetail,
         themeId === "light",
+        bordersProjection,
       );
     }
 

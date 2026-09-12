@@ -1,0 +1,304 @@
+/**
+ * Binding test for the flat map's shared country/state border layer call
+ * sites (#1091 PR 6).
+ *
+ * `bordersLayer.test.ts` drives `drawCountryBordersLayer`/
+ * `drawStateBordersLayer` directly with a fake `Projection`, so it cannot
+ * see which `Projection` instance `FlatMapView` actually builds at its
+ * border call sites, nor that the flat map's seam strategy still reaches
+ * `addWrappedRingPath` (previously called with literal `renderWidth`/
+ * `renderHeight`, now with `projection.wrapWidth`/`wrapHeight`). Modeled on
+ * `FlatMapView.lightning.test.tsx`'s canvas recorder, using the shared
+ * `canvasRecorder.test-helper` (#1091 PR 6, same recorder technique as
+ * `AzimuthalView.borders.test.tsx`).
+ *
+ * Forces `mapStyle: "standard"` (the border pass on this view's "science"
+ * effect early-returns when `!isStandard && !mapImage`, and `mapImage`
+ * never resolves in this jsdom harness) and `themeId: "dark"` so the
+ * standard-mode, non-light-theme colour strings apply deterministically.
+ * Mounts with both `labelOptions.borders` and `labelOptions.stateBorders`
+ * on and the terminator layer left at its store default (on), so the
+ * night-boosted border pass is exercised too.
+ */
+import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { useMapStore } from "@/stores/mapStore";
+import { useThemeStore } from "@/stores/themeStore";
+import * as standardMap from "@/lib/utils/standardMap";
+import {
+  createCanvasRecorder,
+  groupStrokeSegments,
+  makeStubRect,
+  StubResizeObserver,
+} from "./layers/canvasRecorder.test-helper";
+
+const { ops, installCanvasRecorder } = createCanvasRecorder({
+  width: 1024,
+  height: 512,
+  trackedProps: new Set(["lineWidth", "strokeStyle"]),
+});
+
+const STUB_RECT = makeStubRect(1024, 512);
+
+// The spots pipeline is unrelated to this test and pulls in a real fetch
+// chain (`layers.spots` defaults on) -- stub it the same way
+// `FlatMapView.lightning.test.tsx` does, with an empty feed.
+const expandGroup = vi.fn();
+const EMPTY_FEED = {
+  spots: [],
+  candidateSpots: [],
+  resolvedSpots: [],
+  resolvedSingles: [],
+  allResolvedSpots: [],
+  activationSpots: [],
+  clusters: [],
+  singles: [],
+  groupingEnabled: true,
+  expandGroup,
+  isLoading: false,
+  isFeedReady: true,
+  feedScopeKey: "test",
+  listTotal: 0,
+  mapBudget: 500,
+  matchingCount: 0,
+  mappedCount: 0,
+  unlocatedCount: 0,
+  budgetOmittedCount: 0,
+};
+vi.mock("@/hooks/useViewMapSpots", () => ({
+  useViewMapSpots: () => EMPTY_FEED,
+}));
+
+async function mount() {
+  installCanvasRecorder();
+  const { FlatMapView } = await import("@/components/map/FlatMapView");
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <ViewProvider
+        ownerId="flat-borders-test"
+        slot="normal"
+        storage={createMemoryWorkingStorage()}
+      >
+        <FlatMapView displayTime={new Date("2026-09-09T12:00:00Z")} />
+      </ViewProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("FlatMapView shared borders layer binding", () => {
+  const originalLabelOptions = useMapStore.getState().labelOptions;
+  const originalMapStyle = useMapStore.getState().mapStyle;
+  const originalThemeId = useThemeStore.getState().themeId;
+
+  beforeEach(() => {
+    expandGroup.mockClear();
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver =
+      StubResizeObserver;
+    Element.prototype.getBoundingClientRect = () => STUB_RECT;
+    useMapStore.setState({
+      mapStyle: "standard",
+      labelOptions: {
+        ...originalLabelOptions,
+        borders: true,
+        stateBorders: true,
+      },
+    });
+    useThemeStore.getState().setTheme("dark");
+  });
+
+  afterEach(() => {
+    useMapStore.setState({
+      mapStyle: originalMapStyle,
+      labelOptions: originalLabelOptions,
+    });
+    useThemeStore.getState().setTheme(originalThemeId);
+  });
+
+  it("strokes the base-pass and night-boosted country/state passes with the standard, non-light-theme colours and widths", async () => {
+    await mount();
+
+    const segments = groupStrokeSegments(ops);
+    const expected = [
+      {
+        label: "base-pass country",
+        lineWidth: 1.0,
+        strokeStyle: "rgba(255, 255, 255, 0.65)",
+      },
+      {
+        label: "base-pass state",
+        lineWidth: 0.7,
+        strokeStyle: "rgba(255, 255, 255, 0.45)",
+      },
+      {
+        label: "night-boosted country",
+        lineWidth: 1,
+        strokeStyle: "rgba(255, 255, 255, 0.55)",
+      },
+      {
+        label: "night-boosted state",
+        lineWidth: 0.7,
+        strokeStyle: "rgba(255, 255, 255, 0.4)",
+      },
+    ];
+
+    for (const exp of expected) {
+      const matches = segments.filter(
+        (s) =>
+          s.lineWidth === exp.lineWidth && s.strokeStyle === exp.strokeStyle,
+      );
+      expect(
+        matches.length,
+        `expected to find ${exp.label}`,
+      ).toBeGreaterThanOrEqual(1);
+      for (const match of matches) {
+        expect(match.beginPathCount, exp.label).toBe(1);
+      }
+    }
+  });
+
+  // #1091 PR 7: `drawNightBoostedBordersLayer` wraps its country/state
+  // strokes in `ctx.save()` / terminator-clip-path / `ctx.clip()` / draw /
+  // `ctx.restore()` (see `bordersLayer.ts`). This pins that the night-boosted
+  // country stroke is actually reached *after* the `clip()` call and *before*
+  // the matching `restore()`, so a regression that moved the stroke outside
+  // the clipped region (letting it bleed onto the day side) would fail here
+  // even though the lineWidth/strokeStyle-keyed segment test above would
+  // still find the stroke.
+  it("strokes the night-boosted country pass inside the clip() the terminator path installs, before the matching restore()", async () => {
+    await mount();
+
+    // The only `.clip()` call site anywhere under src/components/map,
+    // src/lib and src/components/atmos is `bordersLayer.ts`'s night clip,
+    // so any `clip` op in this recording is unambiguously that call --
+    // even though this full-mount harness redraws the whole canvas twice
+    // (an initial paint plus a second pass once async state such as
+    // IndexedDB/ResizeObserver settles), so the stream legitimately
+    // contains two `clip` ops here, not one.
+    const clipIndex = ops.findIndex((op) => op.name === "clip");
+    expect(clipIndex).toBeGreaterThanOrEqual(0);
+
+    let lineWidth: number | undefined;
+    let strokeStyle: string | undefined;
+    let nightBoostedCountryStrokeIndex = -1;
+    for (let i = clipIndex + 1; i < ops.length; i++) {
+      const op = ops[i];
+      if (op.name === "set:lineWidth") {
+        lineWidth = op.value as number;
+      } else if (op.name === "set:strokeStyle") {
+        strokeStyle = op.value as string;
+      } else if (
+        op.name === "stroke" &&
+        lineWidth === 1 &&
+        strokeStyle === "rgba(255, 255, 255, 0.55)"
+      ) {
+        nightBoostedCountryStrokeIndex = i;
+        break;
+      }
+    }
+    expect(nightBoostedCountryStrokeIndex).toBeGreaterThan(clipIndex);
+
+    // The boosted state pass is drawn immediately after the boosted country
+    // pass, inside the same clip (lineWidth 0.7 / rgba(255, 255, 255, 0.4)).
+    let stateStrokeIndex = -1;
+    for (let i = nightBoostedCountryStrokeIndex + 1; i < ops.length; i++) {
+      const op = ops[i];
+      if (op.name === "set:lineWidth") {
+        lineWidth = op.value as number;
+      } else if (op.name === "set:strokeStyle") {
+        strokeStyle = op.value as string;
+      } else if (
+        op.name === "stroke" &&
+        lineWidth === 0.7 &&
+        strokeStyle === "rgba(255, 255, 255, 0.4)"
+      ) {
+        stateStrokeIndex = i;
+        break;
+      }
+    }
+    expect(stateStrokeIndex).toBeGreaterThan(nightBoostedCountryStrokeIndex);
+
+    // In `drawNightBoostedBordersLayer`, `ctx.restore()` is the literal
+    // next statement after the country/state boosted draws return -- so it
+    // must be the very next op in the stream, with nothing in between. This
+    // is deliberately tighter than "some restore appears later in the
+    // stream": this full-mount pass draws several more layers afterwards
+    // (labels, the outer per-frame save/restore, a second full repaint),
+    // each with their own save/restore pairs, so a bare "eventually finds a
+    // restore" check would pass even if this function never restored its
+    // own save.
+    // In `drawNightBoostedBordersLayer`, `ctx.restore()` is the literal
+    // next statement after the country/state boosted draws return, so it
+    // must be the very next op with nothing in between -- and this view's
+    // own per-frame draw wraps everything in its own outer save/restore
+    // (see `FlatMapView.tsx`), so the position right after that is always
+    // a second `restore` too (closing the outer save), regardless of
+    // whether `layers.labels` draws anything in between. Checking for two
+    // consecutive `restore` ops is deliberately tighter than "some restore
+    // appears later in the stream": this full-mount pass draws several
+    // more layers afterwards, then repaints the whole canvas a second
+    // time, each with their own save/restore pairs, so a bare "eventually
+    // finds a restore" check would still pass even if
+    // `drawNightBoostedBordersLayer` never restored its own save (the
+    // stream would then show only the outer restore, not two).
+    expect(ops[stateStrokeIndex + 1]?.name).toBe("restore");
+    expect(ops[stateStrokeIndex + 2]?.name).toBe("restore");
+  });
+
+  it("reaches addWrappedRingPath with the view's real render width/height (the seam primitive is still in play)", async () => {
+    const spy = vi.spyOn(standardMap, "addWrappedRingPath");
+    await mount();
+
+    expect(spy.mock.calls.length).toBeGreaterThan(0);
+    for (const call of spy.mock.calls) {
+      expect(call[2]).toBe(1024);
+      expect(call[3]).toBe(512);
+    }
+    spy.mockRestore();
+  });
+
+  // #1091 PR 6: unlike the disc (drift tracked in #1173), the flat map
+  // actually reads the theme store for its border colour (`drawLabels`
+  // passes `themeId === "light"` straight through as `lightTheme`) -- pin
+  // the light-theme, standard-mode base-pass colours so a regression that
+  // stopped reading the theme, or swapped the disc's hardcoded `false` in
+  // here, would be caught.
+  it("strokes the base-pass country/state passes with the standard, light-theme colours and widths", async () => {
+    useThemeStore.getState().setTheme("light");
+
+    await mount();
+
+    const segments = groupStrokeSegments(ops);
+    const expected = [
+      {
+        label: "base-pass country, light theme",
+        lineWidth: 1.0,
+        strokeStyle: "rgba(15, 23, 42, 0.6)",
+      },
+      {
+        label: "base-pass state, light theme",
+        lineWidth: 0.7,
+        strokeStyle: "rgba(15, 23, 42, 0.5)",
+      },
+    ];
+
+    for (const exp of expected) {
+      const matches = segments.filter(
+        (s) =>
+          s.lineWidth === exp.lineWidth && s.strokeStyle === exp.strokeStyle,
+      );
+      expect(
+        matches.length,
+        `expected to find ${exp.label}`,
+      ).toBeGreaterThanOrEqual(1);
+      for (const match of matches) {
+        expect(match.beginPathCount, exp.label).toBe(1);
+      }
+    }
+  });
+});

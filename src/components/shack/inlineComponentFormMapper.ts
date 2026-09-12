@@ -198,7 +198,9 @@ export function buildInlineComponentPayload(
       const isCurrent = form.balunType === "current";
       const storeRatio =
         isCurrent &&
-        (form.balunRatio === "1:1" || form.balunRatio === "4:1")
+        (form.balunRatio === "1:1" ||
+          form.balunRatio === "4:1" ||
+          form.balunRatio === "6:1")
           ? (`${form.balunRatio}_current` as BalunComponent["ratio"])
           : (form.balunRatio as BalunComponent["ratio"]);
 

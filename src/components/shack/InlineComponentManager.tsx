@@ -555,6 +555,9 @@ export function InlineComponentManager({
         break;
       }
       case "ferrite": {
+        if (!/^[1-9]\d*$/.test(form.ferriteCount.trim())) {
+          return "Count must be a positive integer.";
+        }
         if (form.ferriteTurns) {
           const turns = Number.parseInt(form.ferriteTurns, 10);
           if (!Number.isFinite(turns) || turns < 0)

@@ -39,6 +39,31 @@ describe("inlineComponentFormMapper (#327)", () => {
     });
   });
 
+  it("preserves a 6:1 current balun ratio on a name-only edit", () => {
+    const balun: BalunComponent = {
+      ...BASE,
+      componentType: "balun",
+      ratio: "6:1_current",
+      maxPowerWatts: 1500,
+    };
+
+    const form = inlineComponentFormFromComponent(balun);
+    expect(form.balunRatio).toBe("6:1");
+    expect(form.balunType).toBe("current");
+
+    const payload = buildInlineComponentPayloadAfterNameEdit(
+      balun,
+      "Renamed balun",
+    );
+
+    expect(payload).toMatchObject({
+      componentType: "balun",
+      name: "Renamed balun",
+      ratio: "6:1_current",
+      maxPowerWatts: 1500,
+    });
+  });
+
   it("preserves ferrite style and count on a name-only edit", () => {
     const ferrite: FerriteComponent = {
       ...BASE,

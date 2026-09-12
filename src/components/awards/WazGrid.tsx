@@ -120,7 +120,7 @@ export function WazGrid({
       </div>
 
       {/* 40-Zone Grid: 8 columns x 5 rows */}
-      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2">
         {filteredSlots.map((slot) => (
           <button
             key={slot.zone}

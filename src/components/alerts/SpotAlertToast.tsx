@@ -185,7 +185,7 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
                 {spot.callsign}
               </span>
               {priority === "critical" && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-alert-red/20 text-alert-red animate-pulse">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-alert-red/20 text-alert-red">
                   NEW DXCC
                 </span>
               )}

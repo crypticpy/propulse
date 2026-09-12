@@ -21,12 +21,44 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
+import {
+  gearDeletionKey,
+  type GearDeletionTable,
+} from "@/lib/sync/shackDeletionIntent";
+import { pendingGearDeletionKeys } from "@/lib/sync/shackGearTombstone";
 import type { SyncModule, SyncableTable, SyncLifecycle } from "../types";
 import type { UserPreferences } from "@/types/user";
 import type { Json } from "@/types/supabase";
 
 /** Current preferences schema version — bumped for theme/map/DX consolidation */
 const PREFERENCES_VERSION = 17;
+
+/**
+ * Merges a legacy preferences blob's gear array into the current local
+ * array in place: matching ids get their fields updated from the blob,
+ * unmatched local entries (e.g. added offline, not yet synced) are kept
+ * as-is, and blob entries absent locally are never added. Any id with a
+ * pending deletion intent is dropped entirely, regardless of whether it
+ * appears in the blob (#326).
+ */
+function mergeBlobGearIntoLocal<T extends { id: string }>(
+  localItems: readonly T[],
+  blobItems: T[] | undefined,
+  table: GearDeletionTable,
+  pendingKeys: ReadonlySet<string>,
+): T[] {
+  if (blobItems === undefined) return [...localItems];
+  const blobById = new Map(blobItems.map((item) => [item.id, item]));
+  return localItems
+    .filter(
+      (item) =>
+        !pendingKeys.has(gearDeletionKey({ table, recordId: item.id })),
+    )
+    .map((item) => {
+      const blobItem = blobById.get(item.id);
+      return blobItem ? { ...item, ...blobItem } : item;
+    });
+}
 
 export const preferencesSync: SyncModule = {
   name: "preferences",
@@ -124,15 +156,49 @@ export const preferencesSync: SyncModule = {
           activeRadioId !== undefined
         ) {
           const currentShack = useShackStore.getState();
+          // preferencesSync is a second writer of radios/customRadios
+          // alongside shackSync's own gear tables (#326). A stale prefs
+          // blob from another device must never resurrect gear this
+          // device (or another) already tombstoned, and it must never ADD
+          // gear absent locally — it may only update entries that still
+          // exist in the local store; adding new gear is shackSync's job.
+          // It must also never DROP a local entry the blob doesn't know
+          // about yet (e.g. a radio added offline, not yet pushed) — merge
+          // matching blob entries into the current local arrays in place
+          // and retain every unmatched local entry (#326).
+          const pendingKeys = pendingGearDeletionKeys(
+            currentShack.pendingGearDeletions ?? [],
+            userId,
+          );
+          const filteredRadios = mergeBlobGearIntoLocal(
+            currentShack.radios,
+            radios,
+            "user_radios",
+            pendingKeys,
+          );
+          const filteredCustomRadios = mergeBlobGearIntoLocal(
+            currentShack.customRadios,
+            customRadios,
+            "custom_radios",
+            pendingKeys,
+          );
+          // The blob's activeRadioId may point at a radio deleted offline
+          // (removed by the pending intent above, or already gone from the
+          // filtered list for any other reason) — a stale id would leave
+          // the store pointing at nothing instead of the survivor/null the
+          // local delete already chose. Only take the blob's id when it
+          // still resolves against the filtered radios (#326).
+          const resolvedActiveRadioId =
+            activeRadioId !== undefined &&
+            activeRadioId !== null &&
+            !filteredRadios.some((radio) => radio.id === activeRadioId)
+              ? currentShack.activeRadioId
+              : activeRadioId;
           useShackStore.setState({
-            ...(radios !== undefined
-              ? { radios }
-              : { radios: currentShack.radios }),
-            ...(customRadios !== undefined
-              ? { customRadios }
-              : { customRadios: currentShack.customRadios }),
-            ...(activeRadioId !== undefined
-              ? { activeRadioId }
+            radios: filteredRadios,
+            customRadios: filteredCustomRadios,
+            ...(resolvedActiveRadioId !== undefined
+              ? { activeRadioId: resolvedActiveRadioId }
               : { activeRadioId: currentShack.activeRadioId }),
           });
         }
@@ -252,7 +318,10 @@ export const preferencesSync: SyncModule = {
       watchAlerts: settings.watchAlerts,
       uiInteraction: settings.uiInteraction,
       forecastDisplay: settings.forecastDisplay,
-      // Shack fields
+      // Shack fields. Kept for backward compat with older clients that
+      // still read gear from this blob; not worth stripping in this PR
+      // since the pull side now filters resurrection/addition against
+      // pendingGearDeletions and the local store (#326).
       radios: shack.radios,
       customRadios: shack.customRadios,
       activeRadioId: shack.activeRadioId,

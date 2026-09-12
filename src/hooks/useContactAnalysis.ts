@@ -12,6 +12,8 @@ import {
   type PathBandCondition,
 } from "@/lib/utils/bands";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { useSettingsStore } from "@/stores/settingsStore";
+import type { OperatingMode } from "@/types/signal";
 
 export interface ContactAnalysis {
   /** Great circle distance in km */
@@ -42,7 +44,7 @@ interface UseContactAnalysisParams {
   viewerHours?: number[];
   targetHours?: number[];
   txPowerWatts?: number;
-  mode?: "SSB" | "CW" | "FT8";
+  mode?: OperatingMode;
   antennaGainDbi?: number;
   farEndGainDbi?: number | ((band: string) => number);
 }
@@ -146,6 +148,11 @@ export function useContactAnalysis(
 
   const { data: kIndexData } = useKIndex();
   const { data: solarFluxData } = useSolarFlux();
+  // The viewer's own ITU-R P.372 noise category. Omitting it did not mean
+  // "no noise": it resolved to the declared residential default inside the
+  // signal model, so a rural or city operator was shown a path analysed
+  // against someone else's noise floor (#948 finding 4).
+  const noiseEnvironment = useSettingsStore((state) => state.noiseEnvironment);
 
   return useMemo(() => {
     // Get current solar indices or use defaults
@@ -188,7 +195,7 @@ export function useContactAnalysis(
             txPowerWatts,
             mode,
             antennaGainDbi,
-            undefined,
+            noiseEnvironment,
             farEndGainDbi ?? 0,
           )
         : getBandConditionsForPath(
@@ -283,6 +290,7 @@ export function useContactAnalysis(
     mode,
     antennaGainDbi,
     farEndGainDbi,
+    noiseEnvironment,
     kIndexData,
     solarFluxData,
   ]);

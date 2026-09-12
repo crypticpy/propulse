@@ -24,7 +24,7 @@
  */
 
 import dgram from "node:dgram";
-import { CivFrameParser, type CivFrame } from "./civ/codec.js";
+import { type CivFrame } from "./civ/codec.js";
 import {
   readFrequency,
   setFrequency,
@@ -70,15 +70,13 @@ import {
 } from "./civ/commands.js";
 import {
   type CivAddress,
-  CivCmd,
   CIV_CONTROLLER_ADDR,
-  CIV_SCOPE_SUB,
-  CIV_MODE_TO_STRING,
   ICOM_MODELS,
   ScopeMode,
   rawSmeterToDbm,
 } from "./civ/types.js";
-import { decodeBcdFrequency, decodeBcdByte } from "./civ/codec.js";
+import { decodeBcdFrequency } from "./civ/codec.js";
+import { CivSession } from "./civ/session.js";
 import type { RigStatus } from "./types.js";
 import type { CivSpectrumLine } from "./civ.js";
 
@@ -115,9 +113,6 @@ const DEFAULT_POLL_INTERVAL = 200;
 /** Keepalive interval for the control channel (ms) */
 const KEEPALIVE_INTERVAL_MS = 500;
 
-/** Timeout for waiting on CI-V command responses (ms) */
-const COMMAND_TIMEOUT_MS = 500;
-
 /** Max consecutive errors before disconnecting */
 const MAX_CONSECUTIVE_ERRORS = 10;
 
@@ -145,21 +140,6 @@ const PKT_TYPE = {
 /** Default audio sample rate */
 const DEFAULT_AUDIO_SAMPLE_RATE = 48000;
 const OPTIONAL_POLL_INTERVAL_CYCLES = 5;
-
-// ─── Command Queue Types ──────────────────────────────────────────────────────
-
-interface PendingCommand {
-  /** The CI-V command byte we're waiting for a response to */
-  expectedCmd: number;
-  /** Optional sub-command for more specific matching */
-  expectedSub?: number;
-  /** Whether this command expects an ACK/NG or a data response frame */
-  responseKind: "ack" | "data";
-  /** Resolve the promise with the response frame */
-  resolve: (frame: CivFrame | null) => void;
-  /** Timeout handle */
-  timer: ReturnType<typeof setTimeout>;
-}
 
 // ─── Event Handler Types ──────────────────────────────────────────────────────
 
@@ -209,18 +189,16 @@ export class IcomNetworkBackend {
   private civSeq = 0;
   private controlSeq = 0;
 
-  // CI-V frame parser
-  private frameParser = new CivFrameParser();
+  // CI-V command queue and frame dispatch
+  private readonly session: CivSession;
 
   // Polling and keepalive
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollInFlight = false;
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private keepaliveMisses = 0;
-  private pendingCommand: PendingCommand | null = null;
   private consecutiveErrors = 0;
   private _isConnected = false;
-  private commandQueue: Promise<void> = Promise.resolve();
 
   // Last known state for change detection
   private lastStatus: RigStatus | null = null;
@@ -260,6 +238,45 @@ export class IcomNetworkBackend {
       radio: this.config.radioAddress,
       controller: this.config.controllerAddress,
     };
+    this.session = new CivSession(
+      {
+        logTag: "icom-network",
+        isReady: () => this._isConnected && this.civSocket !== null,
+        write: (frame, done) => {
+          if (!this.civSocket || !this._isConnected) {
+            done(new Error("CI-V socket not open"));
+            return;
+          }
+          // Wrap CI-V frame in UDP packet and send
+          const udpPkt = this.buildCivPacket(frame);
+          this.civSocket.send(
+            udpPkt,
+            0,
+            udpPkt.length,
+            this.config.civPort,
+            this.config.host,
+            (err) => done(err),
+          );
+        },
+      },
+      {
+        isSpectrumEnabled: () => this.spectrumEnabled,
+        onScopeHeader: (scopeData, scopeIndex, seqMax) =>
+          this.handleScopeHeader(scopeData, scopeIndex, seqMax),
+        onScopePixels: (scopeData, seq, seqMax) =>
+          this.handleScopePixels(scopeData, seq, seqMax),
+        onUnsolicitedFrequency: (frequency) => {
+          if (!this.lastStatus) return;
+          this.lastStatus = { ...this.lastStatus, frequency };
+          this.emitStatus(this.lastStatus);
+        },
+        onUnsolicitedMode: (mode) => {
+          if (!this.lastStatus) return;
+          this.lastStatus = { ...this.lastStatus, mode };
+          this.emitStatus(this.lastStatus);
+        },
+      },
+    );
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -280,7 +297,7 @@ export class IcomNetworkBackend {
     try {
       await this.login();
       // Send a frequency read to verify the radio is responsive
-      const frame = await this.sendCommand(readFrequency(this.addr));
+      const frame = await this.session.sendCommand(readFrequency(this.addr));
       this.closeAllSockets();
       return frame !== null;
     } catch {
@@ -308,11 +325,7 @@ export class IcomNetworkBackend {
     this.stopAudioInternal();
     this.pollInFlight = false;
 
-    if (this.pendingCommand) {
-      clearTimeout(this.pendingCommand.timer);
-      this.pendingCommand.resolve(null);
-      this.pendingCommand = null;
-    }
+    this.session.cancelPending();
 
     // Send logout packet before closing
     if (this.controlSocket && this._isConnected) {
@@ -334,7 +347,7 @@ export class IcomNetworkBackend {
     }
 
     this.closeAllSockets();
-    this.frameParser.reset();
+    this.session.resetParser();
     this._isConnected = false;
     this.lastStatus = null;
     this.sessionSentId = 0;
@@ -389,53 +402,56 @@ export class IcomNetworkBackend {
   // ── Rig Control Commands ──────────────────────────────────────────────────
 
   async setFrequency(hz: number): Promise<void> {
-    await this.sendAndWaitOk(setFrequency(this.addr, hz), "Set frequency");
+    await this.session.sendAndWaitOk(
+      setFrequency(this.addr, hz),
+      "Set frequency",
+    );
   }
 
   async setMode(mode: string, _passband?: number): Promise<void> {
-    await this.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
+    await this.session.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
   }
 
   async setPTT(on: boolean): Promise<void> {
-    await this.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
+    await this.session.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    await this.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
+    await this.session.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
   }
 
   async setSplit(on: boolean): Promise<void> {
-    await this.sendAndWaitOk(setSplit(this.addr, on), "Set split");
+    await this.session.sendAndWaitOk(setSplit(this.addr, on), "Set split");
   }
 
   async setFunc(func: string, on: boolean): Promise<void> {
-    await this.sendAndWaitOk(
+    await this.session.sendAndWaitOk(
       setFunction(this.addr, func, on),
       `Set function ${func}`,
     );
   }
 
   async setLevel(level: string, value: number): Promise<void> {
-    await this.sendAndWaitOk(
+    await this.session.sendAndWaitOk(
       setLevel(this.addr, level, value),
       `Set level ${level}`,
     );
   }
 
   async getLevel(level: string): Promise<number> {
-    const frame = await this.sendCommand(readLevel(this.addr, level));
+    const frame = await this.session.sendCommand(readLevel(this.addr, level));
     if (!frame) return 0;
     return parseLevelResponse(frame) ?? 0;
   }
 
   async getFunc(func: string): Promise<boolean> {
-    const frame = await this.sendCommand(readFunction(this.addr, func));
+    const frame = await this.session.sendCommand(readFunction(this.addr, func));
     if (!frame) return false;
     return parseFunctionResponse(frame) ?? false;
   }
 
   async setAgc(mode: number): Promise<void> {
-    await this.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
+    await this.session.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
   }
 
   async setPassband(hz: number): Promise<void> {
@@ -447,49 +463,64 @@ export class IcomNetworkBackend {
   async setAntenna(index: string): Promise<void> {
     const port = parseInt(index, 10);
     if (!isNaN(port)) {
-      await this.sendAndWaitOk(setAntenna(this.addr, port), "Set antenna");
+      await this.session.sendAndWaitOk(
+        setAntenna(this.addr, port),
+        "Set antenna",
+      );
     }
   }
 
   async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
     const cmd = setRit(this.addr, enabled, offsetHz);
-    await this.sendCivRaw(cmd);
+    await this.session.sendRaw(cmd);
   }
 
   async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
     const cmd = setXit(this.addr, enabled, offsetHz);
-    await this.sendCivRaw(cmd);
+    await this.session.sendRaw(cmd);
   }
 
   async setAnf(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, "ANF", enabled), "Set ANF");
+    await this.session.sendAndWaitOk(
+      setFunction(this.addr, "ANF", enabled),
+      "Set ANF",
+    );
   }
 
   async setQsk(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(
+    await this.session.sendAndWaitOk(
       setFunction(this.addr, "BKIN", enabled),
       "Set QSK",
     );
   }
 
   async setVox(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, "VOX", enabled), "Set VOX");
+    await this.session.sendAndWaitOk(
+      setFunction(this.addr, "VOX", enabled),
+      "Set VOX",
+    );
   }
 
   async setCwSpeed(wpm: number): Promise<void> {
-    await this.sendAndWaitOk(setCwSpeed(this.addr, wpm), "Set CW speed");
+    await this.session.sendAndWaitOk(
+      setCwSpeed(this.addr, wpm),
+      "Set CW speed",
+    );
   }
 
   async setIfShift(hz: number): Promise<void> {
-    await this.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
+    await this.session.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
   }
 
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
     this.spectrumEnabled = true;
-    await this.sendAndWaitOk(startScope(this.addr), "Enable scope display");
-    await this.sendAndWaitOk(
+    await this.session.sendAndWaitOk(
+      startScope(this.addr),
+      "Enable scope display",
+    );
+    await this.session.sendAndWaitOk(
       startScopeDataOutput(this.addr),
       "Enable scope data output",
     );
@@ -498,11 +529,14 @@ export class IcomNetworkBackend {
   async stopSpectrum(): Promise<void> {
     this.spectrumEnabled = false;
     this.stopSpectrumInternal();
-    await this.sendAndWaitOk(
+    await this.session.sendAndWaitOk(
       stopScopeDataOutput(this.addr),
       "Disable scope data output",
     );
-    await this.sendAndWaitOk(stopScope(this.addr), "Disable scope display");
+    await this.session.sendAndWaitOk(
+      stopScope(this.addr),
+      "Disable scope display",
+    );
   }
 
   // ── Audio Stream Control ──────────────────────────────────────────────────
@@ -631,7 +665,7 @@ export class IcomNetworkBackend {
       this.emitError(`CI-V socket error: ${err.message}`);
     });
 
-    this.frameParser.reset();
+    this.session.resetParser();
   }
 
   // ── Internal: Packet Builders ──────────────────────────────────────────────
@@ -705,7 +739,7 @@ export class IcomNetworkBackend {
 
     // Extract CI-V payload (skip the UDP header)
     const civPayload = msg.subarray(UDP_HEADER_SIZE);
-    this.handleIncomingData(civPayload);
+    this.session.handleIncomingData(civPayload);
   }
 
   /** Handle a packet from the audio channel */
@@ -728,109 +762,6 @@ export class IcomNetworkBackend {
     }
 
     this.emitAudio(samples, DEFAULT_AUDIO_SAMPLE_RATE);
-  }
-
-  // ── Internal: CI-V Data Processing ─────────────────────────────────────────
-
-  private handleIncomingData(data: Buffer): void {
-    const frames = this.frameParser.append(data);
-
-    for (const frame of frames) {
-      // Route to pending command resolver if it matches
-      if (this.pendingCommand && this.matchesPending(frame)) {
-        const pending = this.pendingCommand;
-        this.pendingCommand = null;
-        clearTimeout(pending.timer);
-        pending.resolve(frame);
-        continue;
-      }
-
-      // Handle unsolicited frames
-      this.handleUnsolicitedFrame(frame);
-    }
-  }
-
-  /** Check if a frame matches the pending command */
-  private matchesPending(frame: CivFrame): boolean {
-    if (!this.pendingCommand) return false;
-    const pending = this.pendingCommand;
-
-    if (pending.responseKind === "ack") {
-      // ACK commands expect an explicit OK/NG.
-      if (frame.isOk || frame.isNg) return true;
-
-      // Some radios echo command responses instead of sending 0xFB.
-      if (frame.command !== pending.expectedCmd) return false;
-      if (
-        pending.expectedSub !== undefined &&
-        frame.subCommand !== pending.expectedSub
-      ) {
-        return false;
-      }
-      return true;
-    }
-
-    // Data reads should never resolve from a plain OK (that can be stale).
-    if (frame.isOk) return false;
-    // NG belongs to the current read and should fail fast (no timeout wait).
-    if (frame.isNg) return true;
-
-    if (frame.command !== pending.expectedCmd) return false;
-    if (
-      pending.expectedSub !== undefined &&
-      frame.subCommand !== pending.expectedSub
-    ) {
-      return false;
-    }
-    return true;
-  }
-
-  /** Handle unsolicited CI-V frames (frequency changes from front panel, scope data) */
-  private handleUnsolicitedFrame(frame: CivFrame): void {
-    // Scope wave data
-    if (
-      frame.command === CivCmd.SCOPE_DATA &&
-      frame.subCommand === CIV_SCOPE_SUB.WAVE_DATA &&
-      this.spectrumEnabled
-    ) {
-      const scopeData = frame.data.subarray(1); // skip sub-command byte
-      if (scopeData.length >= 3) {
-        const scopeIndex = scopeData[0];
-        const seq = decodeBcdByte(scopeData[1]);
-        const seqMax = decodeBcdByte(scopeData[2]);
-        if (seq >= 1 && seqMax >= 1) {
-          if (seq === 1) {
-            this.handleScopeHeader(scopeData, scopeIndex, seqMax);
-          } else {
-            this.handleScopePixels(scopeData, seq, seqMax);
-          }
-        }
-      }
-      return;
-    }
-
-    // Unsolicited frequency change (echoed as cmd 0x00 or 0x03 from radio)
-    if (frame.command === 0x00 || frame.command === CivCmd.READ_FREQ) {
-      if (frame.data.length >= 5) {
-        const freq = decodeBcdFrequency(frame.data, 0);
-        if (freq > 0 && this.lastStatus) {
-          this.lastStatus = { ...this.lastStatus, frequency: freq };
-          this.emitStatus(this.lastStatus);
-        }
-      }
-    }
-
-    // Unsolicited mode change (echoed as cmd 0x01 or 0x04)
-    if (frame.command === 0x01 || frame.command === CivCmd.READ_MODE) {
-      if (frame.data.length >= 1) {
-        const modeByte = frame.data[0];
-        const mode = CIV_MODE_TO_STRING[modeByte];
-        if (mode && this.lastStatus) {
-          this.lastStatus = { ...this.lastStatus, mode };
-          this.emitStatus(this.lastStatus);
-        }
-      }
-    }
   }
 
   // ── Internal: Polling ─────────────────────────────────────────────────────
@@ -904,28 +835,28 @@ export class IcomNetworkBackend {
       : { connected: true };
 
     // Frequency (required)
-    const freqFrame = await this.sendCommand(readFrequency(this.addr));
+    const freqFrame = await this.session.sendCommand(readFrequency(this.addr));
     if (freqFrame) {
       const freq = parseFrequencyResponse(freqFrame);
       if (freq !== null) status.frequency = freq;
     }
 
     // Mode (required)
-    const modeFrame = await this.sendCommand(readMode(this.addr));
+    const modeFrame = await this.session.sendCommand(readMode(this.addr));
     if (modeFrame) {
       const result = parseModeResponse(modeFrame);
       if (result) status.mode = result.mode;
     }
 
     // PTT
-    const pttFrame = await this.sendCommand(readPtt(this.addr));
+    const pttFrame = await this.session.sendCommand(readPtt(this.addr));
     if (pttFrame) {
       const ptt = parsePttResponse(pttFrame);
       if (ptt !== null) status.ptt = ptt;
     }
 
     // S-meter
-    const smeterFrame = await this.sendCommand(readSmeter(this.addr));
+    const smeterFrame = await this.session.sendCommand(readSmeter(this.addr));
     if (smeterFrame) {
       const raw = parseMeterResponse(smeterFrame);
       if (raw !== null) status.smeter = rawSmeterToDbm(raw);
@@ -935,19 +866,21 @@ export class IcomNetworkBackend {
     if (status.ptt) {
       const txMeter: NonNullable<RigStatus["txMeter"]> = {};
 
-      const pwrFrame = await this.sendCommand(readPowerMeter(this.addr));
+      const pwrFrame = await this.session.sendCommand(
+        readPowerMeter(this.addr),
+      );
       if (pwrFrame) {
         const raw = parseMeterResponse(pwrFrame);
         if (raw !== null) txMeter.powerW = (raw / 241) * 100; // Scale to watts
       }
 
-      const swrFrame = await this.sendCommand(readSwrMeter(this.addr));
+      const swrFrame = await this.session.sendCommand(readSwrMeter(this.addr));
       if (swrFrame) {
         const raw = parseMeterResponse(swrFrame);
         if (raw !== null) txMeter.swr = 1 + (raw / 241) * 2; // 1.0 to 3.0 scale
       }
 
-      const alcFrame = await this.sendCommand(readAlcMeter(this.addr));
+      const alcFrame = await this.session.sendCommand(readAlcMeter(this.addr));
       if (alcFrame) {
         const raw = parseMeterResponse(alcFrame);
         if (raw !== null) txMeter.alc = raw / 241;
@@ -957,7 +890,7 @@ export class IcomNetworkBackend {
     }
 
     // Split
-    const splitFrame = await this.sendCommand(readSplit(this.addr));
+    const splitFrame = await this.session.sendCommand(readSplit(this.addr));
     if (splitFrame) {
       const split = parseSplitResponse(splitFrame);
       if (split !== null) status.split = split;
@@ -968,7 +901,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("RIT", async () => {
         const ritFrame = this.requireOptionalFrame(
           "RIT",
-          await this.sendCommand(readRit(this.addr)),
+          await this.session.sendCommand(readRit(this.addr)),
         );
         const enabled = parseRitXitEnableResponse(ritFrame);
         if (enabled === null) {
@@ -976,7 +909,7 @@ export class IcomNetworkBackend {
         }
         const offsetFrame = this.requireOptionalFrame(
           "RIT_OFFSET",
-          await this.sendCommand(readRitXitOffset(this.addr)),
+          await this.session.sendCommand(readRitXitOffset(this.addr)),
         );
         const offsetHz = parseRitXitOffsetResponse(offsetFrame);
         if (offsetHz === null) {
@@ -989,7 +922,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("XIT", async () => {
         const xitFrame = this.requireOptionalFrame(
           "XIT",
-          await this.sendCommand(readXit(this.addr)),
+          await this.session.sendCommand(readXit(this.addr)),
         );
         const enabled = parseRitXitEnableResponse(xitFrame);
         if (enabled === null) {
@@ -1002,7 +935,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("ANF", async () => {
         const frame = this.requireOptionalFrame(
           "ANF",
-          await this.sendCommand(readFunction(this.addr, "ANF")),
+          await this.session.sendCommand(readFunction(this.addr, "ANF")),
         );
         const val = parseFunctionResponse(frame);
         if (val === null) {
@@ -1015,7 +948,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("QSK", async () => {
         const frame = this.requireOptionalFrame(
           "QSK",
-          await this.sendCommand(readFunction(this.addr, "BKIN")),
+          await this.session.sendCommand(readFunction(this.addr, "BKIN")),
         );
         const val = parseFunctionResponse(frame);
         if (val === null) {
@@ -1028,7 +961,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("VOX", async () => {
         const frame = this.requireOptionalFrame(
           "VOX",
-          await this.sendCommand(readFunction(this.addr, "VOX")),
+          await this.session.sendCommand(readFunction(this.addr, "VOX")),
         );
         const val = parseFunctionResponse(frame);
         if (val === null) {
@@ -1041,7 +974,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("AGC", async () => {
         const frame = this.requireOptionalFrame(
           "AGC",
-          await this.sendCommand(readFunction(this.addr, "AGC")),
+          await this.session.sendCommand(readFunction(this.addr, "AGC")),
         );
         const val = parseAgcResponse(frame);
         if (val === null) {
@@ -1054,7 +987,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("KEYSPD", async () => {
         const frame = this.requireOptionalFrame(
           "KEYSPD",
-          await this.sendCommand(readLevel(this.addr, "KEYSPD")),
+          await this.session.sendCommand(readLevel(this.addr, "KEYSPD")),
         );
         const val = parseLevelResponse(frame);
         if (val === null) {
@@ -1067,7 +1000,7 @@ export class IcomNetworkBackend {
       await this.pollOptional("IF_SHIFT", async () => {
         const frame = this.requireOptionalFrame(
           "IF_SHIFT",
-          await this.sendCommand(readLevel(this.addr, "IF_SHIFT")),
+          await this.session.sendCommand(readLevel(this.addr, "IF_SHIFT")),
         );
         const raw = parseLevelResponse(frame);
         if (raw === null) {
@@ -1111,17 +1044,6 @@ export class IcomNetworkBackend {
       throw new Error(`${name} rejected by radio`);
     }
     return frame;
-  }
-
-  private commandUsesSubCommand(cmd: number): boolean {
-    return (
-      cmd === CivCmd.PTT ||
-      cmd === CivCmd.LEVELS ||
-      cmd === CivCmd.METERS ||
-      cmd === CivCmd.FUNCTIONS ||
-      cmd === CivCmd.RIT_XIT ||
-      cmd === CivCmd.SCOPE_CTRL
-    );
   }
 
   /** Check if status has meaningfully changed (excluding S-meter) */
@@ -1184,131 +1106,6 @@ export class IcomNetworkBackend {
       keepalivePkt.length,
       this.config.controlPort,
       this.config.host,
-    );
-  }
-
-  // ── Internal: Command Queue ───────────────────────────────────────────────
-
-  /**
-   * Send a CI-V frame over UDP and wait for the response.
-   * Returns the response frame, or null on timeout/error.
-   */
-  private sendCommand(
-    frame: Buffer,
-    responseKind: "ack" | "data" = "data",
-  ): Promise<CivFrame | null> {
-    if (!this._isConnected || !this.civSocket) {
-      return Promise.resolve(null);
-    }
-
-    // Extract expected command byte from the frame
-    // Frame format: FE FE [to] [from] [cmd] [sub?] ... FD
-    const cmd = frame[4]; // command byte
-    const sub =
-      this.commandUsesSubCommand(cmd) && frame.length > 6
-        ? frame[5]
-        : undefined;
-
-    return this.runInCommandQueue(
-      () =>
-        new Promise((resolve) => {
-          if (!this._isConnected || !this.civSocket) {
-            resolve(null);
-            return;
-          }
-
-          // Should never happen because runInCommandQueue serializes sends.
-          if (this.pendingCommand) {
-            clearTimeout(this.pendingCommand.timer);
-            this.pendingCommand.resolve(null);
-            this.pendingCommand = null;
-          }
-
-          const timer = setTimeout(() => {
-            if (this.pendingCommand?.timer === timer) {
-              this.pendingCommand = null;
-              resolve(null);
-            }
-          }, COMMAND_TIMEOUT_MS);
-
-          this.pendingCommand = {
-            expectedCmd: cmd,
-            expectedSub: sub,
-            responseKind,
-            resolve,
-            timer,
-          };
-
-          // Wrap CI-V frame in UDP packet and send
-          const udpPkt = this.buildCivPacket(frame);
-          this.civSocket!.send(
-            udpPkt,
-            0,
-            udpPkt.length,
-            this.config.civPort,
-            this.config.host,
-            (err) => {
-              if (err) {
-                if (this.pendingCommand?.timer === timer) {
-                  clearTimeout(timer);
-                  this.pendingCommand = null;
-                }
-                resolve(null);
-              }
-            },
-          );
-        }),
-    );
-  }
-
-  private runInCommandQueue<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.commandQueue.then(task, task);
-    this.commandQueue = run.then(
-      () => undefined,
-      () => undefined,
-    );
-    return run;
-  }
-
-  /** Send a command and require an explicit OK acknowledgment. */
-  private async sendAndWaitOk(frame: Buffer, label: string): Promise<void> {
-    const response = await this.sendCommand(frame, "ack");
-    if (!response) {
-      throw new Error(`${label} timed out`);
-    }
-    if (response.isNg) {
-      throw new Error(`${label} rejected by radio`);
-    }
-    if (response.isOk || response.command === frame[4]) {
-      return;
-    }
-    if (!response.isOk) {
-      throw new Error(`${label} got unexpected response`);
-    }
-  }
-
-  /** Send raw CI-V bytes without waiting for response (for multi-frame commands like RIT/XIT) */
-  private sendCivRaw(data: Buffer): Promise<void> {
-    return this.runInCommandQueue(
-      () =>
-        new Promise((resolve, reject) => {
-          if (!this.civSocket || !this._isConnected) {
-            reject(new Error("CI-V socket not open"));
-            return;
-          }
-          const udpPkt = this.buildCivPacket(data);
-          this.civSocket.send(
-            udpPkt,
-            0,
-            udpPkt.length,
-            this.config.civPort,
-            this.config.host,
-            (err) => {
-              if (err) reject(err);
-              else resolve();
-            },
-          );
-        }),
     );
   }
 

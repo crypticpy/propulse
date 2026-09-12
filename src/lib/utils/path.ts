@@ -6,6 +6,7 @@
  */
 
 import { getSubsolarPoint } from "./sun";
+import { resolveRoute, routeMidpoint } from "@/lib/propagation/geometry/route";
 
 const EARTH_RADIUS_KM = 6371;
 const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM; // ~40,030 km
@@ -82,7 +83,15 @@ export function getBearing(
 }
 
 /**
- * Calculate the midpoint of a great circle path
+ * Midpoint of a great circle path.
+ *
+ * Delegates to `resolveRoute`, which owns the spherical geometry, so this
+ * module and the propagation engine cannot disagree about where the middle of
+ * a circuit is. Two endpoints that are coincident or antipodal determine no
+ * great circle and therefore no midpoint; rather than return whichever point
+ * the floating-point noise in an `atan2(0, 0)` happens to produce, this
+ * returns the first endpoint. Callers that need to distinguish the two cases
+ * should use `resolveRoute` directly and narrow on its result.
  */
 export function getMidpoint(
   lat1: number,
@@ -90,24 +99,15 @@ export function getMidpoint(
   lat2: number,
   lon2: number,
 ): { lat: number; lon: number } {
-  const phi1 = lat1 * DEG_TO_RAD;
-  const phi2 = lat2 * DEG_TO_RAD;
-  const lambda1 = lon1 * DEG_TO_RAD;
-  const deltaLambda = (lon2 - lon1) * DEG_TO_RAD;
-
-  const Bx = Math.cos(phi2) * Math.cos(deltaLambda);
-  const By = Math.cos(phi2) * Math.sin(deltaLambda);
-
-  const phi3 = Math.atan2(
-    Math.sin(phi1) + Math.sin(phi2),
-    Math.sqrt((Math.cos(phi1) + Bx) ** 2 + By ** 2),
+  const route = resolveRoute(
+    { latitudeDeg: lat1, longitudeDeg: lon1 },
+    { latitudeDeg: lat2, longitudeDeg: lon2 },
   );
-  const lambda3 = lambda1 + Math.atan2(By, Math.cos(phi1) + Bx);
-
-  return {
-    lat: phi3 * RAD_TO_DEG,
-    lon: ((lambda3 * RAD_TO_DEG + 540) % 360) - 180,
-  };
+  if (route.kind !== "resolved") {
+    return { lat: lat1, lon: lon1 };
+  }
+  const midpoint = routeMidpoint(route);
+  return { lat: midpoint.latitudeDeg, lon: midpoint.longitudeDeg };
 }
 
 /**

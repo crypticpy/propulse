@@ -47,7 +47,6 @@ const badgeConfig: Record<
     bgColor: "bg-amber-400/30",
     textColor: "text-amber-300",
     borderColor: "border-amber-400/60",
-    animate: "animate-pulse",
   },
   new: {
     label: "NEW",
@@ -72,7 +71,6 @@ const badgeConfig: Record<
     bgColor: "bg-alert-red/25",
     textColor: "text-alert-red",
     borderColor: "border-alert-red/50",
-    animate: "animate-pulse",
   },
   needed: {
     label: "NEED",

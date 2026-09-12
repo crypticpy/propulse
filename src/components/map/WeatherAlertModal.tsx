@@ -9,6 +9,7 @@
  * Dismisses on backdrop click, X button, or Escape key.
  */
 
+import { getWeatherSeverityColor as severityColor, getWeatherSeverityTint } from "@/lib/colors/palettes/weather";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
@@ -55,35 +56,10 @@ function getWeatherEmoji(event: string): string {
 }
 
 /**
- * Return the severity color.
- */
-function severityColor(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "#ff0040";
-    case "Severe":
-      return "#ff6600";
-    case "Moderate":
-      return "#ffaa00";
-    default:
-      return "#ffdd44";
-  }
-}
-
-/**
  * Return the severity badge background color (semi-transparent).
  */
 function severityBgColor(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "rgba(255, 0, 64, 0.15)";
-    case "Severe":
-      return "rgba(255, 102, 0, 0.15)";
-    case "Moderate":
-      return "rgba(255, 170, 0, 0.15)";
-    default:
-      return "rgba(255, 221, 68, 0.15)";
-  }
+  return getWeatherSeverityTint(severity, "modal");
 }
 
 /**
@@ -126,10 +102,8 @@ function getRadioImpact(event: string): string | null {
 // ---------------------------------------------------------------------------
 
 export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
-  const color = alert ? severityColor(alert.severity) : "#ffdd44";
-  const bgColor = alert
-    ? severityBgColor(alert.severity)
-    : "rgba(255, 221, 68, 0.15)";
+  const color = severityColor(alert?.severity ?? "Unknown");
+  const bgColor = severityBgColor(alert?.severity ?? "Unknown");
   const emoji = alert ? getWeatherEmoji(alert.event) : "\u26A0\uFE0F";
   const radioImpact = alert ? getRadioImpact(alert.event) : null;
 

@@ -10,6 +10,7 @@
  * viewport-aware positioning.
  */
 
+import { getWeatherSeverityColor as severityColor, getWeatherSeverityTint } from "@/lib/colors/palettes/weather";
 import { useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { WeatherAlert } from "@/lib/api/weather";
@@ -80,35 +81,10 @@ function getWeatherEmoji(event: string): string {
 }
 
 /**
- * Return the severity color matching the severity palette.
- */
-function severityColor(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "#ff0040";
-    case "Severe":
-      return "#ff6600";
-    case "Moderate":
-      return "#ffaa00";
-    default:
-      return "#ffdd44";
-  }
-}
-
-/**
  * Return the severity badge background color (semi-transparent).
  */
 function severityBgColor(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "rgba(255, 0, 64, 0.2)";
-    case "Severe":
-      return "rgba(255, 102, 0, 0.2)";
-    case "Moderate":
-      return "rgba(255, 170, 0, 0.2)";
-    default:
-      return "rgba(255, 221, 68, 0.2)";
-  }
+  return getWeatherSeverityTint(severity, "flyout");
 }
 
 // ---------------------------------------------------------------------------

@@ -20,12 +20,15 @@
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
  */
 
+import { RIVER_STATUS_HEX } from "@/lib/colors/palettes/weather";
 import React, { useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RiverGauge } from "@/lib/api/gauges";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+
+export { RIVER_STATUS_HEX } from "@/lib/colors/palettes/weather";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,19 +46,6 @@ const MARKER_SCALE = 0.004;
 // ---------------------------------------------------------------------------
 // Flood status colour map
 // ---------------------------------------------------------------------------
-
-/**
- * Hex color source table by flood status. Exported so LayerLegend
- * (src/lib/map/layerLegends.ts) can render a legend that can never drift
- * out of sync with the actual marker colors.
- */
-export const RIVER_STATUS_HEX: Record<RiverGauge["floodStatus"], string> = {
-  normal: "#22c55e",
-  action: "#eab308",
-  minor: "#f97316",
-  moderate: "#ef4444",
-  major: "#991b1b",
-};
 
 const STATUS_COLORS: Record<
   RiverGauge["floodStatus"],

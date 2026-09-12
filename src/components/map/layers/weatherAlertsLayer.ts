@@ -8,6 +8,7 @@
  * call the same draw code with per-view `MapLayerProfile` constants (#1091).
  */
 
+import { getWeatherSeverityColor as colorForSeverity } from "@/lib/colors/palettes/weather";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { Projection } from "@/lib/map/projection";
 import type { MapLayerProfile } from "@/lib/map/mapLayerProfile";
@@ -28,19 +29,6 @@ const LABEL_SHADOW_COLOR = "rgba(0, 0, 0, 0.8)"; // equal on both maps
 // divided this by zoomDamp either, so keeping it undamped here is required
 // for pixel parity, not an oversight.
 const LABEL_SHADOW_BLUR_PX = 2;
-
-function colorForSeverity(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "#ff0040";
-    case "Severe":
-      return "#ff6600";
-    case "Moderate":
-      return "#ffaa00";
-    default:
-      return "#ffdd44";
-  }
-}
 
 export function drawWeatherAlertsLayer(
   ctx: CanvasRenderingContext2D,

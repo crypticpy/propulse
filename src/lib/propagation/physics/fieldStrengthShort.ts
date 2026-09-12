@@ -68,14 +68,19 @@
  * `unevaluatedModes` so that a caller cannot lose it by accident.
  *
  * WHICH ELEVATION AND WHICH SLANT RANGE. `PropagationMode.elevationRad` and
- * `PropagationMode.virtualSlantRangeKm`, the section 5.1 quantities, never the
- * `selection*` comparator fields. `modeTypes.ts` states the rule in capitals
- * and this module obeys it: section 5.1 is headed "Elevation angle" and
- * defines equation (13)'s hr itself, so the elevation a signal budget uses is
- * the one taken at that height. The pinned ITU build takes both from the
- * equation (2) height instead, which slice B declared as an inherited
- * divergence; every Ew, Es, Prw and Pr here inherits it, and the parity fixture
- * carries the per-case size of it rather than absorbing it into a tolerance.
+ * `PropagationMode.virtualSlantRangeKm`, never the `selection*` comparator
+ * fields. `modeTypes.ts` states the rule in capitals and this module obeys it:
+ * section 5.1 is headed "Elevation angle" and defines equation (13)'s hr
+ * itself, so the elevation a signal budget uses is the one taken at that
+ * height whenever that height closes the hop (`elevationSource` is
+ * `"section_5_1"`). When it does not (`elevationSource` is
+ * `"selection_height"`, slice E1a deviation 3), the same two fields already
+ * carry equation (13) at `selectionMirrorHeightKm`, and this module reads
+ * them as given rather than recomputing anything from `mirrorHeightKm`. The
+ * pinned ITU build takes both from the equation (2) height in every case,
+ * which slice B declared as an inherited divergence; every Ew, Es, Prw and Pr
+ * here inherits it, and the parity fixture carries the per-case size of it
+ * rather than absorbing it into a tolerance.
  *
  * DEVIATIONS. Numbered, each with the published text and what the pinned ITU
  * reference build cd172be5 does instead. The deviations that live in the loss

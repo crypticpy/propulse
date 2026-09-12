@@ -196,15 +196,18 @@ export interface PropagationMode {
    * Equation (13)'s hr for this mode, km.
    *
    * 110 km for E modes and the section 5.1 height of this hop for F2 modes,
-   * which is what section 5.1 says hr is. This is the height every product
-   * number on the record is computed from. Section 5.2.1's own selection height
-   * is `selectionMirrorHeightKm`.
+   * which is what section 5.1 says hr is. When `elevationSource` is
+   * `"section_5_1"` (the normal case) this is the height every product number
+   * on the record is computed from. Section 5.2.1's own selection height is
+   * `selectionMirrorHeightKm`.
    *
    * Always the number section 5.1 produced, including the rare case where that
    * is not positive, or positive but too low to close this hop. The geometry
-   * fields are then taken at `selectionMirrorHeightKm` instead and
-   * `elevationSource` and `geometryNote` say so; this field still reports what
-   * section 5.1 gave.
+   * fields (`elevationRad`, `elevationDeg`, `virtualSlantRangeKm`) and every
+   * product number derived from them are then taken at
+   * `selectionMirrorHeightKm` instead, `elevationSource` is
+   * `"selection_height"` and `geometryNote` says so; this field still reports
+   * what section 5.1 gave and must not be used to recompute that geometry.
    */
   readonly mirrorHeightKm: number;
   /**

@@ -44,6 +44,21 @@ describe("createViewScopedStore", () => {
     runtime.dispose();
   });
 
+  it("exposes setManualTarget on the command handle", () => {
+    const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+    const handle = createViewScopedStore(runtime);
+    handle.ensureSubscribed();
+    handle.setManualTarget({ lat: 33, lon: -117 });
+    expect(handle.store.getState().interaction.target).toEqual({
+      lat: 33, lon: -117, origin: "manual", reportId: null,
+    });
+    expect(runtime.getSnapshot().interaction.selectedReportId).toBeNull();
+    handle.setManualTarget({ lat: 200, lon: 0 });
+    expect(handle.store.getState().interaction.target?.lat).toBe(33);
+    handle.destroy();
+    runtime.dispose();
+  });
+
   it("does not subscribe during construction so discarded handles cannot leak", () => {
     const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
     let active = 0;

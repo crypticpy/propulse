@@ -137,7 +137,7 @@ import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
 import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
 import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
-import { useViewSpotFocus } from "@/hooks/useSpotFocus";
+import { MANUAL_FOCUS_SPOT_ID, useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useViewMapSpots } from "@/hooks/useViewMapSpots";
 import {
@@ -1198,7 +1198,13 @@ const GlobeScene = React.memo(function GlobeScene({
 
   const station = useUserStore((s) => s.station);
   const selectedSpotMatchesTarget = useMemo(() => {
-    if (!selectedSpot || !target) return false;
+    // A manual camera target's synthesized `focusedSpot` always shares the
+    // target's own coordinates, which would otherwise read as "the selected
+    // spot is this hover target" and suppress its label/difficulty/path
+    // metrics (#604).
+    if (!selectedSpot || !target || selectedSpot.id === MANUAL_FOCUS_SPOT_ID) {
+      return false;
+    }
     if (
       !Number.isFinite(selectedSpot.dxLat) ||
       !Number.isFinite(selectedSpot.dxLon)

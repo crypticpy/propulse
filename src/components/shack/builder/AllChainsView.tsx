@@ -278,6 +278,7 @@ function ExpandedChainBody({
           {hasNodes && pathView === "canvas" && (
             <Button
               aria-pressed={showGroundBus}
+              aria-describedby="ground-connections-hint"
               onClick={() => setShowGroundBus((v) => !v)}
             >
               Ground connections
@@ -332,6 +333,11 @@ function ExpandedChainBody({
             <p className="sw-canvas-caption">
               Scroll to zoom · drag the background to pan · select equipment to
               configure. Use Path list for controls without dragging.
+            </p>
+            <p id="ground-connections-hint" className="su-hint">
+              Ground connections shows recorded bonds only. Unrecorded radios
+              are not drawn as earthed. The overlay does not change RF
+              performance.
             </p>
           </div>
           {pathView === "list" && (

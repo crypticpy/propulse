@@ -162,6 +162,46 @@ describe("FlatMapView shared borders layer binding", () => {
     }
   });
 
+  // #1091 PR 7: `drawNightBoostedBordersLayer` wraps its country/state
+  // strokes in `ctx.save()` / terminator-clip-path / `ctx.clip()` / draw /
+  // `ctx.restore()` (see `bordersLayer.ts`). This pins that the night-boosted
+  // country stroke is actually reached *after* the `clip()` call and *before*
+  // the matching `restore()`, so a regression that moved the stroke outside
+  // the clipped region (letting it bleed onto the day side) would fail here
+  // even though the lineWidth/strokeStyle-keyed segment test above would
+  // still find the stroke.
+  it("strokes the night-boosted country pass inside the clip() the terminator path installs, before the matching restore()", async () => {
+    await mount();
+
+    const clipIndex = ops.findIndex((op) => op.name === "clip");
+    expect(clipIndex).toBeGreaterThanOrEqual(0);
+
+    let lineWidth: number | undefined;
+    let strokeStyle: string | undefined;
+    let nightBoostedCountryStrokeIndex = -1;
+    for (let i = clipIndex + 1; i < ops.length; i++) {
+      const op = ops[i];
+      if (op.name === "set:lineWidth") {
+        lineWidth = op.value as number;
+      } else if (op.name === "set:strokeStyle") {
+        strokeStyle = op.value as string;
+      } else if (
+        op.name === "stroke" &&
+        lineWidth === 1 &&
+        strokeStyle === "rgba(255, 255, 255, 0.55)"
+      ) {
+        nightBoostedCountryStrokeIndex = i;
+        break;
+      }
+    }
+    expect(nightBoostedCountryStrokeIndex).toBeGreaterThan(clipIndex);
+
+    const restoreIndex = ops.findIndex(
+      (op, i) => i > nightBoostedCountryStrokeIndex && op.name === "restore",
+    );
+    expect(restoreIndex).toBeGreaterThan(nightBoostedCountryStrokeIndex);
+  });
+
   it("reaches addWrappedRingPath with the view's real render width/height (the seam primitive is still in play)", async () => {
     const spy = vi.spyOn(standardMap, "addWrappedRingPath");
     await mount();

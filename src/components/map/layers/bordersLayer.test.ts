@@ -1,23 +1,31 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import type { MockInstance } from "vitest";
 import * as standardMap from "@/lib/utils/standardMap";
+import * as sunUtils from "@/lib/utils/sun";
 import {
   traceRing,
   drawCountryBordersLayer,
   drawStateBordersLayer,
   drawBoostedCountryBordersLayer,
   drawBoostedStateBordersLayer,
+  drawNightBoostedBordersLayer,
 } from "./bordersLayer";
 import {
   AZIMUTHAL_LAYER_PROFILE,
   FLAT_LAYER_PROFILE,
 } from "@/lib/map/mapLayerProfile";
+import type { MapLayerProfile } from "@/lib/map/mapLayerProfile";
+import {
+  createEquirectangularProjection,
+  createAzimuthalProjection,
+} from "@/lib/map/projection";
 import type { Projection, ProjectedPoint } from "@/lib/map/projection";
 
 /** Minimal recording stub of the path-tracing subset of
  * CanvasRenderingContext2D that `bordersLayer.ts` uses: `beginPath`,
- * `moveTo`, `lineTo`, `closePath`, `stroke`, plus the `strokeStyle`/
- * `lineWidth` properties it sets right before each pass. Modeled on
- * `weatherAlertsLayer.test.ts`'s mock ctx. */
+ * `moveTo`, `lineTo`, `closePath`, `stroke`, `save`, `restore`, `clip`,
+ * plus the `strokeStyle`/`lineWidth` properties it sets right before each
+ * pass. Modeled on `weatherAlertsLayer.test.ts`'s mock ctx. */
 function createMockCtx() {
   const ops: string[] = [];
   const moveTos: Array<[number, number]> = [];
@@ -42,6 +50,9 @@ function createMockCtx() {
       lineWidths.push(ctx.lineWidth as number);
       ops.push("stroke");
     }),
+    save: vi.fn(() => ops.push("save")),
+    restore: vi.fn(() => ops.push("restore")),
+    clip: vi.fn(() => ops.push("clip")),
   };
   return {
     ctx: ctx as unknown as CanvasRenderingContext2D,
@@ -60,6 +71,7 @@ function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
     wrapWidth: 1024,
     wrapHeight: 512,
     discRadiusPx: undefined,
+    discCenterPx: undefined,
     project: () => ({ x: 0, y: 0, visible: true }),
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,
@@ -73,6 +85,7 @@ function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
 function fakeAzimuthalProjection(
   points: Map<string, ProjectedPoint>,
   discRadiusPx = 260,
+  discCenterPx: { x: number; y: number } = { x: 300, y: 300 },
 ): Projection {
   return {
     kind: "azimuthal",
@@ -80,6 +93,7 @@ function fakeAzimuthalProjection(
     wrapWidth: undefined,
     wrapHeight: undefined,
     discRadiusPx,
+    discCenterPx,
     project: (lat, lon) => {
       const point = points.get(`${lat},${lon}`);
       if (!point) {
@@ -381,5 +395,234 @@ describe("draw*BordersLayer batching", () => {
     );
     expect(opsState.filter((o) => o === "beginPath")).toHaveLength(1);
     expect(opsState.filter((o) => o === "stroke")).toHaveLength(1);
+  });
+});
+
+describe("drawNightBoostedBordersLayer", () => {
+  let subsolarSpy: MockInstance<typeof sunUtils.getSubsolarPoint> | undefined;
+
+  afterEach(() => {
+    subsolarSpy?.mockRestore();
+    subsolarSpy = undefined;
+  });
+
+  function mockSubsolar(lat: number, lon: number) {
+    subsolarSpy = vi
+      .spyOn(sunUtils, "getSubsolarPoint")
+      .mockReturnValue({ lat, lon });
+  }
+
+  const FLAT_PROJECTION = createEquirectangularProjection({
+    width: 1024,
+    height: 512,
+    zoomScale: 1,
+  });
+
+  /** Slice `ops` between the `save`/`clip` pair that brackets the clip
+   * geometry, so the (irrelevant, huge) boosted stroke passes that follow
+   * `clip` don't pollute the count when `draw.country`/`draw.states` are on. */
+  function clipOps(ops: string[]): string[] {
+    const saveIdx = ops.indexOf("save");
+    const clipIdx = ops.indexOf("clip");
+    expect(saveIdx).toBeGreaterThanOrEqual(0);
+    expect(clipIdx).toBeGreaterThan(saveIdx);
+    return ops.slice(saveIdx + 1, clipIdx + 1);
+  }
+
+  it("flat: samples the terminator at FLAT's stepDeg=2 -> 1 moveTo + 180 lineTo, then 4 closing lineTo, closePath, clip", () => {
+    mockSubsolar(23, 10);
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-06-21T12:00:00Z"),
+      FLAT_PROJECTION,
+      FLAT_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    expect(seg[0]).toBe("beginPath");
+    expect(seg.filter((o) => o.startsWith("moveTo")).length).toBe(1);
+    expect(seg.filter((o) => o.startsWith("lineTo")).length).toBe(180 + 4);
+    expect(seg[seg.length - 2]).toBe("closePath");
+    expect(seg[seg.length - 1]).toBe("clip");
+  });
+
+  it("flat: closes to the top corners (y=0) when the anti-subsolar point is in the northern half", () => {
+    // Southern subsolar point (winter-solstice-like) -> anti-subsolar point
+    // is northern -> its projected y is < height/2 -> "top" branch.
+    mockSubsolar(-23, 10);
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-12-21T12:00:00Z"),
+      FLAT_PROJECTION,
+      FLAT_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    const lineTos = seg.filter((o) => o.startsWith("lineTo"));
+    const closing = lineTos.slice(-4);
+    // lineTo(width, lastP.y), lineTo(width, 0), lineTo(0, 0), lineTo(0, firstP.y)
+    expect(closing[1]).toBe("lineTo:1024,0");
+    expect(closing[2]).toBe("lineTo:0,0");
+  });
+
+  it("flat: closes to the bottom corners (y=height) when the anti-subsolar point is in the southern half", () => {
+    // Northern subsolar point (summer-solstice-like) -> anti-subsolar point
+    // is southern -> its projected y is >= height/2 -> "bottom" branch.
+    mockSubsolar(23, 10);
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-06-21T12:00:00Z"),
+      FLAT_PROJECTION,
+      FLAT_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    const lineTos = seg.filter((o) => o.startsWith("lineTo"));
+    const closing = lineTos.slice(-4);
+    expect(closing[1]).toBe("lineTo:1024,512");
+    expect(closing[2]).toBe("lineTo:0,512");
+  });
+
+  it("equinox branch: every terminator point sits at lat 0 (|tan(subsolarLat)| < 0.001)", () => {
+    mockSubsolar(0, 0);
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-03-20T12:00:00Z"),
+      FLAT_PROJECTION,
+      FLAT_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    // lat 0 on the equirectangular projection is always y = height / 2 =
+    // 256, for every terminator point (the 1 moveTo + 180 lineTo, but not
+    // the 4 closing corner lineTos, which are pinned to 0/height/firstP.y).
+    const terminatorOps = seg.filter(
+      (o) => o.startsWith("moveTo") || o.startsWith("lineTo"),
+    );
+    const polylinePoints = terminatorOps.slice(0, 181);
+    for (const op of polylinePoints) {
+      const y = Number(op.split(",")[1]);
+      expect(y).toBeCloseTo(256, 6);
+    }
+  });
+
+  it("reads stepDeg from the profile: nightClip.stepDeg 2 -> 3 changes the terminator point count", () => {
+    mockSubsolar(23, 10);
+    const stepDeg3Profile: MapLayerProfile = {
+      ...FLAT_LAYER_PROFILE,
+      nightClip: { stepDeg: 3 },
+    };
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-06-21T12:00:00Z"),
+      FLAT_PROJECTION,
+      stepDeg3Profile,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    // -180 to 180 inclusive at step 3 = 121 points -> 1 moveTo + 120 lineTo,
+    // + 4 closing lineTo = 124, not FLAT's 180 + 4 = 184.
+    expect(seg.filter((o) => o.startsWith("moveTo")).length).toBe(1);
+    expect(seg.filter((o) => o.startsWith("lineTo")).length).toBe(120 + 4);
+  });
+
+  it("disc: samples the terminator at AZIMUTHAL's stepDeg=3 -> 1 moveTo + 120 lineTo, then 37 arc lineTo, closePath, clip", () => {
+    mockSubsolar(23, 10);
+    const discProjection = createAzimuthalProjection({
+      centerLat: 40,
+      centerLon: -100,
+      centerX: 300,
+      centerY: 300,
+      radius: 260,
+      zoomScale: 1,
+      zoomDamp: 1,
+    });
+    const { ctx, ops } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-06-21T12:00:00Z"),
+      discProjection,
+      AZIMUTHAL_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    const seg = clipOps(ops);
+    expect(seg[0]).toBe("beginPath");
+    expect(seg.filter((o) => o.startsWith("moveTo")).length).toBe(1);
+    expect(seg.filter((o) => o.startsWith("lineTo")).length).toBe(120 + 37);
+    expect(seg[seg.length - 2]).toBe("closePath");
+    expect(seg[seg.length - 1]).toBe("clip");
+  });
+
+  it("disc: sweeps the closing arc in opposite directions for anti-subsolar positions on opposite sides", () => {
+    // Fully synthetic azimuthal projection (not the real azimuthalProject
+    // math): forcing the equinox branch (subsolar lat 0) makes every
+    // terminator sample project through this fake at lon -180 (first) and
+    // lon 180 (last) only, plus the anti-subsolar point at lon -170 (the
+    // loop's step of 3 never lands on -170), so all three points the arc
+    // closure math reads are independently controlled.
+    const deg = (d: number) => (d * Math.PI) / 180;
+    const R = 100;
+    const onCircle = (angleDeg: number): ProjectedPoint => ({
+      x: R * Math.cos(deg(angleDeg)),
+      y: R * Math.sin(deg(angleDeg)),
+      visible: true,
+    });
+    const firstPoint = onCircle(170); // terminator's lon=-180 point
+    const lastPoint = onCircle(10); // terminator's lon=180 point
+
+    function fakeDiscProjection(antiPoint: ProjectedPoint): Projection {
+      return {
+        kind: "azimuthal",
+        zoomScale: 1,
+        wrapWidth: undefined,
+        wrapHeight: undefined,
+        discRadiusPx: R,
+        discCenterPx: { x: 0, y: 0 },
+        project: (_lat, lon) => {
+          if (lon === -180) return firstPoint;
+          if (lon === 180) return lastPoint;
+          if (lon === -170) return antiPoint;
+          return { x: 9999, y: 9999, visible: true };
+        },
+        scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
+        screenPx: (px) => px,
+      };
+    }
+
+    function firstArcSweepSign(antiPoint: ProjectedPoint): number {
+      mockSubsolar(0, 10); // isNearEquinox; antiSubsolarLon = 10 - 180 = -170
+      const { ctx, ops } = createMockCtx();
+      drawNightBoostedBordersLayer(
+        ctx,
+        new Date("2026-01-01T00:00:00Z"),
+        fakeDiscProjection(antiPoint),
+        AZIMUTHAL_LAYER_PROFILE,
+        { country: false, states: false },
+      );
+      subsolarSpy?.mockRestore();
+      const lineTos = ops.filter((o) => o.startsWith("lineTo"));
+      // 120 terminator lineTo + 37 arc lineTo = 157.
+      const arcPoints = lineTos.slice(-37).map((op) => {
+        const [x, y] = op.replace("lineTo:", "").split(",").map(Number);
+        return { x, y };
+      });
+      const angle = (p: { x: number; y: number }) => Math.atan2(p.y, p.x);
+      let delta = angle(arcPoints[1]) - angle(arcPoints[0]);
+      while (delta > Math.PI) delta -= 2 * Math.PI;
+      while (delta < -Math.PI) delta += 2 * Math.PI;
+      return Math.sign(delta);
+    }
+
+    // Anti-subsolar "up" (90 deg, between the 10 deg and 170 deg endpoints
+    // the short way) needs no direction correction: positive sweep.
+    expect(firstArcSweepSign(onCircle(90))).toBe(1);
+    // Anti-subsolar "down" (270 deg, on the other side) triggers the
+    // direction correction: negative sweep.
+    expect(firstArcSweepSign(onCircle(270))).toBe(-1);
   });
 });

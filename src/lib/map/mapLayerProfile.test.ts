@@ -79,4 +79,23 @@ describe("MapLayerProfile", () => {
     expect(FLAT_LAYER_PROFILE.weatherAlerts.labelMinZoomScale).toBe(1.5);
     expect(AZIMUTHAL_LAYER_PROFILE.weatherAlerts.labelMinZoomScale).toBe(0);
   });
+
+  // #1091 PR 7: drawNightBoostedBordersLayer reads profile.nightClip.stepDeg
+  // to decide the terminator sample spacing (was a hardcoded literal in each
+  // view's inline function before the shared-layer extraction).
+  it("FLAT_LAYER_PROFILE.nightClip pins the measured flat-map terminator sample step", () => {
+    expect(FLAT_LAYER_PROFILE.nightClip).toEqual({ stepDeg: 2 });
+  });
+
+  it("AZIMUTHAL_LAYER_PROFILE.nightClip pins the measured azimuthal-disc terminator sample step", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.nightClip).toEqual({ stepDeg: 3 });
+  });
+
+  it("differs from the flat profile in nightClip.stepDeg; this must fail if the two values were swapped", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.nightClip.stepDeg).not.toBe(
+      FLAT_LAYER_PROFILE.nightClip.stepDeg,
+    );
+    expect(FLAT_LAYER_PROFILE.nightClip.stepDeg).toBe(2);
+    expect(AZIMUTHAL_LAYER_PROFILE.nightClip.stepDeg).toBe(3);
+  });
 });

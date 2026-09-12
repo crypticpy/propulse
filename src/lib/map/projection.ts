@@ -44,6 +44,11 @@ export interface Projection {
    * map. Lets the shared borders layer (#1091) compute the disc's
    * jump-break threshold without reaching into the view's own radius const. */
   readonly discRadiusPx?: number;
+  /** The disc's centre in canvas px (`centerX`/`centerY` passed to
+   * `createAzimuthalProjection`); undefined on the flat map. Lets the
+   * shared night-side clip (#1091 PR 7) build its closing arc without
+   * reaching into the view's own centre const. */
+  readonly discCenterPx?: { x: number; y: number };
   project(lat: number, lon: number): ProjectedPoint;
   scaleAt(lat: number, lon: number): LocalScale;
   /** Convert an on-screen px size into this projection's user space (the flat map's zoomDamp). */
@@ -65,6 +70,7 @@ export function createEquirectangularProjection(opts: {
     wrapWidth: width,
     wrapHeight: height,
     discRadiusPx: undefined,
+    discCenterPx: undefined,
     project: (lat, lon) => ({
       x: ((lon + 180) / 360) * width,
       y: ((90 - lat) / 180) * height,
@@ -106,6 +112,7 @@ export function createAzimuthalProjection(opts: {
     wrapWidth: undefined,
     wrapHeight: undefined,
     discRadiusPx: radius,
+    discCenterPx: { x: centerX, y: centerY },
     project(lat, lon) {
       const p = azimuthalProject(lat, lon, centerLat, centerLon);
       return {

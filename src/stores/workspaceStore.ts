@@ -146,15 +146,6 @@ export function migrateWorkspaceState(persisted: unknown, version: number): Work
   if (version < 3 && !Array.isArray(state.phoneVisibleBands)) {
     state.phoneVisibleBands = [...BAND_ORDER];
   }
-  if (version < 4 && Array.isArray(state.workspaces)) {
-    state.workspaces = state.workspaces.map((ws) => {
-      const rails = ws.rails;
-      if (!Array.isArray(rails) || rails.some((r) => (r as { side?: unknown }).side === "top")) {
-        return ws;
-      }
-      return { ...ws, rails: [...rails, { side: "top", collapsed: false, width: "normal" }] };
-    });
-  }
   return state as unknown as WorkspaceStoreState;
 }
 
@@ -522,7 +513,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     }),
     {
       name: "propulse-workspace-store",
-      version: 4,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: migrateWorkspaceState,
       // `canvasTypeOverride` is viewport-derived and re-established by

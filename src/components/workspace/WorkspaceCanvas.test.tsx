@@ -42,10 +42,9 @@ describe("WorkspaceCanvas", () => {
     expect(screen.getByTestId("workspace-rail-left")).toBeTruthy();
     expect(screen.getByTestId("workspace-rail-right")).toBeTruthy();
     expect(screen.getByTestId("workspace-rail-bottom")).toBeTruthy();
-    expect(screen.getByTestId("workspace-rail-top")).toBeTruthy();
 
-    // One "+ ADD WIDGET" per empty slot: space + left/right/bottom/top rails (#916).
-    expect(screen.getAllByText("+ ADD WIDGET")).toHaveLength(5);
+    // One "+ ADD WIDGET" per empty slot: space + 3 rails.
+    expect(screen.getAllByText("+ ADD WIDGET")).toHaveLength(4);
   });
 
   it("adding a hero-eligible widget places it in the space", () => {

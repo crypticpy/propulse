@@ -123,10 +123,6 @@
   border-top: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
 }
 
-.workspace-rail--top {
-  border-bottom: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
-}
-
 .workspace-rail-head {
   flex: 0 0 auto;
   justify-content: space-between;

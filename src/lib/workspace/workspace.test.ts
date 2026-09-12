@@ -20,25 +20,21 @@ describe("canvasRules", () => {
     expect(wall.tapTargetPt).toBeNull();
   });
 
-  it("workstation: 5 left / 6 right / 6 bottom / 6 top, opposite-collapses", () => {
+  it("workstation: 5 left / 6 right / 6 bottom, opposite-collapses", () => {
     const workstation = CANVAS_RULES.workstation;
     expect(workstation.rails).toEqual([
       { side: "left", weightBudget: 5 },
       { side: "right", weightBudget: 6 },
       { side: "bottom", weightBudget: 6 },
-      { side: "top", weightBudget: 6 },
     ]);
     expect(workstation.heroAllowed).toBe(true);
     expect(workstation.railWidthPolicy).toBe("opposite-collapses");
     expect(workstation.scaleRange).toEqual([0.55, 0.85]);
   });
 
-  it("tablet: right + top rails, fixed rail width policy", () => {
+  it("tablet: one rail, fixed rail width policy", () => {
     const tablet = CANVAS_RULES.tablet;
-    expect(tablet.rails).toEqual([
-      { side: "right", weightBudget: 6 },
-      { side: "top", weightBudget: 6 },
-    ]);
+    expect(tablet.rails).toEqual([{ side: "right", weightBudget: 6 }]);
     expect(tablet.railWidthPolicy).toBe("fixed");
     expect(tablet.scaleRange).toEqual([0.6, 0.95]);
   });
@@ -60,18 +56,29 @@ describe("canvasRules", () => {
   });
 
   describe("applyRailWidth", () => {
-    it("workstation: setting left to wide collapses right, leaves top and bottom alone", () => {
+    it("workstation: setting left to wide collapses right, leaves bottom alone", () => {
       const rules = CANVAS_RULES.workstation;
       const initial = defaultRailStates(rules);
       const next = applyRailWidth(rules, initial, "left", "wide");
       expect(next.find((r) => r.side === "left")).toEqual({ side: "left", collapsed: false, width: "wide" });
       expect(next.find((r) => r.side === "right")).toEqual({ side: "right", collapsed: true, width: "normal" });
       expect(next.find((r) => r.side === "bottom")).toEqual({ side: "bottom", collapsed: false, width: "normal" });
-      expect(next.find((r) => r.side === "top")).toEqual({ side: "top", collapsed: false, width: "normal" });
     });
 
-    it("workstation: setting top to wide collapses bottom, leaves left and right alone", () => {
-      const rules = CANVAS_RULES.workstation;
+    // Workstation's own rules do not currently declare a top rail (#919),
+    // but `applyRailWidth`'s top<->bottom pairing is still live logic (used
+    // by any future canvas that declares both) — cover it with an inline
+    // rules object rather than depending on the shipped CANVAS_RULES.workstation.
+    it("opposite-collapses: setting top to wide collapses bottom, leaves left and right alone", () => {
+      const rules: CanvasRules = {
+        ...CANVAS_RULES.workstation,
+        rails: [
+          { side: "left", weightBudget: 5 },
+          { side: "right", weightBudget: 6 },
+          { side: "bottom", weightBudget: 6 },
+          { side: "top", weightBudget: 6 },
+        ],
+      };
       const next = applyRailWidth(rules, defaultRailStates(rules), "top", "wide");
       expect(next.find((r) => r.side === "top")).toEqual({ side: "top", collapsed: false, width: "wide" });
       expect(next.find((r) => r.side === "bottom")).toEqual({ side: "bottom", collapsed: true, width: "normal" });
@@ -79,8 +86,16 @@ describe("canvasRules", () => {
       expect(next.find((r) => r.side === "right")?.collapsed).toBe(false);
     });
 
-    it("workstation: setting bottom to wide collapses top", () => {
-      const rules = CANVAS_RULES.workstation;
+    it("opposite-collapses: setting bottom to wide collapses top", () => {
+      const rules: CanvasRules = {
+        ...CANVAS_RULES.workstation,
+        rails: [
+          { side: "left", weightBudget: 5 },
+          { side: "right", weightBudget: 6 },
+          { side: "bottom", weightBudget: 6 },
+          { side: "top", weightBudget: 6 },
+        ],
+      };
       const next = applyRailWidth(rules, defaultRailStates(rules), "bottom", "wide");
       expect(next.find((r) => r.side === "bottom")?.width).toBe("wide");
       expect(next.find((r) => r.side === "top")?.collapsed).toBe(true);
@@ -241,13 +256,30 @@ describe("autoDock", () => {
     ]);
   });
 
-  it("refuses when both tablet rails are full (right then top fallback exhausted)", () => {
+  it("refuses a single full rail on tablet (one rail, no fallback exists)", () => {
+    const registry: Record<string, WidgetRegistryEntry> = {
+      a: mkEntry("a", { aspect: "any", weight: 6, densities: ["work"] }),
+      b: mkEntry("b", { aspect: "any", weight: 1, densities: ["work"] }),
+    };
+    const result = autoDock(["a", "b"], CANVAS_RULES.tablet, registry);
+    expect(result.placements).toEqual([{ widgetId: "a", slot: { kind: "rail", side: "right" } }]);
+    expect(result.refusals).toEqual([
+      { widgetId: "b", reason: "Right rail is full (6 of 6 slots). Remove a widget to make room." },
+    ]);
+  });
+
+  // Tablet's own rules currently declare only the right rail (#919), but the
+  // multi-rail fallback-then-refuse logic exercised here is generic — cover
+  // it with an inline rules object rather than depending on a second rail
+  // CANVAS_RULES.tablet does not (yet) have.
+  it("refuses when both of a canvas's rails are full (right then top fallback exhausted)", () => {
+    const rules: CanvasRules = { ...CANVAS_RULES.tablet, rails: [{ side: "right", weightBudget: 6 }, { side: "top", weightBudget: 6 }] };
     const registry: Record<string, WidgetRegistryEntry> = {
       a: mkEntry("a", { aspect: "any", weight: 6, densities: ["work"] }),
       b: mkEntry("b", { aspect: "any", weight: 6, densities: ["work"] }),
       c: mkEntry("c", { aspect: "any", weight: 1, densities: ["work"] }),
     };
-    const result = autoDock(["a", "b", "c"], CANVAS_RULES.tablet, registry);
+    const result = autoDock(["a", "b", "c"], rules, registry);
     expect(result.placements).toEqual([
       { widgetId: "a", slot: { kind: "rail", side: "right" } },
       { widgetId: "b", slot: { kind: "rail", side: "top" } },

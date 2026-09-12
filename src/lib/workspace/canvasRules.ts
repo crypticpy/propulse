@@ -62,23 +62,24 @@ export const CANVAS_RULES: Readonly<Record<CanvasType, CanvasRules>> = {
   },
   workstation: {
     canvasType: "workstation",
+    // TODO(#919): top rail is not yet rendered by WorkspaceCanvas and
+    // persisted v3 workspaces have no top RailState, so it is intentionally
+    // left out of `rails` here. Re-add once #919 lands the render path and a
+    // schema migration.
     rails: [
       { side: "left", weightBudget: 5 },
       { side: "right", weightBudget: 6 },
       { side: "bottom", weightBudget: 6 },
-      // Horizontal strip; proposed default matching bottom until a sheet names one.
-      { side: "top", weightBudget: 6 },
     ],
     heroAllowed: true,
     heroDensity: "work",
     minDensity: "work",
     // "work; glance allowed for strips" (plan §2) — a shallow/bottom rail
-    // may also hold a glance-density widget. Top is the matching strip on
-    // the other edge (#916).
+    // may also hold a glance-density widget.
     railDensities: ["work", "glance"],
     // Going wide on one rail collapses its pair so the hero keeps room:
-    // left↔right (owner, 2026-09-08: bottom is not a left/right opposite)
-    // and top↔bottom (#916). A vertical rail never collapses a horizontal one.
+    // left↔right (owner, 2026-09-08: bottom is not a left/right opposite).
+    // A vertical rail never collapses a horizontal one.
     railWidthPolicy: "opposite-collapses",
     tapTargetPt: 44,
     scaleRange: [0.55, 0.85],
@@ -86,13 +87,12 @@ export const CANVAS_RULES: Readonly<Record<CanvasType, CanvasRules>> = {
   tablet: {
     canvasType: "tablet",
     // Right rail is the existing side strip (plan §2 modelled one generic
-    // rail; portrait/landscape switching is still UI). Top is the matching
-    // horizontal strip (#916). Width policy stays `"fixed"` — the two rails
-    // do not collapse each other.
-    rails: [
-      { side: "right", weightBudget: 6 },
-      { side: "top", weightBudget: 6 },
-    ],
+    // rail; portrait/landscape switching is still UI).
+    // TODO(#919): top rail is not yet rendered by WorkspaceCanvas and
+    // persisted v3 workspaces have no top RailState, so it is intentionally
+    // left out of `rails` here. Re-add once #919 lands the render path and a
+    // schema migration.
+    rails: [{ side: "right", weightBudget: 6 }],
     heroAllowed: true,
     heroDensity: "work",
     minDensity: "work",

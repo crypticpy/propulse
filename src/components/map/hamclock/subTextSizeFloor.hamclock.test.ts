@@ -3,9 +3,9 @@
  *
  * Census on `origin/main` at `6b36ce97`: `src/components/map/hamclock/`
  * holds 19 sub-floor `text-[Npx]` sites (N<12) across 3 legacy panel files.
- * The `wall/` subtree (tiles, reports, controls, settings — 150+ source
- * files) is already clean: it uses `hc-*` token classes from
- * `styles/hamclock-wall*.css` instead of arbitrary px sizes.
+ * Canvas/SVG sizing needs a separate census: the wall reports used 11px
+ * computed minima and reduced annotations. These now have explicit 12px
+ * floors; JSX expressions are checked below as well as class/object syntax.
  *
  * This batch raises all 19 sites in:
  * - `HamClockBestBandHero.tsx` (4)
@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import ts from "typescript";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../../..");
 const HAMCLOCK_ROOT = resolve(REPO_ROOT, "src/components/map/hamclock");
@@ -35,8 +36,7 @@ const FILES = [
 ];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
-const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
+const INLINE_SIZE_RE = /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface SubFloorSite {
   file: string;
@@ -104,4 +104,89 @@ describe("sub-text-xs sizing stays at the floor in HamClock (#808 batch 2)", () 
       `sub-floor sizing under hamclock/:\n${violations.join("\n")}`,
     ).toEqual([]);
   });
+});
+
+// JSX attributes are expressions, not object properties. Follow local numeric
+// bounds rather than treating an identifier such as `fs` as automatically safe.
+function svgFloorViolations(source: string): string[] {
+  const file = ts.createSourceFile(
+    "fixture.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const bindings = new Map<string, ts.Expression[]>();
+  const attributes: ts.JsxAttribute[] = [];
+  const walk = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer
+    ) {
+      bindings.set(node.name.text, [
+        ...(bindings.get(node.name.text) ?? []),
+        node.initializer,
+      ]);
+    }
+    if (ts.isJsxAttribute(node) && node.name.getText(file) === "fontSize")
+      attributes.push(node);
+    ts.forEachChild(node, walk);
+  };
+  walk(file);
+  const bounded = (node: ts.Expression, seen = new Set<string>()): boolean => {
+    if (ts.isNumericLiteral(node) || ts.isStringLiteral(node))
+      return Number(node.text.replace(/px$/, "")) >= 12;
+    if (ts.isParenthesizedExpression(node))
+      return bounded(node.expression, seen);
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(file) === "Math.max"
+    )
+      return node.arguments.some((arg) => bounded(arg, seen));
+    if (ts.isIdentifier(node) && !seen.has(node.text)) {
+      const values = bindings.get(node.text);
+      return (
+        Boolean(values?.length) &&
+        values!.every((value) => bounded(value, new Set([...seen, node.text])))
+      );
+    }
+    return false;
+  };
+  return attributes
+    .filter((node) => {
+      const init = node.initializer;
+      return (
+        !init ||
+        (ts.isJsxExpression(init)
+          ? !init.expression || !bounded(init.expression)
+          : !ts.isStringLiteral(init) || !bounded(init))
+      );
+    })
+    .map(
+      (node) =>
+        `${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${node.getText(file)}`,
+    );
+}
+
+it("requires a proven 12px lower bound for every HamClock SVG fontSize", () => {
+  const violations = walkHamclockSourceFiles(HAMCLOCK_ROOT).flatMap((file) =>
+    svgFloorViolations(readFileSync(file, "utf8")).map(
+      (site) => `${file}: ${site}`,
+    ),
+  );
+  expect(violations).toEqual([]);
+});
+it("rejects sub-floor JSX constants, computed minima, and reduced annotations", () => {
+  for (const source of [
+    "<text fontSize={11}/>",
+    "const fs = Math.max(11, height); <text fontSize={fs}/>",
+    "const fs = Math.max(12, height); <text fontSize={fs * 0.85}/>",
+  ])
+    expect(svgFloorViolations(source)).toHaveLength(1);
+  expect(
+    svgFloorViolations(
+      "const fs = Math.max(12, height); <text fontSize={fs}/><text fontSize={Math.max(12, fs * 0.85)}/>",
+    ),
+  ).toEqual([]);
 });

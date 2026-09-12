@@ -21,6 +21,11 @@
  *    points on the declared sphere. `geometry/route.ts` resolves it, and this
  *    module resolves it ONCE and hands the result on, which is contract M06:
  *    every leaf downstream reads the same arc, azimuth and length.
+ *    `pathDirection`, when given, must be exactly one of `PATH_DIRECTIONS`.
+ *    A value outside that set is refused rather than defaulted, because
+ *    `resolveRoute` would otherwise choose the short-path geometry for it
+ *    while the invalid value is still copied into `route.direction`, leaving
+ *    the label and the geometry disagreeing about which path was taken.
  *  - PATH LENGTH, up to the circumference of the declared sphere. Beyond that
  *    a "distance" is not a path, and `longPath/fM.ts` says the same with the
  *    same constant. There is no lower bound but the one the route itself
@@ -38,7 +43,12 @@
  *  - MAN-MADE NOISE, one of the four outdoor environmental categories
  *    ITU-R P.372-17 Table 1 publishes, or a figure the caller measured, or
  *    the declared absence of either. A request may not name a category
- *    P.372 does not have: see `ManMadeNoiseSetting`.
+ *    P.372 does not have: see `ManMadeNoiseSetting`. An explicit figure's
+ *    `upperDecileDb` and `lowerDecileDb`, when given, must be non-negative:
+ *    they are magnitudes, and `signalDeciles.ts`'s `snrDecileDeviations`
+ *    applies them directionally (`fa - dl` for the lower decile, `fa + du`
+ *    for the upper), so a negative value would move the noise the wrong way
+ *    and produce a plausible but wrong SNR decile.
  *  - THE POWER BUDGET, when the caller supplies one. `transmitterPowerDbKw`,
  *    `transmitterGainDbi`, `receiverGainDbi` and `otherLossesDb` are optional,
  *    but when present each must be finite: equations (43) and (44) form the
@@ -84,6 +94,24 @@ export const MAX_UTC_HOUR = 23;
 export const MIN_R12 = 0;
 /** `ionosphere/numericalMap.ts` MAX_R12: the ceiling the CCIR maps were fitted to. */
 export const MAX_R12_IN_DOMAIN = MAX_R12;
+
+/**
+ * The path directions `geometry/route.ts` resolves a route in.
+ *
+ * Tied to the imported `RouteDirection` type with a `satisfies Record<...>`
+ * membership map rather than re-declared as a plain literal, so the two
+ * cannot drift: a third direction added to `route.ts` fails this file's
+ * typecheck until it is named here too, and a name here that `route.ts`
+ * does not recognise fails the same way.
+ */
+const PATH_DIRECTION_MEMBERSHIP = {
+  short: true,
+  long: true,
+} as const satisfies Record<RouteDirection, true>;
+
+export const PATH_DIRECTIONS = Object.keys(
+  PATH_DIRECTION_MEMBERSHIP,
+) as readonly RouteDirection[];
 
 /**
  * The man-made noise environment categories, which are exactly the four rows
@@ -231,6 +259,7 @@ export type CircuitDomainReason =
   | "unsupported_frequency_band"
   | "unsupported_coordinates"
   | "unsupported_route_geometry"
+  | "unsupported_path_direction"
   | "unsupported_path_length"
   | "unsupported_month"
   | "unsupported_utc_hour"
@@ -272,6 +301,9 @@ export type CircuitDomainResult =
 export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
   const endpoints = checkEndpoints(request);
   if (endpoints !== null) return endpoints;
+
+  const pathDirection = checkPathDirection(request.pathDirection);
+  if (pathDirection !== null) return pathDirection;
 
   const route = resolveRoute(request.transmitter, request.receiver, {
     direction: request.pathDirection ?? "short",
@@ -387,6 +419,29 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
 }
 
 /**
+ * `pathDirection` is optional, and when it is a request from untyped JSON it
+ * may name a typo such as `"lng"` rather than `"long"`. `resolveRoute` only
+ * recognises the literal `"long"`; anything else, including a near-miss
+ * spelling or the wrong case, gets short-path geometry while the invalid
+ * value is still copied into `route.direction`, so the admitted route's
+ * label and its geometry would disagree. Refused here, before the route is
+ * ever resolved.
+ */
+function checkPathDirection(
+  pathDirection: RouteDirection | undefined,
+): RefusedCircuitRequest | null {
+  if (pathDirection === undefined) return null;
+  if (!(PATH_DIRECTIONS as readonly string[]).includes(pathDirection)) {
+    return refuse(
+      "unsupported_path_direction",
+      `the path direction is "${String(pathDirection)}"; geometry/route.ts ` +
+        `resolves a route as one of ${PATH_DIRECTIONS.join(", ")}.`,
+    );
+  }
+  return null;
+}
+
+/**
  * The four optional fields of the power budget, none of which solveCircuit's
  * own leaves check: `operationalMuf.ts` throws `eirpDbW must be finite` and
  * `fieldStrengthShort.ts`'s equations (43) and (44) would carry a NaN or an
@@ -442,18 +497,34 @@ function checkManMadeNoise(
     return null;
   }
   if (setting.kind === "explicit") {
-    const numbers: readonly (readonly [string, number | undefined])[] = [
-      ["c, Fam at 1 MHz", setting.famAt1MHzDb],
-      ["the slope d", setting.slopeDbPerDecade],
-      ["the upper decile", setting.upperDecileDb],
-      ["the lower decile", setting.lowerDecileDb],
+    const numbers: readonly (readonly [
+      string,
+      number | undefined,
+      number | undefined,
+    ])[] = [
+      ["c, Fam at 1 MHz", setting.famAt1MHzDb, undefined],
+      ["the slope d", setting.slopeDbPerDecade, undefined],
+      ["the upper decile", setting.upperDecileDb, 0],
+      ["the lower decile", setting.lowerDecileDb, 0],
     ];
-    for (const [name, value] of numbers) {
-      if (value !== undefined && !Number.isFinite(value)) {
+    for (const [name, value, min] of numbers) {
+      if (value === undefined) continue;
+      if (!Number.isFinite(value)) {
         return refuse(
           "unsupported_noise_environment",
           `the explicit man-made noise setting gives ${name} as ` +
             `${String(value)} dB; P.372-17 equation (17) needs finite values.`,
+        );
+      }
+      if (min !== undefined && value < min) {
+        return refuse(
+          "unsupported_noise_environment",
+          `${name} is ${String(value)} dB; P.842-5's decile deviations are ` +
+            "non-negative magnitudes that signalDeciles.ts's " +
+            "snrDecileDeviations applies directionally (fa - dl for the " +
+            "lower decile, fa + du for the upper), so a negative value would " +
+            "move the noise the wrong way and yield a plausible but wrong " +
+            "SNR decile.",
         );
       }
     }

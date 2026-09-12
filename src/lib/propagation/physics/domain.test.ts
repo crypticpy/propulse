@@ -14,6 +14,7 @@ import {
   MIN_MONTH,
   MIN_UTC_HOUR,
   MODEL_ID,
+  PATH_DIRECTIONS,
   UNMODELLED_MECHANISMS,
   type CircuitDomainReason,
   type CircuitRequest,
@@ -228,6 +229,54 @@ describe("the route", () => {
   });
 });
 
+describe("the path direction", () => {
+  it("names the two directions geometry/route.ts resolves", () => {
+    expect([...PATH_DIRECTIONS]).toEqual(["short", "long"]);
+  });
+
+  it("admits every member of the literal set", () => {
+    for (const pathDirection of PATH_DIRECTIONS) {
+      const result = ask({ pathDirection });
+      expect(result.kind).toBe("admitted");
+      if (result.kind !== "admitted") continue;
+      expect(result.route.direction).toBe(pathDirection);
+    }
+  });
+
+  it("refuses a near-miss typo rather than defaulting to the short path", () => {
+    // "lng" is the finding this guards: resolveRoute only recognises the
+    // literal "long", so anything else would silently get short-path
+    // geometry while the invalid value is copied into route.direction,
+    // leaving the label and the geometry disagreeing.
+    const detail = refusedWith(
+      { pathDirection: "lng" as CircuitRequest["pathDirection"] },
+      "unsupported_path_direction",
+    );
+    expect(detail).toContain("lng");
+    expect(detail).toContain("short");
+    expect(detail).toContain("long");
+  });
+
+  it("refuses the wrong case", () => {
+    refusedWith(
+      { pathDirection: "Long" as CircuitRequest["pathDirection"] },
+      "unsupported_path_direction",
+    );
+    refusedWith(
+      { pathDirection: "SHORT" as CircuitRequest["pathDirection"] },
+      "unsupported_path_direction",
+    );
+  });
+
+  it("names the field in the refusal detail", () => {
+    const detail = refusedWith(
+      { pathDirection: "lng" as CircuitRequest["pathDirection"] },
+      "unsupported_path_direction",
+    );
+    expect(detail).toContain("path direction");
+  });
+});
+
 describe("the time and the solar index", () => {
   it("refuses a month outside 1 to 12 or one that is not an integer", () => {
     refusedWith({ month: 0 }, "unsupported_month");
@@ -283,6 +332,47 @@ describe("the receiver", () => {
       { manMadeNoise: { kind: "explicit", famAt1MHzDb: Number.NaN } },
       "unsupported_noise_environment",
     );
+  });
+
+  it("refuses a negative decile deviation, because it is a magnitude", () => {
+    // snrDecileDeviations (signalDeciles.ts) applies these directionally,
+    // fa - dl and fa + du: a negative value would move the noise the wrong
+    // way and yield a plausible but wrong SNR decile.
+    let detail = refusedWith(
+      {
+        manMadeNoise: {
+          kind: "explicit",
+          famAt1MHzDb: 63.5,
+          upperDecileDb: -0.001,
+        },
+      },
+      "unsupported_noise_environment",
+    );
+    expect(detail).toContain("the upper decile");
+    detail = refusedWith(
+      {
+        manMadeNoise: {
+          kind: "explicit",
+          famAt1MHzDb: 63.5,
+          lowerDecileDb: -0.001,
+        },
+      },
+      "unsupported_noise_environment",
+    );
+    expect(detail).toContain("the lower decile");
+  });
+
+  it("admits a zero decile deviation on either side", () => {
+    expect(
+      ask({
+        manMadeNoise: {
+          kind: "explicit",
+          famAt1MHzDb: 63.5,
+          upperDecileDb: 0,
+          lowerDecileDb: 0,
+        },
+      }).kind,
+    ).toBe("admitted");
   });
 
   it("refuses the two categories that are software conventions, not P.372", () => {

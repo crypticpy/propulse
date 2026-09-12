@@ -91,7 +91,7 @@ export function BandMapControls({
             type="button"
             onClick={() => onBandChange(b)}
             className={`
-              px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition-all duration-150
+              px-1.5 py-0.5 rounded text-xs font-mono font-medium transition-all duration-150
               ${
                 band === b
                   ? "bg-plasma-orange text-su-on-accent shadow-sm shadow-plasma-orange/20"
@@ -112,7 +112,7 @@ export function BandMapControls({
             type="button"
             onClick={() => onContestFilterChange(cf.value)}
             className={`
-              px-1.5 py-0.5 rounded text-[10px] font-mono transition-all duration-150
+              px-1.5 py-0.5 rounded text-xs font-mono transition-all duration-150
               ${
                 contestFilter === cf.value
                   ? "bg-caution-amber/20 text-caution-amber"
@@ -130,7 +130,7 @@ export function BandMapControls({
           onClick={() => onShowSubBandsChange(!showSubBands)}
           title="Toggle contest sub-band markers"
           className={`
-            px-1.5 py-0.5 rounded text-[10px] font-mono transition-all duration-150 ml-0.5
+            px-1.5 py-0.5 rounded text-xs font-mono transition-all duration-150 ml-0.5
             ${
               showSubBands
                 ? "bg-nebula-blue/20 text-nebula-blue"
@@ -153,7 +153,7 @@ export function BandMapControls({
             type="button"
             onClick={() => onTimeRangeChange(tr.value)}
             className={`
-              px-1.5 py-0.5 rounded text-[10px] font-mono transition-all duration-150
+              px-1.5 py-0.5 rounded text-xs font-mono transition-all duration-150
               ${
                 timeRange === tr.value
                   ? "bg-su-line/30 text-su-text"
@@ -167,7 +167,7 @@ export function BandMapControls({
       </div>
 
       {/* Source badge */}
-      <div className="flex items-center gap-1 text-[10px] text-su-muted font-mono shrink-0">
+      <div className="flex items-center gap-1 text-xs text-su-muted font-mono shrink-0">
         <span
           className={`w-1.5 h-1.5 rounded-full ${sourceConfig.color} ${
             source === "bridge" ? "animate-pulse" : ""

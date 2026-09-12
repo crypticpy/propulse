@@ -134,7 +134,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
     <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-su-line/10 transition-colors">
       {/* Rank indicator */}
       <div
-        className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${rankStyle}`}
+        className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${rankStyle}`}
       >
         {rank}
       </div>
@@ -146,7 +146,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
             {mult.value}
           </span>
           {showBand && mult.band && (
-            <span className="text-[10px] text-su-muted font-mono">
+            <span className="text-xs text-su-muted font-mono">
               {mult.band}
             </span>
           )}
@@ -155,14 +155,14 @@ function TargetRow({ target, showBand }: TargetRowProps) {
 
       {/* Type badge */}
       <div
-        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${badgeColor}`}
+        className={`px-1.5 py-0.5 rounded text-xs font-bold uppercase border ${badgeColor}`}
       >
         {getTypeName(mult.type)}
       </div>
 
       {/* Score (optional, for debugging) */}
       <div
-        className="text-[9px] text-su-muted font-mono w-6 text-right"
+        className="text-xs text-su-muted font-mono w-6 text-right"
         title={`Score: ${score}`}
       >
         {score}
@@ -198,7 +198,7 @@ function SummaryHeader({ summary }: SummaryHeaderProps) {
         {typesWithNeeded.slice(0, 4).map(([type, count]) => (
           <div
             key={type}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold border
               ${getTypeBadgeColor(type as MultiplierType)}`}
           >
             <span>{getTypeName(type as MultiplierType)}</span>
@@ -298,7 +298,7 @@ export function NeededMultsPanel({
               .map(([type, count]) => (
                 <span
                   key={type}
-                  className={`text-[10px] font-mono ${getTypeColor(type as MultiplierType)}`}
+                  className={`text-xs font-mono ${getTypeColor(type as MultiplierType)}`}
                 >
                   {getTypeName(type as MultiplierType)}: {count}
                 </span>
@@ -317,7 +317,7 @@ export function NeededMultsPanel({
           Next Best Mults
         </h3>
         {currentBand && (
-          <span className="text-[10px] text-su-muted">on {currentBand}</span>
+          <span className="text-xs text-su-muted">on {currentBand}</span>
         )}
       </div>
 
@@ -344,7 +344,7 @@ export function NeededMultsPanel({
       {/* Show more indicator */}
       {summary && summary.total > maxTargets && (
         <div className="text-center mt-2 pt-2 border-t border-su-line/40">
-          <span className="text-[10px] text-su-muted">
+          <span className="text-xs text-su-muted">
             +{summary.total - maxTargets} more needed
           </span>
         </div>
@@ -354,15 +354,15 @@ export function NeededMultsPanel({
       <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-su-line/40">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-plasma-orange" />
-          <span className="text-[9px] text-su-muted">High value</span>
+          <span className="text-xs text-su-muted">High value</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-cosmic-cyan" />
-          <span className="text-[9px] text-su-muted">Medium</span>
+          <span className="text-xs text-su-muted">Medium</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-su-text/30" />
-          <span className="text-[9px] text-su-muted">Standard</span>
+          <span className="text-xs text-su-muted">Standard</span>
         </div>
       </div>
     </Card>

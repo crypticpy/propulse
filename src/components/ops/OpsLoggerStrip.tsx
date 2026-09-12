@@ -268,7 +268,7 @@ export function OpsLoggerStrip() {
 
         {path && (
           <div
-            className="hidden items-center gap-2 font-mono text-[10px] text-su-muted sm:flex"
+            className="hidden items-center gap-2 font-mono text-xs text-su-muted sm:flex"
             data-contact-bearing
           >
             <span>
@@ -292,7 +292,7 @@ export function OpsLoggerStrip() {
 
         {stationLine && (
           <span
-            className="hidden max-w-[14rem] truncate font-mono text-[10px] text-su-muted sm:inline"
+            className="hidden max-w-[14rem] truncate font-mono text-xs text-su-muted sm:inline"
             title={stationLine}
             data-station-gear
           >
@@ -301,18 +301,18 @@ export function OpsLoggerStrip() {
         )}
 
         {loggedFlash && (
-          <span className="font-mono text-[10px] text-signal-green">
+          <span className="font-mono text-xs text-signal-green">
             Logged {loggedFlash}
           </span>
         )}
 
         {lookupLoading && (
-          <span className="text-[10px] text-su-muted">Lookup…</span>
+          <span className="text-xs text-su-muted">Lookup…</span>
         )}
 
         <Link
           to="/log"
-          className="ml-auto text-[10px] text-cosmic-cyan hover:text-su-text"
+          className="ml-auto text-xs text-cosmic-cyan hover:text-su-text"
         >
           Open book →
         </Link>

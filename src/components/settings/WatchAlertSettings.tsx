@@ -78,7 +78,7 @@ function VolumeSlider({
           ${disabled ? "cursor-not-allowed [&::-webkit-slider-thumb]:cursor-not-allowed [&::-moz-range-thumb]:cursor-not-allowed" : ""}
         `}
       />
-      <div className="flex justify-between text-[10px] text-su-muted">
+      <div className="flex justify-between text-xs text-su-muted">
         <span>0%</span>
         <span>50%</span>
         <span>100%</span>
@@ -131,7 +131,7 @@ function CooldownSelector({
           </button>
         ))}
       </div>
-      <p className="text-[10px] text-su-muted">
+      <p className="text-xs text-su-muted">
         Minimum time between alerts for the same watch
       </p>
     </div>
@@ -371,7 +371,7 @@ export function WatchAlertSettings({
             }
           />
         </div>
-        <p className="text-[10px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Each watch type has a distinct sound to help identify alert sources
         </p>
       </div>

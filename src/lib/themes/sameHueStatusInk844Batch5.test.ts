@@ -1,0 +1,270 @@
+/**
+ * #844 batch 5: map toolbar, watch popover, sat match, and profile status-tint sites.
+ *
+ * Same contract as the `STATUS_FIXED_SITES` table in
+ * `accentTintContrast.test.ts` (batch 1, PR #1163): keep the status wash at
+ * or below `/20`, draw labels in `--su-text`, never same-hue ink on the tint.
+ * This sibling file certifies batch-5 sites only so it can land independently
+ * of other #844 batches.
+ */
+
+import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_ACCENT_HEX,
+  stationContrast,
+  stationPalettes,
+  stationTokens,
+} from "@/lib/themes/stationTokens";
+import type { ThemeId } from "@/lib/themes";
+
+const AA = 4.5;
+const TINT_CAP = 0.2;
+const THEMES_IDS = Object.keys(stationPalettes) as ThemeId[];
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+
+type StatusToken =
+  | "signal-green"
+  | "caution-amber"
+  | "alert-red"
+  | "plasma-orange"
+  | "nebula-blue"
+  | "cosmic-cyan";
+
+type StationPalette = (typeof stationPalettes)[ThemeId];
+
+function compositeOnSurface(
+  hex: string,
+  alpha: number,
+  surface: string,
+): string {
+  const channels = (value: string) =>
+    [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16));
+  const front = channels(hex);
+  const back = channels(surface);
+  return `#${front
+    .map((channel, index) =>
+      Math.round(channel * alpha + back[index] * (1 - alpha))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+const SURFACES = [
+  { name: "panel", backdrop: (palette: StationPalette) => palette.panel },
+  { name: "canvas", backdrop: (palette: StationPalette) => palette.canvas },
+  {
+    name: "glass over panel",
+    backdrop: (palette: StationPalette) =>
+      compositeOnSurface(palette.line, 0.1, palette.panel),
+  },
+  {
+    name: "glass over canvas",
+    backdrop: (palette: StationPalette) =>
+      compositeOnSurface(palette.line, 0.1, palette.canvas),
+  },
+] as const;
+
+interface Batch5Site {
+  file: string;
+  what: string;
+  snippet: string;
+  token: StatusToken;
+}
+
+function statusTintHex(
+  palette: StationPalette,
+  theme: ThemeId,
+  token: StatusToken,
+): string {
+  switch (token) {
+    case "signal-green":
+      return palette.success;
+    case "caution-amber":
+      return palette.warning;
+    case "alert-red":
+      return palette.danger;
+    case "plasma-orange":
+      return (stationTokens(theme, DEFAULT_ACCENT_HEX) as Record<string, string>)[
+        "--su-accent"
+      ];
+    case "cosmic-cyan":
+      return palette.info;
+    case "nebula-blue":
+      return palette.panel;
+  }
+}
+
+function deriveStatusAlpha(text: string, token: StatusToken): number {
+  const re = new RegExp(`bg-${token}/(\\d+)`, "g");
+  const alphas = [...text.matchAll(re)].map((m) => Number(m[1]));
+  return Math.max(...alphas) / 100;
+}
+
+function assertNoSameHueInkOnTint(
+  text: string,
+  what: string,
+  token: StatusToken,
+): void {
+  const tintRe = new RegExp(`bg-${token}/`);
+  const sameHueInk = `text-${token}`;
+  for (const line of text.split("\n")) {
+    if (!tintRe.test(line) || !line.includes("text-su-text")) {
+      continue;
+    }
+    expect(
+      line.includes(sameHueInk),
+      `${what}: same-line same-hue ink on ${token} tint:\n${line}`,
+    ).toBe(false);
+  }
+}
+
+const BATCH5_SITES: Batch5Site[] = [
+  { file: "src/components/map/ProToolbarRibbon.tsx", what: "the VHF preset", snippet: `vhf: "bg-cosmic-cyan/20 text-su-text border-cosmic-cyan/40"`, token: "cosmic-cyan" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the signal-green license class", snippet: `return "bg-signal-green/20 text-su-text border-signal-green/30"`, token: "signal-green" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the plasma-orange license class", snippet: `return "bg-plasma-orange/20 text-su-text border-plasma-orange/30"`, token: "plasma-orange" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the caution-amber license class", snippet: `return "bg-caution-amber/20 text-su-text border-caution-amber/30"`, token: "caution-amber" },
+  { file: "src/components/profile/LicenseCard.tsx", what: "the nebula-blue license class", snippet: `return "bg-nebula-blue/20 text-su-text border-nebula-blue/30"`, token: "nebula-blue" },
+
+  {
+    file: "src/components/map/ProToolbarRibbon.tsx",
+    what: "the dx-hunter preset active style",
+    snippet: `"dx-hunter": "bg-plasma-orange/20 text-su-text border-plasma-orange/40"`,
+    token: "plasma-orange",
+  },
+  {
+    file: "src/components/map/ProToolbarRibbon.tsx",
+    what: "the contest preset active style",
+    snippet: `contest: "bg-caution-amber/20 text-su-text border-caution-amber/40"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/map/ProToolbarRibbon.tsx",
+    what: "the emergency preset active style",
+    snippet: `emergency: "bg-alert-red/20 text-su-text border-alert-red/40"`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/map/ProToolbarRibbon.tsx",
+    what: "the science preset active style",
+    snippet: `science: "bg-nebula-blue/20 text-su-text border-nebula-blue/40"`,
+    token: "nebula-blue",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the active watch match-count badge",
+    snippet: `rounded-full bg-signal-green/20 text-su-text text-xs leading-none font-medium"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the contest PRO tier badge",
+    snippet: `rounded bg-caution-amber/20 text-su-text text-xs font-bold leading-none"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the active contest quick-start button",
+    snippet: `bg-caution-amber/10 hover:bg-caution-amber/20 text-sm text-su-text hover:text-su-text transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed mb-1.5"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the contest preset quick-start chip",
+    snippet: `hover:bg-caution-amber/10 text-xs text-su-text/80 hover:text-su-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the save-watch confirm button",
+    snippet: `rounded-lg bg-signal-green/15 text-su-text text-xs font-medium`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/map/WatchPopover.tsx",
+    what: "the clear-watch button",
+    snippet: `rounded-lg bg-alert-red/10 text-su-text text-xs font-medium hover:bg-alert-red/20 transition-colors"`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/map/layers/SatMatchPanel.tsx",
+    what: "the Find Passes search button",
+    snippet: `bg-nebula-blue/15 text-su-text border border-nebula-blue/30`,
+    token: "nebula-blue",
+  },
+  {
+    file: "src/components/profile/ActivityFeed.tsx",
+    what: "the qso_milestone event icon color",
+    snippet: `qso_milestone: "bg-signal-green/20 text-su-text"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/profile/ActivityFeed.tsx",
+    what: "the award_earned event icon color",
+    snippet: `award_earned: "bg-plasma-orange/20 text-su-text"`,
+    token: "plasma-orange",
+  },
+  {
+    file: "src/components/profile/ActivityFeed.tsx",
+    what: "the achievement_unlocked event icon color",
+    snippet: `achievement_unlocked: "bg-caution-amber/20 text-su-text"`,
+    token: "caution-amber",
+  },
+  {
+    file: "src/components/profile/ActivityFeed.tsx",
+    what: "the new_dxcc event icon color",
+    snippet: `new_dxcc: "bg-nebula-blue/20 text-su-text"`,
+    token: "nebula-blue",
+  },
+];
+
+describe("#844 batch 5 status-tint sites ship --su-text ink", () => {
+  it.each(BATCH5_SITES.map((site) => [site.what, site] as const))(
+    "%s still ships the measured snippet",
+    (_what, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      expect(
+        source.includes(site.snippet),
+        `${site.file} no longer contains:\n${site.snippet}`,
+      ).toBe(true);
+      const matchedLine = source.split("\n").find((line) => line.includes(site.snippet))!;
+      expect(deriveStatusAlpha(matchedLine, site.token)).toBeLessThanOrEqual(TINT_CAP);
+      assertNoSameHueInkOnTint(source, site.what, site.token);
+      const alpha = deriveStatusAlpha(site.snippet, site.token);
+      if (Number.isFinite(alpha) && alpha > 0) {
+        expect(alpha, `${site.what} tint above cap`).toBeLessThanOrEqual(
+          TINT_CAP,
+        );
+      }
+    },
+  );
+
+  it.each(
+    BATCH5_SITES.flatMap((site) =>
+      THEMES_IDS.map((theme) => [site.what, theme, site] as const),
+    ),
+  )(
+    "%s clears AA in %s for --su-text on its status tint",
+    (_what, theme, site) => {
+      const alpha = deriveStatusAlpha(site.snippet, site.token);
+      if (!Number.isFinite(alpha) || alpha <= 0) {
+        return;
+      }
+      const palette = stationPalettes[theme];
+      const tintHex = statusTintHex(palette, theme, site.token);
+      for (const surface of SURFACES) {
+        const ratio = stationContrast(
+          palette.text,
+          compositeOnSurface(tintHex, alpha, surface.backdrop(palette)),
+        );
+        expect(
+          ratio,
+          `${site.file} on ${surface.name} at alpha ${alpha}`,
+        ).toBeGreaterThanOrEqual(AA);
+      }
+    },
+  );
+});

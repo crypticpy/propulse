@@ -37,7 +37,7 @@ export function ImageryAttribution({
     // the required Mapbox branding disappears against the pale Light canvas.
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-black/65 px-2 py-1 text-[9px] leading-tight text-white/70 backdrop-blur-sm select-none ${className}`} // design-tokens: allow
+        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-black/65 px-2 py-1 text-xs leading-tight text-white/70 backdrop-blur-sm select-none ${className}`} // design-tokens: allow
         title={title}
       >
         <span>{surfaceLabel}</span>
@@ -149,7 +149,7 @@ export function ImageryAttribution({
   if (provider?.id === "carto-dark") {
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/90 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
+        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/90 px-1.5 py-0.5 text-xs leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
         title={title}
       >
         <span>{surfaceLabel}</span>
@@ -178,7 +178,7 @@ export function ImageryAttribution({
 
   return (
     <div
-      className={`rounded bg-su-panel/90 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
+      className={`rounded bg-su-panel/90 px-1.5 py-0.5 text-xs leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
       title={title}
     >
       <span>{surfaceLabel}</span>

@@ -3,9 +3,11 @@
  *
  * Slice A: the Table 1 control points, the basic MUF of sections 3.3 and 3.5,
  * and the operational MUF of section 3.7. Slice B: the E-layer maximum
- * screening frequency of section 4 and the mode set of section 5.2.1. Later
- * slices add short-path field strength, the long-path method and the solver
- * that ties them together.
+ * screening frequency of section 4 and the mode set of section 5.2.1. Slice C:
+ * the terms of the ray path basic transmission loss of section 5.2.2 and the
+ * short-path median field strength and available receiver power of sections
+ * 5.2.2 and 6. Later slices add the long-path method and the solver that ties
+ * them together.
  *
  * Nothing here is wired to a consumer yet, and nothing here fetches an
  * ionosphere: a circuit passes in one sampling callback that answers for every
@@ -110,3 +112,78 @@ export {
   type ResolvedModeSet,
   type UnsupportedModeSet,
 } from "./modeSet";
+
+export {
+  aboveMufLoss,
+  absorptionRayPathFrequencyMHz,
+  basicTransmissionLossDb,
+  freeSpaceLossDb,
+  groundReflectionLossDb,
+  E_ABOVE_MUF_CAP_DB,
+  E_ABOVE_MUF_COEFFICIENT,
+  F2_ABOVE_MUF_CAP_DB,
+  F2_ABOVE_MUF_COEFFICIENT,
+  FREE_SPACE_CONSTANT_DB,
+  OTHER_LOSSES_DB,
+  type AboveMufLayer,
+  type AboveMufLoss,
+  type AboveMufLossInputs,
+  type BasicTransmissionLoss,
+  type BasicTransmissionLossTerms,
+} from "./losses";
+
+export {
+  auroralLoss,
+  auroralLossAtPoint,
+  geomagneticLatitudeDeg,
+  lhDistanceRegime,
+  lhLatitudeBandIndex,
+  lhSeason,
+  lhTimeBandIndex,
+  midPathLocalTimeHours,
+  AURORAL_MIN_GEOMAGNETIC_LATITUDE_DEG,
+  AURORAL_RANGE_BOUNDARY_KM,
+  GEOMAGNETIC_POLE_LATITUDE_DEG,
+  GEOMAGNETIC_POLE_LONGITUDE_DEG,
+  TABLE_2_SHA256,
+  type AuroralDistanceRegime,
+  type AuroralLoss,
+  type AuroralLossAtPoint,
+  type AuroralLossInputs,
+  type AuroralLossPoint,
+  type AuroralLossPointInputs,
+  type AuroralSeason,
+} from "./auroralLoss";
+
+export {
+  absorptionLoss,
+  modifiedDipDegAt,
+  penetrationPoints,
+  PENETRATION_HEIGHT_KM,
+  PENETRATION_REFLECTION_HEIGHT_KM,
+  type AbsorptionLoss,
+  type AbsorptionLossInputs,
+  type AbsorptionLossResult,
+  type PenetrationEnd,
+  type PenetrationPoint,
+  type PenetrationPointSampler,
+  type PenetrationPointState,
+  type PenetrationPointsInputs,
+  type PenetrationPointsResult,
+} from "./absorptionLoss";
+
+export {
+  shortPathFieldStrength,
+  DEFAULT_TRANSMITTER_POWER_DB_KW,
+  FIELD_STRENGTH_CONSTANT_DB,
+  ISOTROPIC_GAIN_DBI,
+  RECEIVER_POWER_CONSTANT_DB,
+  RECEIVER_POWER_MAX_KM,
+  type AntennaGain,
+  type AntennaGainContext,
+  type ModeFieldStrength,
+  type ModeFieldStrengthState,
+  type ShortPathFieldStrength,
+  type ShortPathFieldStrengthInputs,
+  type ShortPathPowerRange,
+} from "./fieldStrengthShort";

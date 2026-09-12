@@ -279,7 +279,7 @@ export function ClassicSkin(props: SdrSkinProps) {
                     <div className="text-sm font-semibold text-su-text truncate">
                       Radio Controls
                     </div>
-                    <div className="text-[11px] text-su-muted font-mono truncate">
+                    <div className="text-xs text-su-muted font-mono truncate">
                       {effectiveState
                         ? formatHz(effectiveState.freq)
                         : "\u2014"}

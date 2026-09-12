@@ -20,12 +20,12 @@ interface BandCapabilityStripProps {
 
 function getLossColor(lossDb: number): string {
   if (lossDb < 3) {
-    return "bg-signal-green/20 text-signal-green border-signal-green/30";
+    return "bg-signal-green/20 text-su-text border-signal-green/30";
   }
   if (lossDb <= 6) {
-    return "bg-caution-yellow/20 text-caution-yellow border-caution-yellow/30";
+    return "bg-caution-yellow/20 text-su-text border-caution-yellow/30";
   }
-  return "bg-alert-red/20 text-alert-red border-alert-red/30";
+  return "bg-alert-red/20 text-su-text border-alert-red/30";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

@@ -35,18 +35,18 @@ function getTleAgeBadge(age: "fresh" | "aging" | "stale") {
       return {
         label: "Fresh",
         className:
-          "bg-signal-green/15 text-signal-green border-signal-green/30",
+          "bg-signal-green/15 text-su-text border-signal-green/30",
       };
     case "aging":
       return {
         label: "Aging",
         className:
-          "bg-caution-amber/15 text-caution-amber border-caution-amber/30",
+          "bg-caution-amber/15 text-su-text border-caution-amber/30",
       };
     case "stale":
       return {
         label: "Stale",
-        className: "bg-alert-red/15 text-alert-red border-alert-red/30",
+        className: "bg-alert-red/15 text-su-text border-alert-red/30",
       };
   }
 }

@@ -520,9 +520,8 @@ export function SpotLabel({
       {callsign}
       {frequency && (
         <span
-          className="ml-1"
+          className="ml-1 text-xs"
           style={{
-            fontSize: "0.9em",
             opacity: isHovered || selected ? 0.9 : 0.75,
           }}
         >
@@ -531,9 +530,8 @@ export function SpotLabel({
       )}
       {badge && (
         <span
-          className="ml-1 rounded-sm px-1 py-px"
+          className="ml-1 rounded-sm px-1 py-px text-xs"
           style={{
-            fontSize: "0.72em",
             color: inkOnFill(underlineColor),
             backgroundColor: underlineColor,
           }}

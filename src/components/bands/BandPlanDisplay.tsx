@@ -325,8 +325,11 @@ export function BandPlanDisplay({
               return (
                 <span
                   key={`start-${index}`}
-                  className="absolute text-xs text-su-muted -translate-x-1/2"
-                  style={{ left: `${info.leftPercent}%` }}
+                  className="absolute text-xs text-su-muted"
+                  style={{
+                    left: `${info.leftPercent}%`,
+                    transform: index === 0 ? undefined : "translateX(-50%)",
+                  }}
                 >
                   {formatFrequency(info.segment.startKHz)}
                 </span>

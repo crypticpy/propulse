@@ -165,7 +165,7 @@ function QSYButton({
     <button
       type="button"
       onClick={handleQSY}
-      className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
+      className="px-2 py-0.5 rounded text-xs font-bold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
       title={
         connected
           ? `QSY to ${targetBand} (will tune rig)`
@@ -185,7 +185,7 @@ function SnoozeButton({ onSnooze }: { onSnooze: () => void }) {
     <button
       type="button"
       onClick={onSnooze}
-      className="px-1.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
+      className="px-1.5 py-0.5 rounded text-xs text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
       title="Snooze advice for 5 minutes"
     >
       Snooze
@@ -326,7 +326,7 @@ export function BandAdvisor({
       <RateIndicator rate={currentRate} trend={trend} />
 
       {/* Advice message */}
-      <span className="text-[11px] text-su-muted truncate flex-1 min-w-0">
+      <span className="text-xs text-su-muted truncate flex-1 min-w-0">
         {advice.message}
       </span>
 

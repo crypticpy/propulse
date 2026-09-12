@@ -73,7 +73,7 @@ function StatDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
+      <span className="text-xs uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <span

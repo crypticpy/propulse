@@ -26,7 +26,7 @@ export function PasswordStrengthMeter({ result }: PasswordStrengthMeterProps) {
           className={`h-full rounded-full transition-all duration-300 ${presentation.barClass} ${presentation.widthClass}`}
         />
       </div>
-      <p className={`text-[10px] font-medium ${presentation.textClass}`}>
+      <p className={`text-xs font-medium ${presentation.textClass}`}>
         {result.label}
       </p>
     </div>

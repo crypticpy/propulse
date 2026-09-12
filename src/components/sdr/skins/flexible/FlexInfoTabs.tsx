@@ -74,7 +74,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+              className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                 isActive
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
                   : "text-su-muted hover:text-su-text"
@@ -82,13 +82,13 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
             >
               {TAB_LABELS[tab]}
               {tab === "decodes" && ft8DecoderEnabled && (
-                <span className="ml-1 text-[7px] text-signal-green/80 font-bold">
+                <span className="ml-1 text-xs text-signal-green/80 font-bold">
                   LIVE
                 </span>
               )}
               {badge && (
                 <span
-                  className={`ml-1 text-[8px] ${
+                  className={`ml-1 text-xs ${
                     isActive ? "text-cosmic-cyan/70" : "text-su-muted"
                   }`}
                 >
@@ -115,7 +115,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
 function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
   if (decodes.length === 0) {
     return (
-      <div className="text-[10px] text-su-muted py-2">
+      <div className="text-xs text-su-muted py-2">
         No decodes received yet.
       </div>
     );
@@ -126,7 +126,7 @@ function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
       {decodes.slice(0, 15).map((d, idx) => (
         <div
           key={`${d.time}-${d.deltaFrequency}-${idx}`}
-          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
+          className="flex items-center gap-1.5 text-xs px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
         >
           <span className="font-mono text-su-muted w-12 shrink-0">
             {formatUtcMsSinceMidnight(d.time)}
@@ -149,7 +149,7 @@ function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
 function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
   if (spots.length === 0) {
     return (
-      <div className="text-[10px] text-su-muted py-2">
+      <div className="text-xs text-su-muted py-2">
         No DX cluster spots yet.
       </div>
     );
@@ -160,7 +160,7 @@ function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
       {spots.slice(0, 15).map((s, idx) => (
         <div
           key={`${s.id ?? "spot"}-${idx}`}
-          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
+          className="flex items-center gap-1.5 text-xs px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
         >
           <span className="font-mono text-su-muted w-14 truncate shrink-0">
             {s.dx}
@@ -180,7 +180,7 @@ function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
 function WsjtxTab({ status }: { status: WsjtxStatus | null }) {
   if (!status) {
     return (
-      <div className="text-[10px] text-su-muted py-2">
+      <div className="text-xs text-su-muted py-2">
         WSJT-X not connected. Start WSJT-X on this machine (UDP 2237) to see
         status here.
       </div>
@@ -199,7 +199,7 @@ function WsjtxTab({ status }: { status: WsjtxStatus | null }) {
       ].map((row) => (
         <div
           key={row.label}
-          className="flex items-center justify-between text-[10px]"
+          className="flex items-center justify-between text-xs"
         >
           <span className="text-su-muted">{row.label}</span>
           <span className="text-su-muted font-mono">{row.value}</span>

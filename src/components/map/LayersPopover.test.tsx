@@ -97,6 +97,65 @@ describe("LayersPopover viewport clamp", () => {
     expect(top + 500).toBeLessThanOrEqual(window.innerHeight);
   });
 
+  it("does not re-clamp when Activity submenu opens at 1440×900 (#1139)", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1440,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 900,
+    });
+
+    const { trigger, popover } = openPopover();
+    const submenu = popover.querySelector<HTMLElement>("[data-layers-submenu]");
+    expect(parseFloat(submenu?.style.minHeight ?? "0")).toBeGreaterThan(180);
+
+    // Trigger in the map header band: naive placement leaves little room
+    // below; the old ResizeObserver path would shift the popover up when
+    // Activity's 15-row submenu appeared, moving Hazards/Reference under
+    // the pointer.
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      top: 420,
+      bottom: 445,
+      left: 1180,
+      right: 1260,
+      width: 80,
+      height: 25,
+      x: 1180,
+      y: 420,
+      toJSON: () => ({}),
+    });
+
+    let popoverHeight = 302;
+    vi.spyOn(popover, "getBoundingClientRect").mockImplementation(() => ({
+      top: 0,
+      bottom: popoverHeight,
+      left: 0,
+      right: 400,
+      width: 400,
+      height: popoverHeight,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }));
+
+    fireEvent(window, new Event("resize"));
+    const topBefore = parseFloat(popover.style.top);
+
+    // Simulate submenu growth without a re-clamp (the bug trigger).
+    popoverHeight = 520;
+    fireEvent.mouseEnter(screen.getByText("Activity"));
+    await vi.advanceTimersByTimeAsync(80);
+
+    expect(parseFloat(popover.style.top)).toBe(topBefore);
+    expect(submenu?.querySelector(".uppercase")?.textContent).toBe("Activity");
+    expect(screen.getByText("Live Spots")).toBeTruthy();
+
+    vi.useRealTimers();
+  });
+
   it("is a no-op when the popover already fits under the trigger", () => {
     const { trigger, popover } = openPopover();
 

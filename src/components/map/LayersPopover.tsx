@@ -67,6 +67,18 @@ function formatRotateSpeed(seconds: number): string {
   return `${seconds}s/rev`;
 }
 
+/** Min submenu height for `rowCount` toggle rows — matches panel py-2, header, and ToggleRow layout. */
+function reservedSubmenuMinHeightPx(rowCount: number): number {
+  const rootPx =
+    parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const panelPadRem = 1; // py-2
+  const headerRem = 1.375 + 0.375; // text-xs line + mb-1.5
+  const rowRem = 1.875; // ToggleRow min-h
+  const gapRem = 0.125; // space-y-0.5
+  const gaps = Math.max(0, rowCount - 1);
+  return (panelPadRem + headerRem + rowCount * rowRem + gaps * gapRem) * rootPx;
+}
+
 // ─── Category Icons (16×16 viewBox) ──────────────────────────────────────────
 
 const iconClass = "w-4 h-4 shrink-0 text-su-text/80";
@@ -933,6 +945,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
     [categories],
   );
 
+  // Reserve height for the tallest item list (Activity: 15 rows) so the
+  // popover never grows on category hover and re-clamp cannot move rows
+  // under the pointer (#1139).
+  const submenuReservedMinHeightPx = useMemo(() => {
+    const maxRows = Math.max(0, ...categories.map((c) => c.items.length));
+    return Math.max(180, reservedSubmenuMinHeightPx(maxRows));
+  }, [categories]);
+
   // ── Enabled counts ──
   const enabledCounts = useMemo(() => {
     const counts: Record<string, { enabled: number; total: number }> = {};
@@ -952,13 +972,11 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
   }, [categories, uiPrefs.bandHeightArcs, viewMode]);
 
   // ── Position calculation, clamped to the viewport ──
-  // The popover is rendered directly under the trigger by default. Its
-  // rendered box is measured (not just requested) with a layout effect so
-  // the browser never paints the naive position first, and a ResizeObserver
-  // plus a window resize listener re-clamp it as the active category's
-  // submenu changes height or the window changes size (HW-23) — B1: this
-  // is a no-op whenever the naive position already fits, which is every
-  // caller of LayersPopover outside HamClock's cramped header.
+  // Clamped once when the popover opens and again on window resize (HW-23).
+  // Submenu min-height is reserved for the tallest category so height never
+  // changes on hover — a ResizeObserver re-clamp used to shift the popover and
+  // fire the wrong category's onMouseEnter (#1139). B1: no-op when the naive
+  // position already fits (every caller outside HamClock's cramped header).
   useLayoutEffect(() => {
     if (!open) return;
     const trigger = triggerRef.current;
@@ -980,14 +998,11 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       });
     };
     place();
-    const observer = new ResizeObserver(place);
-    observer.observe(popover);
     window.addEventListener("resize", place);
     return () => {
-      observer.disconnect();
       window.removeEventListener("resize", place);
     };
-  }, [open, activeCategory]);
+  }, [open]);
 
   // ── Open/close logic ──
   const openPopover = useCallback(() => {
@@ -1365,7 +1380,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                   `sm:` restores the full 14.5rem once there is room. */}
               <div
                 data-layers-submenu=""
-                className="w-[min(14.5rem,calc(100vw-192px))] sm:w-[14.5rem] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5"
+                className="w-[min(14.5rem,calc(100vw-192px))] sm:w-[14.5rem] max-h-[70vh] overflow-y-auto py-2 px-2.5"
+                style={{ minHeight: submenuReservedMinHeightPx }}
               >
                 {/* Category header */}
                 <div className="text-xs uppercase tracking-wider text-su-text/80 font-semibold mb-1.5 px-1">

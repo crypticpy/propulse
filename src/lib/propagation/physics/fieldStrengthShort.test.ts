@@ -401,24 +401,112 @@ describe("contract M07: which modes contribute", () => {
   });
 
   it("gives a geometrically unsupported mode no field strength either", () => {
-    // 3 900 km with M(3000)F2 = 2.2: equation (2)'s height is capped at 500 km
-    // and reflects a one-hop mode, while section 5.1's height for that hop is
-    // 282.9 km and cannot, so 1F2 is labelled `mirror_height_cannot_close_hop`
-    // and has no elevation to take a budget at.
-    const set = resolvedSet(3900, 10, { m3000F2: 2.2 });
+    // 6 600 km, and the selection height is read at the Table 1c control point
+    // with the lower foF2 because the path is longer than dmax. M(3000)F2 = 7
+    // there puts that height at 1490/7 - 176 = 36.86 km, which closes no hop
+    // this path has, and the section 5.1 height closes none of them either, so
+    // the low-order modes are `no_reflection` with no geometry at all. That is
+    // the only geometric reason `modeSet` can still emit after the deviation 3
+    // ruling, and it is the one state in which a selected mode has no elevation
+    // to take a budget at.
+    const result5x = modeSet({
+      route: routeOfLength(6600),
+      frequencyMHz: 10,
+      sample: (_point, label) => ({
+        ...BASE_STATE,
+        foF2MHz: 12,
+        foEMHz: 3,
+        m3000F2: label === "R - d0/2" ? 7 : 2.5,
+        ...(label === "R - d0/2" ? { foF2MHz: 7 } : {}),
+      }),
+    });
+    if (result5x.kind !== "resolved") {
+      throw new Error(`fixture mode set is ${result5x.reason}`);
+    }
+    const set = result5x;
     const unsupported = set.modes.filter(
       (mode) => mode.status === "geometrically_unsupported",
     );
     expect(unsupported.length).toBeGreaterThan(0);
-    const result = shortPathFieldStrength(inputs(set));
+    // Deviation 3's invariant, stated where it bites: a mode with no geometry
+    // at all carries `no_reflection` and nothing else. The other unsupported
+    // modes here are hop-length refusals, and they do keep a geometry.
+    const withoutGeometry = unsupported.filter(
+      (mode) => mode.elevationRad === null,
+    );
+    expect(withoutGeometry.length).toBeGreaterThan(0);
+    expect(
+      withoutGeometry.every(
+        (mode) => mode.unsupportedReason === "no_reflection",
+      ),
+    ).toBe(true);
+    const result = shortPathFieldStrength(inputs(set, {}, routeOfLength(6600)));
     for (const mode of unsupported) {
       const record = result.modes.find((r) => r.label === mode.label);
       expect(record?.state).toBe("geometrically_unsupported");
       expect(record?.fieldStrengthDbuVPerM).toBeNull();
+      expect(record?.receiverPowerDbW).toBeNull();
       expect(record?.noContributionReason).toContain(
         mode.unsupportedReason ?? "",
       );
     }
+    expect(
+      result.contributingModes.some((record) =>
+        unsupported.some((mode) => mode.label === record.label),
+      ),
+    ).toBe(false);
+  });
+
+  it("gives a mode on deviation 3's fallback geometry a full budget", () => {
+    // 3 800 km with M(3000)F2 = 2.2: equation (2)'s height is capped at 500 km
+    // and reflects a one-hop mode, while section 5.1's height for that hop is
+    // 283.1 km and cannot (a 3 800 km hop needs 294.2 km to close at all). Before the ruling of `modeSet.ts` deviation 3 that
+    // made 1F2 `mirror_height_cannot_close_hop`, with no elevation and no
+    // contribution; section 5.2.1 says the mode exists, so it now contributes
+    // at the selection geometry and its budget is taken there like any other
+    // mode's. This is the whole effect of the ruling on slice C, measured.
+    const set = resolvedSet(3800, 10, { m3000F2: 2.2 });
+    const fallback = set.modes.filter(
+      (mode) => mode.elevationSource === "selection_height",
+    );
+    expect(fallback.map((mode) => mode.label)).toEqual(["1F2"]);
+    const oneF2 = fallback[0];
+    expect(oneF2.status).toBe("supported");
+    expect(oneF2.elevationDeg).toBe(oneF2.selectionElevationDeg);
+    expect(oneF2.virtualSlantRangeKm).toBe(oneF2.selectionSlantRangeKm);
+    expect(oneF2.mirrorHeightKm).toBeCloseTo(283.1, 1);
+
+    const result = shortPathFieldStrength(inputs(set));
+    const record = result.modes.find((r) => r.label === "1F2");
+    expect(record?.state).not.toBe("geometrically_unsupported");
+    expect(record?.fieldStrengthDbuVPerM).not.toBeNull();
+    expect(record?.receiverPowerDbW).not.toBeNull();
+    expect(record?.noContributionReason).toBeNull();
+    expect(result.contributingModes.some((r) => r.label === "1F2")).toBe(true);
+
+    // Equation (18)'s free-space term is taken over the fallback slant range,
+    // not over a number from a height that closed nothing.
+    expect(record?.basicTransmissionLoss?.freeSpaceDb).toBeCloseTo(
+      FREE_SPACE_CONSTANT_DB +
+        20 * Math.log10(10) +
+        20 * Math.log10(oneF2.selectionSlantRangeKm as number),
+      PRECISION,
+    );
+
+    // And what the mode is worth: equation (28) over the whole set with and
+    // without it. The `without` figure is what the pre-ruling leaf returned.
+    const withoutMode =
+      10 *
+      Math.log10(
+        result.contributingModes
+          .filter((r) => r.label !== "1F2")
+          .reduce(
+            (total, r) =>
+              total + 10 ** ((r.fieldStrengthDbuVPerM as number) / 10),
+            0,
+          ),
+      );
+    expect(result.fieldStrengthDbuVPerM).toBeGreaterThan(withoutMode);
   });
 
   it("keeps a mode above its basic MUF, with the loss of equations (24) to (26)", () => {

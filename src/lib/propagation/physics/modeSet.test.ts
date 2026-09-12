@@ -596,17 +596,20 @@ describe("the 3 degree elevation floor, on the height selection uses", () => {
   });
 });
 
-describe("when the section 5.1 height cannot close a selected hop", () => {
-  it("labels the mode and reports no elevation rather than a negative one", () => {
+describe("deviation 3: the section 5.1 height cannot close a selected hop", () => {
+  it("keeps the mode and takes its geometry at the selection height", () => {
     // The two heights are independent, so section 5.2.1 can select a mode at
     // the equation (2) height whose hop is longer than the section 5.1 height
     // reaches. Equation (13) is an arctangent with no floor, so it returns a
     // negative angle there and equation (19) returns nothing at all; the
     // recommendation does not address the case and the reference never meets
-    // it, because it reports the equation (2) elevation. Constructed here:
-    // D = 6600 km with `LOW_SECTION_5_1_STATE` at every control point, so the
-    // equation (2) height is 420 km and n0 = 2 (6600/2 = 3300 km, inside
-    // dhmax(420) = 3749.0 km), while the section 5.1 height is near 200 km.
+    // it, because it reports the equation (2) elevation. The ruling of
+    // deviation 3: section 5.2.1 says the mode exists, so it contributes, at
+    // the only closing geometry the text supplies for it.
+    // Constructed here: D = 6600 km with `LOW_SECTION_5_1_STATE` at every
+    // control point, so the equation (2) height is 420 km and n0 = 2
+    // (6600/2 = 3300 km, inside dhmax(420) = 3749.0 km), while the section 5.1
+    // height is near 200 km.
     const { sample } = samplerByLabel(uniform(LOW_SECTION_5_1_STATE));
     const set = resolved(
       modeSet({ route: routeOfLength(6600), frequencyMHz: 5, sample }),
@@ -623,33 +626,112 @@ describe("when the section 5.1 height cannot close a selected hop", () => {
       twoF2.hopGroundDistanceKm,
     );
 
+    // It contributes, and the record says at which height.
+    expect(twoF2.status).toBe("supported");
+    expect(twoF2.unsupportedReason).toBeNull();
+    expect(twoF2.elevationSource).toBe("selection_height");
+    expect(twoF2.geometryNote).toContain("cannot close");
+    expect(twoF2.geometryNote).toContain("selection height");
+
+    // The reported geometry IS the selection geometry, to the last bit: this
+    // is the claim, not an approximation of it.
+    expect(twoF2.elevationDeg).toBe(twoF2.selectionElevationDeg);
+    expect(twoF2.virtualSlantRangeKm).toBe(twoF2.selectionSlantRangeKm);
+    expect(twoF2.elevationRad as number).toBeCloseTo(
+      ((twoF2.selectionElevationDeg as number) * Math.PI) / 180,
+      PRECISION,
+    );
+    expect(twoF2.elevationDeg as number).toBeCloseTo(
+      elevationDegAt(6600, 2, 420),
+      PRECISION,
+    );
+    expect(twoF2.selectionMirrorHeightKm).toBeCloseTo(420, PRECISION);
+    // And `mirrorHeightKm` still reports what section 5.1 gave, so the record
+    // shows both numbers and which one was used.
+    expect(twoF2.mirrorHeightKm).toBeGreaterThan(0);
+    expect(twoF2.mirrorHeightKm).toBeLessThan(420);
+
+    // Every other mode on the path has a section 5.1 height that does close
+    // its shorter hop, so none of them falls back.
+    expect(modeNamed(set, "3F2").elevationSource).toBe("section_5_1");
+    expect(modeNamed(set, "3F2").geometryNote).toBeNull();
+    expect(set.supportedModes.map((mode) => mode.label)).toEqual([
+      "2F2",
+      "3F2",
+      "4F2",
+      "5F2",
+      "6F2",
+    ]);
+  });
+
+  it("falls back only where the section 5.1 height actually fails", () => {
+    // The fallback is not a blanket switch of height: on an ordinary path
+    // every mode keeps section 5.1's own reading, which is the whole point of
+    // deviation 2.
+    const { sample } = samplerByLabel({});
+    const set = resolved(
+      modeSet({ route: routeOfLength(1500), frequencyMHz: 20, sample }),
+    );
+    for (const mode of set.modes) {
+      expect(mode.elevationSource).toBe("section_5_1");
+      expect(mode.geometryNote).toBeNull();
+    }
+    // And on the F2 modes the two readings differ, so "section_5_1" is a
+    // statement with content rather than two names for one number.
+    const oneF2 = modeNamed(set, "1F2");
+    expect(oneF2.elevationDeg).not.toBe(oneF2.selectionElevationDeg);
+  });
+
+  it("labels the mode only when neither height closes the hop", () => {
+    // D = 6600 km again, so n0 = 2 at the mid-path equation (2) height of
+    // 420 km and the 2F2 hop is 3300 km. Beyond dmax = 3749.0 km section
+    // 5.2.1's first criterion moves the selection height to the Table 1c point
+    // with the lower foF2, R - d0/2, where M(3000)F2 = 7 gives
+    // hr = 1490/7 - 176 = 36.857142857143 km. Equation (13) at 36.86 km over a
+    // 3300 km hop is below the horizon, and so is equation (13) at the section
+    // 5.1 height, so there is no geometry at either height and the mode is
+    // `no_reflection` with all three product fields null.
+    const { sample } = samplerByLabel({
+      "T + d0/2": LOW_SECTION_5_1_STATE,
+      M: LOW_SECTION_5_1_STATE,
+      "R - d0/2": { ...LOW_SECTION_5_1_STATE, foF2MHz: 7, m3000F2: 7 },
+    });
+    const set = resolved(
+      modeSet({ route: routeOfLength(6600), frequencyMHz: 5, sample }),
+    );
+    expect(set.f2SelectionMirrorHeightKm as number).toBeCloseTo(
+      1490 / 7 - 176,
+      PRECISION,
+    );
+    expect(set.f2SelectionMirrorHeightLabel).toBe("R - d0/2");
+
+    const twoF2 = modeNamed(set, "2F2");
+    expect(
+      maximumHopGroundDistanceKm(twoF2.selectionMirrorHeightKm),
+    ).toBeLessThan(twoF2.hopGroundDistanceKm);
+    expect(maximumHopGroundDistanceKm(twoF2.mirrorHeightKm)).toBeLessThan(
+      twoF2.hopGroundDistanceKm,
+    );
     expect(twoF2.status).toBe("geometrically_unsupported");
-    expect(twoF2.unsupportedReason).toBe("mirror_height_cannot_close_hop");
-    // No elevation is reported at all, rather than a negative one: there is no
-    // angle, and a consumer that pointed an antenna at -0.2 degrees would be
-    // acting on a number the recommendation never produced.
+    expect(twoF2.unsupportedReason).toBe("no_reflection");
     expect(twoF2.elevationRad).toBeNull();
     expect(twoF2.elevationDeg).toBeNull();
     expect(twoF2.virtualSlantRangeKm).toBeNull();
-    // And the record still says why section 5.2.1 selected it.
-    expect(twoF2.selectionElevationDeg as number).toBeGreaterThan(
-      MIN_ELEVATION_DEG,
-    );
-    expect(twoF2.selectionSlantRangeKm).not.toBeNull();
-    expect(twoF2.selectionMirrorHeightKm).toBeCloseTo(420, PRECISION);
-
-    // The mode is labelled, not dropped, and the higher orders are unaffected.
-    expect(set.modes).toContain(twoF2);
+    expect(twoF2.selectionElevationDeg).toBeNull();
+    expect(twoF2.selectionSlantRangeKm).toBeNull();
+    expect(twoF2.geometryNote).toContain("neither");
+    // Section 4 has no angle to take equation (12) at.
+    expect(twoF2.screeningFrequencyMHz).toBeNull();
+    // Labelled, not dropped.
+    expect(set.modes.map((mode) => mode.label)).toContain("2F2");
     expect(set.supportedModes).not.toContain(twoF2);
-    expect(modeNamed(set, "3F2").status).toBe("supported");
-    expect(modeNamed(set, "3F2").elevationDeg).not.toBeNull();
   });
 
   it("is the only thing that nulls an elevation", () => {
     // The invariant `modeTypes.ts` states: the three product fields are null
-    // exactly on a `geometrically_unsupported` mode with this reason. Checked
-    // over every case this file builds, so a future branch that returns a null
-    // for some other reason is caught here.
+    // together, and only on a `geometrically_unsupported` mode whose reason is
+    // `no_reflection`. Checked over every case this file builds, so a future
+    // branch that returns a null for some other reason is caught here.
     const routes: readonly [number, number, StateOverrides][] = [
       [1500, 20, LOW_SECTION_5_1_STATE],
       [3000, 6, LOW_SECTION_5_1_STATE],
@@ -679,33 +761,85 @@ describe("when the section 5.1 height cannot close a selected hop", () => {
         expect(mode.virtualSlantRangeKm === null).toBe(nulled);
         if (nulled) {
           expect(mode.status).toBe("geometrically_unsupported");
-          expect([
-            "mirror_height_cannot_close_hop",
-            "mirror_height_not_positive",
-          ]).toContain(mode.unsupportedReason);
+          expect(mode.unsupportedReason).toBe("no_reflection");
           reasonsSeen.add(mode.unsupportedReason as string);
         }
       }
     }
-    // Both halves of the invariant are exercised rather than asserted over a
-    // set that only ever meets one of them.
-    expect([...reasonsSeen].sort()).toEqual([
-      "mirror_height_cannot_close_hop",
-      "mirror_height_not_positive",
-    ]);
+    // Under deviation 3 no route in this list nulls anything any more: every
+    // mode section 5.2.1 selects closes at one height or the other. The
+    // `no_reflection` half of the invariant is exercised by the test above,
+    // which is the only construction in this file that reaches it.
+    expect([...reasonsSeen]).toEqual([]);
+  });
+
+  it("never reports a geometry field without the source that produced it", () => {
+    // `elevationSource` and `geometryNote` are a pair with the three product
+    // fields, and the pairing is what a consumer filters on. Swept over the
+    // same corpus as the invariant above plus the two fallback constructions.
+    const { sample: lowSample } = samplerByLabel(
+      uniform(LOW_SECTION_5_1_STATE),
+    );
+    const { sample: negativeSample } = samplerByLabel(
+      uniform(NON_POSITIVE_SECTION_5_1_STATE),
+    );
+    const sets = [
+      resolved(
+        modeSet({
+          route: routeOfLength(6600),
+          frequencyMHz: 5,
+          sample: lowSample,
+        }),
+      ),
+      resolved(
+        modeSet({
+          route: routeOfLength(1500),
+          frequencyMHz: 20,
+          sample: lowSample,
+        }),
+      ),
+      resolved(
+        modeSet({
+          route: routeOfLength(500),
+          frequencyMHz: 10,
+          sample: negativeSample,
+        }),
+      ),
+    ];
+    for (const set of sets) {
+      for (const mode of set.modes) {
+        if (mode.elevationSource === "section_5_1") {
+          expect(mode.geometryNote).toBeNull();
+          expect(mode.elevationRad).not.toBeNull();
+          // The height it names is the one the angle was taken at.
+          expect(mode.elevationDeg as number).toBeCloseTo(
+            elevationDegAt(
+              set.groundDistanceKm,
+              mode.hopCount,
+              mode.mirrorHeightKm,
+            ),
+            PRECISION,
+          );
+        } else {
+          expect(mode.geometryNote).not.toBeNull();
+          expect(typeof mode.geometryNote).toBe("string");
+        }
+      }
+    }
   });
 });
 
-describe("when the section 5.1 formula returns no height at all", () => {
-  it("labels the mode rather than throwing out of the geometry", () => {
+describe("deviation 3: the section 5.1 formula returns no height at all", () => {
+  it("takes the selection geometry rather than throwing or dropping", () => {
     // Section 5.1's (a), (b) and (c) are polynomial fits and the
     // recommendation bounds none of them below, so a state whose values are
     // each perfectly ordinary can put the height at or under zero. Here
     // M(3000)F2 = 6 makes H = 1490/(6 + dM) - 316 negative and foF2/foE = 2
     // takes branch (c), which returns -33.637 km on this hop. There is no
     // mirror to reflect from, equation (13) has no argument, and `hopGeometry`
-    // rejects the height outright, so the mode has to be labelled before it is
-    // asked for geometry or the whole circuit dies with it.
+    // rejects the height outright. Equation (2) is perfectly happy with the
+    // same state, giving 1490/6 - 176 = 72.33 km, which reflects a 500 km hop;
+    // deviation 3 takes the geometry there.
     const height = f2ReflectionHeight({
       m3000F2: 6,
       foF2MHz: 10,
@@ -724,41 +858,59 @@ describe("when the section 5.1 formula returns no height at all", () => {
     );
     const oneF2 = modeNamed(set, "1F2");
 
-    expect(oneF2.status).toBe("geometrically_unsupported");
-    expect(oneF2.unsupportedReason).toBe("mirror_height_not_positive");
+    expect(oneF2.status).not.toBe("geometrically_unsupported");
+    expect(oneF2.unsupportedReason).toBeNull();
+    expect(oneF2.elevationSource).toBe("selection_height");
+    expect(oneF2.geometryNote).toContain("not a positive height");
     // The height the formula gave is kept, because a reader of the record has
     // to be able to see what happened without rerunning the leaf.
     expect(oneF2.mirrorHeightKm).toBeCloseTo(-33.637451687433625, PRECISION);
-    expect(oneF2.elevationRad).toBeNull();
-    expect(oneF2.elevationDeg).toBeNull();
-    expect(oneF2.virtualSlantRangeKm).toBeNull();
-    // Section 4 needs equation (13)'s angle, which does not exist here.
-    expect(oneF2.screeningFrequencyMHz).toBeNull();
-    // And section 5.2.1's own geometry is untouched: equation (2) gives
-    // 1490/6 - 176 = 72.33 km, which reflects this 500 km hop perfectly well,
-    // so the record still shows why the mode was selected.
+    // Equation (2) gives 1490/6 - 176 = 72.33 km, which reflects this 500 km
+    // hop perfectly well, and that is where the reported geometry comes from.
     expect(oneF2.selectionMirrorHeightKm).toBeCloseTo(
       1490 / 6 - 176,
       PRECISION,
     );
-    expect(oneF2.selectionElevationDeg).not.toBeNull();
-    expect(oneF2.selectionSlantRangeKm).not.toBeNull();
+    expect(oneF2.elevationDeg).toBe(oneF2.selectionElevationDeg);
+    expect(oneF2.virtualSlantRangeKm).toBe(oneF2.selectionSlantRangeKm);
+    expect(oneF2.elevationDeg as number).toBeCloseTo(
+      elevationDegAt(500, 1, 1490 / 6 - 176),
+      PRECISION,
+    );
+    // Section 4 now has an angle to take equation (12) at, and it is the one
+    // the mode reports: the screening frequency and the reported elevation
+    // cannot drift apart.
+    expect(oneF2.screeningFrequencyMHz as number).toBeCloseTo(
+      screeningFrequencyMHz(
+        5,
+        ((oneF2.elevationDeg as number) * Math.PI) / 180,
+      ),
+      PRECISION,
+    );
 
-    // Every F2 mode on this path is in the same state, and every E mode is
-    // unaffected: section 5.2.1 fixes their mirror at 110 km, so an E mode has
-    // no formula that can fail this way.
+    // Every F2 mode on this path is in the same state, and each is judged on
+    // its merits from there: the low modes are screened by a 5 MHz foE at
+    // 10 MHz, the higher ones are not.
     for (const mode of set.modes) {
       if (mode.layer !== "F2") continue;
-      expect(mode.unsupportedReason).toBe("mirror_height_not_positive");
+      expect(mode.elevationSource).toBe("selection_height");
       expect(mode.mirrorHeightKm).toBeLessThan(0);
+      expect(mode.elevationRad).not.toBeNull();
+      expect(mode.virtualSlantRangeKm).not.toBeNull();
+      expect(mode.status).not.toBe("geometrically_unsupported");
     }
+    // Every E mode is unaffected: section 5.2.1 fixes their mirror at 110 km,
+    // so an E mode has no formula that can fail this way.
     for (const mode of set.modes) {
       if (mode.layer !== "E") continue;
       expect(mode.mirrorHeightKm).toBe(110);
+      expect(mode.elevationSource).toBe("section_5_1");
       expect(mode.status).toBe("supported");
       expect(mode.elevationDeg).not.toBeNull();
     }
-    expect(set.supportedModes.every((mode) => mode.layer === "E")).toBe(true);
+    // And the F2 modes are no longer all thrown away: the ruling's whole
+    // effect is that this path has F2 modes at all.
+    expect(set.supportedModes.some((mode) => mode.layer === "F2")).toBe(true);
   });
 });
 

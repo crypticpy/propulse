@@ -60,14 +60,16 @@ import type { PropagationMode } from "./modeTypes";
  * difference is asserted against `fixtures.reference_divergence` with a wide
  * bound and is labelled a divergence everywhere it appears.
  *
- * ON ONE CIRCUIT THERE IS NO PRODUCT ELEVATION TO DIFFERENCE. G11's dominant
- * 2F2 is selected at the equation (2) height and its section 5.1 height cannot
- * close that hop, so the mode is labelled `geometrically_unsupported` with
- * `mirror_height_cannot_close_hop` and reports null geometry. The oracle has a
- * number there because it reports the equation (2) elevation. Each case carries
- * `reading.section_5_1_closes_hop` so the per-case test reads the expected
- * label out of the fixture, and `reference_divergence.below_horizon_case`
- * states the case in full.
+ * ON ONE CIRCUIT THE TWO READINGS COINCIDE, AND NOT BY AGREEMENT. G11's
+ * dominant 2F2 is selected at the equation (2) height and its section 5.1
+ * height cannot close that hop, so `modeSet.ts` deviation 3 takes the mode's
+ * geometry at the selection height instead and marks it
+ * `elevationSource: "selection_height"`. The product elevation on that one mode
+ * is therefore the oracle's own elevation and its divergence row is near zero -
+ * which is a consequence of the fallback, not evidence that the two readings
+ * agree. Each case carries `reading.section_5_1_closes_hop` so the per-case
+ * test reads the expected source out of the fixture, and
+ * `reference_divergence.below_horizon_case` states the case in full.
  */
 const assetBytes: AssetByteSource = async () => {
   const file = path.join(process.cwd(), manifest.asset.path);
@@ -343,23 +345,23 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
       );
 
       // DMidx. The reference's dominant mode has to be in our set and has to be
-      // one section 5.2.1 selects; which mode dominates is a slice C question.
-      // Selected is not the same as supported: on G11 the section 5.1 height
-      // cannot close the hop that the selection height reflects, so the mode is
-      // labelled rather than dropped and reports no elevation. The fixture
-      // carries the flag so this reads out of the oracle file, not out of a
-      // case id written into the test.
+      // one section 5.2.1 selects, and under `modeSet.ts` deviation 3 every one
+      // of them is supported. On G11 the section 5.1 height cannot close the
+      // hop that the selection height reflects, so the mode keeps its place and
+      // takes its geometry at the selection height; the fixture carries the
+      // flag so this reads out of the oracle file, not out of a case id written
+      // into the test.
       expect(solved.dominant).toBeDefined();
       const dominant = solved.dominant as PropagationMode;
       const closesHop = testCase.reading.section_5_1_closes_hop;
-      expect(dominant.status).toBe(
-        closesHop ? "supported" : "geometrically_unsupported",
+      expect(dominant.status).toBe("supported");
+      expect(dominant.unsupportedReason).toBeNull();
+      expect(dominant.elevationSource).toBe(
+        closesHop ? "section_5_1" : "selection_height",
       );
-      expect(dominant.unsupportedReason).toBe(
-        closesHop ? null : "mirror_height_cannot_close_hop",
-      );
-      expect(dominant.elevationDeg === null).toBe(!closesHop);
-      expect(dominant.virtualSlantRangeKm === null).toBe(!closesHop);
+      expect(dominant.geometryNote === null).toBe(closesHop);
+      expect(dominant.elevationDeg).not.toBeNull();
+      expect(dominant.virtualSlantRangeKm).not.toBeNull();
 
       // ele and DMele are the same number on every one of these cases, because
       // the reference sets the short path's own elevation from the dominant
@@ -436,27 +438,32 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
 
   /**
    * The negative findings, recorded because they are the reason the
-   * hand-computed screening cases exist and the reason deviation 3 in
+   * hand-computed screening cases exist and the reason deviation 4 in
    * `modeSet.ts` is safe.
    */
-  it("finds no screened mode and exactly one unsupported mode", () => {
+  it("finds no screened and no unsupported mode, and one on the fallback", () => {
     let minSelectionElevationDeg = Number.POSITIVE_INFINITY;
     const unsupported: string[] = [];
+    const fallback: string[] = [];
     for (const testCase of fixtures.cases) {
       const solved = solve(provider, testCase);
       for (const mode of solved.modes) {
         expect(mode.status).not.toBe("screened");
         if (mode.status === "geometrically_unsupported") {
-          unsupported.push(`${testCase.case_id} ${mode.label}`);
-          expect(mode.unsupportedReason).toBe("mirror_height_cannot_close_hop");
-          expect(mode.elevationRad).toBeNull();
-          expect(mode.elevationDeg).toBeNull();
-          expect(mode.virtualSlantRangeKm).toBeNull();
+          unsupported.push(
+            `${testCase.case_id} ${mode.label} ${String(mode.unsupportedReason)}`,
+          );
         } else {
           expect(mode.status).toBe("supported");
           expect(mode.unsupportedReason).toBeNull();
           expect(mode.elevationDeg).not.toBeNull();
           expect(mode.virtualSlantRangeKm).not.toBeNull();
+        }
+        if (mode.elevationSource === "selection_height") {
+          fallback.push(`${testCase.case_id} ${mode.label}`);
+          expect(mode.geometryNote).not.toBeNull();
+        } else {
+          expect(mode.geometryNote).toBeNull();
         }
         minSelectionElevationDeg = Math.min(
           minSelectionElevationDeg,
@@ -464,7 +471,7 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
         );
       }
     }
-    // Deviation 3 of `modeSet.ts`: the 3 degree floor is applied to the
+    // Deviation 4 of `modeSet.ts`: the 3 degree floor is applied to the
     // selection elevation, because section 3.5.1.1 puts it on the equation (2)
     // geometry. The shallowest selection elevation in the whole corpus is
     // G11's 2F2 at 3.711 degrees, so the floor never fires here. If a future
@@ -472,15 +479,16 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
     // rather than let a labelling change pass unnoticed.
     expect(minSelectionElevationDeg).toBeGreaterThan(MIN_ELEVATION_DEG);
     expect(minSelectionElevationDeg).toBeLessThan(3.8);
-    // And the one mode whose section 5.1 height cannot close the hop that its
-    // selection height reflects. It is the reference's own dominant mode on
-    // G11, which is why it is labelled rather than dropped and why its
-    // selection fields stay populated. The fixture declares the case; slice C
-    // excludes it under M07.
-    expect(unsupported).toEqual(["G11 2F2"]);
+    // Under deviation 3 no mode in the corpus is dropped at all: every mode
+    // section 5.2.1 selects closes at one of the two heights.
+    expect(unsupported).toEqual([]);
+    // And exactly one mode is on the fallback geometry. It is the reference's
+    // own dominant mode on G11, whose section 5.1 height cannot close the hop
+    // its selection height reflects. The fixture declares the case.
+    expect(fallback).toEqual(["G11 2F2"]);
     const declaredCase = fixtures.reference_divergence.below_horizon_case;
     expect(declaredCase).toContain("G11");
-    expect(declaredCase).toContain("mirror_height_cannot_close_hop");
+    expect(declaredCase).toContain("selection_height");
   });
 
   /**
@@ -513,22 +521,23 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
       expect(lastSelected.label).toBe(row.last_selected_mode);
 
       // The recorded per-case difference, to the precision the fixture keeps.
-      // On G11 there is no product elevation to difference: the section 5.1
-      // height cannot close the hop the selection height reflects, so the
-      // fixture carries null on both sides and what is recorded there is the
-      // label, not an angle.
-      if (row.elevation_delta_deg === null) {
-        expect(row.product_elevation_deg).toBeNull();
-        expect(dominant.elevationDeg).toBeNull();
-        expect(dominant.status).toBe("geometrically_unsupported");
-        expect(dominant.unsupportedReason).toBe(
-          "mirror_height_cannot_close_hop",
+      // On G11 the difference is near zero and that is NOT agreement: the
+      // section 5.1 height cannot close the hop the selection height reflects,
+      // so deviation 3 takes the mode's geometry at the selection height, which
+      // is the height the oracle reports from. The fixture carries
+      // `fallback_geometry` on that row so the near-zero delta cannot be read
+      // as the two heights having converged.
+      const elevationDeltaDeg =
+        (dominant.elevationDeg as number) -
+        testCase.expected.dominant_mode_elevation_deg;
+      expect(elevationDeltaDeg).toBeCloseTo(row.elevation_delta_deg, 3);
+      if (row.fallback_geometry) {
+        expect(dominant.elevationSource).toBe("selection_height");
+        expect(Math.abs(elevationDeltaDeg)).toBeLessThan(
+          TOL.elevation_deg.table_1c_differs,
         );
       } else {
-        const elevationDeltaDeg =
-          (dominant.elevationDeg as number) -
-          testCase.expected.dominant_mode_elevation_deg;
-        expect(elevationDeltaDeg).toBeCloseTo(row.elevation_delta_deg, 3);
+        expect(dominant.elevationSource).toBe("section_5_1");
         worstElevationDeg = Math.max(
           worstElevationDeg,
           Math.abs(elevationDeltaDeg),

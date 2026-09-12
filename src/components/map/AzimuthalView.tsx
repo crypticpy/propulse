@@ -76,6 +76,7 @@ import {
   drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
 import { drawTerminatorLayer } from "./layers/terminatorLayer";
+import type { TerminatorGeometry } from "./layers/terminatorLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1133,6 +1134,12 @@ export function AzimuthalView({
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
   const glowRendererRef = useRef<GridGlowRenderer>(new GridGlowRenderer());
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
+  // Caller-owned terminator geometry cache (#1091 PR 8 follow-up, Codex P1):
+  // the science effect below depends on `glowTick`, which advances on every
+  // spot/grid glow animation frame, so without this the terminator would
+  // re-sample and re-project every frame instead of once per `displayTime`
+  // tick (`useMapDisplayTime` only advances it once a minute).
+  const terminatorGeometryRef = useRef<TerminatorGeometry | null>(null);
   const [glowTick, setGlowTick] = useState(0);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
@@ -2193,10 +2200,17 @@ export function AzimuthalView({
         zoomScale: zoom,
         zoomDamp: zoom,
       });
-      drawTerminatorLayer(ctx, displayTime, terminatorProjection, {
-        highViz: highVizSpots,
-        dashed: labelOptions.terminatorDashed,
-      });
+      drawTerminatorLayer(
+        ctx,
+        displayTime,
+        terminatorProjection,
+        {
+          highViz: highVizSpots,
+          dashed: labelOptions.terminatorDashed,
+          cacheScope: `${center.lat}|${center.lon}|${zoom}`,
+        },
+        terminatorGeometryRef,
+      );
     }
 
     // Draw night lights (city lights on dark side)

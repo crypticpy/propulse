@@ -30,6 +30,30 @@ export const TERMINATOR_OUTLINE_COLOR = "rgba(8, 14, 25, 0.7)";
 export interface TerminatorLayerStyle {
   readonly highViz: boolean;
   readonly dashed: boolean;
+  /** Cache-key namespace for `cache` (e.g. a view+viewport fingerprint).
+   * Two callers sharing one `TerminatorGeometryCache` must pass distinct
+   * scopes or they will invalidate each other's cached geometry (#1091 PR 8
+   * follow-up, Codex P1). */
+  readonly cacheScope?: string;
+}
+
+/** One point of the already-projected terminator path: screen-space x/y
+ * plus whether this point starts a new sub-path (`moveTo`) or continues the
+ * current one (`lineTo`). Caching this (not the raw lat/lon samples) means
+ * a cache hit skips both `terminatorCoordinates` and `projection.project`
+ * entirely, not just the great-circle math (#1091 PR 8 follow-up). */
+export interface TerminatorGeometry {
+  readonly key: string;
+  readonly points: ReadonlyArray<{ x: number; y: number; moveTo: boolean }>;
+}
+
+/** A caller-owned, ref-shaped holder for the last computed
+ * `TerminatorGeometry`. `drawTerminatorLayer` never keeps module-level
+ * state itself -- each caller (a view, a mini-map) owns its own cache
+ * instance so unrelated callers can't invalidate each other. A React
+ * `useRef<TerminatorGeometry | null>(null)` already has this shape. */
+export interface TerminatorGeometryCache {
+  current: TerminatorGeometry | null;
 }
 
 /**
@@ -37,15 +61,22 @@ export interface TerminatorLayerStyle {
  * outline pass, then the orange colour pass. Style values are the flat
  * map's pre-#1091 `drawFlatTerminator` verbatim (colour aside), run through
  * `projection.screenPx` for the damping each view already carries.
+ *
+ * `cache` is optional and caller-owned (#1091 PR 8 follow-up, Codex P1): when
+ * given and its `key` (`cacheScope|date|samples|projection.kind`) matches
+ * the current call's key, the cached, already-projected points are replayed
+ * instead of re-sampling `terminatorCoordinates` and re-running
+ * `projection.project` on every point. Without a `cache` argument, behaviour
+ * is unchanged from before this cache existed.
  */
 export function drawTerminatorLayer(
   ctx: CanvasRenderingContext2D,
   date: Date,
   projection: Projection,
   style: TerminatorLayerStyle,
+  cache?: TerminatorGeometryCache,
 ): void {
   const { highViz, dashed } = style;
-  const sun = getSubsolarPoint(date);
 
   // Reference px for the sample-density rule: the flat map's own width on
   // the equirectangular branch, the disc's diameter on the azimuthal
@@ -59,7 +90,50 @@ export function drawTerminatorLayer(
     16384,
     Math.max(2048, Math.ceil(referencePx * projection.zoomScale)),
   );
-  const points = terminatorCoordinates(sun.lat, sun.lon, samples);
+  const key = `${style.cacheScope ?? ""}|${date.getTime()}|${samples}|${projection.kind}`;
+
+  let geometryPoints: ReadonlyArray<{ x: number; y: number; moveTo: boolean }>;
+  if (cache && cache.current?.key === key) {
+    geometryPoints = cache.current.points;
+  } else {
+    const sun = getSubsolarPoint(date);
+    const points = terminatorCoordinates(sun.lat, sun.lon, samples);
+    const built: { x: number; y: number; moveTo: boolean }[] = [];
+    if (projection.kind === "equirectangular") {
+      // Verbatim from `drawFlatTerminator`: break the path on an
+      // antimeridian wrap (a >180 degree jump in longitude between
+      // consecutive samples).
+      let lastLon: number | undefined;
+      for (const point of points) {
+        const { x, y } = projection.project(point.lat, point.lon);
+        const moveTo =
+          lastLon === undefined || Math.abs(point.lon - lastLon) > 180;
+        built.push({ x, y, moveTo });
+        lastLon = point.lon;
+      }
+    } else {
+      // Verbatim from the disc's old `drawTerminator`: break the path when
+      // the squared canvas-space jump between consecutive samples exceeds
+      // the disc's squared radius (a projection discontinuity, not a real
+      // edge on the curve).
+      const discRadiusPx = projection.discRadiusPx;
+      const jumpThresholdSq = discRadiusPx * discRadiusPx;
+      let last: { x: number; y: number } | undefined;
+      for (const point of points) {
+        const { x, y } = projection.project(point.lat, point.lon);
+        const moveTo =
+          last === undefined ||
+          (x - last.x) * (x - last.x) + (y - last.y) * (y - last.y) >
+            jumpThresholdSq;
+        built.push({ x, y, moveTo });
+        last = { x, y };
+      }
+    }
+    geometryPoints = built;
+    if (cache) {
+      cache.current = { key, points: built };
+    }
+  }
 
   ctx.save();
   ctx.lineCap = "round";
@@ -70,43 +144,15 @@ export function drawTerminatorLayer(
     ctx.setLineDash([]);
   }
 
+  // One code path for the path ops regardless of whether `geometryPoints`
+  // came from a fresh sample or a cache hit, so the op sequence is
+  // identical either way.
   ctx.beginPath();
-  if (projection.kind === "equirectangular") {
-    // Verbatim from `drawFlatTerminator`: break the path on an
-    // antimeridian wrap (a >180 degree jump in longitude between
-    // consecutive samples).
-    let lastLon: number | undefined;
-    for (const point of points) {
-      const { x, y } = projection.project(point.lat, point.lon);
-      if (lastLon === undefined || Math.abs(point.lon - lastLon) > 180) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-      lastLon = point.lon;
-    }
-  } else {
-    // Verbatim from the disc's old `drawTerminator`: break the path when
-    // the squared canvas-space jump between consecutive samples exceeds
-    // the disc's squared radius (a projection discontinuity, not a real
-    // edge on the curve).
-    const discRadiusPx = projection.discRadiusPx;
-    const jumpThresholdSq = discRadiusPx * discRadiusPx;
-    let last: { x: number; y: number } | undefined;
-    for (const point of points) {
-      const { x, y } = projection.project(point.lat, point.lon);
-      if (last === undefined) {
-        ctx.moveTo(x, y);
-      } else {
-        const dx = x - last.x;
-        const dy = y - last.y;
-        if (dx * dx + dy * dy > jumpThresholdSq) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      last = { x, y };
+  for (const point of geometryPoints) {
+    if (point.moveTo) {
+      ctx.moveTo(point.x, point.y);
+    } else {
+      ctx.lineTo(point.x, point.y);
     }
   }
 

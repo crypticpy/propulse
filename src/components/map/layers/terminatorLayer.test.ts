@@ -7,6 +7,7 @@ import {
   TERMINATOR_COLOR,
   TERMINATOR_OUTLINE_COLOR,
 } from "./terminatorLayer";
+import type { TerminatorGeometryCache } from "./terminatorLayer";
 import type {
   AzimuthalProjection,
   EquirectangularProjection,
@@ -311,6 +312,115 @@ describe("drawTerminatorLayer", () => {
       });
       expect(ops.filter((o) => o === "moveTo").length).toBe(2);
       expect(ops.filter((o) => o === "lineTo").length).toBe(1);
+    });
+  });
+
+  describe("caller-owned geometry cache", () => {
+    function makeCache(): TerminatorGeometryCache {
+      return { current: null };
+    }
+
+    it("a hit replays cached geometry: no re-sample, no re-project, identical op sequence", () => {
+      const projectSpy = vi.fn((lat: number, lon: number) => ({
+        x: lon,
+        y: lat,
+        visible: true,
+      }));
+      const projection = fakeFlatProjection({ project: projectSpy });
+      const cache = makeCache();
+
+      const first = createMockCtx();
+      drawTerminatorLayer(
+        first.ctx,
+        SOME_DATE,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-a" },
+        cache,
+      );
+
+      const second = createMockCtx();
+      drawTerminatorLayer(
+        second.ctx,
+        SOME_DATE,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-a" },
+        cache,
+      );
+
+      // beforeEach's mock returns a 2-point curve, so a fresh sample
+      // projects exactly twice; a cache hit must add zero more.
+      expect(coordsSpy).toHaveBeenCalledTimes(1);
+      expect(projectSpy).toHaveBeenCalledTimes(2);
+      expect(second.ops).toEqual(first.ops);
+    });
+
+    it("a different date re-samples and updates the cache key", () => {
+      const projection = fakeFlatProjection();
+      const cache = makeCache();
+
+      const { ctx: ctx1 } = createMockCtx();
+      drawTerminatorLayer(
+        ctx1,
+        SOME_DATE,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-a" },
+        cache,
+      );
+      const keyAfterFirst = cache.current?.key;
+
+      const laterDate = new Date(SOME_DATE.getTime() + 60_000);
+      const { ctx: ctx2 } = createMockCtx();
+      drawTerminatorLayer(
+        ctx2,
+        laterDate,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-a" },
+        cache,
+      );
+
+      expect(coordsSpy).toHaveBeenCalledTimes(2);
+      expect(cache.current?.key).not.toBe(keyAfterFirst);
+    });
+
+    it("a different cacheScope re-samples even with the same date", () => {
+      const projection = fakeFlatProjection();
+      const cache = makeCache();
+
+      const { ctx: ctx1 } = createMockCtx();
+      drawTerminatorLayer(
+        ctx1,
+        SOME_DATE,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-a" },
+        cache,
+      );
+      const { ctx: ctx2 } = createMockCtx();
+      drawTerminatorLayer(
+        ctx2,
+        SOME_DATE,
+        projection,
+        { highViz: false, dashed: false, cacheScope: "scope-b" },
+        cache,
+      );
+
+      expect(coordsSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("samples every call when no cache argument is given", () => {
+      const projection = fakeFlatProjection();
+
+      const { ctx: ctx1 } = createMockCtx();
+      drawTerminatorLayer(ctx1, SOME_DATE, projection, {
+        highViz: false,
+        dashed: false,
+      });
+      const { ctx: ctx2 } = createMockCtx();
+      drawTerminatorLayer(ctx2, SOME_DATE, projection, {
+        highViz: false,
+        dashed: false,
+      });
+
+      expect(coordsSpy).toHaveBeenCalledTimes(2);
     });
   });
 });

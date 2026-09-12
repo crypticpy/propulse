@@ -13,7 +13,10 @@ import { resolve } from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ObservedActivityChip } from "./ObservedActivityChip";
-import type { PathActivityRecord } from "@/lib/propagation/radioEvidence/types";
+import type {
+  PathActivityRecord,
+  UnknownReason,
+} from "@/lib/propagation/radioEvidence/types";
 import type { ObservedPathActivity } from "@/hooks/useObservedPathActivity";
 
 const hookMocks = vi.hoisted(() => ({ useObservedPathActivity: vi.fn() }));
@@ -83,15 +86,9 @@ const NO_REPORTS: PathActivityRecord = {
   ageKind: "coverage",
 };
 
-function unknownWith(
-  reason: PathActivityRecord["state"] extends never
-    ? never
-    : | "no_receiver_coverage"
-      | "aggregate_hour_not_readable"
-      | "window_not_aggregated"
-      | "partial_receiver_coverage"
-      | "aggregate_read_failed",
-): PathActivityRecord {
+// The union itself, not a copy of it: a new reason must reach this file as a
+// compile error, not as a case nobody wrote copy for.
+function unknownWith(reason: UnknownReason): PathActivityRecord {
   return { ...BASE, state: "unknown", reason };
 }
 
@@ -149,6 +146,18 @@ describe("verified_open", () => {
     expect(within(group).getByText(/at least 12 reports/i)).toBeTruthy();
     expect(within(group).getByText(/partial window/i)).toBeTruthy();
     expect(group.textContent).not.toMatch(/closed|dead|no propagation/i);
+  });
+
+  it("names the row cap, not a missing hour, when the read was capped", () => {
+    // Every hour is readable here, so "0 hours are missing from the
+    // aggregate" would be both wrong and unreadable. A floor has two causes
+    // and the reader is told which one it is looking at.
+    mountWith({ ...VERIFIED_OPEN, countIsLowerBound: true });
+
+    const group = screen.getByRole("group", { name: /observed activity/i });
+    expect(within(group).getByText(/at least 12 reports/i)).toBeTruthy();
+    expect(group.textContent).not.toMatch(/0 hours/);
+    expect(within(group).getByText(/did not fit in one read/i)).toBeTruthy();
   });
 
   it("flags a wholly backfilled count instead of dropping it", () => {
@@ -211,6 +220,7 @@ describe("unknown", () => {
     ["aggregate_hour_not_readable", /gap/i],
     ["window_not_aggregated", /not aggregated yet/i],
     ["partial_receiver_coverage", /1 of the 6 hours/i],
+    ["aggregate_read_truncated", /did not fit in one read/i],
     ["aggregate_read_failed", /could not be read/i],
   ] as const;
 

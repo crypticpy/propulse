@@ -10,6 +10,7 @@ vi.mock("@/lib/supabase", () => ({
 
 import {
   HOURLY_STATS_PAGE_SIZE,
+  PATH_COVERAGE_ROW_CAP,
   queryBandHourlyStats,
   queryPathCoverageHours,
   queryPathHourlyStats,
@@ -161,6 +162,11 @@ describe("queryPathCoverageHours", () => {
 
     await queryPathCoverageHours({ band: "20m", rxField: "io", hours: 6 });
 
+    // One request, one snapshot: a second page is a second transaction, and
+    // a recovery commit between them can replace a whole hour.
+    expect(calls.filter(([method]) => method === "range")).toHaveLength(1);
+    expect(calls).toContainEqual(["range", [0, PATH_COVERAGE_ROW_CAP - 1]]);
+
     expect(supabaseMocks.from).toHaveBeenCalledWith("path_hourly_stats");
     // A narrow select matters here: the coverage query fans over every
     // tx_field for the receiving field, so `*` would multiply the page count
@@ -209,17 +215,38 @@ describe("queryPathCoverageHours", () => {
     ]);
   });
 
-  it("drains pages until a short one arrives", async () => {
+  it("reports a read that filled the cap as truncated, and stops there", async () => {
     const { builder, calls } = makeBuilder([
-      { data: rowsOf(HOURLY_STATS_PAGE_SIZE), error: null },
+      { data: rowsOf(PATH_COVERAGE_ROW_CAP), error: null },
       { data: rowsOf(2), error: null },
     ]);
     supabaseMocks.from.mockReturnValue(builder);
 
-    const rows = await queryPathCoverageHours({ band: "20m", rxField: "IO" });
+    const read = await queryPathCoverageHours({ band: "20m", rxField: "IO" });
 
-    expect(rows).toHaveLength(HOURLY_STATS_PAGE_SIZE + 2);
-    expect(calls.filter(([method]) => method === "range")).toHaveLength(2);
+    // No second page. The rows it did get are still true; what it cannot
+    // claim is that they are all of them, which `truncated` carries.
+    expect(read.rows).toHaveLength(PATH_COVERAGE_ROW_CAP);
+    expect(read.truncated).toBe(true);
+    expect(calls.filter(([method]) => method === "range")).toHaveLength(1);
+  });
+
+  it("reports a short read as complete", async () => {
+    const { builder } = makeBuilder([
+      { data: rowsOf(PATH_COVERAGE_ROW_CAP - 1), error: null },
+    ]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    const read = await queryPathCoverageHours({ band: "20m", rxField: "IO" });
+
+    expect(read.rows).toHaveLength(PATH_COVERAGE_ROW_CAP - 1);
+    expect(read.truncated).toBe(false);
+  });
+
+  it("caps at the PostgREST max_rows setting", () => {
+    // supabase/config.toml sets max_rows = 1000, so a larger cap would be
+    // silently clipped by the server and read as a complete answer.
+    expect(PATH_COVERAGE_ROW_CAP).toBe(1000);
   });
 });
 

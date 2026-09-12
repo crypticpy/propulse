@@ -60,6 +60,18 @@ function missingHourPhrase(record: PathActivityRecord): string {
   return missing === 1 ? "1 hour is" : `${missing} hours are`;
 }
 
+/**
+ * Why a count is a floor. A floor has two causes and they are different
+ * facts: hours the aggregate cannot speak for, or rows the read never
+ * received. Naming the wrong one would send a reader looking for a gap that
+ * is not there.
+ */
+function lowerBoundPhrase(record: PathActivityRecord): string {
+  return record.readableHourCount < record.requestedHourCount
+    ? `Partial window: ${missingHourPhrase(record)} missing from the aggregate, so this is a floor, not a total.`
+    : "This receiving area is busy enough that its rows did not fit in one read, so this is a floor, not a total.";
+}
+
 /** An elapsed span in the coarsest unit that stays honest. */
 function formatAge(seconds: number): string {
   if (seconds < 120) return "just now";
@@ -84,6 +96,8 @@ const UNKNOWN_COPY: Record<
     "The hourly aggregate has a gap over this window, so the evidence is incomplete.",
   window_not_aggregated: () =>
     "This window is not aggregated yet. The hourly rollup writes an hour once it closes.",
+  aggregate_read_truncated: () =>
+    "This receiving area is busy enough that its hours did not fit in one read, so the quiet hours cannot be confirmed.",
   aggregate_read_failed: () =>
     "The aggregate could not be read just now, so the evidence is unavailable.",
 };
@@ -154,10 +168,7 @@ export function ObservedActivityChip({
             {record.count} reports
           </p>
           {record.countIsLowerBound && (
-            <p className="text-sm text-su-muted">
-              Partial window: {missingHourPhrase(record)} missing from the
-              aggregate, so this is a floor, not a total.
-            </p>
+            <p className="text-sm text-su-muted">{lowerBoundPhrase(record)}</p>
           )}
           {record.fieldAttribution === "callsign_backfill" && (
             <p className="text-sm text-su-muted">

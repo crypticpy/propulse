@@ -62,7 +62,10 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-11T18:03:20Z"));
   readerMocks.queryPathCoverageHours.mockReset();
   readerMocks.queryReadableBandHours.mockReset();
-  readerMocks.queryPathCoverageHours.mockResolvedValue([]);
+  readerMocks.queryPathCoverageHours.mockResolvedValue({
+    rows: [],
+    truncated: false,
+  });
   readerMocks.queryReadableBandHours.mockResolvedValue(
     HOURS.map((hour_utc) => ({ hour_utc })),
   );
@@ -185,9 +188,10 @@ describe("useObservedPathActivity", () => {
   });
 
   it("derives a verified-open record from the two reads", async () => {
-    readerMocks.queryPathCoverageHours.mockResolvedValue([
-      coverageRow({ hour_utc: HOURS[4] }),
-    ]);
+    readerMocks.queryPathCoverageHours.mockResolvedValue({
+      rows: [coverageRow({ hour_utc: HOURS[4] })],
+      truncated: false,
+    });
 
     const { result } = renderHook(
       () =>
@@ -212,9 +216,10 @@ describe("useObservedPathActivity", () => {
     // would drop the 12:00 hour from every read while the record went on
     // claiming it, which makes silence unreachable for most of every hour.
     vi.setSystemTime(new Date("2026-09-11T18:07:00Z"));
-    readerMocks.queryPathCoverageHours.mockResolvedValue([
-      coverageRow({ hour_utc: HOURS[0] }),
-    ]);
+    readerMocks.queryPathCoverageHours.mockResolvedValue({
+      rows: [coverageRow({ hour_utc: HOURS[0] })],
+      truncated: false,
+    });
 
     const { result } = renderHook(
       () =>
@@ -243,10 +248,13 @@ describe("useObservedPathActivity", () => {
     // Two requests can straddle a recovery commit, so a report present in the
     // coverage snapshot but missing from a separate pair snapshot would cache
     // a false zero. The pair rows are the subset of these rows that are ours.
-    readerMocks.queryPathCoverageHours.mockResolvedValue([
-      coverageRow({ hour_utc: HOURS[4], tx_field: "DM", spot_count: 40 }),
-      coverageRow({ hour_utc: HOURS[4], spot_count: 5 }),
-    ]);
+    readerMocks.queryPathCoverageHours.mockResolvedValue({
+      rows: [
+        coverageRow({ hour_utc: HOURS[4], tx_field: "DM", spot_count: 40 }),
+        coverageRow({ hour_utc: HOURS[4], spot_count: 5 }),
+      ],
+      truncated: false,
+    });
 
     const { result } = renderHook(
       () =>
@@ -273,7 +281,10 @@ describe("useObservedPathActivity", () => {
     // The readable-hours read stays separate, and may legitimately disagree
     // with the coverage snapshot. A mismatch there can only widen what is
     // unknown; it can never manufacture a zero.
-    readerMocks.queryPathCoverageHours.mockResolvedValue([]);
+    readerMocks.queryPathCoverageHours.mockResolvedValue({
+      rows: [],
+      truncated: false,
+    });
 
     const { result } = renderHook(
       () =>
@@ -348,5 +359,94 @@ describe("window validation", () => {
         { wrapper },
       ),
     ).toThrow(InvalidObservedWindowError);
+  });
+});
+
+describe("a truncated read cannot state silence", () => {
+  /** A watched, quiet window whose rows filled the cap: rows are missing. */
+  function truncatedWatch(extra: ReturnType<typeof coverageRow>[] = []) {
+    return {
+      rows: [
+        ...HOURS.map((hour_utc) =>
+          coverageRow({ hour_utc, tx_field: "DM", spot_count: 0 }),
+        ),
+        ...extra,
+      ],
+      truncated: true,
+    };
+  }
+
+  it("refuses no_reports when the read filled the row cap", async () => {
+    // Every hour looks watched and quiet, but rows were left behind by the
+    // cap, and one of them could be a report on this very path.
+    readerMocks.queryPathCoverageHours.mockResolvedValue(truncatedWatch());
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.record).not.toBeNull());
+    const record = result.current.record;
+    expect(record?.state).not.toBe("no_reports");
+    expect(record?.state).toBe("unknown");
+    expect(record?.state === "unknown" && record.reason).toBe(
+      "aggregate_read_truncated",
+    );
+    expect(record && "count" in record).toBe(false);
+  });
+
+  it("still states verified_open from a truncated read, as a lower bound", async () => {
+    // Reports that did arrive are real evidence. Only the claim that they are
+    // all of them falls away.
+    readerMocks.queryPathCoverageHours.mockResolvedValue(
+      truncatedWatch([coverageRow({ hour_utc: HOURS[4], spot_count: 5 })]),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.record?.state).toBe("verified_open"),
+    );
+    const record = result.current.record;
+    expect(record?.state === "verified_open" && record.count).toBe(5);
+    expect(record?.state === "verified_open" && record.countIsLowerBound).toBe(
+      true,
+    );
+  });
+
+  it("leaves a complete read alone", async () => {
+    readerMocks.queryPathCoverageHours.mockResolvedValue({
+      rows: HOURS.map((hour_utc) =>
+        coverageRow({ hour_utc, tx_field: "DM", spot_count: 0 }),
+      ),
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useObservedPathActivity({
+          band: "20m",
+          txGrid: "FN31pr",
+          rxGrid: "IO91wm",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.record).not.toBeNull());
+    expect(result.current.record?.state).toBe("no_reports");
   });
 });

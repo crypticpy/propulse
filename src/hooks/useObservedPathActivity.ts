@@ -210,7 +210,7 @@ export function useObservedPathActivity(
       if (descriptor === null) {
         throw new Error("observed activity needs both endpoints");
       }
-      const [coverageRows, readableHours] = await Promise.all([
+      const [coverage, readableHours] = await Promise.all([
         queryPathCoverageHours({
           band: descriptor.band,
           rxField: descriptor.rxField,
@@ -224,13 +224,17 @@ export function useObservedPathActivity(
       ]);
       // Our pair is the subset of the coverage rows transmitted from our
       // field. One snapshot, so a report can never be counted as coverage and
-      // missed as a report.
+      // missed as a report. The read is one request by design, so a busy
+      // receiving field can fill its row cap; `truncated` carries that to the
+      // derivation, which then refuses silence and treats a count as a floor.
+      const coverageRows = coverage.rows;
       const pairRows: PathActivityPairRow[] = coverageRows
         .filter((row) => row.tx_field.toUpperCase() === descriptor.txField)
         .map((row) => ({ ...row, rx_field: descriptor.rxField }));
       return derivePathActivity({
         ...descriptor,
         window,
+        readTruncated: coverage.truncated,
         pairRows,
         coverageRows,
         readableHours,

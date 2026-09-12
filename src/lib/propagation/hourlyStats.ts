@@ -59,6 +59,13 @@ export interface PathHourlyStatsRow {
 /** Page size per PostgREST request — keeps each request under the 8s statement timeout */
 export const HOURLY_STATS_PAGE_SIZE = 1000;
 
+/**
+ * Row cap for a single-request read, matching `max_rows = 1000` in
+ * supabase/config.toml. A larger cap would be clipped by PostgREST and the
+ * clipped answer would look complete.
+ */
+export const PATH_COVERAGE_ROW_CAP = 1000;
+
 /** The window start for a trailing query measured back from the read instant. */
 function windowStart(hours: number): string {
   return new Date(Date.now() - hours * 3600_000).toISOString();
@@ -194,6 +201,23 @@ export interface PathCoverageHourRow {
   backfilled_count: number;
 }
 
+/**
+ * The result of one coverage read.
+ *
+ * `truncated` says the cap was reached, so rows exist that this answer does
+ * not contain. Paging for them would be a second request and therefore a
+ * second snapshot: `compute_retained_spot_hour` replaces a whole
+ * `path_hourly_stats` hour in one commit, so a page taken after it can drop
+ * the pair while earlier pages still show a watched, quiet window, and the
+ * verdict would be a cached zero over rows that no longer exist. One request
+ * and an honest "there is more" beats two requests and a confident wrong
+ * answer.
+ */
+export interface PathCoverageRead {
+  rows: PathCoverageHourRow[];
+  truncated: boolean;
+}
+
 export interface PathCoverageHoursQuery {
   band: string;
   /** 2-char Maidenhead field of the receiving end; normalized to uppercase. */
@@ -217,27 +241,29 @@ export interface PathCoverageHoursQuery {
  */
 export async function queryPathCoverageHours(
   query: PathCoverageHoursQuery,
-): Promise<PathCoverageHourRow[]> {
+): Promise<PathCoverageRead> {
   const supabase = getSupabase();
   const { band, rxField, hours = 6 } = query;
   const since = query.since ?? windowStart(hours);
 
-  return fetchAllPages<PathCoverageHourRow>(
-    (from, to) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
-        .from("path_hourly_stats")
-        .select(
-          "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
-        )
-        .eq("band", band)
-        .eq("rx_field", rxField.toUpperCase())
-        .gte("hour_utc", since)
-        .order("hour_utc", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to),
-    "path_hourly_stats",
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table = (supabase as any).from("path_hourly_stats");
+  const { data, error } = await table
+    .select(
+      "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
+    )
+    .eq("band", band)
+    .eq("rx_field", rxField.toUpperCase())
+    .gte("hour_utc", since)
+    .order("hour_utc", { ascending: true })
+    .order("id", { ascending: true })
+    .range(0, PATH_COVERAGE_ROW_CAP - 1);
+
+  if (error) {
+    throw new Error(`path_hourly_stats query failed: ${error.message}`);
+  }
+  const rows = (data ?? []) as PathCoverageHourRow[];
+  return { rows, truncated: rows.length >= PATH_COVERAGE_ROW_CAP };
 }
 
 /** One readable band-hour; the only column the gap witness needs. */

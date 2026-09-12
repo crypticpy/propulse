@@ -151,20 +151,26 @@ export function derivePathActivity(
   // evidence whatever happened in an unreadable one. Qualification already
   // requires a readable hour, so this cannot fire on an unaggregated window.
   if (qualified.length === 0) {
-    if (coverage.kind === "unknown") {
-      // No count field at all: "missing is never zero" (M11). A zero here
-      // would be read as a closed band by every consumer that renders it.
-      return { ...base, state: "unknown", reason: coverage.reason };
-    }
     if (!windowComplete) {
       // Silence over part of a window is not silence over the window: the
-      // missing hour could hold every report on this path. `no_reports` would
-      // state a zero for hours nothing here can see.
+      // missing hour could hold every report on this path. Checked first
+      // because a gap is a fact about the window whatever else is missing.
       return {
         ...base,
         state: "unknown",
         reason: "aggregate_hour_not_readable",
       };
+    }
+    if (inputs.readTruncated === true) {
+      // The reader hit its row cap, so rows for this window exist that it
+      // never saw. A watched, quiet-looking window read this way may be
+      // neither: one of the rows left behind could be a report on this path.
+      return { ...base, state: "unknown", reason: "aggregate_read_truncated" };
+    }
+    if (coverage.kind === "unknown") {
+      // No count field at all: "missing is never zero" (M11). A zero here
+      // would be read as a closed band by every consumer that renders it.
+      return { ...base, state: "unknown", reason: coverage.reason };
     }
     if (!coverage.windowFullyCovered) {
       // Every hour is readable and some were still unwatched. Silence over
@@ -226,8 +232,8 @@ export function derivePathActivity(
     state: "verified_open",
     count,
     // The reports are real; the claim that they are all of them is not, once
-    // an hour of the window is missing.
-    countIsLowerBound: !windowComplete,
+    // an hour of the window is missing or the read was capped.
+    countIsLowerBound: !windowComplete || inputs.readTruncated === true,
     uniqueTx,
     uniqueRx,
     modeCounts: modeCounts as ModeClassCounts,
@@ -235,7 +241,9 @@ export function derivePathActivity(
     backfilledShare,
     // Wholly backfilled reports are attributed by callsign, not by the spot's
     // own grid. The share carries the partial case; the flag names the case
-    // where no report in the window had a direct field.
+    // where no report in the window had a direct field. Like the count, it
+    // describes the reports in hand: when `countIsLowerBound` is set, a row
+    // the read never saw could have carried a direct field.
     fieldAttribution: backfilledShare >= 1 ? "callsign_backfill" : "direct",
     latestQualifiedHourEnd,
     ageSeconds: ageSecondsBetween(inputs.issuedAt, latestQualifiedHourEnd),

@@ -41,6 +41,12 @@ export type UnknownReason =
    */
   | "partial_receiver_coverage"
   /**
+   * The rows for this window did not fit in one request. Paging for the rest
+   * would be a second snapshot, so the read stops and says so: the rows in
+   * hand are true, and nothing about the rows left behind can be assumed.
+   */
+  | "aggregate_read_truncated"
+  /**
    * The aggregates could not be read at all (a failed request). Only a caller
    * that performs the read can state this one; the pure derivation never
    * produces it. It is still `unknown`, because a failed read is the absence
@@ -242,6 +248,12 @@ export interface RadioEvidenceInputs extends ObservedActivityDescriptor {
   readonly pairRows: readonly PathActivityPairRow[];
   readonly coverageRows: readonly PathCoverageRow[];
   readonly readableHours: readonly ReadableBandHourRow[];
+  /**
+   * True when the rows were capped by the reader, so the set is a subset of
+   * the window's rows. Silence becomes unstateable and a count becomes a
+   * lower bound; reports that did arrive are still evidence.
+   */
+  readonly readTruncated?: boolean;
   /**
    * The aligned window, when a reader has already computed it to bound its
    * queries. Supplying it makes one `alignedWindow` call the single source of

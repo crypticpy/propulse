@@ -1517,13 +1517,17 @@ export function PathAnalysis({
             </div>
           )}
 
-          {/* Observed Activity Section (#1047) */}
-          <div className="pt-3 mt-3 border-t border-su-line/20">
-            <ObservedActivityChip
-              txGrid={station.grid}
-              rxGrid={nowCastTarget?.grid}
-            />
-          </div>
+          {/* Observed Activity Section (#1047): live analyses only, like the
+              spots and NowCast above. The leaf answers as of now, and now is
+              not what a time-shifted analysis is about. */}
+          {isLive && (
+            <div className="pt-3 mt-3 border-t border-su-line/20">
+              <ObservedActivityChip
+                txGrid={station.grid}
+                rxGrid={nowCastTarget?.grid}
+              />
+            </div>
+          )}
 
           {/* Radio Suggestions Section */}
           {analysisRadio && (

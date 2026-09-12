@@ -880,7 +880,7 @@ export function ContestBandMap({
             </span>
             {hoveredStatusLabel && (
               <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                className={`px-1.5 py-0.5 rounded text-xs font-bold ${
                   hoveredSpotStatus === "dupe"
                     ? "bg-su-line/50 text-su-muted"
                     : hoveredSpotStatus === "new-mult"
@@ -898,10 +898,10 @@ export function ContestBandMap({
               <span className="ml-2 text-su-muted">{hoveredSpot.mode}</span>
             )}
           </div>
-          <div className="text-su-muted text-[10px] mt-1">
+          <div className="text-su-muted text-xs mt-1">
             Spotted by {hoveredSpot.spotter}
           </div>
-          <div className="text-cosmic-cyan text-[10px] mt-1">
+          <div className="text-cosmic-cyan text-xs mt-1">
             Click to select
           </div>
         </div>
@@ -925,28 +925,28 @@ export function ContestBandMap({
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["new-mult"] }}
           />
-          <span className="text-[10px] text-su-muted font-mono">NEW MULT</span>
+          <span className="text-xs text-su-muted font-mono">NEW MULT</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["needed-mult"] }}
           />
-          <span className="text-[10px] text-su-muted font-mono">NEEDED</span>
+          <span className="text-xs text-su-muted font-mono">NEEDED</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["normal"] }}
           />
-          <span className="text-[10px] text-su-muted font-mono">AVAIL</span>
+          <span className="text-xs text-su-muted font-mono">AVAIL</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["dupe"] }}
           />
-          <span className="text-[10px] text-su-muted font-mono">DUPE</span>
+          <span className="text-xs text-su-muted font-mono">DUPE</span>
         </div>
       </div>
     </div>

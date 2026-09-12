@@ -304,7 +304,7 @@ export function HealthStatusIndicator({
               </Link>
               {health.bridgeError && health.bridgeState !== "connected" && (
                 <p
-                  className="mt-1 text-xs text-su-muted leading-tight line-clamp-2"
+                  className="mt-1 text-xs text-su-muted leading-tight break-words"
                   title={health.bridgeError}
                 >
                   {health.bridgeError}
@@ -358,7 +358,7 @@ export function HealthStatusIndicator({
                                 </div>
                                 {svc.status === "error" && svc.userMessage && (
                                   <p
-                                    className="ml-4 mt-0.5 text-xs text-su-muted leading-tight line-clamp-2"
+                                    className="ml-4 mt-0.5 text-xs text-su-muted leading-tight break-words"
                                     title={svc.userMessage}
                                   >
                                     {svc.userMessage}

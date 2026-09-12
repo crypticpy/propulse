@@ -235,7 +235,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                       {item.entryIds.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
                     <span className="text-xs text-su-muted">
                       {statusLabel(item.status)}
                     </span>
@@ -249,7 +249,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                     </span>
                   </div>
                   {item.lastError && (
-                    <p className="text-xs text-alert-red/80 mt-0.5 truncate">
+                    <p className="text-xs text-alert-red/80 mt-0.5 break-words">
                       {item.lastError}
                     </p>
                   )}
@@ -282,7 +282,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
           </div>
 
           {/* Footer */}
-          <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
+          <div className="px-3 py-2 border-t border-su-line/40 flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs text-su-muted">
               Auto-retries every 10s
             </span>

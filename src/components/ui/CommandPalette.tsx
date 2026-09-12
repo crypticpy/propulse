@@ -683,12 +683,12 @@ export function CommandPalette({
         // near-top anchor — a vertically centered command palette reads
         // wrong compared to the rest of the app.
         className:
-          "self-start mt-[20vh] w-full max-w-[32rem] bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95",
+          "self-start mt-[20vh] flex flex-col max-h-[calc(80dvh-2rem)] w-full max-w-[32rem] bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95",
       }}
     >
       <>
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-su-line/10 border-b border-su-line/40">
+        <div className="flex shrink-0 items-center gap-3 px-4 py-3 bg-su-line/10 border-b border-su-line/40">
           <SearchIcon className="w-5 h-5 text-su-muted flex-shrink-0" />
           <input
             ref={inputRef}
@@ -712,7 +712,7 @@ export function CommandPalette({
         {/* Results list */}
         <div
           ref={listRef}
-          className="max-h-[400px] overflow-y-auto overscroll-contain py-2"
+          className="min-h-0 flex-1 max-h-[400px] overflow-y-auto overscroll-contain py-2"
           role="listbox"
         >
           {filtered.length === 0 ? (
@@ -781,8 +781,8 @@ export function CommandPalette({
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-su-line/40 bg-su-line/10">
-          <div className="flex items-center gap-3 text-xs text-su-muted">
+        <div className="flex shrink-0 flex-wrap items-center justify-between px-4 py-2 border-t border-su-line/40 bg-su-line/10">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-su-muted">
             <span className="flex items-center gap-1">
               <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 &uarr;

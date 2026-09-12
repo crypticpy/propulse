@@ -360,7 +360,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           type="button"
           onClick={handleDisconnect}
           className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                     bg-alert-red/20 border border-alert-red/50 text-alert-red hover:bg-alert-red/30"
+                     bg-alert-red/15 border border-alert-red/50 text-su-text hover:bg-alert-red/20"
         >
           Disconnect
         </button>

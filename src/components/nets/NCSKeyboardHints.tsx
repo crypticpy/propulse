@@ -50,7 +50,7 @@ function ShortcutRow({
       <div className="flex items-center gap-1.5">
         {shortcut.keys.map((key, j) => (
           <span key={j} className="flex items-center gap-1">
-            {j > 0 && <span className="text-[10px] text-su-muted">or</span>}
+            {j > 0 && <span className="text-xs text-su-muted">or</span>}
             <kbd className={KBD_CLASS}>{key}</kbd>
           </span>
         ))}
@@ -134,7 +134,7 @@ export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
 
         {/* Section divider */}
         <div className="pt-2 pb-1">
-          <span className="text-[10px] uppercase tracking-widest text-su-muted font-medium">
+          <span className="text-xs uppercase tracking-widest text-su-muted font-medium">
             Actions
           </span>
         </div>

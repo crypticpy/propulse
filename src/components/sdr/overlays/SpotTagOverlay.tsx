@@ -218,7 +218,7 @@ export function SpotTagOverlay({
               onMouseLeave={() => setHoveredSpot(null)}
             >
               <div
-                className={`px-1 py-px rounded text-[9px] font-mono font-semibold
+                className={`px-1 py-px rounded text-xs font-mono font-semibold
                   border whitespace-nowrap transition-all
                   ${color.bg} ${color.text}
                   ${isHovered ? "ring-1 ring-su-line/50 scale-110" : ""}
@@ -233,7 +233,7 @@ export function SpotTagOverlay({
                 <div
                   className={`absolute ${isTop ? "top-full mt-1" : "bottom-full mb-1"} left-1/2 -translate-x-1/2
                     bg-void-black/95 border border-su-line/50 rounded px-2 py-1.5
-                    text-[10px] text-su-muted whitespace-nowrap z-50 shadow-lg`}
+                    text-xs text-su-muted whitespace-nowrap z-50 shadow-lg`}
                 >
                   <div className="font-semibold text-su-text">{vs.spot.dx}</div>
                   <div className="text-su-muted">
@@ -247,7 +247,7 @@ export function SpotTagOverlay({
                       {vs.spot.comment}
                     </div>
                   )}
-                  <div className="text-su-muted text-[9px]">
+                  <div className="text-su-muted text-xs">
                     by {vs.spot.spotter}
                     {vs.ageMin > 0 && ` · ${Math.round(vs.ageMin)}m ago`}
                   </div>

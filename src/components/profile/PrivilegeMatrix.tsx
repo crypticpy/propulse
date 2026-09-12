@@ -143,7 +143,7 @@ function DesktopGrid({ summaries }: { summaries: Map<BandId, BandSummary> }) {
                   return (
                     <td key={mode} className="py-1.5 px-2 text-center">
                       <span
-                        className={`inline-flex items-center justify-center w-6 h-5 rounded text-[10px] font-semibold ${cell.bg} ${cell.text}`}
+                        className={`inline-flex items-center justify-center w-6 h-5 rounded text-xs font-semibold ${cell.bg} ${cell.text}`}
                       >
                         {cell.label}
                       </span>
@@ -194,7 +194,7 @@ function MobileList({ summaries }: { summaries: Map<BandId, BandSummary> }) {
                   return (
                     <span
                       key={mode}
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                         has
                           ? summary.isPartial
                             ? "bg-caution-amber/15 text-caution-amber"
@@ -243,7 +243,7 @@ export function PrivilegeMatrix() {
   return (
     <div className="space-y-3">
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-[10px]">
+      <div className="flex flex-wrap gap-3 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-signal-green/15 border border-signal-green/30" />
           <span className="text-su-muted">Full access</span>
@@ -268,7 +268,7 @@ export function PrivilegeMatrix() {
       ) : (
         <>
           <DesktopGrid summaries={summaries} />
-          <p className="text-[10px] text-su-muted mt-1 text-right sm:hidden">
+          <p className="text-xs text-su-muted mt-1 text-right sm:hidden">
             Scroll for more bands &rarr;
           </p>
         </>

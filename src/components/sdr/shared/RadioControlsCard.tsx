@@ -113,7 +113,7 @@ export function RadioControlsCard({
                 type="button"
                 onClick={() => onFreqUnitChange(u)}
                 disabled={!canControlConnected || !canTune || tuningLocked}
-                className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`px-2 py-1 rounded text-xs border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   freqUnit === u
                     ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
                     : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
@@ -172,7 +172,7 @@ export function RadioControlsCard({
                 {effectiveState.ptt ? "PTT ON" : "PTT"}
               </button>
             ) : (
-              <span className="text-[11px] px-2 py-1 rounded border border-su-line/40 bg-su-line/10 text-su-muted">
+              <span className="text-xs px-2 py-1 rounded border border-su-line/40 bg-su-line/10 text-su-muted">
                 RX Only
               </span>
             )}
@@ -316,7 +316,7 @@ export function RadioControlsCard({
                       )
                     }
                     disabled={!canControlConnected}
-                    className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2 py-1 rounded border text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nr?.enabled
                         ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
                         : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
@@ -361,7 +361,7 @@ export function RadioControlsCard({
                       )
                     }
                     disabled={!canControlConnected}
-                    className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-2 py-1 rounded border text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nb?.enabled
                         ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
                         : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"

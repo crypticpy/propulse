@@ -24,7 +24,7 @@ export function ConnectivityBadge() {
       role="status"
     >
       <span className="w-1.5 h-1.5 rounded-full bg-nebula-blue" />
-      <span className="text-[10px] font-mono font-semibold text-nebula-blue tracking-wider">
+      <span className="text-xs font-mono font-semibold text-nebula-blue tracking-wider">
         LAN
       </span>
     </div>

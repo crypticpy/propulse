@@ -232,6 +232,15 @@ describe("P.533-14 mode set parity with the ITU reference", () => {
     }
   });
 
+  it("does not describe G11 2F2 as geometrically unsupported", () => {
+    // Under modeSet.ts deviation 3 every dominant mode in the corpus is
+    // supported, G11 2F2 included; this guards against the convention text
+    // regressing to the pre-ruling wording.
+    expect(fixtures.conventions.dominant_mode).not.toMatch(
+      /geometrically_unsupported/,
+    );
+  });
+
   it("declares what this corpus cannot prove", () => {
     // The one thing a reader must not take from a green run is that the mode
     // set matches the reference mode for mode. It does not, because the oracle

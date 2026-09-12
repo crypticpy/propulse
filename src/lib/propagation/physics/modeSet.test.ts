@@ -773,6 +773,43 @@ describe("deviation 3: the section 5.1 height cannot close a selected hop", () =
     expect([...reasonsSeen]).toEqual([]);
   });
 
+  it("observes the E-mode reason set over a 500 to 4000 km sweep", () => {
+    // `modeTypes.ts`'s `no_reflection` docstring claims it is the only reason
+    // that can null an E mode's three product fields, not the only reason an
+    // E mode can carry: `buildEMode` also assigns `hop_exceeds_e_mode_limit`
+    // and `below_minimum_elevation`, which keep their selection geometry.
+    // Swept here to confirm the reason those two are also unreachable today:
+    // `lowestOrderHopCount` bounds every E mode's hop at
+    // `maxHopForMinElevationKm(110)`, which is under both the 2 000 km limit
+    // and the 3 degree floor, so every E mode section 5.2.1 selects across
+    // this range is `supported`.
+    const { sample } = samplerByLabel({});
+    const statusesSeen = new Set<string>();
+    const reasonsSeen = new Set<string>();
+    for (
+      let groundDistanceKm = 500;
+      groundDistanceKm <= 4000;
+      groundDistanceKm += 50
+    ) {
+      const set = resolved(
+        modeSet({
+          route: routeOfLength(groundDistanceKm),
+          frequencyMHz: 20,
+          sample,
+        }),
+      );
+      for (const mode of set.modes) {
+        if (mode.layer !== "E") continue;
+        statusesSeen.add(mode.status);
+        if (mode.unsupportedReason !== null) {
+          reasonsSeen.add(mode.unsupportedReason);
+        }
+      }
+    }
+    expect([...statusesSeen]).toEqual(["supported"]);
+    expect([...reasonsSeen]).toEqual([]);
+  });
+
   it("never reports a geometry field without the source that produced it", () => {
     // `elevationSource` and `geometryNote` are a pair with the three product
     // fields, and the pairing is what a consumer filters on. Swept over the

@@ -585,6 +585,25 @@ describe("P.533-14 short-path field strength parity with the ITU reference", () 
     );
   });
 
+  /**
+   * Pins the count `still_excluded_from` depends on: G14 has five modes, and
+   * only its 2F2 mode falls back to the section 5.2.1 selection geometry
+   * (`modeSet.ts` deviation 3), where the reference-geometry substitution is
+   * the identity. The other four modes do substitute, which is why G14 is a
+   * mixed measurement rather than a clean one.
+   */
+  it("keeps G14's selection-height fallback to its one 2F2 mode", () => {
+    const testCase = fixtures.cases.find((c) => c.case_id === "G14");
+    if (!testCase) throw new Error("G14 is missing from the fixture");
+    const solution = solve(provider, testCase);
+    expect(solution.modes.modes.length).toBe(5);
+    expect(
+      solution.modes.modes.filter(
+        (mode) => mode.elevationSource === "selection_height",
+      ),
+    ).toHaveLength(1);
+  });
+
   it.each(fixtures.cases.map((c) => [c.case_id, c] as const))(
     "%s",
     (_id, testCase) => {

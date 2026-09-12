@@ -160,8 +160,9 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
  *    hop; it is only when neither height closes it that `elevationRad`,
  *    `elevationDeg` and `virtualSlantRangeKm` are `null`, and this is the only
  *    reason under which that can happen. For an E mode the two heights are the
- *    same 110 km, so this is the only geometric reason an E mode can carry and
- *    it always nulls the three.
+ *    same 110 km, so this is the only reason that can null the three on an E
+ *    mode; `hop_exceeds_e_mode_limit` and `below_minimum_elevation` keep their
+ *    selection geometry.
  *  - `below_minimum_elevation`: `selectionElevationDeg` is positive but under
  *    `MIN_ELEVATION_DEG`, the 3 degree floor the reference applies when it
  *    chooses the lowest-order mode. Section 3.5.1.1 puts that floor on the

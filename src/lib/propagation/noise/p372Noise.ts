@@ -1,6 +1,6 @@
 /**
- * ITU-R P.372 external radio noise: the atmospheric map, the man-made and
- * galactic curves, and the P.372 combination of noise from several sources.
+ * ITU-R P.372 atmospheric radio noise, and the P.372 combination of noise from
+ * several sources.
  *
  * This is a port of the ITU-R Study Group 3 reference implementation
  * (`P372/Src/P372/Noise.c` at commit cd172be56dc04b154e5d2fa91cbaa6ecf5284305
@@ -16,8 +16,7 @@
  * of 36 dB for the same receiver, month and hour). See PROP-02 (#948, #955).
  *
  * Deciles: the reference computes an upper and a lower decile deviation for
- * every component and combines them log-normally (P.372-17 Part 7, section
- * 7.1, equations (18) to (24)). Both are
+ * every component and combines them log-normally (P.372 section 8). Both are
  * carried here, because the combined median depends on them: sigma_T enters
  * `FamT`, and the reported total is `min(FamTu, FamTl)`, the reference's
  * worse-case median. The per-component deciles are also returned so callers can
@@ -25,21 +24,12 @@
  *
  * The sigma_Du / sigma_Dl / sigma_Fam polynomials (dud parameters 2..4) are
  * decoded but not used, exactly as in the reference: they describe the
- * variability of the deciles themselves and P.372-17 Part 7, section 7.1 does
- * not consume them.
- *
- * Man-made and galactic noise, added for PROP-08 (#954 slice E1), are the other
- * two of the three components equation (45) of P.533-14 needs and Step 2 of
- * Table 1 of P.842-5 names. They are not maps: P.372-17 gives each as a single
- * straight line in log frequency, equation (17) for man-made and equation (15)
- * for galactic, so they are transcribed here as their published constants
- * rather than vendored as an asset. What is NOT published is a man-made decile
- * pair for the quiet rural category, and `manMadeNoiseP372` reports that
- * absence rather than borrowing the rural pair; see its own note.
+ * variability of the deciles themselves and P.372 section 8 does not consume
+ * them.
  *
  * Two different totals, deliberately. The reference itself uses two:
- * `Noise.c:189` reports `FamT = min(FamTu, FamTl)` from the Part 7, section
- * 7.1 log-normal combination, but `P533/CircuitReliability.c:166` forms the
+ * `Noise.c:189` reports `FamT = min(FamTu, FamTl)` from the section 8
+ * log-normal combination, but `P533/CircuitReliability.c:166` forms the
  * signal-to-noise ratio against the plain power sum of the three medians,
  * 10*log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10)). The two differ by up to
  * about 1 dB. `combineNoiseP372` gives the first and `powerSumMediansP372` the
@@ -63,7 +53,7 @@ const D2R = 0.0174532925;
 const ATMOSPHERIC_MIN_MHZ = 1;
 const ATMOSPHERIC_MAX_MHZ = 30;
 
-/** Decile-to-sigma factor for a log-normal distribution (P.372-17 Part 7, section 7.1). */
+/** Decile-to-sigma factor for a log-normal distribution (P.372 section 8). */
 const DECILE_SIGMA = 1.282;
 
 /** 10/ln(10): the dB-to-neper constant the reference calls `c`. */
@@ -283,8 +273,8 @@ export function atmosphericNoiseP372(
  * This is the noise figure the reference uses for signal-to-noise ratio
  * (`P533/CircuitReliability.c:166`): `SNR = PR - (Fsum - 204 + 10*log10(BW))`
  * holds to better than 0.05 dB on all 28 analog golden circuits only with this
- * sum, not with the Part 7, section 7.1 `FamT`. It ignores the deciles by
- * construction; use `combineNoiseP372` when the spread is what you want.
+ * sum, not with the section 8 `FamT`. It ignores the deciles by construction;
+ * use `combineNoiseP372` when the spread is what you want.
  */
 export function powerSumMediansP372(
   components: readonly NoiseComponent[],
@@ -297,8 +287,8 @@ export function powerSumMediansP372(
 }
 
 /**
- * Combine noise components per ITU-R P.372-17 Part 7, section 7.1, "The
- * combination of noises from several sources".
+ * Combine noise components per ITU-R P.372 section 8, "The combination of
+ * noises from several sources".
  *
  * Each component is treated as log-normal with sigma = D/1.282. The upper and
  * lower decile cases give two candidate medians; the reference returns the
@@ -343,104 +333,5 @@ export function combineNoiseP372(
     fa: Math.min(upper.fam, lower.fam),
     du: upper.d,
     dl: lower.d,
-  };
-}
-
-/**
- * The outdoor man-made noise environments of ITU-R P.372-17, Part 6.
- *
- * `c` and `d` are Table 1, "Values of the constants c and d", and feed
- * equation (17) `Fam = c - d log f` with f in MHz. `du` and `dl` are the
- * "variation with time" column of Table 2, "Values of decile deviations of
- * man-made noise", which is the variability P.842-5 Table 1 Steps 5 and 8 ask
- * Recommendation ITU-R P.372 for.
- *
- * Table 2 has three rows, not four: the quiet rural category (curve D) has a
- * median in Table 1 and no decile pair anywhere in P.372-17, so its deciles are
- * `null` here. Giving it the rural pair would be an invention at the exact
- * place a reader is entitled to a citation, and the deciles are not small: they
- * are 5 to 11 dB, which is the whole width of the P.842 Step 6 and Step 9 root
- * sums.
- *
- * The category is a property of the receiving site, which no model can derive
- * from a coordinate; it is an input.
- */
-export const P372_MAN_MADE_ENVIRONMENTS = {
-  // P.372-17 Table 1 (curve A) and Table 2 (City).
-  city: { c: 76.8, d: 27.7, du: 11.0, dl: 6.7 },
-  // P.372-17 Table 1 (curve B) and Table 2 (Residential).
-  residential: { c: 72.5, d: 27.7, du: 10.6, dl: 5.3 },
-  // P.372-17 Table 1 (curve C) and Table 2 (Rural).
-  rural: { c: 67.2, d: 27.7, du: 9.2, dl: 4.6 },
-  // P.372-17 Table 1 (curve D). Table 2 has no quiet rural row.
-  quiet_rural: { c: 53.6, d: 28.6, du: null, dl: null },
-} as const;
-
-/** One of the four outdoor environmental categories of P.372-17 Table 1. */
-export type P372ManMadeEnvironment = keyof typeof P372_MAN_MADE_ENVIRONMENTS;
-
-/** A median with a decile pair that may not be published. */
-export interface ManMadeNoiseComponent {
-  /** Fam from equation (17), dB above kT0b. */
-  readonly fa: number;
-  /**
-   * Table 2's variation with time, or `null` for quiet rural, which P.372-17
-   * does not tabulate. A `null` here is not a zero: it is the absence of a
-   * published value, and a caller that needs a decile must say so.
-   */
-  readonly deciles: { readonly du: number; readonly dl: number } | null;
-}
-
-/**
- * ITU-R P.372-17 equation (17): man-made noise for one environmental category.
- *
- * Returns `null` for a frequency that is not a positive finite number, because
- * log10 of it is not a number and this module does not return NaN. Equation
- * (17) is stated valid over 0.3 to 250 MHz for curves A to C, which contains
- * the whole 2 to 30 MHz declared domain of the caller, so there is no clamp
- * here and none is needed. Curve D (quiet rural) is annotated in P.372-17 as
- * ionospherically reflected noise observed below fxF2, so above roughly the
- * critical frequency it overstates what is there; that is a property of the
- * published curve and is declared, not corrected.
- */
-export function manMadeNoiseP372(
-  environment: P372ManMadeEnvironment,
-  frequencyMHz: number,
-): ManMadeNoiseComponent | null {
-  const row = P372_MAN_MADE_ENVIRONMENTS[environment];
-  if (row === undefined) return null;
-  if (!Number.isFinite(frequencyMHz) || frequencyMHz <= 0) return null;
-  return {
-    // P.372-17 equation (17): Fam = c - d log f, f in MHz.
-    fa: row.c - row.d * Math.log10(frequencyMHz),
-    deciles:
-      row.du === null || row.dl === null ? null : { du: row.du, dl: row.dl },
-  };
-}
-
-/**
- * ITU-R P.372-17 equation (15): galactic noise, with the 2 dB deciles.
- *
- * "For frequencies up to about 100 MHz, the median noise figure for galactic
- * noise for a vertical antenna, neglecting ionospheric shielding, is given by
- * Fam = 52 - 23 log f", and "the decile variation of both the upper and lower
- * deciles for galactic noise is 2 dB". P.533-14 section 8 repeats the 2 dB as
- * "the combined within-an-hour and day-to-day decile variability of galactic
- * noise", and P.842-5 Table 1 Steps 5 and 8 tabulate it as the literal 2.
- *
- * The same text says galactic noise is not observed below foF2 and is reduced
- * up to about three times foF2. That shielding is not applied here: it is a
- * function of the ionosphere over the receiver, the constant curve is what
- * P.842 Step 2 asks for, and applying half of a correction would be worse than
- * applying none. Returns `null` for a non-positive or non-finite frequency.
- */
-export function galacticNoiseP372(frequencyMHz: number): NoiseComponent | null {
-  if (!Number.isFinite(frequencyMHz) || frequencyMHz <= 0) return null;
-  return {
-    // P.372-17 equation (15): Fam = 52 - 23 log f, f in MHz.
-    fa: 52 - 23 * Math.log10(frequencyMHz),
-    // P.372-17 section 4.1: the decile variation both sides is 2 dB.
-    du: 2,
-    dl: 2,
   };
 }

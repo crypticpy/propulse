@@ -31,6 +31,20 @@ Object.defineProperty(globalThis, "localStorage", {
 });
 
 /**
+ * jsdom does not implement scrollIntoView. AllChainsView (and others) call
+ * it from a timeout; leftover timers then throw after the test. A real
+ * no-op survives restoreAllMocks. Node-environment files have no Element.
+ */
+if (
+  typeof Element !== "undefined" &&
+  typeof Element.prototype.scrollIntoView !== "function"
+) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {
+    /* jsdom stub */
+  };
+}
+
+/**
  * jsdom does not implement the `CSS` namespace object, so `CSS.escape` is
  * missing. user-event's native radio-group arrow-key walk calls it to build a
  * `input[type="radio"][name="…"]` selector, and throws without it — which makes

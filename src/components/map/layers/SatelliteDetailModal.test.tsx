@@ -175,6 +175,7 @@ describe("SatelliteDetailModal", () => {
           orbitsAhead: 1,
           showPast: false,
           showFootprint: false,
+          name: FAKE_SATELLITE.name,
         },
       });
     });

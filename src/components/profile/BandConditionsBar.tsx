@@ -66,7 +66,7 @@ export function BandConditionsBar({
             <div className="w-12 flex items-center gap-0.5 flex-shrink-0">
               {isShared && (
                 <span
-                  className="text-plasma-orange text-[10px] leading-none"
+                  className="text-plasma-orange text-xs leading-none"
                   title="Shared band"
                 >
                   *
@@ -97,7 +97,7 @@ export function BandConditionsBar({
             {/* SNR value */}
             <span
               className={[
-                "w-10 text-right font-mono text-[10px] flex-shrink-0",
+                "w-10 text-right font-mono text-xs flex-shrink-0",
                 c.status === "closed" ? "text-su-muted" : "text-su-muted",
               ].join(" ")}
             >
@@ -106,7 +106,7 @@ export function BandConditionsBar({
 
             {/* Best label */}
             {isBest && (
-              <span className="text-[9px] text-plasma-orange font-medium flex-shrink-0 ml-0.5">
+              <span className="text-xs text-plasma-orange font-medium flex-shrink-0 ml-0.5">
                 Best
               </span>
             )}

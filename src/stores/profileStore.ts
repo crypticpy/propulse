@@ -26,7 +26,7 @@ import type { OperatorRank, RankPreferences, RankTier } from "@/types/rank";
 import { DEFAULT_OPERATOR_RANK } from "@/types/rank";
 
 import { useSettingsStore } from "./settingsStore";
-import { deleteImage } from "@/lib/db/imageStore";
+import { purgeUnreferencedImages } from "@/lib/db/imageReferenceSnapshot";
 import { syncMeta } from "@/lib/sync/syncMeta";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -295,16 +295,16 @@ export const useProfileStore = create<ProfileStore>()(
 
       setBio: (bio) => set({ bio }),
       setProfileImageUrl: (url) => set({ profileImageUrl: url }),
-      setProfileImageId: (imageId) =>
+      setProfileImageId: (imageId) => {
+        let oldImageId: string | undefined;
         set((state) => {
-          // Delete the old blob from IndexedDB if replacing or clearing
-          if (state.profileImageId && state.profileImageId !== imageId) {
-            deleteImage(state.profileImageId).catch(() => {
-              /* best-effort cleanup */
-            });
-          }
+          oldImageId = state.profileImageId;
           return { profileImageId: imageId };
-        }),
+        });
+        if (oldImageId && oldImageId !== imageId) {
+          purgeUnreferencedImages([oldImageId]);
+        }
+      },
       setLastIngestedCallsign: (callsign) =>
         set({ lastIngestedCallsign: callsign }),
       setSocialLinks: (links) => set({ socialLinks: links }),

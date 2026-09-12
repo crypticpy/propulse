@@ -138,7 +138,7 @@ export function HelpCallout({ type, children }: HelpCalloutProps) {
               {styles.label}
             </span>
             {type === "pro" && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-purple-500/25 text-purple-200 rounded">
+              <span className="px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider bg-purple-500/25 text-purple-200 rounded">
                 PRO
               </span>
             )}

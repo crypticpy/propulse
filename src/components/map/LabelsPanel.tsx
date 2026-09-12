@@ -58,7 +58,7 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
     >
       {/* Header — always visible, acts as collapsed hover target */}
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
+        <span className="text-xs font-medium text-su-muted uppercase tracking-wider">
           Labels
         </span>
         <svg
@@ -115,7 +115,7 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
                   </svg>
                 )}
               </div>
-              <span className="text-[11px] text-su-muted select-none">
+              <span className="text-xs text-su-muted select-none">
                 {label}
               </span>
             </label>

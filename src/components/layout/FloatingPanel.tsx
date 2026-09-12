@@ -597,6 +597,7 @@ export function FloatingPanel({
             left: layout.x,
             top: layout.y,
             zIndex: zIndex ?? "auto",
+            maxWidth: `calc(100vw - ${layout.x}px - 8px)`,
             cursor: "grab",
           }}
           onPointerDown={(e) => {
@@ -622,7 +623,7 @@ export function FloatingPanel({
               newX,
               newY,
               panelRef.current?.offsetWidth || 120,
-              TITLE_BAR_HEIGHT,
+              panelRef.current?.offsetHeight || TITLE_BAR_HEIGHT,
               minTop,
             );
             const el = panelRef.current;
@@ -660,8 +661,8 @@ export function FloatingPanel({
           }}
         >
           {icon && <span className="text-su-text/80 flex-shrink-0">{icon}</span>}
-          <span className="text-[11px] font-medium text-su-text/80 whitespace-nowrap">
-            {title.length > 12 ? title.slice(0, 12) + "\u2026" : title}
+          <span className="min-w-0 text-xs font-medium text-su-text/80 break-words">
+            {title}
           </span>
         </div>
         {snapTarget && (

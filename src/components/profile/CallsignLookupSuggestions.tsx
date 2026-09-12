@@ -345,6 +345,7 @@ export function CallsignLookupSuggestions({
           type="button"
           onClick={() => onApply(result, selected)}
           disabled={selected.size === 0}
+          aria-label="Apply selected fields to identity draft"
           className="px-3 py-1 text-xs font-medium rounded bg-signal-green/20 text-signal-green
                      border border-signal-green/30 hover:bg-signal-green/30 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"

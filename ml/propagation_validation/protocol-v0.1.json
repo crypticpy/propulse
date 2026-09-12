@@ -1,0 +1,1273 @@
+{
+  "protocol_id": "propagation-candidate-0.1.0",
+  "status": "candidate",
+  "qualification": "BLOCKED",
+  "eligible_observational_datasets": [],
+  "events": {
+    "circuit_support": {
+      "units": "boolean",
+      "definition": "Declared mechanism has a supported circuit under supplied TX/RX configuration; not a decoder or activity event."
+    },
+    "snr2500": {
+      "units": "dB",
+      "definition": "Wanted received signal/noise at receiver connector in equivalent 2500 Hz noise bandwidth, conditional on a characterized transmission and listening exposure."
+    },
+    "network_detection": {
+      "units": "probability",
+      "definition": "Detection in the existing model version-specific cell/time/exposure population; requires that exact model event contract, never a personal path probability."
+    },
+    "observed_activity": {
+      "units": "count",
+      "definition": "Qualified reports within an explicit time interval and observed source coverage; absent reports do not label a failed propagation event."
+    },
+    "conditional_decode": {
+      "units": "probability",
+      "definition": "Declared decoder/version meets its criterion within observation duration given transmission, listening and known configuration."
+    },
+    "completed_qso": {
+      "units": "probability",
+      "definition": "Completed two-way exchange within a declared attempted recommendation/session under an explicit completion protocol; unknown outcome retained."
+    },
+    "field_strength": {
+      "units": "dBuV_per_m",
+      "definition": "Field amplitude at declared location, polarization, height and measurement bandwidth/support."
+    },
+    "usable_burst": {
+      "units": "probability",
+      "definition": "At least one burst meeting a registered duration/spread/decoder criterion in an exposed interval; not a completed exchange."
+    },
+    "pass_geometry": {
+      "units": "seconds",
+      "definition": "AOS/LOS timing error for declared horizon, ephemeris, time/frame and target; not transponder availability."
+    },
+    "doppler": {
+      "units": "Hz",
+      "definition": "Frequency shift under declared transmitted frequency and signed range-rate convention."
+    }
+  },
+  "dataset_roles": [
+    "development",
+    "validation",
+    "independent_station_holdout",
+    "independent_date_holdout",
+    "independent_storm_holdout",
+    "prospective"
+  ],
+  "measurement": {
+    "primary_event": "snr2500",
+    "primary_metric": "weighted_mae_db",
+    "estimand": "Mean absolute error over independently sampled characterized transmission/listening exposures with observed SNR irrespective of decoder outcome, within each preregistered band/domain/horizon population.",
+    "weights": "Within each row: equal weight per directed TX/RX station pair, then equal weight per eligible exposure within that pair. No pooling across rows or inverse-probability weights in v0.1.",
+    "population_status": "BLOCKED: sampling frame and eligible station-characterized SNR corpus not established",
+    "ordinary_snr_labels": "observed_snr_only",
+    "censored_policy": "Known failed detection without measured SNR retains upper/lower bound and exposure for a separately preregistered censored estimand; excluded from ordinary SNR MAE without pretending the full population was evaluated.",
+    "unknown_policy": "Retain missing/unknown reasons and denominators; never label unknown as failure or zero SNR.",
+    "missing_predictions": "Paired comparison uses identical eligible rows; report attempted-domain availability separately. Qualification blocked until an abstention/missing-prediction rule is frozen; no selective easier-case skill claim.",
+    "target_relative_mae_reduction": 0.2,
+    "external_skill_interval_level": 0.95,
+    "skill": "1 - candidate weighted MAE / comparator weighted MAE on identical pairs and fixed weights; comparator MAE=0 makes relative skill undefined, not a pass.",
+    "pass_rule": "Target >=0.20 legacy relative MAE reduction and positive paired 95% interval lower bound; any external superiority claim additionally requires external paired skill lower bound >0. All prerequisite gates must pass in a future reviewed protocol.",
+    "coverage": {
+      "interval80": [
+        0.75,
+        0.85
+      ],
+      "interval95": [
+        0.92,
+        0.98
+      ],
+      "require": "Block uncertainty and interval score/sharpness vs baseline, by adequately powered row"
+    },
+    "regression": "Reject a preregistered powered slice with >10% MAE degradation supported by its paired 95% interval; Holm correction for confirmatory slice claims. Insufficient slices cannot pass.",
+    "power": {
+      "alpha": 0.05,
+      "minimum_power": 0.8,
+      "sample_size": null,
+      "floor_blocks": 30,
+      "floor_stations": 20,
+      "floor_cases": 500,
+      "status": "BLOCKED"
+    },
+    "applies_to_event": "snr2500"
+  },
+  "replay": {
+    "times": "UTC; observed interval end <= issuedAt; publishedAt and capturedAt <= issuedAt. Forecast issue/publication/capture <= issuedAt while validAt may be future.",
+    "unknown_availability": "ineligible_for_as_issued_replay",
+    "revisions": "Immutable source versions with SHA-256; no later revised product replacing an earlier issued context.",
+    "pairing": "Same directed TX/RX, event, mode, frequency, issue/valid time, inputs and dataset row ID for candidate and comparator; differences disclosed as separate experiment.",
+    "isolation": "Freeze disjoint development/validation/independent station/date/storm manifests before fitting; independent stations absent from fit, holdout dates buffered by frozen leakage window, entire storm events assigned once; prospective predictions archived before labels.",
+    "split_assignment": "BLOCKED: dataset hashes, station IDs, date ranges, storm definitions and leakage buffers not yet available; no sealed N5 access or repurposing"
+  },
+  "resampling": {
+    "method": "paired_connected_components_percentile_bootstrap",
+    "blocks": "Build an exposure graph connecting observations sharing either TX or RX station identity, UTC date, or declared storm event ID. Connected components are independent candidate resampling units; component definitions frozen before outcomes.",
+    "draws": 10000,
+    "seed": 947,
+    "interval": [
+      0.025,
+      0.975
+    ],
+    "weights": "Draw components uniformly with replacement, retain full paired exposures and recompute fixed pair/exposure weighting with bootstrap multiplicities.",
+    "insufficient": "If connectivity leaves fewer than 30 independent components or power/precision fails, BLOCKED; never split a storm/station across resampling units to pass.",
+    "status": "BLOCKED: candidate feasibility, storm boundaries and power await development-only study; ordinary receiver networks may form one giant component. Not a generally qualified multiway estimator; other events require separate protocols.",
+    "applies_to_event": "snr2500",
+    "method_status": "experimental_candidate"
+  },
+  "comparators": [
+    {
+      "id": "audited_legacy_physics",
+      "status": "candidate",
+      "version": null,
+      "sha256": null,
+      "domain": "per-row declared legacy support; 160m own legacy arm"
+    },
+    {
+      "id": "itu_reference",
+      "status": "candidate",
+      "version": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+      "sha256": null,
+      "domain": "2–30 MHz within exact reference validation"
+    },
+    {
+      "id": "voacap",
+      "status": "candidate",
+      "version": null,
+      "sha256": null,
+      "domain": "matched supported HF circuits only; implementation not inspected"
+    },
+    {
+      "id": "family_reference",
+      "status": "candidate",
+      "version": null,
+      "sha256": null,
+      "domain": "G-FAMILY must select/pin applicable strong comparator; no universal all-band comparator"
+    }
+  ],
+  "numerics": {
+    "covariance_kernel": "chordal_se_times_temporal_exponential",
+    "earth_radius_km": 6371,
+    "jitter_policy": "none_in_this_revision",
+    "native_cases": 1000,
+    "power_snr_loss_db": 0.01,
+    "muf_mhz": 0.001,
+    "geometry_deg": 0.01,
+    "complex_normalized_residual": 1e-06,
+    "condition_number_max": 100000000.0,
+    "null_relative_amplitude": 1e-08,
+    "refinement_db": 0.1,
+    "refinement_phase_deg": 1,
+    "tail_rule": "independent_remaining_tail_bound_required"
+  },
+  "runtime_profiles": [
+    {
+      "id": "existing_24x11_catalog",
+      "status": "BLOCKED",
+      "workload": "24 instantaneous hourly samples x existing 11 catalog slots; 160m and6m eligibility separate, P533 parity only2–30MHz",
+      "warm_p95_ms": 500,
+      "first_usable_ms": 2000,
+      "worker_mib": 128,
+      "main_thread_task_ms": 50,
+      "ensemble_p95_ms": 3000,
+      "devices": [
+        "iPhone12 Safari",
+        "Pixel6 Chrome",
+        "four-core8GB laptop browser"
+      ],
+      "prerequisite": "G-RUNTIME"
+    },
+    {
+      "id": "all_band_fullwave",
+      "status": "BLOCKED",
+      "prerequisite": "G-RUNTIME; family mesh/modes/assets/cancellation budgets not frozen"
+    },
+    {
+      "id": "moving_target_burst",
+      "status": "BLOCKED",
+      "prerequisite": "G-RUNTIME; seconds-scale sampling and interval aggregation/error budget not frozen"
+    }
+  ],
+  "gates": [
+    {
+      "id": "G-REVIEW",
+      "status": "BLOCKED",
+      "owner": "#947 / scientific reviewer and genuine Fable reviewer",
+      "prerequisites": [
+        "Independent scientific review of current candidate",
+        "Genuine Fable approval on current PR head"
+      ]
+    },
+    {
+      "id": "G-SOURCES",
+      "status": "BLOCKED",
+      "owner": "PROP-06 / #464 / family asset owners",
+      "prerequisites": [
+        "Inspect actual rights/schema/versions/hashes and as-issued latency; no source eligibility established"
+      ]
+    },
+    {
+      "id": "G-DATA",
+      "status": "BLOCKED",
+      "owner": "#947 / PROP-23 benchmark owner",
+      "prerequisites": [
+        "Freeze a rights-eligible independently sampled dataset with labels, units, station/configuration metadata, exposure and selection appropriate to each row event; no eligible corpus established",
+        "Only SNR rows use the characterized uncensored SNR requirements in measurement; timing, Doppler and probability rows need their own event measurements"
+      ]
+    },
+    {
+      "id": "G-POWER",
+      "status": "BLOCKED",
+      "owner": "#947 / PROP-23 benchmark owner",
+      "prerequisites": [
+        "Before holdout access, each family owner freezes event/metric-specific effect size, sample size, independent units, power and interval precision using development-only planning",
+        "SNR-only 20% MAE target, alpha/power and floor examples do not apply to seconds, Hz, boolean, counts or probability rows"
+      ]
+    },
+    {
+      "id": "G-COMPARATOR",
+      "status": "BLOCKED",
+      "owner": "PROP-23 / reference owner",
+      "prerequisites": [
+        "Pin eligible legacy and external comparator code/assets/build hashes and domain; verify matched inputs"
+      ]
+    },
+    {
+      "id": "G-FAMILY",
+      "status": "BLOCKED",
+      "owner": "#946 orchestrator / named family owner",
+      "prerequisites": [
+        "Assign family leaf and freeze exact frequency/jurisdiction, station/mode, population, event threshold, precision/power, subgroup and comparator rules before holdout access"
+      ]
+    },
+    {
+      "id": "G-NUMERICS",
+      "status": "BLOCKED",
+      "owner": "PROP-06 / family numerical owner",
+      "prerequisites": [
+        "Independent native/portable cases and qualified complex residual normalization/conditioning/refinement-tail evidence"
+      ]
+    },
+    {
+      "id": "G-RUNTIME",
+      "status": "BLOCKED",
+      "owner": "PROP-06 / family runtime owner",
+      "prerequisites": [
+        "Exact hardware/OS/browser, asset sizes, warm/cold workloads, repeated-run counts, p95 estimator and instrumentation frozen before profiling"
+      ]
+    },
+    {
+      "id": "G-ACCURACY",
+      "status": "BLOCKED",
+      "owner": "#947 / PROP-23 benchmark owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-DATA",
+        "G-POWER",
+        "G-COMPARATOR",
+        "G-FAMILY",
+        "G-NUMERICS"
+      ]
+    }
+  ],
+  "coverage_rows": [
+    {
+      "id": "2200m.groundwave.field_strength.characterized_fixed_path.climatology.v1",
+      "band": "2200m",
+      "mechanism": "groundwave",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / groundwave family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / groundwave family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "2200m.waveguide.field_strength.characterized_fixed_path.climatology.v1",
+      "band": "2200m",
+      "mechanism": "waveguide",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / waveguide family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / waveguide family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "630m.groundwave.field_strength.characterized_fixed_path.climatology.v1",
+      "band": "630m",
+      "mechanism": "groundwave",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / groundwave family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / groundwave family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "630m.waveguide.field_strength.characterized_fixed_path.climatology.v1",
+      "band": "630m",
+      "mechanism": "waveguide",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / waveguide family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / waveguide family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "160m.ground_sky_coherent.circuit_support.characterized_fixed_path.climatology.v1",
+      "band": "160m",
+      "mechanism": "ground_sky_coherent",
+      "event": "circuit_support",
+      "units": "boolean",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / ground_sky_coherent family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "support_classification_error",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / ground_sky_coherent family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "160m.ground_sky_coherent.snr2500.characterized_fixed_path.climatology.v1",
+      "band": "160m",
+      "mechanism": "ground_sky_coherent",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / ground_sky_coherent family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / ground_sky_coherent family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "160m.ground_sky_coherent.snr2500.characterized_fixed_path.current.v1",
+      "band": "160m",
+      "mechanism": "ground_sky_coherent",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / ground_sky_coherent family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / ground_sky_coherent family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "160m.ground_sky_coherent.snr2500.characterized_fixed_path.forecast_1_24h.v1",
+      "band": "160m",
+      "mechanism": "ground_sky_coherent",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "forecast_1_24h",
+      "status": "experimental",
+      "owner": "#946 orchestrator / ground_sky_coherent family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / ground_sky_coherent family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "2_30MHz.regular_ef.snr2500.characterized_fixed_path.climatology.v1",
+      "band": "2_30MHz",
+      "mechanism": "regular_ef",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / regular_ef family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / regular_ef family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "2_30MHz.regular_ef.snr2500.characterized_fixed_path.current.v1",
+      "band": "2_30MHz",
+      "mechanism": "regular_ef",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / regular_ef family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / regular_ef family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "2_30MHz.regular_ef.snr2500.characterized_fixed_path.forecast_1_24h.v1",
+      "band": "2_30MHz",
+      "mechanism": "regular_ef",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "characterized_fixed_path",
+      "horizon": "forecast_1_24h",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / regular_ef family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / regular_ef family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "8m_6m_4m_2m.terrain_troposphere.field_strength.qualified_terrain_climate.climatology.v1",
+      "band": "8m_6m_4m_2m",
+      "mechanism": "terrain_troposphere",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "qualified_terrain_climate",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / terrain_troposphere family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / terrain_troposphere family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "8m_6m_4m_2m.refractivity_pe.snr2500.qualified_terrain_profile.forecast_1_24h.v1",
+      "band": "8m_6m_4m_2m",
+      "mechanism": "refractivity_pe",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "qualified_terrain_profile",
+      "horizon": "forecast_1_24h",
+      "status": "experimental",
+      "owner": "#946 orchestrator / refractivity_pe family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / refractivity_pe family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "1p25m_70cm_33cm_23cm.terrain_troposphere.field_strength.qualified_terrain_climate.climatology.v1",
+      "band": "1p25m_70cm_33cm_23cm",
+      "mechanism": "terrain_troposphere",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "qualified_terrain_climate",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / terrain_troposphere family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / terrain_troposphere family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "1p25m_70cm_33cm_23cm.refractivity_pe.snr2500.qualified_terrain_profile.forecast_1_24h.v1",
+      "band": "1p25m_70cm_33cm_23cm",
+      "mechanism": "refractivity_pe",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "qualified_terrain_profile",
+      "horizon": "forecast_1_24h",
+      "status": "experimental",
+      "owner": "#946 orchestrator / refractivity_pe family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / refractivity_pe family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "13cm_to_47GHz.terrain_troposphere.field_strength.qualified_terrain_climate.climatology.v1",
+      "band": "13cm_to_47GHz",
+      "mechanism": "terrain_troposphere",
+      "event": "field_strength",
+      "units": "dBuV_per_m",
+      "domain": "qualified_terrain_climate",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / terrain_troposphere family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "field_strength_error_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / terrain_troposphere family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "13cm_to_47GHz.refractivity_pe.snr2500.qualified_terrain_profile.forecast_1_24h.v1",
+      "band": "13cm_to_47GHz",
+      "mechanism": "refractivity_pe",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "qualified_terrain_profile",
+      "horizon": "forecast_1_24h",
+      "status": "experimental",
+      "owner": "#946 orchestrator / refractivity_pe family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / refractivity_pe family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "50_300GHz.atmospheric_los.snr2500.qualified_los_atmosphere.climatology.v1",
+      "band": "50_300GHz",
+      "mechanism": "atmospheric_los",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "qualified_los_atmosphere",
+      "horizon": "climatology",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / atmospheric_los family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / atmospheric_los family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.es.conditional_decode.mechanism_labeled_exposure.climatology.v1",
+      "band": "hf_vhf",
+      "mechanism": "es",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / es family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / es family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.es.conditional_decode.mechanism_labeled_exposure.current.v1",
+      "band": "hf_vhf",
+      "mechanism": "es",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / es family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / es family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.f2_daytime.conditional_decode.mechanism_labeled_exposure.climatology.v1",
+      "band": "hf_vhf",
+      "mechanism": "f2_daytime",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / f2_daytime family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / f2_daytime family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.f2_daytime.conditional_decode.mechanism_labeled_exposure.current.v1",
+      "band": "hf_vhf",
+      "mechanism": "f2_daytime",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / f2_daytime family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / f2_daytime family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.tep_evening.conditional_decode.mechanism_labeled_exposure.climatology.v1",
+      "band": "hf_vhf",
+      "mechanism": "tep_evening",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / tep_evening family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / tep_evening family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.tep_evening.conditional_decode.mechanism_labeled_exposure.current.v1",
+      "band": "hf_vhf",
+      "mechanism": "tep_evening",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / tep_evening family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / tep_evening family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.aurora.conditional_decode.mechanism_labeled_exposure.climatology.v1",
+      "band": "hf_vhf",
+      "mechanism": "aurora",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "climatology",
+      "status": "experimental",
+      "owner": "#946 orchestrator / aurora family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / aurora family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "hf_vhf.aurora.conditional_decode.mechanism_labeled_exposure.current.v1",
+      "band": "hf_vhf",
+      "mechanism": "aurora",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "mechanism_labeled_exposure",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / aurora family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / aurora family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.meteor.usable_burst.known_exposure_interval.current.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "meteor",
+      "event": "usable_burst",
+      "units": "probability",
+      "domain": "known_exposure_interval",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / meteor family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_burst_duration_error",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / meteor family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.rain_scatter.usable_burst.known_exposure_interval.current.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "rain_scatter",
+      "event": "usable_burst",
+      "units": "probability",
+      "domain": "known_exposure_interval",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / rain_scatter family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_burst_duration_error",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / rain_scatter family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.aircraft_scatter.usable_burst.known_exposure_interval.current.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "aircraft_scatter",
+      "event": "usable_burst",
+      "units": "probability",
+      "domain": "known_exposure_interval",
+      "horizon": "current",
+      "status": "experimental",
+      "owner": "#946 orchestrator / aircraft_scatter family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_burst_duration_error",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / aircraft_scatter family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.satellite.conditional_decode.configured_two_leg_path.current.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "satellite",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "configured_two_leg_path",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / satellite family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / satellite family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.relay.conditional_decode.configured_two_leg_path.current.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "relay",
+      "event": "conditional_decode",
+      "units": "probability",
+      "domain": "configured_two_leg_path",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / relay family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / relay family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.satellite.pass_geometry.qualified_ephemeris_horizon.forecast_seconds.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "satellite",
+      "event": "pass_geometry",
+      "units": "seconds",
+      "domain": "qualified_ephemeris_horizon",
+      "horizon": "forecast_seconds",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / satellite family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "aos_los_timing_error_seconds",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / satellite family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.eme.doppler.qualified_lunar_station.forecast_seconds.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "eme",
+      "event": "doppler",
+      "units": "Hz",
+      "domain": "qualified_lunar_station",
+      "horizon": "forecast_seconds",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / eme family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "doppler_error_hz",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / eme family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "qualified_family_bands.eme.snr2500.qualified_lunar_station.forecast_seconds.v1",
+      "band": "qualified_family_bands",
+      "mechanism": "eme",
+      "event": "snr2500",
+      "units": "dB",
+      "domain": "qualified_lunar_station",
+      "horizon": "forecast_seconds",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / eme family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "weighted_mae_db",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / eme family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "declared_model_bands.event_head.network_detection.versioned_event_population.current.v1",
+      "band": "declared_model_bands",
+      "mechanism": "event_head",
+      "event": "network_detection",
+      "units": "probability",
+      "domain": "versioned_event_population",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / event_head family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "brier_and_log_loss",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / event_head family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "declared_model_bands.event_head.observed_activity.versioned_event_population.current.v1",
+      "band": "declared_model_bands",
+      "mechanism": "event_head",
+      "event": "observed_activity",
+      "units": "count",
+      "domain": "versioned_event_population",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / event_head family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "coverage_and_count_integrity",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / event_head family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    },
+    {
+      "id": "declared_model_bands.event_head.completed_qso.versioned_event_population.current.v1",
+      "band": "declared_model_bands",
+      "mechanism": "event_head",
+      "event": "completed_qso",
+      "units": "probability",
+      "domain": "versioned_event_population",
+      "horizon": "current",
+      "status": "data_limited",
+      "owner": "#946 orchestrator / event_head family owner",
+      "prerequisites": [
+        "G-REVIEW",
+        "G-SOURCES",
+        "G-FAMILY",
+        "G-DATA",
+        "G-COMPARATOR",
+        "G-POWER",
+        "G-NUMERICS",
+        "G-RUNTIME"
+      ],
+      "qualification_metric": "completed_contacts_per_attempt",
+      "preregistration": {
+        "status": "BLOCKED",
+        "owner": "#946 orchestrator / event_head family owner",
+        "required": "Freeze exact domain, label protocol, measurement support, event threshold, primary metric aggregation, comparator, sample/effect/power, subgroup, replay and resampling before data access. No cross-event SNR gates."
+      }
+    }
+  ]
+}

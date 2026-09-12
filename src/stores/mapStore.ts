@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { normalizeMapSpotAge } from "@/lib/map/spotAge";
 import type { SpotWindowMinutes } from "@/lib/api/spotFeed";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
@@ -392,6 +393,50 @@ export interface MapState {
   // Target location for path analysis
   target: TargetLocation | null;
   setTarget: (target: TargetLocation | null) => void;
+  /**
+   * `Date.now()` of the last write to `target` (`0` before the first one).
+   * A window's own clock, so it may only be compared with another stamp taken
+   * on this machine: `operatingStateStore`'s `stamps.target.appliedAt` (when
+   * the cursor was applied *here*), never its wire `at` (the originating
+   * device's clock, off by the inter-device skew). That lets a screen which
+   * mounts late tell whether the shared operating cursor or this map's own
+   * target is the newer of the two (#859) instead of guessing from
+   * `target != null`. Nothing reads it for rendering, so it never needs to be
+   * in a selector.
+   *
+   * `undefined` means *unknown*, not old: a target arrived over the workspace
+   * channel from a window on a bundle that does not send a write time, so
+   * this window has no idea when it was picked (#859 round 9). Guessing —
+   * stamping it with its arrival — is what made an hours-old target from a
+   * stale pop-out outrank a cursor already applied here. A reader must treat
+   * unknown as unknown; see `useHamClockWallOperatingState`.
+   */
+  targetSetAt: number | undefined;
+  /**
+   * Where this target falls in the order *this window applied things*:
+   * `nextLocalWriteSeq()`, taken when the target was set here (#859 rounds
+   * 4, 9, 10 and 11). It is the *primary* ordering against another stamp
+   * from the same counter — `operatingStateStore`'s `stamps.target
+   * .appliedSeq` — because the counter is monotonic for the life of the
+   * window and `Date.now()` is not: an NTP step or a manual clock change
+   * moves the clock backwards, and then a later pick carries the smaller
+   * timestamp and loses to an earlier cursor.
+   *
+   * A target arriving over the workspace channel takes its number *on
+   * arrival*, not the sender's. The number the sending window minted orders
+   * that window's history, not this one's, and the cursor it will be
+   * compared against here may have been written on a different device
+   * entirely; round 10 carried the sender's number and compared it anyway.
+   * Numbering the application is honest because the application really did
+   * happen here, and really did happen at that point in this window's
+   * history.
+   *
+   * `undefined` means the value cannot be ordered at all: no target has been
+   * set here, or one arrived from a bundle that sends no write time, whose
+   * freshness is unknown (round 9). The reader treats that as losing to
+   * anything it *can* order.
+   */
+  targetSeq: number | undefined;
 
   // Recent targets history (max 10)
   recentTargets: TargetLocation[];
@@ -704,6 +749,23 @@ export interface MapState {
   clearSatelliteTrack: (noradId: number) => void;
   clearAllSatelliteTracks: () => void;
 
+  // Ephemeral eviction notice (#994 PR B): set when `setSatelliteTrack`'s
+  // MAX_SATELLITE_TRACKS cap drops the oldest track, read by
+  // `MapStatusChip`'s eviction badge the same way `ConflictBadge` /
+  // `ConnectivityBadge` read their own store slices. Not persisted — a
+  // stale eviction message from a previous session has nothing to say on
+  // reload. `name` is carried from the evicted track's own config (set when
+  // the track was added) rather than re-derived from `POPULAR_SATS` at
+  // display time -- a NORAD id can map to more than one popular-satellite
+  // name, so re-deriving it could name the wrong bird (#994 PR B round 3
+  // Codex thread 3).
+  satelliteTrackEviction: {
+    noradId: string;
+    name?: string;
+    timestamp: number;
+  } | null;
+  dismissSatelliteTrackEviction: () => void;
+
   // Beacon inactive opacity (0-1, persisted)
   beaconInactiveOpacity: number;
   setBeaconInactiveOpacity: (opacity: number) => void;
@@ -955,11 +1017,22 @@ export interface SatelliteTrackConfig {
   orbitsAhead: 1 | 2 | 3;
   showPast: boolean;
   showFootprint: boolean;
+  // Display name captured from the caller at the point a track is added
+  // (currently `SatelliteOverlay.tsx`'s inline popup, where the satellite's
+  // name is on hand) so the eviction badge can name the right bird without
+  // re-deriving it from `POPULAR_SATS`, which is not a 1:1 NORAD-id map
+  // (#994 PR B round 3 Codex thread 3). Undefined for tracks added from a
+  // call site that doesn't pass one.
+  name?: string;
 }
 
 const SATELLITE_TRACKS_LS_KEY = "propulse-satellite-tracks";
+// `name` (above) is optional and additive, so version 1 payloads still load;
+// no bump needed (a mismatch would discard every persisted track).
 const SATELLITE_TRACKS_SCHEMA_VERSION = 1;
-const MAX_SATELLITE_TRACKS = 5;
+// Exported so `satelliteTrack2D.ts`'s orbit-track propagation cache can size
+// itself to match the store's own cap (#994 PR B round 2 Codex thread 2).
+export const MAX_SATELLITE_TRACKS = 5;
 
 function isValidSatelliteTrackConfig(
   value: unknown,
@@ -969,7 +1042,8 @@ function isValidSatelliteTrackConfig(
   return (
     (cfg.orbitsAhead === 1 || cfg.orbitsAhead === 2 || cfg.orbitsAhead === 3) &&
     typeof cfg.showPast === "boolean" &&
-    typeof cfg.showFootprint === "boolean"
+    typeof cfg.showFootprint === "boolean" &&
+    (cfg.name === undefined || typeof cfg.name === "string")
   );
 }
 
@@ -1374,33 +1448,35 @@ function loadDockGroups(): DockGroup[] {
         const viewportWidth =
           typeof window !== "undefined" ? window.innerWidth : 1920;
         const maxWidth = Math.max(1, viewportWidth - 4);
-        return parsed.filter(
-          (group): group is DockGroup =>
-            group !== null &&
-            typeof group === "object" &&
-            typeof group.id === "string" &&
-            group.orientation === "vertical" &&
-            Array.isArray(group.panelIds) &&
-            group.panelIds.length >= 2 &&
-            group.panelIds.every(
-              (id: unknown) => typeof id === "string" && panelIds.has(id),
-            ) &&
-            typeof group.sharedX === "number" &&
-            Number.isFinite(group.sharedX) &&
-            typeof group.sharedWidth === "number" &&
-            Number.isFinite(group.sharedWidth) &&
-            group.sharedWidth > 0,
-        ).map((group) => {
-          const sharedWidth = Math.min(group.sharedWidth, maxWidth);
-          return {
-            ...group,
-            sharedX: Math.min(
-              Math.max(0, group.sharedX),
-              Math.max(0, viewportWidth - sharedWidth),
-            ),
-            sharedWidth,
-          };
-        });
+        return parsed
+          .filter(
+            (group): group is DockGroup =>
+              group !== null &&
+              typeof group === "object" &&
+              typeof group.id === "string" &&
+              group.orientation === "vertical" &&
+              Array.isArray(group.panelIds) &&
+              group.panelIds.length >= 2 &&
+              group.panelIds.every(
+                (id: unknown) => typeof id === "string" && panelIds.has(id),
+              ) &&
+              typeof group.sharedX === "number" &&
+              Number.isFinite(group.sharedX) &&
+              typeof group.sharedWidth === "number" &&
+              Number.isFinite(group.sharedWidth) &&
+              group.sharedWidth > 0,
+          )
+          .map((group) => {
+            const sharedWidth = Math.min(group.sharedWidth, maxWidth);
+            return {
+              ...group,
+              sharedX: Math.min(
+                Math.max(0, group.sharedX),
+                Math.max(0, viewportWidth - sharedWidth),
+              ),
+              sharedWidth,
+            };
+          });
       }
     }
   } catch {
@@ -1508,6 +1584,11 @@ const initialState = {
   absoluteTime: null as string | null,
   timeScenarios: loadTimeScenarios(),
   target: null,
+  targetSetAt: 0,
+  // No sequence, because this window has not written a target: `0` would be
+  // a claim that it had, and the reader would rank a peer's legacy target
+  // below it (#859 round 10).
+  targetSeq: undefined,
   recentTargets: loadRecentTargets(),
   rotation: { x: 23.5, y: 0 }, // Earth's axial tilt
   zoom: 1,
@@ -1550,8 +1631,13 @@ const initialState = {
 
   spotFeedScope: "global" as const,
   spotAgeMinutes: (() => {
-    try { return normalizeMapSpotAge(Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30)); }
-    catch { return 30; }
+    try {
+      return normalizeMapSpotAge(
+        Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30),
+      );
+    } catch {
+      return 30;
+    }
   })(),
 
   // Grid label detail level (1=field, 2=square, 3=subsquare)
@@ -1594,6 +1680,9 @@ const initialState = {
   // Per-satellite orbit track state (persisted, see #994)
   satelliteTracks: persistedSatelliteTracks.tracks,
   satelliteTrackOrder: persistedSatelliteTracks.order,
+  satelliteTrackEviction: null as
+    | { noradId: string; name?: string; timestamp: number }
+    | null,
 
   // Beacon inactive opacity (persisted)
   beaconInactiveOpacity: loadStoredNumber(
@@ -1656,6 +1745,9 @@ export const useMapStore = create<MapState>((set, get) => ({
       return {
         absoluteTime: scenario.time,
         target: scenario.target || state.target,
+        // Only a scenario that carries its own target is a target write.
+        targetSetAt: scenario.target ? Date.now() : state.targetSetAt,
+        targetSeq: scenario.target ? nextLocalWriteSeq() : state.targetSeq,
       };
     }),
 
@@ -1663,7 +1755,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       // If target is null, just clear it without affecting recent targets
       if (!target) {
-        return { target: null, isolateTargetPath: false };
+        return {
+          target: null,
+          targetSetAt: Date.now(),
+          targetSeq: nextLocalWriteSeq(),
+          isolateTargetPath: false,
+        };
       }
 
       // Add to recent targets (avoiding duplicates by lat/lon)
@@ -1687,7 +1784,12 @@ export const useMapStore = create<MapState>((set, get) => ({
       }
 
       saveRecentTargets(updatedRecent);
-      return { target, recentTargets: updatedRecent };
+      return {
+        target,
+        targetSetAt: Date.now(),
+        targetSeq: nextLocalWriteSeq(),
+        recentTargets: updatedRecent,
+      };
     }),
 
   clearRecentTargets: () =>
@@ -1960,11 +2062,14 @@ export const useMapStore = create<MapState>((set, get) => ({
     const leavingHamclock =
       state.layoutMode === "hamclock" && layoutMode !== "hamclock";
 
-    const observatoryExit = leavingHamclock ? {
-      observatoryMode: false,
-      observatoryPreviousState: null,
-      autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
-    } : {};
+    const observatoryExit = leavingHamclock
+      ? {
+          observatoryMode: false,
+          observatoryPreviousState: null,
+          autoRotate:
+            state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
+        }
+      : {};
 
     if (enteringHamclock) {
       const priorLayout: Exclude<LayoutMode, "hamclock"> =
@@ -2344,13 +2449,20 @@ export const useMapStore = create<MapState>((set, get) => ({
   },
 
   // Arc display density
-  setSpotFeedScope: (spotFeedScope) => set((state) => ({
-    spotFeedScope,
-    ...(spotFeedScope === "psk-station" ? { layers: { ...state.layers, spots: true } } : {}),
-  })),
+  setSpotFeedScope: (spotFeedScope) =>
+    set((state) => ({
+      spotFeedScope,
+      ...(spotFeedScope === "psk-station"
+        ? { layers: { ...state.layers, spots: true } }
+        : {}),
+    })),
   setSpotAgeMinutes: (minutes) => {
     const spotAgeMinutes = normalizeMapSpotAge(minutes);
-    try { localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes)); } catch { /* Storage may be unavailable. */ }
+    try {
+      localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes));
+    } catch {
+      /* Storage may be unavailable. */
+    }
     set({ spotAgeMinutes });
   },
 
@@ -2531,6 +2643,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         orbitsAhead: existing?.orbitsAhead ?? 1,
         showPast: existing?.showPast ?? false,
         showFootprint: existing?.showFootprint ?? false,
+        name: existing?.name,
         ...patch,
       };
 
@@ -2551,14 +2664,33 @@ export const useMapStore = create<MapState>((set, get) => ({
       const tracks = { ...state.satelliteTracks, [id]: next };
 
       // Cap at MAX_SATELLITE_TRACKS, dropping the oldest by insertion order.
+      // Surface the last dropped id as a status-chip notice (#994 PR B) —
+      // normally at most one is dropped per call (one track is added at a
+      // time), but the loop still reports whichever eviction happened last
+      // if a desynced order ever needed to drop more than one to satisfy
+      // the cap.
+      let evictedId: string | undefined;
+      let evictedName: string | undefined;
       while (order.length > MAX_SATELLITE_TRACKS) {
         const droppedId = order.shift();
-        if (droppedId !== undefined) delete tracks[droppedId];
-        // TODO(#994 PR B): status chip on eviction
+        if (droppedId !== undefined) {
+          // Read the name before deleting -- it's the evicted track's own
+          // recorded name, not a re-derived lookup (#994 PR B round 3 Codex
+          // thread 3).
+          evictedName = tracks[droppedId]?.name;
+          delete tracks[droppedId];
+          evictedId = droppedId;
+        }
       }
 
       saveSatelliteTracks(tracks, order);
-      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+      return {
+        satelliteTracks: tracks,
+        satelliteTrackOrder: order,
+        satelliteTrackEviction: evictedId
+          ? { noradId: evictedId, name: evictedName, timestamp: Date.now() }
+          : state.satelliteTrackEviction,
+      };
     }),
 
   clearSatelliteTrack: (noradId) =>
@@ -2572,14 +2704,28 @@ export const useMapStore = create<MapState>((set, get) => ({
         (existingId) => existingId !== id,
       );
       saveSatelliteTracks(tracks, order);
-      return { satelliteTracks: tracks, satelliteTrackOrder: order };
+      // Clear any pending eviction notice too (#994 PR B round 2) -- leaving
+      // it set here would show "cleared NORAD X to make room" after the user
+      // has since cleared tracks entirely, pointing at a track that may no
+      // longer exist.
+      return {
+        satelliteTracks: tracks,
+        satelliteTrackOrder: order,
+        satelliteTrackEviction: null,
+      };
     }),
 
   clearAllSatelliteTracks: () =>
     set(() => {
       saveSatelliteTracks({}, []);
-      return { satelliteTracks: {}, satelliteTrackOrder: [] };
+      return {
+        satelliteTracks: {},
+        satelliteTrackOrder: [],
+        satelliteTrackEviction: null,
+      };
     }),
+
+  dismissSatelliteTrackEviction: () => set({ satelliteTrackEviction: null }),
 
   // Beacon inactive opacity
   setBeaconInactiveOpacity: (opacity) => {

@@ -194,8 +194,8 @@ const ModePills = memo(function ModePills({ modes }: { modes: string[] }) {
 
 const ActiveBadge = memo(function ActiveBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-signal-green border border-signal-green/40 animate-pulse">
-      <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-signal-green border border-signal-green/40">
+      <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
       LIVE
     </span>
   );

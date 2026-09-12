@@ -7,7 +7,12 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
-import { useContestUIStore, type OpsDockTab } from "@/stores/contestUIStore";
+import {
+  dockKeyForSession,
+  useContestUIStore,
+  type OpsDockTab,
+} from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { DXConsole, DXSpotList } from "@/components/dx";
 import { ContestDock } from "@/components/contest/ContestDock";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
@@ -22,6 +27,7 @@ import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import type { MapDataScope } from "@/lib/map/operationalScope";
+import { openOperatingPopout } from "@/lib/workspace/operatingPopout";
 
 export interface OpsConsoleProps {
   displayTime: Date;
@@ -34,21 +40,6 @@ const SCOPE_LABELS: Record<MapDataScope, string> = {
   log: "Log",
   contest: "Contest",
 };
-
-function openOperationalWorkspaceWindow(): Window | null {
-  const workspaceWindow = window.open(
-    "/map/ops",
-    "propulse-operating-workspace",
-    "popup=yes,width=1100,height=760,resizable=yes,scrollbars=yes",
-  );
-  // A blocked popup must not change automatic scope or hide public activity.
-  // The child repeats this flag after mounting so a successful window remains
-  // authoritative even if its initial BroadcastChannel handshake is delayed.
-  if (workspaceWindow) {
-    useMapOperationalStore.getState().setWorkspaceOpen(true);
-  }
-  return workspaceWindow;
-}
 
 export interface OperationalScopeControlProps {
   compact?: boolean;
@@ -80,10 +71,17 @@ export function OperationalScopeControl({
   );
   const setDesk = useOpsPostureStore((state) => state.setDesk);
   const exitContact = useOpsPostureStore((state) => state.exitContact);
+  const requestScopeReconcile = useContestUIEphemeralStore(
+    (state) => state.requestScopeReconcile,
+  );
 
   const handleScopeChange = useCallback(
     (value: string) => {
       const next = value === "auto" ? null : (value as MapDataScope);
+      // Declare the selection before touching any store: picking Log takes the
+      // desk in this same event, and the dock-tab reconciler's Contact/Desk
+      // gate must honour the scope the operator just chose (#884 round 6).
+      requestScopeReconcile();
       setManualScope(next);
       const resolved = next ?? automaticScope;
       if (resolved === "observe") {
@@ -98,6 +96,7 @@ export function OperationalScopeControl({
     }, [
       automaticScope,
       exitContact,
+      requestScopeReconcile,
       onWorkspaceRequested,
       setDesk,
       setManualScope,
@@ -154,7 +153,7 @@ export function OperationalScopeControl({
       {showPopout && (
         <button
           type="button"
-          onClick={openOperationalWorkspaceWindow}
+          onClick={openOperatingPopout}
           className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-1 text-[9px] text-su-muted transition-colors hover:border-su-line/50 hover:text-su-text"
           title="Open synchronized operating workspace in a secondary window"
           aria-label="Open operating workspace in secondary window"
@@ -265,16 +264,15 @@ export function OpsConsole({
 }: OpsConsoleProps) {
   const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const hasActiveSession = useContestStore((s) => Boolean(s.activeSession));
-  const dockKey = sessionId ?? "no-session";
+  const dockKey = dockKeyForSession(sessionId);
 
   const dockTab = useContestUIStore((s) => {
     const fallback: OpsDockTab = sessionId ? "contest" : "dx";
     return s.dockTabBySessionId[dockKey] ?? fallback;
   });
   const setDockTab = useContestUIStore((s) => s.setDockTab);
-  const { scope } = useMapOperationalContext();
-  const setManualScope = useMapOperationalStore(
-    (state) => state.setManualScope,
+  const setDockTabIntent = useContestUIEphemeralStore(
+    (s) => s.setDockTabIntent,
   );
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
@@ -284,18 +282,10 @@ export function OpsConsole({
   const exitContact = useOpsPostureStore((state) => state.exitContact);
   const isKiosk = useKioskStore((state) => state.active);
 
-  // Auto-enter contest pane when a session exists and user arrives in PropSphere.
-  // Contact/Desk own the dock tab so Work does not hide the band map.
-  useEffect(() => {
-    if (posture === "contact" || posture === "desk") return;
-    if (scope === "observe") {
-      setDockTab(dockKey, "dx");
-    } else if (scope === "log") {
-      setDockTab(dockKey, "log");
-    } else if (scope === "contest" && sessionId) {
-      setDockTab(sessionId, "contest");
-    }
-  }, [dockKey, posture, scope, sessionId, setDockTab]);
+  // Reconciling the dock tab against the operating scope belongs to
+  // `useDockTabReconciler`, called once per window by the page that owns the
+  // dock (#884 round 4). This component only reads the tab and writes the one
+  // the operator clicks.
 
   const handleCollapse = useCallback(() => {
     setWorkspaceOpen(false);
@@ -354,16 +344,24 @@ export function OpsConsole({
                 type="button"
                 disabled={disabled}
                 onClick={() => {
+                  // Declare the choice before touching any store, so the
+                  // single reconciler (`useDockTabReconciler`, owned by the
+                  // page) stands down for the run this click schedules — the
+                  // click's own `setWorkspaceOpen` can move the automatic
+                  // scope, and reconciling that would undo the click.
+                  setDockTabIntent(tab.id);
+                  // #884 (owner decision B): a tab click chooses the visible
+                  // panel and the posture, never the persisted operating
+                  // scope. Only the explicit scope <select> in
+                  // OperationalScopeControl writes `manualScope`, so a tab
+                  // click leaves the automatic scope driving PropSphere.
                   setDockTab(dockKey, tab.id);
                   if (tab.id === "dx") {
-                    setManualScope("observe");
                     exitContact("observe");
                   } else if (tab.id === "log") {
-                    setManualScope("log");
                     setWorkspaceOpen(true);
                     if (posture !== "contact") setDesk();
                   } else {
-                    setManualScope("contest");
                     setWorkspaceOpen(true);
                     exitContact("observe");
                   }

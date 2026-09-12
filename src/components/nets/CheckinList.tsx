@@ -33,7 +33,7 @@ const STATUS_BADGE: Record<
 > = {
   checked_in: {
     label: "Checked In",
-    className: "bg-signal-green/15 text-signal-green border-signal-green/50",
+    className: "bg-signal-green/15 text-su-text border-signal-green/50",
   },
   had_turn: {
     label: "Had Turn",

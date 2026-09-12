@@ -39,6 +39,11 @@ describe("createEquirectangularProjection", () => {
     expect(projection.wrapWidth).toBe(1024);
   });
 
+  it("reports wrapHeight and an undefined discRadiusPx", () => {
+    expect(projection.wrapHeight).toBe(512);
+    expect(projection.discRadiusPx).toBeUndefined();
+  });
+
   it("damps screenPx by max(1, zoomScale)", () => {
     const zoomedIn = createEquirectangularProjection({
       width: 1024,
@@ -96,6 +101,7 @@ describe("createAzimuthalProjection", () => {
       x: 300,
       y: 300,
       visible: true,
+      rim: 0,
     });
   });
 
@@ -130,6 +136,17 @@ describe("createAzimuthalProjection", () => {
   it("reports its kind and an undefined wrapWidth", () => {
     expect(projection.kind).toBe("azimuthal");
     expect(projection.wrapWidth).toBeUndefined();
+  });
+
+  it("reports discRadiusPx and an undefined wrapHeight", () => {
+    expect(projection.discRadiusPx).toBe(260);
+    expect(projection.wrapHeight).toBeUndefined();
+  });
+
+  it("reports rim as the normalised centre distance, 0.5 for the quarter-turn point and 1 at the antipode", () => {
+    expect(projection.project(0, 0).rim).toBe(0);
+    expect(projection.project(0, 90).rim).toBeCloseTo(0.5, 9);
+    expect(projection.project(0, 180).rim).toBeCloseTo(1, 9);
   });
 
   it("scaleAt returns the constant radial pxPerKm and isotropic stretch at the center", () => {

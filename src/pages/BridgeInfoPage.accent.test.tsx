@@ -220,23 +220,7 @@ describe("FeatureCard callout contrast on the real composite surface (#799)", ()
   });
 });
 
-describe("FeatureCard callout contrast: success role across colour-blind modes (#799, S1, tracked #811)", () => {
-  // The test above only measures the bare `stationPalettes[theme].success`
-  // tone in the default (non-colour-blind) mode. `--su-success` is one of
-  // exactly three tokens `stationTokens()` rewrites under colour-blind mode
-  // (`toneOnPanel`, stationTokens.ts), whose guarantee is against bare
-  // `panel` only -- not this callout's triple composite (a 0.03 tint over
-  // Card's glass over canvas/panel). Measured with real
-  // `stationTokens(theme, "#ff6b35", mode)`: 6 of 16 theme x mode
-  // combinations fail 4.5:1 on that composite (dark/deuteranopia,
-  // dark/protanopia, light/deuteranopia, light/protanopia, light/tritanopia,
-  // high-contrast/deuteranopia -- see the exact ratios in the PR body). This
-  // is a systemic `toneOnPanel` gap, not introduced by this PR (the old
-  // `#00ff88` literal measured 1.09 on the light callout, so every one of
-  // these is still a net improvement) -- tracked in #811. The known-failing
-  // combinations are recorded as `it.todo` with the measured ratio in the
-  // title instead of asserted, so this file documents the gap without
-  // blocking on a fix that belongs in `stationTokens`/`toneOnPanel` itself.
+describe("FeatureCard callout contrast: success role across colour-blind modes (#799, #811)", () => {
   const MODES: ColorBlindMode[] = [
     "none",
     "deuteranopia",
@@ -245,32 +229,8 @@ describe("FeatureCard callout contrast: success role across colour-blind modes (
   ];
   const DEFAULT_ACCENT_HEX = "#ff6b35";
 
-  const KNOWN_FAILURES: Partial<
-    Record<ThemeId, Partial<Record<ColorBlindMode, string>>>
-  > = {
-    dark: {
-      deuteranopia: "callout/panel 4.22, callout/canvas 4.49",
-      protanopia: "callout/panel 4.12, callout/canvas 4.34",
-    },
-    light: {
-      deuteranopia: "callout/panel 4.49, callout/canvas 4.16",
-      protanopia: "callout/panel 4.13, callout/canvas 3.83",
-      tritanopia: "callout/panel 4.18, callout/canvas 3.87",
-    },
-    "high-contrast": {
-      deuteranopia: "callout/panel 4.27, callout/canvas 4.56",
-    },
-  };
-
   for (const theme of THEMES) {
     for (const mode of MODES) {
-      const known = KNOWN_FAILURES[theme]?.[mode];
-      if (known) {
-        it.todo(
-          `${theme}/${mode} success callout clears 4.5:1 on panel/canvas (measured ${known}, tracked in #811)`,
-        );
-        continue;
-      }
       it(`${theme}/${mode} success callout clears 4.5:1 on panel/canvas`, () => {
         const palette = stationPalettes[theme];
         const tokens = stationTokens(theme, DEFAULT_ACCENT_HEX, mode);

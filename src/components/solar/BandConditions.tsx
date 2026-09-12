@@ -158,7 +158,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
           role="row"
         >
           <div
-            className="text-xs font-semibold text-su-muted uppercase tracking-wider"
+            className="col-span-2 text-xs font-semibold text-su-muted uppercase tracking-wider sm:col-span-1"
             role="columnheader"
           >
             Band
@@ -188,7 +188,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
             Spots
           </div>
           <div
-            className="text-xs font-semibold text-su-muted uppercase tracking-wider text-right md:text-left md:pl-1"
+            className="hidden sm:block text-xs font-semibold text-su-muted uppercase tracking-wider text-right md:text-left md:pl-1"
             role="columnheader"
           >
             Best For

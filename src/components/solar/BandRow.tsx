@@ -75,7 +75,7 @@ export const BandRow: React.FC<BandRowProps> = ({
       role="row"
     >
       {/* Band Name */}
-      <div role="cell">
+      <div className="col-span-2 sm:col-span-1" role="cell">
         <BandPill band={name} size="md" />
       </div>
 
@@ -143,9 +143,10 @@ export const BandRow: React.FC<BandRowProps> = ({
 
       {/* Best For */}
       <div
-        className="text-xs text-su-muted text-right md:text-left md:pl-1"
+        className="col-span-2 min-w-0 text-xs text-su-muted sm:col-span-1 sm:break-words sm:text-right md:text-left md:pl-1"
         role="cell"
       >
+        <span className="font-semibold sm:hidden">Best for: </span>
         {bestFor}
       </div>
     </div>

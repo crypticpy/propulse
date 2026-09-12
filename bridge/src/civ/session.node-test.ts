@@ -2,12 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildFrame, encodeBcdFrequency } from "./codec.js";
 import {
+  ASSEMBLY_TIMEOUT_MS,
   CivSession,
   COMMAND_TIMEOUT_MS,
   type CivSessionHandlers,
   type CivTransport,
 } from "./session.js";
-import { CivCmd, CIV_NG, CIV_OK } from "./types.js";
+import {
+  CivCmd,
+  CIV_NG,
+  CIV_OK,
+  CIV_SCOPE_SUB,
+  ScopeMode,
+  type CivSpectrumLine,
+} from "./types.js";
 
 const RADIO = 0x94;
 const CONTROLLER = 0xe0;
@@ -29,6 +37,63 @@ function tick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+/** Wait out a real timer (the session uses real timeouts, not fake ones). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** CI-V counts sequences in BCD: 11 travels as 0x11. */
+function bcd(value: number): number {
+  return Math.floor(value / 10) * 16 + (value % 10);
+}
+
+/**
+ * The first frame of a scope sweep. After the sub-command byte the radio sends
+ * scope index, sequence, max sequence, scope mode, the two 5-byte BCD band
+ * edges, one reserved byte, then the first pixel run.
+ */
+function scopeHeader(options: {
+  seqMax: number;
+  startHz: number;
+  endHz: number;
+  pixels?: number[];
+  scopeMode?: ScopeMode;
+  scopeIndex?: number;
+}): Buffer {
+  return fromRadio(
+    CivCmd.SCOPE_DATA,
+    Buffer.concat([
+      Buffer.from([
+        CIV_SCOPE_SUB.WAVE_DATA,
+        options.scopeIndex ?? 0x00,
+        bcd(1),
+        bcd(options.seqMax),
+        options.scopeMode ?? ScopeMode.Fixed,
+      ]),
+      encodeBcdFrequency(options.startHz),
+      encodeBcdFrequency(options.endHz),
+      Buffer.from([0x00]), // reserved byte the assembler skips
+      Buffer.from(options.pixels ?? []),
+    ]),
+  );
+}
+
+/** A continuation frame of a scope sweep: header fields, then pixels. */
+function scopePixels(
+  seq: number,
+  seqMax: number,
+  pixels: number[],
+  scopeIndex = 0x01,
+): Buffer {
+  return fromRadio(
+    CivCmd.SCOPE_DATA,
+    Buffer.concat([
+      Buffer.from([CIV_SCOPE_SUB.WAVE_DATA, scopeIndex, bcd(seq), bcd(seqMax)]),
+      Buffer.from(pixels),
+    ]),
+  );
+}
+
 class FakeTransport implements CivTransport {
   readonly logTag = "civ-test";
   ready = true;
@@ -45,17 +110,9 @@ class FakeTransport implements CivTransport {
   }
 }
 
-interface ScopeHeaderEvent {
-  kind: "header";
-  scopeData: Buffer;
-  scopeIndex: number;
-  seqMax: number;
-}
-interface ScopePixelsEvent {
-  kind: "pixels";
-  scopeData: Buffer;
-  seq: number;
-  seqMax: number;
+interface SpectrumLineEvent {
+  kind: "line";
+  line: CivSpectrumLine;
 }
 interface FrequencyEvent {
   kind: "frequency";
@@ -65,8 +122,7 @@ interface ModeEvent {
   kind: "mode";
   mode: string;
 }
-type SessionEvent =
-  ScopeHeaderEvent | ScopePixelsEvent | FrequencyEvent | ModeEvent;
+type SessionEvent = SpectrumLineEvent | FrequencyEvent | ModeEvent;
 
 interface Harness {
   session: CivSession;
@@ -74,27 +130,30 @@ interface Harness {
   events: SessionEvent[];
   /** Deliver bytes from the radio, as the transport would. */
   receive(...frames: Buffer[]): void;
+  /** Just the assembled spectrum lines, in order. */
+  lines(): CivSpectrumLine[];
 }
 
 function harness(options: { spectrumEnabled?: boolean } = {}): Harness {
   const transport = new FakeTransport();
   const events: SessionEvent[] = [];
   const handlers: CivSessionHandlers = {
-    isSpectrumEnabled: () => options.spectrumEnabled ?? false,
-    onScopeHeader: (scopeData, scopeIndex, seqMax) =>
-      events.push({ kind: "header", scopeData, scopeIndex, seqMax }),
-    onScopePixels: (scopeData, seq, seqMax) =>
-      events.push({ kind: "pixels", scopeData, seq, seqMax }),
+    onSpectrumLine: (line) => events.push({ kind: "line", line }),
     onUnsolicitedFrequency: (hz) => events.push({ kind: "frequency", hz }),
     onUnsolicitedMode: (mode) => events.push({ kind: "mode", mode }),
   };
   const session = new CivSession(transport, handlers);
+  if (options.spectrumEnabled) session.setSpectrumEnabled(true);
   return {
     session,
     transport,
     events,
     receive: (...frames: Buffer[]) =>
       session.handleIncomingData(Buffer.concat(frames)),
+    lines: () =>
+      events
+        .filter((event): event is SpectrumLineEvent => event.kind === "line")
+        .map((event) => event.line),
   };
 }
 
@@ -395,28 +454,12 @@ test("an unknown mode byte is dropped rather than reported", () => {
   assert.deepEqual(h.events, []);
 });
 
-test("scope frames are split into header and pixel runs when the scope is on", () => {
-  const h = harness({ spectrumEnabled: true });
-  // data = [sub, scopeIndex, seq(BCD), seqMax(BCD), ...payload]
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x11, 0xaa]));
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x02, 0x11, 0xbb]));
-
-  assert.equal(h.events.length, 2);
-  const header = h.events[0] as ScopeHeaderEvent;
-  assert.equal(header.kind, "header");
-  assert.equal(header.scopeIndex, 0x01);
-  assert.equal(header.seqMax, 11);
-  assert.equal(header.scopeData[0], 0x01, "sub-command byte is stripped");
-
-  const pixels = h.events[1] as ScopePixelsEvent;
-  assert.equal(pixels.kind, "pixels");
-  assert.equal(pixels.seq, 2);
-  assert.equal(pixels.seqMax, 11);
-});
-
 test("scope frames are ignored while the scope is off", () => {
   const h = harness({ spectrumEnabled: false });
-  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x11, 0xaa]));
+  h.receive(
+    scopeHeader({ seqMax: 2, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(2, 2, [1, 2, 3]),
+  );
   assert.deepEqual(h.events, []);
 });
 
@@ -433,6 +476,171 @@ test("an unsolicited frame arriving mid-command does not steal the response", as
   assert.ok(frame);
   assert.equal(frame.command, CivCmd.READ_MODE);
   assert.deepEqual(h.events, [{ kind: "frequency", hz: 50_313_000 }]);
+});
+
+// ─── Scope assembly ───────────────────────────────────────────────────────────
+
+test("a sweep assembles into one line across its header and pixel frames", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(2, 3, [3, 4]),
+    scopePixels(3, 3, [5, 6]),
+  );
+
+  assert.equal(h.events.length, 1, "one line, not one event per frame");
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 14_050_000);
+  assert.equal(line.spanHz, 100_000);
+  assert.deepEqual(Array.from(line.pixels), [3, 4, 5, 6]);
+  assert.equal(line.scopeMode, ScopeMode.Fixed);
+  assert.equal(line.scopeIndex, 0x00);
+});
+
+test("a multi-frame header contributes no pixels of its own", () => {
+  const h = harness({ spectrumEnabled: true });
+  // Only a seqMax-of-1 header carries pixels; in a run the pixel frames do.
+  h.receive(
+    scopeHeader({
+      seqMax: 2,
+      startHz: 14_000_000,
+      endHz: 14_100_000,
+      pixels: [1, 2],
+    }),
+    scopePixels(2, 2, [3, 4]),
+  );
+
+  const [line] = h.lines();
+  assert.deepEqual(Array.from(line.pixels), [3, 4]);
+});
+
+test("a single-frame sweep emits from the header alone", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      startHz: 7_000_000,
+      endHz: 7_200_000,
+      pixels: [10, 20, 30],
+    }),
+  );
+
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 7_100_000);
+  assert.equal(line.spanHz, 200_000);
+  assert.deepEqual(Array.from(line.pixels), [10, 20, 30]);
+});
+
+test("centre mode reads the edges as centre and half-span", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      scopeMode: ScopeMode.Center,
+      startHz: 14_074_000,
+      endHz: 25_000,
+      pixels: [7],
+    }),
+  );
+
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 14_074_000);
+  assert.equal(line.spanHz, 50_000);
+});
+
+test("a sweep with no span is dropped", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 1,
+      startHz: 14_000_000,
+      endHz: 14_000_000,
+      pixels: [1, 2],
+    }),
+  );
+  assert.deepEqual(h.events, []);
+});
+
+test("a header too short to carry the band edges is dropped", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(fromRadio(CivCmd.SCOPE_DATA, [0x00, 0x01, 0x01, 0x03, 0x01]));
+  h.receive(scopePixels(2, 3, [1, 2]));
+  assert.deepEqual(h.events, []);
+});
+
+test("an out-of-order pixel frame drops the partial line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }),
+    scopePixels(3, 3, [5, 6]), // sequence 2 never arrived
+    scopePixels(2, 3, [3, 4]), // too late: the assembly is gone
+  );
+  assert.deepEqual(h.events, [], "no line is emitted from a gapped sweep");
+
+  // The next sweep still assembles.
+  h.receive(
+    scopeHeader({ seqMax: 2, startHz: 21_000_000, endHz: 21_100_000 }),
+    scopePixels(2, 2, [2]),
+  );
+  assert.equal(h.lines().length, 1);
+});
+
+test("a sweep that stalls mid-run is discarded after the assembly timeout", async () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  await delay(ASSEMBLY_TIMEOUT_MS + 50);
+
+  // The rest of the sweep finally turns up; the partial line is long gone.
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, []);
+});
+
+test("disabling the scope mid-assembly drops the partial line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 3, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  h.session.setSpectrumEnabled(false);
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, [], "frames after the stop are dropped");
+
+  // Re-enabling must not resurrect the half-built line.
+  h.session.setSpectrumEnabled(true);
+  h.receive(scopePixels(2, 3, [3, 4]), scopePixels(3, 3, [5, 6]));
+  assert.deepEqual(h.events, []);
+});
+
+test("resetSpectrum drops scope state when the link closes", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(scopeHeader({ seqMax: 2, startHz: 14_000_000, endHz: 14_100_000 }));
+
+  h.session.resetSpectrum();
+  h.receive(scopePixels(2, 2, [2]));
+  assert.deepEqual(h.events, []);
+});
+
+test("a second header before the first completes starts a fresh line", () => {
+  const h = harness({ spectrumEnabled: true });
+  h.receive(
+    scopeHeader({
+      seqMax: 3,
+      startHz: 14_000_000,
+      endHz: 14_100_000,
+      pixels: [1, 2],
+    }),
+    // The radio restarts the sweep: a new header, a shorter run.
+    scopeHeader({ seqMax: 2, startHz: 21_000_000, endHz: 21_200_000 }),
+    scopePixels(2, 2, [8]),
+  );
+
+  assert.equal(h.events.length, 1);
+  const [line] = h.lines();
+  assert.equal(line.centerHz, 21_100_000, "the second header's edges win");
+  assert.deepEqual(
+    Array.from(line.pixels),
+    [8],
+    "the abandoned sweep contributes no pixels",
+  );
 });
 
 // ─── Framing ──────────────────────────────────────────────────────────────────

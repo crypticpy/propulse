@@ -1,10 +1,12 @@
 /**
- * CI-V Session — half-duplex command queue and frame dispatch
+ * CI-V Session — half-duplex command queue, frame dispatch, scope assembly
  *
  * The serial and network backends speak the same CI-V session protocol: one
  * command in flight at a time, a timeout per command, a response matcher that
  * knows the difference between an ACK and a data read, and a dispatcher that
- * routes everything else to the unsolicited-frame handlers.
+ * routes everything else to the unsolicited-frame handlers. Scope sweeps arrive
+ * split across a header frame and a run of pixel frames, and are reassembled
+ * here into one spectrum line.
  *
  * Only the bytes differ — serial writes to a port, network wraps each frame in
  * an RS-BA1 UDP packet — so the transport supplies the bytes and this module
@@ -17,18 +19,30 @@ import {
   decodeBcdFrequency,
   type CivFrame,
 } from "./codec.js";
-import { CivCmd, CIV_MODE_TO_STRING, CIV_SCOPE_SUB } from "./types.js";
+import {
+  CivCmd,
+  CIV_MODE_TO_STRING,
+  CIV_SCOPE_SUB,
+  ScopeMode,
+  type CivSpectrumLine,
+} from "./types.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Timeout for waiting on CI-V command responses (ms) */
 export const COMMAND_TIMEOUT_MS = 500;
 
+/** Timeout for discarding incomplete spectrum assemblies (ms) */
+export const ASSEMBLY_TIMEOUT_MS = 500;
+
 /** How many unsolicited frames to log before going quiet */
 const UNSOLICITED_LOG_LIMIT = 20;
 
 /** How many scope frames to log before going quiet */
 const SCOPE_LOG_LIMIT = 3;
+
+/** How many completed spectrum lines to log before going quiet */
+const SPECTRUM_LOG_LIMIT = 3;
 
 // ─── Transport ────────────────────────────────────────────────────────────────
 
@@ -68,23 +82,27 @@ export interface CivTransport {
  * own: scope sweeps and front-panel changes.
  */
 export interface CivSessionHandlers {
-  /** True while scope wave frames should be assembled. */
-  isSpectrumEnabled(): boolean;
-
-  /**
-   * First frame of a scope sweep (sequence 1), carrying the sweep's mode and
-   * frequency edges. `scopeData` has the sub-command byte already stripped.
-   */
-  onScopeHeader(scopeData: Buffer, scopeIndex: number, seqMax: number): void;
-
-  /** A continuation frame of a scope sweep (sequence > 1). */
-  onScopePixels(scopeData: Buffer, seq: number, seqMax: number): void;
+  /** One scope sweep, reassembled from its header and pixel frames. */
+  onSpectrumLine(line: CivSpectrumLine): void;
 
   /** The radio reported a frequency nobody asked for (front-panel change). */
   onUnsolicitedFrequency(hz: number): void;
 
   /** The radio reported a mode nobody asked for. */
   onUnsolicitedMode(mode: string): void;
+}
+
+// ─── Spectrum Assembly ────────────────────────────────────────────────────────
+
+interface LineAssembly {
+  scopeMode: ScopeMode;
+  scopeIndex: number;
+  startFreqHz: number;
+  endFreqHz: number;
+  seqMax: number;
+  lastSeq: number;
+  pixels: number[];
+  lastUpdateMs: number;
 }
 
 // ─── Command Queue Types ──────────────────────────────────────────────────────
@@ -112,6 +130,12 @@ export class CivSession {
   private commandQueue: Promise<void> = Promise.resolve();
   private unsolicitedFrameCount = 0;
   private scopeFrameCount = 0;
+  private spectrumLineCount = 0;
+
+  // Spectrum assembly
+  private assembly: LineAssembly | null = null;
+  private assemblyTimer: ReturnType<typeof setTimeout> | null = null;
+  private spectrumEnabled = false;
 
   constructor(transport: CivTransport, handlers: CivSessionHandlers) {
     this.transport = transport;
@@ -134,6 +158,27 @@ export class CivSession {
       this.pendingCommand.resolve(null);
       this.pendingCommand = null;
     }
+  }
+
+  // ── Scope ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Turn scope assembly on or off. Wave frames arriving while this is off are
+   * dropped; turning it off also discards any half-assembled line. The backend
+   * calls this around the scope on/off command sequences.
+   */
+  setSpectrumEnabled(enabled: boolean): void {
+    this.spectrumEnabled = enabled;
+    if (!enabled) {
+      this.clearAssemblyTimeout();
+      this.assembly = null;
+    }
+  }
+
+  /** Drop all scope state. Call when the link closes. */
+  resetSpectrum(): void {
+    this.setSpectrumEnabled(false);
+    this.spectrumLineCount = 0;
   }
 
   // ── Incoming Data ─────────────────────────────────────────────────────────
@@ -202,7 +247,7 @@ export class CivSession {
     this.unsolicitedFrameCount++;
     if (this.unsolicitedFrameCount <= UNSOLICITED_LOG_LIMIT) {
       console.log(
-        `[${this.transport.logTag}] Unsolicited frame #${this.unsolicitedFrameCount}: cmd=0x${frame.command.toString(16)} sub=${frame.subCommand !== undefined ? "0x" + frame.subCommand.toString(16) : "none"} data=${frame.data.length}b from=0x${frame.from.toString(16)} spectrumEnabled=${this.handlers.isSpectrumEnabled()}`,
+        `[${this.transport.logTag}] Unsolicited frame #${this.unsolicitedFrameCount}: cmd=0x${frame.command.toString(16)} sub=${frame.subCommand !== undefined ? "0x" + frame.subCommand.toString(16) : "none"} data=${frame.data.length}b from=0x${frame.from.toString(16)} spectrumEnabled=${this.spectrumEnabled}`,
       );
     }
 
@@ -210,7 +255,7 @@ export class CivSession {
     if (
       frame.command === CivCmd.SCOPE_DATA &&
       frame.subCommand === CIV_SCOPE_SUB.WAVE_DATA &&
-      this.handlers.isSpectrumEnabled()
+      this.spectrumEnabled
     ) {
       this.scopeFrameCount++;
       if (this.scopeFrameCount <= SCOPE_LOG_LIMIT) {
@@ -225,9 +270,9 @@ export class CivSession {
         const seqMax = decodeBcdByte(scopeData[2]);
         if (seq >= 1 && seqMax >= 1) {
           if (seq === 1) {
-            this.handlers.onScopeHeader(scopeData, scopeIndex, seqMax);
+            this.handleScopeHeader(scopeData, scopeIndex, seqMax);
           } else {
-            this.handlers.onScopePixels(scopeData, seq, seqMax);
+            this.handleScopePixels(scopeData, seq);
           }
         }
       }
@@ -372,5 +417,130 @@ export class CivSession {
       cmd === CivCmd.RIT_XIT ||
       cmd === CivCmd.SCOPE_CTRL
     );
+  }
+
+  // ── Scope Assembly ────────────────────────────────────────────────────────
+
+  /**
+   * First frame of a scope sweep (sequence 1), carrying the sweep's mode and
+   * frequency edges. `scopeData` has the sub-command byte already stripped.
+   */
+  private handleScopeHeader(
+    scopeData: Buffer,
+    scopeIndex: number,
+    seqMax: number,
+  ): void {
+    if (scopeData.length < 15) return;
+
+    const scopeMode = scopeData[3] as ScopeMode;
+    const startFreqHz = decodeBcdFrequency(scopeData, 4);
+    const endFreqHz = decodeBcdFrequency(scopeData, 9);
+
+    this.assembly = {
+      scopeMode,
+      scopeIndex,
+      startFreqHz,
+      endFreqHz,
+      seqMax,
+      lastSeq: 1,
+      pixels: [],
+      lastUpdateMs: Date.now(),
+    };
+
+    if (seqMax === 1) {
+      for (let i = 15; i < scopeData.length; i++) {
+        this.assembly.pixels.push(scopeData[i]);
+      }
+      this.emitCompleteLine();
+      return;
+    }
+
+    this.resetAssemblyTimeout();
+  }
+
+  /** A continuation frame of a scope sweep (sequence > 1). */
+  private handleScopePixels(scopeData: Buffer, seq: number): void {
+    if (!this.assembly) return;
+
+    if (seq !== this.assembly.lastSeq + 1) {
+      this.assembly = null;
+      return;
+    }
+
+    this.assembly.lastSeq = seq;
+    this.assembly.lastUpdateMs = Date.now();
+
+    for (let i = 3; i < scopeData.length; i++) {
+      this.assembly.pixels.push(scopeData[i]);
+    }
+
+    if (seq === this.assembly.seqMax) {
+      this.emitCompleteLine();
+    } else {
+      this.resetAssemblyTimeout();
+    }
+  }
+
+  private emitCompleteLine(): void {
+    this.clearAssemblyTimeout();
+
+    if (!this.assembly || this.assembly.pixels.length === 0) {
+      this.assembly = null;
+      return;
+    }
+
+    const { scopeMode, scopeIndex, startFreqHz, endFreqHz, pixels } =
+      this.assembly;
+
+    let centerHz: number;
+    let spanHz: number;
+
+    if (scopeMode === ScopeMode.Center) {
+      centerHz = startFreqHz;
+      spanHz = endFreqHz * 2;
+    } else {
+      centerHz = (startFreqHz + endFreqHz) / 2;
+      spanHz = endFreqHz - startFreqHz;
+    }
+
+    if (spanHz <= 0) {
+      this.assembly = null;
+      return;
+    }
+
+    const line: CivSpectrumLine = {
+      centerHz,
+      spanHz,
+      pixels: new Uint8Array(pixels),
+      scopeMode,
+      scopeIndex,
+    };
+
+    this.spectrumLineCount++;
+    if (this.spectrumLineCount <= SPECTRUM_LOG_LIMIT) {
+      console.log(
+        `[${this.transport.logTag}] Spectrum line #${this.spectrumLineCount}: center=${(line.centerHz / 1e6).toFixed(3)}MHz span=${(line.spanHz / 1e3).toFixed(0)}kHz bins=${line.pixels.length}`,
+      );
+    }
+
+    this.assembly = null;
+    this.handlers.onSpectrumLine(line);
+  }
+
+  private resetAssemblyTimeout(): void {
+    if (this.assemblyTimer) {
+      clearTimeout(this.assemblyTimer);
+    }
+    this.assemblyTimer = setTimeout(() => {
+      this.assemblyTimer = null;
+      this.assembly = null;
+    }, ASSEMBLY_TIMEOUT_MS);
+  }
+
+  private clearAssemblyTimeout(): void {
+    if (this.assemblyTimer) {
+      clearTimeout(this.assemblyTimer);
+      this.assemblyTimer = null;
+    }
   }
 }

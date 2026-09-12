@@ -7,8 +7,6 @@ import { useUTCClock } from "@/hooks/useUTCClock";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useMirrorHeight } from "@/hooks/useMirrorHeight";
-import { getMidpoint } from "@/lib/utils/path";
-import { resolveRoute } from "@/lib/propagation/geometry/route";
 import {
   getFrequencyLimits,
   getMUFAtLocation,
@@ -569,37 +567,20 @@ export function MufReport({ open, onClose }: MufReportProps) {
     };
   }, [timeShifted, ladderReady, observedEntry]);
 
-  // The mirror height is read at the circuit's control point: the great-circle
-  // midpoint between home and target, which is where the engine samples the
-  // path MUF and the reflection point of a single hop. The midpoint is pure
-  // geometry, so it does not depend on the height it feeds. Without a target,
-  // or with a degenerate pair (`getMidpoint` returns home for those), the
-  // point is the QTH, which is also the only point the rest of this report
-  // describes.
-  const controlPoint = useMemo(() => {
-    if (!location) return null;
-    if (!target) return { lat: location.lat, lon: location.lon };
-    return getMidpoint(location.lat, location.lon, target.lat, target.lon);
-  }, [location, target]);
-  // The height is a circuit quantity (P.533-14 section 5.1), so the hook also
-  // gets the frequency the trace runs at and the resolved route's ground
-  // distance, the same great circle `traceRayPath` walks. Without a target
-  // there is no circuit: the distance is null, the hook stays disabled and the
-  // stand-in applies, which is fine because the trace needs a target anyway.
-  const circuitDistanceKm = useMemo(() => {
-    if (!location || !target) return null;
-    const route = resolveRoute(
-      { latitudeDeg: location.lat, longitudeDeg: location.lon },
-      { latitudeDeg: target.lat, longitudeDeg: target.lon },
-    );
-    return route.kind === "resolved" ? route.groundDistanceKm : null;
-  }, [location, target]);
+  // The mirror height is a circuit quantity (P.533-14 section 5.1: it depends
+  // on the operating frequency and the hop length), so the hook gets both
+  // ends of the circuit and the frequency the trace runs at, and resolves the
+  // same short great-circle route `traceRayPath` walks. It picks its own
+  // control points (Table 1c). Without a target there is no circuit: the hook
+  // stays disabled and the stand-in applies, which is fine because the trace
+  // needs a target anyway.
   const mirrorHeight = useMirrorHeight(
-    controlPoint?.lat ?? null,
-    controlPoint?.lon ?? null,
+    location?.lat ?? null,
+    location?.lon ?? null,
+    target?.lat ?? null,
+    target?.lon ?? null,
     at,
     limits?.fot ?? null,
-    circuitDistanceKm,
   );
 
   const rayTrace = useMemo(() => {
@@ -614,6 +595,9 @@ export function MufReport({ open, onClose }: MufReportProps) {
       sfi: sfi ?? 100,
       kp: currentKp ?? FALLBACK_KP,
       mirrorHeight,
+      // The modelled height is solved on the short route; the trace must walk
+      // the same one or it would set the height aside as a mismatch.
+      pathMode: "short",
     });
   }, [location, target, muf, limits, at, sfi, currentKp, mirrorHeight]);
 

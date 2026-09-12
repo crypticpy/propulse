@@ -419,6 +419,43 @@ describe("dmax and the hop count", () => {
     const result = f2ReflectionHeight(inputs({ m3000F2: 2.37 }));
     expect(result.geometryHeightKm).toBe(mirrorHeightFromM3000F2(2.37));
   });
+
+  it("a pinned hopCount is the mode (Table 1c), so the dmax gate does not move it and the height is solved at D/n", () => {
+    const base = inputs({ m3000F2: 2.6, foF2MHz: 6, foEMHz: 1.5 });
+    // Free: 9000 km over dmax = 4000 km is 3F2.
+    const free = f2ReflectionHeight({ ...base, groundDistanceKm: 9000 });
+    expect(free.hopCount).toBe(3);
+    // Pinned to the mode the midpoint chose, at an outer control point whose
+    // own state would have asked for more hops: M(3000)F2 = 4.5 puts the
+    // equation (2) height at 155 km (grazing hop 2775 km) and, with
+    // foF2/foE at the floor of 2, dmax at 2879 km, both below D/3 = 3000 km.
+    // The count stays put.
+    const outer = {
+      m3000F2: 4.5,
+      foF2MHz: 6,
+      foEMHz: 3,
+      groundDistanceKm: 9000,
+    };
+    const pinned = f2ReflectionHeight({ ...base, ...outer, hopCount: 3 });
+    expect(pinned.hopCount).toBe(3);
+    expect(pinned.hopGroundDistanceKm).toBe(3000);
+    // And the same inputs unpinned would not have stayed at 3.
+    const unpinned = f2ReflectionHeight({ ...base, ...outer });
+    expect(unpinned.dmaxKm).toBeLessThan(3000);
+    expect(unpinned.geometricHopCount).toBe(4);
+    expect(unpinned.hopCount).toBe(4);
+    // The pinned height is section 5.1 at 3000 km, not at 2250 km.
+    expect(pinned.heightKm).not.toBe(unpinned.heightKm);
+    // The pin changes the mode and nothing else: with the free count pinned,
+    // the answer is identical.
+    const same = f2ReflectionHeight({
+      ...base,
+      groundDistanceKm: 9000,
+      hopCount: 3,
+    });
+    expect(same.heightKm).toBe(free.heightKm);
+    expect(same.branch).toBe(free.branch);
+  });
 });
 
 describe("f2ReflectionHeight and hop.ts agree", () => {
@@ -503,6 +540,9 @@ describe("f2ReflectionHeight input guards", () => {
     ["r12", { r12: Number.NaN }],
     ["groundDistanceKm", { groundDistanceKm: -1 }],
     ["groundDistanceKm", { groundDistanceKm: Number.NaN }],
+    ["hopCount", { hopCount: 0 }],
+    ["hopCount", { hopCount: 1.5 }],
+    ["hopCount", { hopCount: 1001 }],
   ] as const)(
     "throws a RangeError naming %s rather than clamping",
     (name, bad) => {

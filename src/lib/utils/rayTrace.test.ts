@@ -20,12 +20,12 @@ import {
 import * as rayTraceModule from "./rayTrace";
 
 /**
- * `hopGeometry` is spied on rather than replaced. `traceRayPath` picks its hop
- * count from `minimumHopCount` at the same mirror height, so the geometry it
- * then solves is always supported and the unsupported branch is not reachable
- * from the public entry point today. Pinning the mapping at this seam is what
- * keeps the route leaf's `reason` from being dropped again the day a caller
- * does reach it.
+ * `hopGeometry` is spied on rather than replaced. With a bare or stand-in
+ * height `traceRayPath` picks its hop count from `minimumHopCount` at the same
+ * mirror height, so the geometry it then solves is always supported; the
+ * unsupported branch is only reachable through a modelled provenance whose
+ * mode grazes the horizon (tested below). Pinning the mapping at this seam is
+ * what keeps the route leaf's `reason` from being dropped.
  */
 const geometryMocks = vi.hoisted(() => ({ hopGeometry: vi.fn() }));
 vi.mock("@/lib/propagation/geometry/hop", async (importOriginal) => {
@@ -433,6 +433,13 @@ describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings
 });
 
 describe("PROP-03 (#1108): the mirror height names its own source", () => {
+  const NY_TOKYO = resolveRoute(
+    { latitudeDeg: NY.lat, longitudeDeg: NY.lon },
+    { latitudeDeg: TOKYO.lat, longitudeDeg: TOKYO.lon },
+  );
+  if (NY_TOKYO.kind !== "resolved") throw new Error("fixture route");
+  /** A modelled height solved for exactly the circuit `trace("short")` draws:
+   * 412.5 km reaches 4457 km per hop, so 10 850 km is a 3F2 mode. */
   const MODELLED = {
     kind: "modelled" as const,
     heightKm: 412.5,
@@ -440,16 +447,53 @@ describe("PROP-03 (#1108): the mirror height names its own source", () => {
     foF2MHz: 9.8,
     foEMHz: 3.1,
     r12: 61.5,
-    frequencyMHz: 14,
-    groundDistanceKm: 5570,
+    frequencyMHz: 14.074,
+    groundDistanceKm: NY_TOKYO.groundDistanceKm,
     dmaxKm: 4000,
-    hopCount: 2,
+    hopCount: 3,
+    hopGroundDistanceKm: NY_TOKYO.groundDistanceKm / 3,
     branch: "5.1a" as const,
+    routeDirection: "short" as const,
+    controlPoints: [
+      {
+        label: "T + d0/2" as const,
+        latitude: 52.1,
+        longitude: -101.3,
+        heightKm: 420.0,
+        m3000F2: 2.5,
+        foF2MHz: 9.6,
+        foEMHz: 3.0,
+        r12: 61.5,
+        branch: "5.1a" as const,
+      },
+      {
+        label: "M" as const,
+        latitude: 64.9,
+        longitude: -150.2,
+        heightKm: 412.5,
+        m3000F2: 2.53,
+        foF2MHz: 9.8,
+        foEMHz: 3.1,
+        r12: 61.5,
+        branch: "5.1a" as const,
+      },
+      {
+        label: "R - d0/2" as const,
+        latitude: 50.3,
+        longitude: 158.4,
+        heightKm: 405.0,
+        m3000F2: 2.56,
+        foF2MHz: 10.1,
+        foEMHz: 3.2,
+        r12: 61.5,
+        branch: "5.1a" as const,
+      },
+    ],
     providerId: "ccir-numerical-map",
     providerVersion: "1.0.0",
     artifactHash: `sha256:${"a".repeat(64)}`,
     validAt: "2026-06-21T18:00:00.000Z",
-    coordinates: { latitude: 40.7, longitude: -74 },
+    coordinates: { latitude: 64.9, longitude: -150.2 },
     stateDigest: `sha256:${"b".repeat(64)}`,
     assumptions: ["R12 came from the bundled climatology."],
   };
@@ -536,9 +580,164 @@ describe("PROP-03 (#1108): the mirror height names its own source", () => {
     expect(modelled.assumptions[0]).toContain("412.5");
     // The prose names what the height is and what it was solved from.
     expect(modelled.assumptions[0]).toContain("P.533-14 section 5.1");
-    expect(modelled.assumptions[0]).toContain("14.0 MHz");
-    expect(modelled.assumptions[0]).toContain("5570 km");
-    expect(modelled.assumptions[0]).toContain("2 hops");
+    expect(modelled.assumptions[0]).toContain("Table 1c control points");
+    expect(modelled.assumptions[0]).toContain("14.1 MHz");
+    expect(modelled.assumptions[0]).toContain(
+      `${NY_TOKYO.groundDistanceKm.toFixed(0)} km`,
+    );
+    expect(modelled.assumptions[0]).toContain("3 hops");
+    expect(modelled.assumptions[0]).toContain("short route");
+    // It describes this circuit, so no mismatch sentence follows it.
+    expect(
+      modelled.assumptions.some((line) =>
+        line.includes("describes a different circuit"),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("PROP-03 (#1108): the trace draws the mode the modelled height was solved for", () => {
+  // NY due south to the equator: 4000 km along one meridian, short route.
+  const SOUTH = { lat: NY.lat - 4000 / (6371 * D2R), lon: NY.lon };
+  const route = resolveRoute(
+    { latitudeDeg: NY.lat, longitudeDeg: NY.lon },
+    { latitudeDeg: SOUTH.lat, longitudeDeg: SOUTH.lon },
+  );
+  if (route.kind !== "resolved") throw new Error("fixture route");
+  const D = route.groundDistanceKm;
+
+  /** A section 5.1 height solved for one hop of the whole circuit. 412.5 km
+   * reaches 4457 km in a single hop, so 1F2 over 4000 km closes; the 300 km
+   * stand-in only reaches 3870 km and needs two. */
+  function modelledFor(overrides: {
+    heightKm?: number;
+    groundDistanceKm?: number;
+    frequencyMHz?: number;
+    validAt?: string;
+    routeDirection?: "short" | "long";
+  }) {
+    const heightKm = overrides.heightKm ?? 412.5;
+    return {
+      kind: "modelled" as const,
+      heightKm,
+      m3000F2: 2.53,
+      foF2MHz: 9.8,
+      foEMHz: 3.1,
+      r12: 61.5,
+      frequencyMHz: overrides.frequencyMHz ?? 14.074,
+      groundDistanceKm: overrides.groundDistanceKm ?? D,
+      dmaxKm: 4000,
+      hopCount: 1,
+      hopGroundDistanceKm: overrides.groundDistanceKm ?? D,
+      branch: "5.1a" as const,
+      routeDirection: overrides.routeDirection ?? ("short" as const),
+      controlPoints: [
+        {
+          label: "M" as const,
+          latitude: 22.7,
+          longitude: -74,
+          heightKm,
+          m3000F2: 2.53,
+          foF2MHz: 9.8,
+          foEMHz: 3.1,
+          r12: 61.5,
+          branch: "5.1a" as const,
+        },
+      ],
+      providerId: "ccir-numerical-map",
+      providerVersion: "1.0.0",
+      artifactHash: `sha256:${"a".repeat(64)}`,
+      validAt: overrides.validAt ?? DATE.toISOString(),
+      coordinates: { latitude: 22.7, longitude: -74 },
+      stateDigest: `sha256:${"b".repeat(64)}`,
+      assumptions: [],
+    };
+  }
+
+  function traceWith(
+    mirrorHeight: ReturnType<typeof modelledFor> | undefined,
+    pathMode: "short" | "long" = "short",
+  ) {
+    return traceRayPath({
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: SOUTH.lat,
+      endLon: SOUTH.lon,
+      frequencyMHz: 14.074,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+      pathMode,
+      mirrorHeight,
+    });
+  }
+
+  const MISMATCH = "describes a different circuit";
+  const mismatchOf = (result: ReturnType<typeof traceWith>) =>
+    result.assumptions.find((line) => line.includes(MISMATCH));
+
+  it("traces one hop when the modelled provenance was solved for one hop of this circuit", () => {
+    expect(D).toBeCloseTo(4000, 0);
+    const result = traceWith(modelledFor({}));
+    expect(result.support.kind).toBe("supported");
+    expect(result.hops).toHaveLength(1);
+    expect(result.assumptions[0]).toContain("1 hop of");
+    expect(mismatchOf(result)).toBeUndefined();
+  });
+
+  it("traces the stand-in on minimumHopCount, which needs two hops at 300 km", () => {
+    const result = traceWith(undefined);
+    expect(result.support.kind).toBe("supported");
+    expect(result.hops).toHaveLength(2);
+  });
+
+  it("reports a modelled mode that grazes the horizon as geometrically unsupported rather than picking another count", () => {
+    // 300 km cannot close 4000 km in one hop. A height solved for that mode
+    // must not be quietly redrawn as 2F2 at a height solved for 1F2.
+    const result = traceWith(modelledFor({ heightKm: 300 }));
+    expect(result.support.kind).toBe("geometrically_unsupported");
+    if (result.support.kind !== "geometrically_unsupported") return;
+    expect(result.support.reason).toBe("below_horizon");
+    expect(result.support.detail.length).toBeGreaterThan(0);
+    expect(result.hops).toHaveLength(0);
+  });
+
+  it("uses only the height, recomputes the count and says so when the provenance describes another distance", () => {
+    const result = traceWith(modelledFor({ groundDistanceKm: D + 250 }));
+    expect(result.support.kind).toBe("supported");
+    // The provenance's mode is not trusted, so the count is the trace's own
+    // rule: at least minimumHopCount, and at least ceil(D / 3000 km) = 2.
+    expect(result.hops).toHaveLength(2);
+    const mismatch = mismatchOf(result);
+    expect(mismatch).toBeDefined();
+    expect(mismatch).toContain(`${(D + 250).toFixed(0)} km`);
+    expect(mismatch).toContain("used as a height only");
+  });
+
+  it("treats a different frequency, instant or route the same way", () => {
+    const frequency = traceWith(modelledFor({ frequencyMHz: 21.2 }));
+    expect(mismatchOf(frequency)).toContain("21.20 MHz");
+
+    const instant = traceWith(
+      modelledFor({ validAt: "2026-06-21T19:00:00.000Z" }),
+    );
+    expect(mismatchOf(instant)).toContain("2026-06-21T19:00:00.000Z");
+
+    const route = traceWith(modelledFor({ routeDirection: "long" }));
+    expect(mismatchOf(route)).toContain("solved on the long route");
+    expect(route.hops).toHaveLength(2);
+  });
+
+  it("accepts the hook's own rounding: a kilometre, a hundredth of a megahertz and seconds within the minute", () => {
+    const result = traceWith(
+      modelledFor({
+        groundDistanceKm: D + 0.9,
+        frequencyMHz: 14.07,
+        validAt: "2026-06-21T18:00:30.000Z",
+      }),
+    );
+    expect(mismatchOf(result)).toBeUndefined();
+    expect(result.hops).toHaveLength(1);
   });
 });
 

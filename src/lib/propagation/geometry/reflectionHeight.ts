@@ -82,12 +82,15 @@
  * P.533-14's own: it moves ds by 0.02 (H + 43) km, about 5 km at H = 200. It
  * is pinned in the tests and not smoothed here.
  *
- * WHAT THIS LEAF DOES NOT DO. Section 5.1 evaluates hr at the path midpoint
- * for paths up to dmax and, for longer paths, at each of the Table 1c control
- * points with the mean taken. This leaf is the per-control-point term: it takes
- * one set of ionospheric parameters and returns one height. A caller drawing a
- * circuit longer than dmax that wants the published mean has to call it at
- * each control point and average. It also does not re-check that its own
+ * CONTROL POINTS. Section 5.1 evaluates hr at the path midpoint for paths up
+ * to dmax and, for longer paths, at each of the Table 1c control points
+ * (T + d0/2, M, R - d0/2, with d0 the hop length D/n) and takes the mean. This
+ * leaf is the per-control-point term: one set of ionospheric parameters, one
+ * height. The mode (n, and so d0) is fixed once, at the midpoint, and the
+ * outer control points are evaluated at that same mode; `inputs.hopCount`
+ * exists for exactly that, so a caller can pin n instead of letting each point
+ * re-derive it from its own M(3000)F2. `ionosphere/mirrorHeight.ts` does the
+ * sampling and the averaging. This leaf also does not re-check that its own
  * height still reaches the hop it was computed for: the hop count is fixed by
  * equation (2) exactly as section 3.5.1.1 says, and a section 5.1 height that
  * comes out lower than the equation (2) one can leave a hop near the grazing
@@ -130,6 +133,12 @@ export interface F2ReflectionHeightInputs {
   readonly frequencyMHz: number;
   /** Ground distance of the whole circuit along its resolved route, km. */
   readonly groundDistanceKm: number;
+  /**
+   * Fix the hop count instead of deriving it. Table 1c control points of a
+   * circuit longer than dmax are evaluated at the mode chosen at the midpoint,
+   * so the outer points must not re-derive n from their own M(3000)F2.
+   */
+  readonly hopCount?: number;
 }
 
 export interface F2ReflectionHeight {
@@ -188,6 +197,16 @@ function assertInputs(inputs: F2ReflectionHeightInputs): void {
   ) {
     throw new RangeError(
       `groundDistanceKm must be a non-negative finite number, received ${String(inputs.groundDistanceKm)}.`,
+    );
+  }
+  if (
+    inputs.hopCount !== undefined &&
+    (!Number.isInteger(inputs.hopCount) ||
+      inputs.hopCount < 1 ||
+      inputs.hopCount > MAX_HOP_COUNT)
+  ) {
+    throw new RangeError(
+      `hopCount must be an integer between 1 and ${String(MAX_HOP_COUNT)}, received ${String(inputs.hopCount)}.`,
     );
   }
 }
@@ -280,8 +299,12 @@ export function f2ReflectionHeight(
   const geometricHopCount = minimumHopCount(groundDistanceKm, geometryHeightKm);
   const unrestrictedDmaxKm = maximumHopLengthKm(m3000F2, foF2MHz, foEMHz);
   const dmaxKm = Math.min(unrestrictedDmaxKm, MAX_DMAX_KM);
-  let hopCount = geometricHopCount;
-  while (groundDistanceKm / hopCount > dmaxKm) {
+  // A pinned count is the caller's mode (Table 1c); otherwise section 5.2.1.
+  let hopCount = inputs.hopCount ?? geometricHopCount;
+  while (
+    inputs.hopCount === undefined &&
+    groundDistanceKm / hopCount > dmaxKm
+  ) {
     hopCount += 1;
     if (hopCount > MAX_HOP_COUNT) {
       throw new RangeError(

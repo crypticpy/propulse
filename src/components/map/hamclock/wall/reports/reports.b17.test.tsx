@@ -7,8 +7,6 @@ import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
 import { declaredMirrorHeightStandin } from "@/lib/utils/rayTrace";
-import { getMidpoint } from "@/lib/utils/path";
-import { resolveRoute } from "@/lib/propagation/geometry/route";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
 import { getMUFAtLocation } from "@/lib/api/muf";
@@ -118,7 +116,8 @@ const LONDON = { lat: 51.5, lon: -0.13, name: "London", grid: "IO91wm" };
 
 const DECLARED_STANDIN = declaredMirrorHeightStandin("no_provider_supplied");
 /** A modelled height near the stand-in, so the hop count does not move and the
- * only thing under test is the caption. */
+ * only thing under test is the caption. 305 km reaches 3900 km per hop, so
+ * 7880 km is a 3F2 mode. */
 const MODELLED_MIRROR_HEIGHT = {
   kind: "modelled" as const,
   heightKm: 305.2,
@@ -129,8 +128,11 @@ const MODELLED_MIRROR_HEIGHT = {
   frequencyMHz: 18.4,
   groundDistanceKm: 7880,
   dmaxKm: 4000,
-  hopCount: 2,
+  hopCount: 3,
+  hopGroundDistanceKm: 7880 / 3,
   branch: "5.1a" as const,
+  routeDirection: "short" as const,
+  controlPoints: [],
   providerId: "ccir-numerical-map",
   providerVersion: "1.0.0",
   artifactHash: `sha256:${"a".repeat(64)}`,
@@ -756,47 +758,37 @@ describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
     expect(call?.[0].mirrorHeight).toEqual(MODELLED_MIRROR_HEIGHT);
   });
 
-  it("reads the mirror height at the great-circle midpoint of the circuit, not the QTH", async () => {
+  it("hands the hook home and target, so the leaf resolves the circuit the trace walks", async () => {
     mocks.target.mockReturnValue(LONDON);
     mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
 
     await hopsCaption();
-    const expected = getMidpoint(
-      AUSTIN.lat,
-      AUSTIN.lon,
-      LONDON.lat,
-      LONDON.lon,
-    );
     const call = mocks.mirrorHeight.mock.calls.at(-1);
-    expect(call?.[0]).toBeCloseTo(expected.lat, 6);
-    expect(call?.[1]).toBeCloseTo(expected.lon, 6);
-    // Sanity: the control point is neither endpoint.
-    expect(Math.abs(expected.lat - AUSTIN.lat)).toBeGreaterThan(5);
+    // Both ends, not a midpoint picked here: the leaf chooses the P.533-14
+    // Table 1c control points from the resolved route itself.
+    expect(call?.[0]).toBeCloseTo(AUSTIN.lat, 6);
+    expect(call?.[1]).toBeCloseTo(AUSTIN.lon, 6);
+    expect(call?.[2]).toBeCloseTo(LONDON.lat, 6);
+    expect(call?.[3]).toBeCloseTo(LONDON.lon, 6);
   });
 
-  it("passes the trace's own frequency and the resolved route distance to the mirror-height hook", async () => {
+  it("passes the trace's own frequency and instant to the mirror-height hook, and traces the short route", async () => {
     mocks.target.mockReturnValue(LONDON);
     mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
 
     await hopsCaption();
     const call = mocks.mirrorHeight.mock.calls.at(-1);
-    // The frequency is the FOT the trace runs at, so the height and the trace
-    // describe the same circuit.
+    // The frequency and instant are the ones the trace runs at, so the
+    // height and the trace describe the same circuit.
     const traced = rayTraceMocks.traceRayPath.mock.calls.at(-1);
-    expect(typeof call?.[3]).toBe("number");
-    expect(call?.[3]).toBe(traced?.[0].frequencyMHz);
-    // The distance is the resolved great-circle route, the one the trace
-    // walks, not a haversine of its own.
-    const route = resolveRoute(
-      { latitudeDeg: AUSTIN.lat, longitudeDeg: AUSTIN.lon },
-      { latitudeDeg: LONDON.lat, longitudeDeg: LONDON.lon },
-    );
-    expect(route.kind).toBe("resolved");
-    if (route.kind !== "resolved") return;
-    expect(call?.[4]).toBeCloseTo(route.groundDistanceKm, 6);
+    expect(typeof call?.[5]).toBe("number");
+    expect(call?.[5]).toBe(traced?.[0].frequencyMHz);
+    expect(call?.[4]).toBe(traced?.[0].date);
+    // The leaf solves on the short route, and the trace is told to walk it.
+    expect(traced?.[0].pathMode).toBe("short");
   });
 
-  it("reads the QTH but no distance when no target is set, so the hook stays disabled", async () => {
+  it("hands the hook the QTH but no target when none is set, so the hook stays disabled", async () => {
     mocks.target.mockReturnValue(null);
     mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
 
@@ -804,9 +796,10 @@ describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
     const call = mocks.mirrorHeight.mock.calls.at(-1);
     expect(call?.[0]).toBeCloseTo(AUSTIN.lat, 6);
     expect(call?.[1]).toBeCloseTo(AUSTIN.lon, 6);
-    // A circuit needs two ends. Without a target there is no distance, the
+    // A circuit needs two ends. Without a target there is no circuit, the
     // hook does not query, and the stand-in applies, which is fine because
     // the trace needs a target anyway.
-    expect(call?.[4]).toBeNull();
+    expect(call?.[2]).toBeNull();
+    expect(call?.[3]).toBeNull();
   });
 });

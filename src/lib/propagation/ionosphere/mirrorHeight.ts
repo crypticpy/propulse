@@ -12,23 +12,32 @@
  *    route does not pay for the provider chain until a report opens (#1108
  *    decision O10). A rejected load is not cached: the next call retries, the
  *    same rule `loadNumericalMapAsset` already applies to the asset itself.
- *  - hands the state's foF2, foE, M(3000)F2 and the R12 it was actually
- *    evaluated at, together with the circuit's operating frequency and ground
- *    distance, to `f2ReflectionHeight`, the ITU-R P.533-14 section 5.1 F2
- *    mirror height (mathematical contract M05). The height depends on all six,
- *    which is why this leaf takes the circuit and not just the point.
+ *  - resolves the circuit's short great-circle route and evaluates the
+ *    ITU-R P.533-14 section 5.1 F2 mirror height (mathematical contract M05)
+ *    at the Table 1c control points. The mode (hop count n and hop length
+ *    d0 = D/n) is fixed at the path midpoint M by `f2ReflectionHeight`. For a
+ *    circuit up to dmax that is the whole answer: one control point, M. For a
+ *    longer circuit Table 1c names three, T + d0/2, M and R - d0/2, and the
+ *    height is the mean of the section 5.1 height at each, every point solved
+ *    from its own foF2, foE, M(3000)F2 and R12 for the same mode. The mode is
+ *    pinned rather than re-derived per point because the height is a property
+ *    of one hop geometry, and the trace draws that geometry.
  *  - returns provenance either way. It never throws at the caller and never
  *    returns a bare number: a height with no source is the thing this leaf
- *    exists to stop.
- *
- * What it deliberately does not do: pick the point. The midpoint of a circuit,
- * the QTH, or a per-hop reflection point are all defensible, and the choice
- * belongs to whoever is drawing the circuit.
+ *    exists to stop. The modelled provenance records every control point so
+ *    the trace can check it was solved for the circuit being drawn.
  */
 
 import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
+import type { F2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
+import {
+  resolveRoute,
+  routeSampleAtFraction,
+} from "@/lib/propagation/geometry/route";
+import type { GeodeticPoint } from "@/lib/propagation/geometry/route";
 import {
   declaredMirrorHeightStandin,
+  type MirrorHeightControlPoint,
   type MirrorHeightProvenance,
 } from "@/lib/utils/rayTrace";
 import { canonicalCoordinates, unknown } from "./types";
@@ -42,16 +51,24 @@ export type ResolvedMirrorHeight = Extract<
   { kind: "modelled" | "declared_standin" }
 >;
 
-export interface MirrorHeightQuery {
+export interface MirrorHeightEndpoint {
   readonly latitude: number;
   readonly longitude: number;
+}
+
+export interface MirrorHeightQuery {
+  /** The transmitter end of the circuit, T in Table 1c. */
+  readonly start: MirrorHeightEndpoint;
+  /** The receiver end of the circuit, R in Table 1c. */
+  readonly end: MirrorHeightEndpoint;
   /** The instant the report is showing, not necessarily the wall clock. */
   readonly at: Date;
   /** The operating frequency the circuit is traced at, MHz. */
   readonly frequencyMHz: number;
-  /** Ground distance of the whole circuit along its resolved route, km. */
-  readonly groundDistanceKm: number;
 }
+
+/** The route the height is solved on. The report only traces short paths. */
+const ROUTE_DIRECTION = "short";
 
 /**
  * R12 is left to the provider's bundled climatology rather than guessed from
@@ -115,19 +132,51 @@ async function stateDigestOf(
   }
 }
 
+interface EvaluatedPoint {
+  readonly state: IonosphereState;
+  readonly height: F2ReflectionHeight;
+}
+
+function toGeodetic(point: MirrorHeightEndpoint): GeodeticPoint {
+  return { latitudeDeg: point.latitude, longitudeDeg: point.longitude };
+}
+
+function controlPointOf(
+  label: MirrorHeightControlPoint["label"],
+  { state, height }: EvaluatedPoint,
+): MirrorHeightControlPoint {
+  return {
+    label,
+    latitude: state.coordinates.latitude,
+    longitude: state.coordinates.longitude,
+    heightKm: height.heightKm,
+    m3000F2: state.m3000F2,
+    foF2MHz: state.foF2MHz,
+    foEMHz: state.foEMHz,
+    r12: state.solarIndex.r12,
+    branch: height.branch,
+  };
+}
+
 /**
- * The mirror reflection height at one point and instant, with its source.
+ * The mirror reflection height for one circuit and instant, with its source.
  *
  * Never rejects. Every failure is a `declared_standin` naming which of the
- * three things went wrong.
+ * things it needed went wrong.
  */
 export async function resolveMirrorHeight({
-  latitude,
-  longitude,
+  start,
+  end,
   at,
   frequencyMHz,
-  groundDistanceKm,
 }: MirrorHeightQuery): Promise<ResolvedMirrorHeight> {
+  const route = resolveRoute(toGeodetic(start), toGeodetic(end), {
+    direction: ROUTE_DIRECTION,
+  });
+  if (route.kind !== "resolved") {
+    return declaredMirrorHeightStandin("circuit_unresolvable");
+  }
+
   let loaded: LoadedProvider;
   try {
     loaded = await loadProvider();
@@ -136,39 +185,80 @@ export async function resolveMirrorHeight({
   }
 
   try {
-    const coordinates = canonicalCoordinates(latitude, longitude);
-    const state = loaded.provider.state({
-      coordinates,
-      validAt: at.toISOString(),
-      r12: unknown<number>(R12_REASON),
-      // The provider's own rule: `enhanced` unless reproducing an ITU golden.
-      // `reference` reaches the coefficients through the mirrored 1.5-degree
-      // grid, which is a parity oracle, not a live evaluation.
-      mode: "enhanced",
-    });
-    // The R12 is the one the state was evaluated at. When the circuit
-    // supplies none, that is the provider's bundled climatology, and the
-    // substitution is already named in `state.assumptions`.
-    const height = f2ReflectionHeight({
-      m3000F2: state.m3000F2,
-      foF2MHz: state.foF2MHz,
-      foEMHz: state.foEMHz,
-      r12: state.solarIndex.r12,
-      frequencyMHz,
-      groundDistanceKm,
-    });
+    const groundDistanceKm = route.groundDistanceKm;
+    const validAt = at.toISOString();
+    const evaluate = (
+      fraction: number,
+      hopCount: number | undefined,
+    ): EvaluatedPoint => {
+      const point = routeSampleAtFraction(route, fraction);
+      const state = loaded.provider.state({
+        coordinates: canonicalCoordinates(
+          point.latitudeDeg,
+          point.longitudeDeg,
+        ),
+        validAt,
+        r12: unknown<number>(R12_REASON),
+        // The provider's own rule: `enhanced` unless reproducing an ITU
+        // golden. `reference` reaches the coefficients through the mirrored
+        // 1.5-degree grid, which is a parity oracle, not a live evaluation.
+        mode: "enhanced",
+      });
+      // The R12 is the one the state was evaluated at. When the circuit
+      // supplies none, that is the provider's bundled climatology, and the
+      // substitution is already named in `state.assumptions`.
+      const height = f2ReflectionHeight({
+        m3000F2: state.m3000F2,
+        foF2MHz: state.foF2MHz,
+        foEMHz: state.foEMHz,
+        r12: state.solarIndex.r12,
+        frequencyMHz,
+        groundDistanceKm,
+        hopCount,
+      });
+      return { state, height };
+    };
+
+    // The mode is fixed at M: section 5.2.1's lowest-order F2 mode with a hop
+    // no longer than dmax evaluated at the midpoint (P.533-14 Table 1c, which
+    // puts dmax and the mode at M for every path length).
+    const midpoint = evaluate(0.5, undefined);
+    const { hopCount, hopGroundDistanceKm, dmaxKm } = midpoint.height;
+
+    // Table 1c: paths up to dmax take M alone; longer paths take T + d0/2, M
+    // and R - d0/2, and the mean of the section 5.1 height across them. With
+    // d0 = D/n the offsets are the fractions 1/(2n) and 1 - 1/(2n).
+    const controlPoints: MirrorHeightControlPoint[] =
+      hopCount === 1
+        ? [controlPointOf("M", midpoint)]
+        : [
+            controlPointOf("T + d0/2", evaluate(1 / (2 * hopCount), hopCount)),
+            controlPointOf("M", evaluate(0.5, hopCount)),
+            controlPointOf(
+              "R - d0/2",
+              evaluate(1 - 1 / (2 * hopCount), hopCount),
+            ),
+          ];
+    const heightKm =
+      controlPoints.reduce((sum, point) => sum + point.heightKm, 0) /
+      controlPoints.length;
+
+    const state = midpoint.state;
     return {
       kind: "modelled",
-      heightKm: height.heightKm,
+      heightKm,
       m3000F2: state.m3000F2,
       foF2MHz: state.foF2MHz,
       foEMHz: state.foEMHz,
       r12: state.solarIndex.r12,
       frequencyMHz,
       groundDistanceKm,
-      dmaxKm: height.dmaxKm,
-      hopCount: height.hopCount,
-      branch: height.branch,
+      dmaxKm,
+      hopCount,
+      hopGroundDistanceKm,
+      branch: midpoint.height.branch,
+      routeDirection: ROUTE_DIRECTION,
+      controlPoints,
       providerId: state.providerId,
       providerVersion: state.providerVersion,
       artifactHash: state.artifactHash,

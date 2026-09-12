@@ -14,6 +14,8 @@ vi.mock("@/lib/propagation/ionosphere/mirrorHeight", () => ({
 const AT = new Date("2026-09-05T18:00:00Z");
 const FREQUENCY_MHZ = 18.4;
 const DISTANCE_KM = 7880;
+const AUSTIN = { lat: 30.27, lon: -97.74 };
+const LONDON = { lat: 51.5, lon: -0.13 };
 
 const MODELLED = {
   kind: "modelled" as const,
@@ -26,7 +28,10 @@ const MODELLED = {
   groundDistanceKm: DISTANCE_KM,
   dmaxKm: 4000,
   hopCount: 2,
+  hopGroundDistanceKm: DISTANCE_KM / 2,
   branch: "5.1a" as const,
+  routeDirection: "short" as const,
+  controlPoints: [],
   providerId: "ccir-numerical-map",
   providerVersion: "1.0.0",
   artifactHash: "sha256:" + "a".repeat(64),
@@ -55,7 +60,15 @@ describe("useMirrorHeight", () => {
     });
 
     const { result } = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          FREQUENCY_MHZ,
+        ),
       {
         wrapper,
       },
@@ -74,12 +87,13 @@ describe("useMirrorHeight", () => {
     expect(result.current.heightKm).toBe(MODELLED.heightKm);
   });
 
-  it("stays on the declared stand-in without a position, and never queries", async () => {
+  it("stays on the declared stand-in without a home position, and never queries", async () => {
     resolveMocks.resolve.mockClear();
     resolveMocks.resolve.mockResolvedValue(MODELLED);
 
     const { result } = renderHook(
-      () => useMirrorHeight(null, null, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(null, null, LONDON.lat, LONDON.lon, AT, FREQUENCY_MHZ),
       { wrapper },
     );
 
@@ -87,25 +101,35 @@ describe("useMirrorHeight", () => {
     await waitFor(() => expect(resolveMocks.resolve).not.toHaveBeenCalled());
   });
 
-  it("stays on the declared stand-in without a frequency or a distance, and never queries", async () => {
+  it("stays on the declared stand-in without a target or a frequency, and never queries", async () => {
     resolveMocks.resolve.mockClear();
     resolveMocks.resolve.mockResolvedValue(MODELLED);
 
-    const noDistance = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, null),
+    // A circuit needs two ends: without a target there is nothing to solve.
+    const noTarget = renderHook(
+      () =>
+        useMirrorHeight(AUSTIN.lat, AUSTIN.lon, null, null, AT, FREQUENCY_MHZ),
       { wrapper },
     );
     const noFrequency = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, null, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          null,
+        ),
       { wrapper },
     );
 
-    expect(noDistance.result.current.kind).toBe("declared_standin");
+    expect(noTarget.result.current.kind).toBe("declared_standin");
     expect(noFrequency.result.current.kind).toBe("declared_standin");
     await waitFor(() => expect(resolveMocks.resolve).not.toHaveBeenCalled());
   });
 
-  it("keys on the rounded position, frequency, distance and minute: seconds of drift within the minute are not a refetch, a new minute is", async () => {
+  it("keys on the endpoints to a thousandth of a degree, the frequency and the minute: jitter inside those is not a refetch, a new minute is", async () => {
     resolveMocks.resolve.mockClear();
     resolveMocks.resolve.mockResolvedValue(MODELLED);
     const client = new QueryClient({
@@ -118,11 +142,12 @@ describe("useMirrorHeight", () => {
     const first = renderHook(
       () =>
         useMirrorHeight(
-          30.271,
-          -97.744,
+          30.2714,
+          -97.7444,
+          51.5044,
+          -0.1314,
           new Date("2026-09-05T18:37:10.000Z"),
           18.401,
-          7880.4,
         ),
       { wrapper: sharedWrapper },
     );
@@ -131,11 +156,12 @@ describe("useMirrorHeight", () => {
     renderHook(
       () =>
         useMirrorHeight(
-          30.269,
-          -97.742,
+          30.2706,
+          -97.7436,
+          51.5036,
+          -0.1306,
           new Date("2026-09-05T18:37:29.000Z"),
           18.404,
-          7880.2,
         ),
       { wrapper: sharedWrapper },
     );
@@ -144,11 +170,12 @@ describe("useMirrorHeight", () => {
     renderHook(
       () =>
         useMirrorHeight(
-          30.271,
-          -97.744,
+          30.2714,
+          -97.7444,
+          51.5044,
+          -0.1314,
           new Date("2026-09-05T18:38:00.000Z"),
           18.401,
-          7880.4,
         ),
       { wrapper: sharedWrapper },
     );
@@ -162,26 +189,29 @@ describe("useMirrorHeight", () => {
     renderHook(
       () =>
         useMirrorHeight(
-          30.27,
-          -97.74,
+          30.2714,
+          -97.7444,
+          51.5044,
+          -0.1314,
           new Date("2026-09-05T18:37:41.000Z"),
           18.404,
-          7880.4,
         ),
       { wrapper },
     );
 
     await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
     const query = resolveMocks.resolve.mock.calls[0][0] as {
+      start: { latitude: number; longitude: number };
+      end: { latitude: number; longitude: number };
       at: Date;
       frequencyMHz: number;
-      groundDistanceKm: number;
     };
     expect(query.at.toISOString()).toBe("2026-09-05T18:38:00.000Z");
     // The leaf gets the same rounded inputs the key was built from, so the
     // cached answer is a pure function of its key.
+    expect(query.start).toEqual({ latitude: 30.271, longitude: -97.744 });
+    expect(query.end).toEqual({ latitude: 51.504, longitude: -0.131 });
     expect(query.frequencyMHz).toBe(18.4);
-    expect(query.groundDistanceKm).toBe(7880);
   });
 
   it("asks again on the next mount when the last answer was a stand-in, so a transient load failure is not cached for the hour", async () => {
@@ -198,7 +228,15 @@ describe("useMirrorHeight", () => {
     );
 
     const first = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          FREQUENCY_MHZ,
+        ),
       {
         wrapper: sharedWrapper,
       },
@@ -214,7 +252,15 @@ describe("useMirrorHeight", () => {
     first.unmount();
 
     const second = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          FREQUENCY_MHZ,
+        ),
       {
         wrapper: sharedWrapper,
       },
@@ -234,7 +280,15 @@ describe("useMirrorHeight", () => {
     );
 
     const first = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          FREQUENCY_MHZ,
+        ),
       {
         wrapper: sharedWrapper,
       },
@@ -243,7 +297,15 @@ describe("useMirrorHeight", () => {
     first.unmount();
 
     const second = renderHook(
-      () => useMirrorHeight(30.27, -97.74, AT, FREQUENCY_MHZ, DISTANCE_KM),
+      () =>
+        useMirrorHeight(
+          AUSTIN.lat,
+          AUSTIN.lon,
+          LONDON.lat,
+          LONDON.lon,
+          AT,
+          FREQUENCY_MHZ,
+        ),
       {
         wrapper: sharedWrapper,
       },

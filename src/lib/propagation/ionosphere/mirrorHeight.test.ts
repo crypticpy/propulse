@@ -21,6 +21,10 @@ import {
 import { canonicalCoordinates, unknown } from "./types";
 import { f2ReflectionHeight } from "@/lib/propagation/geometry/reflectionHeight";
 import {
+  resolveRoute,
+  routeSampleAtFraction,
+} from "@/lib/propagation/geometry/route";
+import {
   resetMirrorHeightProviderCache,
   resolveMirrorHeight,
 } from "./mirrorHeight";
@@ -63,9 +67,21 @@ async function assetBytes(): Promise<ArrayBuffer> {
 
 /** Austin at 18Z, the QTH and instant the wall reports are pinned to. */
 const AUSTIN = { latitude: 30.27, longitude: -97.74 };
+const LONDON = { latitude: 51.5, longitude: -0.13 };
+/** About 1570 km from Austin: one hop, inside dmax. */
+const CHICAGO = { latitude: 41.88, longitude: -87.63 };
 const AT = new Date("2026-09-05T18:00:00Z");
-/** A 20 m circuit of about the Austin to London ground distance. */
-const CIRCUIT = { frequencyMHz: 14.1, groundDistanceKm: 7880 };
+/** A 20 m circuit from Austin to London, 7880 km, well beyond dmax. */
+const CIRCUIT = { start: AUSTIN, end: LONDON, frequencyMHz: 14.1 };
+
+function routeOf(start: typeof AUSTIN, end: typeof AUSTIN) {
+  const route = resolveRoute(
+    { latitudeDeg: start.latitude, longitudeDeg: start.longitude },
+    { latitudeDeg: end.latitude, longitudeDeg: end.longitude },
+  );
+  if (route.kind !== "resolved") throw new Error("fixture route");
+  return route;
+}
 
 function servesTheAsset(): ReturnType<typeof vi.fn> {
   return vi.fn(async () => new Response(await assetBytes()));
@@ -83,14 +99,10 @@ afterEach(() => {
 });
 
 describe("resolveMirrorHeight", () => {
-  it("resolves a modelled height from the full P.533 section 5.1 parameter set and carries the provider id, version and artifact hash", async () => {
+  it("evaluates a circuit beyond dmax at the three Table 1c control points and returns their mean, with every point recorded", async () => {
     vi.stubGlobal("fetch", servesTheAsset());
 
-    const provenance = await resolveMirrorHeight({
-      ...AUSTIN,
-      ...CIRCUIT,
-      at: AT,
-    });
+    const provenance = await resolveMirrorHeight({ ...CIRCUIT, at: AT });
 
     expect(provenance.kind).toBe("modelled");
     if (provenance.kind !== "modelled") return;
@@ -103,47 +115,147 @@ describe("resolveMirrorHeight", () => {
     expect(provenance.providerVersion).toBe(PROVIDER_VERSION);
     expect(provenance.artifactHash).toBe(manifest.asset.sha256);
 
-    // The ionospheric inputs are the state's own, R12 included: the value the
-    // provider actually evaluated the map at, not one invented here.
-    const provider = await createCcirIonosphereProvider();
-    const state = provider.state({
-      coordinates: canonicalCoordinates(AUSTIN.latitude, AUSTIN.longitude),
-      validAt: AT.toISOString(),
-      r12: unknown<number>("test: bundled climatology"),
-      mode: "enhanced",
-    });
-    expect(provenance.m3000F2).toBe(state.m3000F2);
-    expect(provenance.foF2MHz).toBe(state.foF2MHz);
-    expect(provenance.foEMHz).toBe(state.foEMHz);
-    expect(provenance.r12).toBe(state.solarIndex.r12);
+    // The circuit is the short route between the two ends, the same great
+    // circle the trace walks, and the distance is that route's.
+    const route = routeOf(AUSTIN, LONDON);
+    expect(provenance.routeDirection).toBe("short");
+    expect(provenance.groundDistanceKm).toBe(route.groundDistanceKm);
     expect(provenance.frequencyMHz).toBe(CIRCUIT.frequencyMHz);
-    expect(provenance.groundDistanceKm).toBe(CIRCUIT.groundDistanceKm);
 
-    // The height is the section 5.1 leaf evaluated on exactly those inputs,
-    // not a number this leaf invented and not the equation (2) shortcut.
-    const expected = f2ReflectionHeight({
-      m3000F2: provenance.m3000F2,
-      foF2MHz: provenance.foF2MHz,
-      foEMHz: provenance.foEMHz,
-      r12: provenance.r12,
-      frequencyMHz: provenance.frequencyMHz,
-      groundDistanceKm: provenance.groundDistanceKm,
+    // The mode is fixed at the midpoint: section 5.2.1's lowest hop count
+    // with a hop no longer than dmax, evaluated from the midpoint's state.
+    const provider = await createCcirIonosphereProvider();
+    const stateAt = (fraction: number) => {
+      const point = routeSampleAtFraction(route, fraction);
+      return provider.state({
+        coordinates: canonicalCoordinates(
+          point.latitudeDeg,
+          point.longitudeDeg,
+        ),
+        validAt: AT.toISOString(),
+        r12: unknown<number>("test: bundled climatology"),
+        mode: "enhanced",
+      });
+    };
+    const midpoint = stateAt(0.5);
+    const mode = f2ReflectionHeight({
+      m3000F2: midpoint.m3000F2,
+      foF2MHz: midpoint.foF2MHz,
+      foEMHz: midpoint.foEMHz,
+      r12: midpoint.solarIndex.r12,
+      frequencyMHz: CIRCUIT.frequencyMHz,
+      groundDistanceKm: route.groundDistanceKm,
     });
-    expect(provenance.heightKm).toBe(expected.heightKm);
-    expect(provenance.dmaxKm).toBe(expected.dmaxKm);
-    expect(provenance.hopCount).toBe(expected.hopCount);
-    expect(provenance.branch).toBe(expected.branch);
+    expect(mode.hopCount).toBeGreaterThan(1);
+    expect(provenance.hopCount).toBe(mode.hopCount);
+    expect(provenance.dmaxKm).toBe(mode.dmaxKm);
+    expect(provenance.hopGroundDistanceKm).toBe(
+      route.groundDistanceKm / mode.hopCount,
+    );
+    expect(provenance.branch).toBe(mode.branch);
+    // The midpoint inputs are the state's own, R12 included: the value the
+    // provider actually evaluated the map at, not one invented here.
+    expect(provenance.m3000F2).toBe(midpoint.m3000F2);
+    expect(provenance.foF2MHz).toBe(midpoint.foF2MHz);
+    expect(provenance.foEMHz).toBe(midpoint.foEMHz);
+    expect(provenance.r12).toBe(midpoint.solarIndex.r12);
+    expect(provenance.coordinates.latitude).toBe(midpoint.coordinates.latitude);
+    expect(provenance.coordinates.longitude).toBe(
+      midpoint.coordinates.longitude,
+    );
+
+    // Table 1c: T + d0/2, M and R - d0/2, in path order, each solved from
+    // its own state for the midpoint's mode.
+    const n = mode.hopCount;
+    const fractions = [1 / (2 * n), 0.5, 1 - 1 / (2 * n)];
+    expect(provenance.controlPoints.map((p) => p.label)).toEqual([
+      "T + d0/2",
+      "M",
+      "R - d0/2",
+    ]);
+    provenance.controlPoints.forEach((point, index) => {
+      const state = stateAt(fractions[index]);
+      expect(point.latitude).toBe(state.coordinates.latitude);
+      expect(point.longitude).toBe(state.coordinates.longitude);
+      expect(point.m3000F2).toBe(state.m3000F2);
+      expect(point.foF2MHz).toBe(state.foF2MHz);
+      expect(point.foEMHz).toBe(state.foEMHz);
+      expect(point.r12).toBe(state.solarIndex.r12);
+      const expected = f2ReflectionHeight({
+        m3000F2: state.m3000F2,
+        foF2MHz: state.foF2MHz,
+        foEMHz: state.foEMHz,
+        r12: state.solarIndex.r12,
+        frequencyMHz: CIRCUIT.frequencyMHz,
+        groundDistanceKm: route.groundDistanceKm,
+        hopCount: n,
+      });
+      expect(point.heightKm).toBe(expected.heightKm);
+      expect(point.branch).toBe(expected.branch);
+    });
+    // The points sit at different places on a 7880 km path, so the map gives
+    // them visibly different heights, and the height is their mean, not the
+    // midpoint's alone.
+    const heights = provenance.controlPoints.map((p) => p.heightKm);
+    expect(new Set(heights.map((h) => h.toFixed(1))).size).toBe(3);
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(1);
+    expect(provenance.heightKm).toBeCloseTo(
+      (heights[0] + heights[1] + heights[2]) / 3,
+      12,
+    );
+    expect(provenance.heightKm).not.toBe(heights[1]);
     expect(provenance.heightKm).not.toBe(1490 / provenance.m3000F2 - 176);
     // And the leaf was fed a real climatology value, not the stand-in.
     expect(provenance.heightKm).not.toBe(300);
     expect(provenance.heightKm).toBeGreaterThan(0);
     expect(provenance.heightKm).toBeLessThanOrEqual(800);
     expect(provenance.validAt).toBe("2026-09-05T18:00:00.000Z");
-    // Canonicalised, so the longitude round-trips to within a float wobble.
-    expect(provenance.coordinates.latitude).toBe(AUSTIN.latitude);
-    expect(provenance.coordinates.longitude).toBeCloseTo(AUSTIN.longitude, 9);
     expect(provenance.stateDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(provenance.assumptions.length).toBeGreaterThan(0);
+  });
+
+  it("evaluates a circuit within dmax at the midpoint alone and records that one control point", async () => {
+    vi.stubGlobal("fetch", servesTheAsset());
+
+    const provenance = await resolveMirrorHeight({
+      start: AUSTIN,
+      end: CHICAGO,
+      frequencyMHz: 14.1,
+      at: AT,
+    });
+
+    expect(provenance.kind).toBe("modelled");
+    if (provenance.kind !== "modelled") return;
+    const route = routeOf(AUSTIN, CHICAGO);
+    expect(route.groundDistanceKm).toBeLessThan(provenance.dmaxKm);
+    expect(provenance.hopCount).toBe(1);
+    expect(provenance.hopGroundDistanceKm).toBe(route.groundDistanceKm);
+    expect(provenance.controlPoints).toHaveLength(1);
+    const [point] = provenance.controlPoints;
+    expect(point.label).toBe("M");
+    const midpoint = routeSampleAtFraction(route, 0.5);
+    expect(point.latitude).toBeCloseTo(midpoint.latitudeDeg, 9);
+    expect(point.longitude).toBeCloseTo(midpoint.longitudeDeg, 9);
+    expect(point.heightKm).toBe(provenance.heightKm);
+    expect(point.m3000F2).toBe(provenance.m3000F2);
+    // One point, so the provider was asked once.
+    expect(stateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a declared_standin with circuit_unresolvable when the endpoints determine no route", async () => {
+    vi.stubGlobal("fetch", servesTheAsset());
+
+    const provenance = await resolveMirrorHeight({
+      start: AUSTIN,
+      end: AUSTIN,
+      frequencyMHz: 14.1,
+      at: AT,
+    });
+
+    expect(provenance.kind).toBe("declared_standin");
+    if (provenance.kind !== "declared_standin") return;
+    expect(provenance.reason).toBe("circuit_unresolvable");
+    expect(provenance.detail).toContain("coincident or antipodal");
   });
 
   it("returns a declared_standin with provider_asset_unavailable when the asset fetch fails", async () => {
@@ -152,11 +264,7 @@ describe("resolveMirrorHeight", () => {
       vi.fn(async () => new Response("nope", { status: 404 })),
     );
 
-    const provenance = await resolveMirrorHeight({
-      ...AUSTIN,
-      ...CIRCUIT,
-      at: AT,
-    });
+    const provenance = await resolveMirrorHeight({ ...CIRCUIT, at: AT });
 
     expect(provenance.kind).toBe("declared_standin");
     if (provenance.kind !== "declared_standin") return;
@@ -170,16 +278,11 @@ describe("resolveMirrorHeight", () => {
     vi.stubGlobal("fetch", servesTheAsset());
 
     const [first, second, third] = await Promise.all([
-      resolveMirrorHeight({ ...AUSTIN, ...CIRCUIT, at: AT }),
-      resolveMirrorHeight({ ...AUSTIN, ...CIRCUIT, at: AT }),
-      resolveMirrorHeight({
-        latitude: 51.5,
-        longitude: -0.13,
-        ...CIRCUIT,
-        at: AT,
-      }),
+      resolveMirrorHeight({ ...CIRCUIT, at: AT }),
+      resolveMirrorHeight({ ...CIRCUIT, at: AT }),
+      resolveMirrorHeight({ ...CIRCUIT, start: CHICAGO, at: AT }),
     ]);
-    await resolveMirrorHeight({ ...AUSTIN, ...CIRCUIT, at: AT });
+    await resolveMirrorHeight({ ...CIRCUIT, at: AT });
 
     expect(providerMocks.create).toHaveBeenCalledTimes(1);
     expect(first.kind).toBe("modelled");
@@ -192,11 +295,11 @@ describe("resolveMirrorHeight", () => {
       throw new Error("network down");
     });
     vi.stubGlobal("fetch", failing);
-    const first = await resolveMirrorHeight({ ...AUSTIN, ...CIRCUIT, at: AT });
+    const first = await resolveMirrorHeight({ ...CIRCUIT, at: AT });
     expect(first.kind).toBe("declared_standin");
 
     vi.stubGlobal("fetch", servesTheAsset());
-    const second = await resolveMirrorHeight({ ...AUSTIN, ...CIRCUIT, at: AT });
+    const second = await resolveMirrorHeight({ ...CIRCUIT, at: AT });
 
     expect(second.kind).toBe("modelled");
     expect(providerMocks.create).toHaveBeenCalledTimes(2);
@@ -206,7 +309,6 @@ describe("resolveMirrorHeight", () => {
     vi.stubGlobal("fetch", servesTheAsset());
 
     const provenance = await resolveMirrorHeight({
-      ...AUSTIN,
       ...CIRCUIT,
       at: new Date("2026-09-05T18:37:00Z"),
     });
@@ -220,9 +322,8 @@ describe("resolveMirrorHeight", () => {
     vi.stubGlobal("fetch", servesTheAsset());
 
     const provenance = await resolveMirrorHeight({
-      ...AUSTIN,
+      ...CIRCUIT,
       frequencyMHz: 0,
-      groundDistanceKm: 7880,
       at: AT,
     });
 
@@ -235,9 +336,8 @@ describe("resolveMirrorHeight", () => {
     vi.stubGlobal("fetch", servesTheAsset());
 
     const provenance = await resolveMirrorHeight({
-      latitude: Number.NaN,
-      longitude: 0,
       ...CIRCUIT,
+      start: { latitude: Number.NaN, longitude: 0 },
       at: AT,
     });
 

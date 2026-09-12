@@ -22,7 +22,7 @@ export function CloudImageryAttribution({
 
   return (
     <div
-      className={`rounded bg-su-panel/90 px-1.5 py-0.5 text-[9px] leading-tight backdrop-blur-sm select-none ${
+      className={`rounded bg-su-panel/90 px-1.5 py-0.5 text-xs leading-tight backdrop-blur-sm select-none ${
         degraded ? "text-amber-400" : "text-su-text/80"
       }`}
       title="GOES-East infrared cloud imagery. NASA GIBS resolves the latest observation; PropSphere checks for a newer slot every 10 minutes."

@@ -133,57 +133,55 @@ export function RotaryKnob({
         touchAction: "none",
       }}
     >
-      <svg
-        width={size}
-        height={size}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        style={{
-          cursor: disabled ? "default" : dragRef.current ? "grabbing" : "grab",
-        }}
+      <div
+        className="relative aspect-square text-xs font-mono"
+        style={{ width: size, minWidth: `${displayValue.length + 2}ch` }}
       >
-        {/* Background track */}
-        <circle
-          cx={half}
-          cy={half}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth={STROKE_WIDTH}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeDashoffset={gapOffset}
-          transform={`rotate(${START_ANGLE} ${half} ${half})`}
-          strokeLinecap="round"
-        />
-        {/* Value arc */}
-        <circle
-          cx={half}
-          cy={half}
-          r={radius}
-          fill="none"
-          stroke={accentColor}
-          strokeWidth={STROKE_WIDTH}
-          strokeDasharray={`${arcLength * norm} ${circumference}`}
-          strokeDashoffset={gapOffset}
-          transform={`rotate(${START_ANGLE} ${half} ${half})`}
-          strokeLinecap="round"
-        />
-        {/* Dot indicator */}
-        <circle cx={dotX} cy={dotY} r={2.5} fill={accentColor} />
-        {/* Center value readout */}
-        <text
-          x={half}
-          y={half + 1}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="currentColor"
-          className="text-xs font-mono text-su-text"
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${size} ${size}`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          style={{
+            cursor: disabled ? "default" : dragRef.current ? "grabbing" : "grab",
+          }}
         >
+          {/* Background track */}
+          <circle
+            cx={half}
+            cy={half}
+            r={radius}
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={STROKE_WIDTH}
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeDashoffset={gapOffset}
+            transform={`rotate(${START_ANGLE} ${half} ${half})`}
+            strokeLinecap="round"
+          />
+          {/* Value arc */}
+          <circle
+            cx={half}
+            cy={half}
+            r={radius}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={STROKE_WIDTH}
+            strokeDasharray={`${arcLength * norm} ${circumference}`}
+            strokeDashoffset={gapOffset}
+            transform={`rotate(${START_ANGLE} ${half} ${half})`}
+            strokeLinecap="round"
+          />
+          {/* Dot indicator */}
+          <circle cx={dotX} cy={dotY} r={2.5} fill={accentColor} />
+        </svg>
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap text-su-text">
           {displayValue}
-        </text>
-      </svg>
+        </span>
+      </div>
       <span className="text-xs text-su-muted uppercase tracking-wider">
         {label}
       </span>

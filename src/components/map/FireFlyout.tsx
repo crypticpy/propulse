@@ -9,7 +9,7 @@
  * positioning as WeatherAlertFlyout.
  */
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { FireHotspot } from "@/lib/api/fires";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -82,54 +82,35 @@ export function FireFlyout({
 }: FireFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
 
-  // ------- Positioning (viewport-aware) -------
-
+  const [bounds, setBounds] = useState({ width: FLYOUT_WIDTH, height: FLYOUT_HEIGHT });
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window === "undefined" ? 1920 : window.innerWidth,
+    height: typeof window === "undefined" ? 1080 : window.innerHeight,
+  }));
+  useLayoutEffect(() => {
+    if (!visible || !flyoutRef.current) return;
+    const element = flyoutRef.current;
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      setBounds((previous) => previous.width === width && previous.height === height ? previous : { width, height });
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, [visible, hotspot]);
   const adjustedPosition = useMemo(() => {
-    const { x, y } = position;
-    const viewportWidth =
-      typeof window !== "undefined" ? window.innerWidth : 1920;
-    const viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight : 1080;
-
-    let adjustedX: number;
-    let adjustedY: number;
-
-    const spaceOnRight = viewportWidth - x - EDGE_PADDING;
-    const spaceOnLeft = x - EDGE_PADDING;
-
-    if (spaceOnRight >= FLYOUT_WIDTH + CURSOR_OFFSET) {
-      adjustedX = x + CURSOR_OFFSET;
-    } else if (spaceOnLeft >= FLYOUT_WIDTH + CURSOR_OFFSET) {
-      adjustedX = x - FLYOUT_WIDTH - CURSOR_OFFSET;
-    } else {
-      adjustedX = Math.max(
-        EDGE_PADDING,
-        Math.min(
-          x - FLYOUT_WIDTH / 2,
-          viewportWidth - FLYOUT_WIDTH - EDGE_PADDING,
-        ),
-      );
-    }
-
-    const spaceAbove = y - EDGE_PADDING;
-    const spaceBelow = viewportHeight - y - EDGE_PADDING;
-
-    if (spaceAbove >= FLYOUT_HEIGHT + CURSOR_OFFSET) {
-      adjustedY = y - FLYOUT_HEIGHT - CURSOR_OFFSET;
-    } else if (spaceBelow >= FLYOUT_HEIGHT + CURSOR_OFFSET) {
-      adjustedY = y + CURSOR_OFFSET;
-    } else {
-      adjustedY = Math.max(
-        EDGE_PADDING,
-        Math.min(
-          y - FLYOUT_HEIGHT / 2,
-          viewportHeight - FLYOUT_HEIGHT - EDGE_PADDING,
-        ),
-      );
-    }
-
-    return { x: adjustedX, y: adjustedY };
-  }, [position]);
+    const x = position.x + CURSOR_OFFSET + bounds.width > viewport.width - EDGE_PADDING
+      ? position.x - bounds.width - CURSOR_OFFSET : position.x + CURSOR_OFFSET;
+    const y = position.y + CURSOR_OFFSET + bounds.height > viewport.height - EDGE_PADDING
+      ? position.y - bounds.height - CURSOR_OFFSET : position.y + CURSOR_OFFSET;
+    return {
+      x: Math.max(EDGE_PADDING, Math.min(x, viewport.width - bounds.width - EDGE_PADDING)),
+      y: Math.max(EDGE_PADDING, Math.min(y, viewport.height - bounds.height - EDGE_PADDING)),
+    };
+  }, [position, bounds, viewport]);
 
   // ------- Dismissal behaviors -------
 
@@ -190,7 +171,10 @@ export function FireFlyout({
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
-        width: FLYOUT_WIDTH,
+        width: "20rem",
+        maxWidth: "calc(100vw - 20px)",
+        maxHeight: "calc(100vh - 20px)",
+        overflowY: "auto",
         borderTopColor: "#ff4422",
         borderTopWidth: "2px",
       }}
@@ -212,19 +196,19 @@ export function FireFlyout({
 
       {/* Detection details */}
       <div className="px-3 py-2 space-y-1.5 text-xs">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <span className="text-su-muted">Fire radiative power</span>
           <span className="text-su-text font-mono">
             {hotspot.frp.toFixed(1)} MW
           </span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <span className="text-su-muted">Brightness temp</span>
           <span className="text-su-text font-mono">
             {hotspot.brightness.toFixed(0)} K
           </span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <span className="text-su-muted">Confidence</span>
           <span
             className="font-semibold px-2 py-0.5 rounded-full"
@@ -237,7 +221,7 @@ export function FireFlyout({
             {confLabel}
           </span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <span className="text-su-muted">Location</span>
           <span className="text-su-text font-mono">
             {formatCoords(hotspot.lat, hotspot.lon)}

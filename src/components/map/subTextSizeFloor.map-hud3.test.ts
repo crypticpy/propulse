@@ -18,7 +18,7 @@
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -63,6 +63,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
+    if (hasAlternateFloorSize(line)) sites.push({ file, line: index + 1, text: line });
     for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
       for (const match of line.matchAll(re)) {
         if (Number(match[1]) < 12) {
@@ -104,4 +105,57 @@ describe("sub-text-xs sizing stays at the floor in map (#808 batch 27 HUD)", () 
       ).toBe(true);
     }
   });
+});
+
+function hasAlternateFloorSize(line: string): boolean {
+  const values = [
+    ...line.matchAll(
+      /text-\[(?:length:)?([^\]]+)\]|fontSize:\s*["']([^"']+)["']/g,
+    ),
+  ];
+  return values.some((match) => {
+    const value = match[1] ?? match[2];
+    if (/[a-z][a-z0-9-]*\s*\(/i.test(value)) return true;
+    const size = /^(\d*\.?\d+)(px|rem|em|pt)$/.exec(value);
+    if (!size) return false;
+    const factor = { px: 1, rem: 16, em: 16, pt: 4 / 3 }[size[2]]!;
+    return Number(size[1]) * factor <= 12;
+  });
+}
+it("detects equivalent alternate and fixed-floor font sizes", () => {
+  for (const token of [
+    "text-[12px]",
+    "text-[.6rem]",
+    "text-[9pt]",
+    "text-[length:0.7em]",
+    "text-[calc(0.75rem-2px)]",
+    'fontSize: "0.6rem"',
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(true);
+  for (const token of [
+    "text-xs",
+    "text-[1rem]",
+    "text-[#abcdef]",
+    "text-[14px]",
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(false);
+});
+
+
+it("keeps the measured fire flyout visible after viewport shrink", async () => {
+  const { createElement } = await import("react");
+  const { render, act } = await import("@testing-library/react");
+  const { FireFlyout } = await import("./FireFlyout");
+  vi.stubGlobal("innerWidth", 390); vi.stubGlobal("innerHeight", 900);
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 320, height: 325 } as DOMRect);
+  const view = render(createElement(FireFlyout, { visible: true, position: { x: 370, y: 880 }, hotspot: { lat: 40, lon: -90, frp: 123.4, brightness: 333, confidence: "h" }, onClose: () => {} }));
+  try {
+    const flyout = view.getByRole("dialog");
+    expect(flyout.style.top).toBe("543px");
+    vi.stubGlobal("innerHeight", 600);
+    act(() => window.dispatchEvent(new Event("resize")));
+    expect(flyout.style.top).toBe("265px");
+    expect(flyout.style.left).toBe("38px");
+  } finally { view.unmount(); measure.mockRestore(); vi.unstubAllGlobals(); }
 });

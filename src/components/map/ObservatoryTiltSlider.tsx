@@ -100,7 +100,7 @@ export function ObservatoryTiltSlider({
           aria-label="Earth tilt angle"
         />
 
-        <span className="text-xs font-mono text-cyan-300/70 w-7 text-right tabular-nums leading-none">
+        <span className="text-xs font-mono text-cyan-300/70 w-10 shrink-0 text-right tabular-nums leading-none">
           {tiltAngle.toFixed(1)}&deg;
         </span>
       </div>

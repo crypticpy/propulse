@@ -1,9 +1,8 @@
 /**
  * GroundBusBar — SVG ground bus bar rendered at the bottom of BuilderCanvas.
  *
- * Shows a horizontal ground bus bar with earth ground fork symbols at each end,
- * dashed vertical stubs from equipment nodes down to the bar, optional
- * resistance labels, and ground-type labels beneath each stub.
+ * Recorded equipment-to-ground bonds only (#373). Unrecorded radios must not
+ * appear as Chassis GND connections. Typed bonding capture is CAN13.
  */
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -99,7 +98,7 @@ export function GroundBusBar({
   if (groundStubs.length === 0) return null;
 
   return (
-    <g>
+    <g aria-label="Recorded ground connections">
       {/* Bus bar horizontal line */}
       <line
         x1={startX}

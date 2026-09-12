@@ -29,6 +29,14 @@ const longChain: StationChain = {
   ],
 };
 
+const groundStubChain: StationChain = {
+  ...emptyChain,
+  nodes: [
+    { type: "radio", radioId: "radio" },
+    { type: "antenna", antennaId: "antenna" },
+  ],
+};
+
 function stubResizeObserver(width = 400) {
   class ResizeObserverStub {
     observe(el: Element) {
@@ -99,6 +107,7 @@ beforeEach(() => {
 
 afterEach(() => {
   useShackStore.setState(initial);
+  vi.unstubAllGlobals();
 });
 
 function wheelZoomIn(svg: SVGSVGElement) {
@@ -176,4 +185,26 @@ it("pans in viewBox units so 100 CSS pixels is not written as translate(100) (#3
   const panX = Number(match?.[1]);
   expect(panX).toBeCloseTo(100 * (1020 / 400));
   expect(panX).not.toBe(100);
+});
+
+it("does not draw Chassis GND for an unrecorded radio when the overlay is on (#373)", () => {
+  useShackStore.setState({
+    ...initial,
+    stationChains: [structuredClone(groundStubChain)],
+    activeChainId: groundStubChain.id,
+  });
+
+  render(
+    <BuilderCanvas
+      chain={groundStubChain}
+      selectedNodeIndex={null}
+      onSelectNode={vi.fn()}
+      onDropEquipment={vi.fn()}
+      showGroundBus
+    />,
+  );
+  expect(screen.queryByText("Chassis GND")).toBeNull();
+  expect(
+    screen.queryByLabelText("Recorded ground connections"),
+  ).toBeNull();
 });

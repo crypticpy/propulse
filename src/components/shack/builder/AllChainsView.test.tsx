@@ -75,6 +75,10 @@ const chain: StationChain = {
 };
 beforeEach(() => {
   vi.useFakeTimers();
+  // jsdom does not implement scrollIntoView; AllChainsView calls it from a
+  // real-timer effect in the "focuses Configure" test below, which can fire
+  // after the test body returns and throw an uncaught exception otherwise.
+  Element.prototype.scrollIntoView = vi.fn();
   useShackStore.setState({
     ...initial,
     stationChains: [structuredClone(chain)],
@@ -233,4 +237,17 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(
     chain.nodes.slice(1),
   );
+});
+
+it("describes Ground connections as recorded bonds only (#373)", () => {
+  view();
+  const button = screen.getByRole("button", { name: "Ground connections" });
+  expect(button.getAttribute("aria-describedby")).toBe(
+    "ground-connections-hint",
+  );
+  expect(
+    screen.getByText(/Unrecorded radios are not drawn as earthed/),
+  ).toBeTruthy();
+  fireEvent.click(button);
+  expect(button.getAttribute("aria-pressed")).toBe("true");
 });

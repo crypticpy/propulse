@@ -39,6 +39,10 @@ import { DropZone } from "./DropZone";
 import { GroundBusBar } from "./GroundBusBar";
 import type { GroundStub } from "./GroundBusBar";
 import {
+  buildRecordedGroundStubs,
+  recordedBondNodeIndexes,
+} from "./recordedGroundStubs";
+import {
   clampZoom,
   FIT_ZOOM,
   panAfterZoomAt,
@@ -296,7 +300,9 @@ export function BuilderCanvas({
 
     const contentWidth = curX + CANVAS_PADDING_X;
     const effectiveWidth = Math.max(contentWidth, containerWidth);
-    const groundExtra = showGroundBus ? GROUND_BUS_OFFSET : 0;
+    const recordedBonds = recordedBondNodeIndexes(chain);
+    const showRecordedGround = Boolean(showGroundBus && recordedBonds.size > 0);
+    const groundExtra = showRecordedGround ? GROUND_BUS_OFFSET : 0;
     const totalHeight = Math.max(
       MIN_CANVAS_HEIGHT + groundExtra,
       maxHeight + CANVAS_PADDING_Y * 2 + groundExtra,
@@ -317,27 +323,18 @@ export function BuilderCanvas({
       svgHeight: totalHeight,
       centerOffsetX: offsetX,
     };
-  }, [chain.nodes, chain.feedlineRuns, containerWidth, showGroundBus]);
+  }, [chain, containerWidth, showGroundBus]);
 
-  // ── Ground stubs for bus bar ──────────────────────────────────────────
+  // Recorded bonds only (#373). Radios without a recorded bond do not get a
+  // Chassis GND stub — that used to be synthesized for every radio.
   const groundStubs = useMemo((): GroundStub[] => {
     if (!showGroundBus) return [];
-    const stubs: GroundStub[] = [];
-
-    chain.nodes.forEach((node, i) => {
-      const layout = nodeLayouts[i];
-      if (!layout) return;
-      if (node.type === "radio") {
-        stubs.push({
-          nodeX: layout.x + layout.width / 2,
-          nodeBottomY: layout.y + layout.height,
-          label: "Chassis GND",
-        });
-      }
-    });
-
-    return stubs;
-  }, [showGroundBus, chain.nodes, nodeLayouts]);
+    return buildRecordedGroundStubs(
+      chain.nodes,
+      nodeLayouts,
+      recordedBondNodeIndexes(chain),
+    );
+  }, [showGroundBus, chain, nodeLayouts]);
 
   // ── Node compatibility for input/output edges ───────────────────────────
   const nodeCompatibility = useMemo(() => {

@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useLocationWeather } from "@/hooks/useLocalWeather";
-import { weatherCodeToDescription } from "@/lib/api/openMeteo";
 import {
   formatSpeed,
   formatTemperature,
   resolveUnits,
 } from "@/lib/hamclock/units";
+import { weatherCodeToDescription } from "@/lib/api/openMeteo";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
+import { reportFooter } from "../tokens";
 import { WeatherGlyph, type WeatherGlyphKind } from "../tiles/WeatherTile";
 import { WallReport, type WallReportFact } from "./WallReport";
 
@@ -61,6 +62,7 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
   );
 
   if (!target) {
+    const idle = reportFooter("GREAT CIRCLE · OPEN-METEO", null);
     return (
       <WallReport
         open={open}
@@ -68,7 +70,8 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
         title="DX target report"
         hero="—"
         verdict="NO TARGET"
-        footer="GREAT CIRCLE · OPEN-METEO"
+        footer={idle.footer}
+        updated={idle.updated}
       >
         <p className="hcr-note">
           Pick a target on the map to see its grid, distance, bearing and
@@ -81,9 +84,10 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
   const grid = target.grid || latLonToGrid(target.lat, target.lon);
   const callsign = target.name || grid;
   const resolved = resolveUnits(units, grid);
-  const condition = weather
-    ? weatherCodeToDescription(weather.weatherCode).toUpperCase()
-    : "NO DATA";
+  const { footer, updated } = reportFooter(
+    "OPEN-METEO AT THE TARGET · GREAT CIRCLE FROM THE QTH",
+    weather?.observedAt,
+  );
 
   // `approximate` is tri-state. Most of the ~47 setTarget writers (plain map
   // click, saved pin, mini-map, deep link, undo) leave it undefined, which is
@@ -124,8 +128,8 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
       hero={metrics ? formatDistance(metrics.shortPath.distance) : "—"}
       verdict={callsign}
       facts={facts}
-      footer="OPEN-METEO AT THE TARGET · GREAT CIRCLE FROM THE QTH"
-      updated={weather ? condition : "AWAITING FEED"}
+      footer={footer}
+      updated={updated}
     >
       <div className="hcr-cols">
         <div className="hcr-box">
@@ -158,6 +162,8 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
                 kind={glyphKind(weather.weatherCode, weather.isDay)}
               />
               <dl className="hcr-kv">
+                <dt>SKY</dt>
+                <dd>{weatherCodeToDescription(weather.weatherCode).toUpperCase()}</dd>
                 <dt>TEMPERATURE</dt>
                 <dd>{formatTemperature(weather.temperature, resolved)}</dd>
                 <dt>WIND</dt>
@@ -173,7 +179,7 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
                 : error
                   ? "Open-Meteo is unavailable right now."
                   : isLoading
-                    ? "Reading conditions at the target…"
+                    ? "Reading conditions at the target."
                     : "No weather published for this location."}
             </p>
           )}

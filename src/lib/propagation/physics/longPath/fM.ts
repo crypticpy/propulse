@@ -726,15 +726,26 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
   for (const controlPoint of sites) {
     const hours: LongPathMufHour[] = [];
     for (let hour = 0; hour < HOURS_PER_DAY; hour += 1) {
-      const state = sample(controlPoint.point, controlPoint.label, hour);
+      const sampled = sample(controlPoint.point, controlPoint.label, hour);
       const complaint = invalidSampledStateDetail(
-        state,
+        sampled,
         controlPoint.label,
         hour,
       );
       if (complaint !== null) {
         return unsupported("out_of_domain", complaint, D);
       }
+      // A hostile `LongPathMufSampler` can return an object that passes the
+      // bounds check above while also carrying extra properties, a
+      // prototype, or a cycle (Codex P2, `finiteResult.ts`, #954 slice D).
+      // Rebuild a plain literal from the three validated numbers and store
+      // that, not the sampler's own object, so nothing foreign ever enters
+      // `hours[].state` or anything derived from it below.
+      const state: LongPathMufState = {
+        foF2MHz: sampled.foF2MHz,
+        m3000F2: sampled.m3000F2,
+        gyrofrequency300kmMHz: sampled.gyrofrequency300kmMHz,
+      };
       const f4MHz = f2FourThousandMufMHz(state);
       const fzMHz = f2ZeroMufMHz(state);
       const basicMufMHz = longPathBasicMufMHz(state, fD);

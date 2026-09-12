@@ -69,3 +69,61 @@ describe("firstNonFiniteField against a hostile object graph", () => {
     expect(found?.value).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+/**
+ * Codex P2, round 3 (`finiteResult.ts` line 95, #954 slice D): the `WeakSet`
+ * cycle guard and `MAX_DEPTH` above both bound how deep the walk goes, not
+ * how wide it fans out at one level. A hostile `LongPathMufSampler` can
+ * return its three valid fields plus a sparse `padding: new
+ * Array(0xffffffff)`: one container boundary, no repeated reference, and
+ * yet naively iterating it means visiting billions of indices before
+ * `longPathMuf` ever returns. `MAX_TOTAL_VISITS` is the guard against that.
+ */
+describe("firstNonFiniteField's total-visit budget", () => {
+  it("refuses a record holding a huge sparse array immediately, rather than iterating it", () => {
+    const record = { padding: new Array(0xffffffff) };
+
+    const startMs = performance.now();
+    const found = firstNonFiniteField(record);
+    const elapsedMs = performance.now() - startMs;
+
+    expect(found).not.toBeNull();
+    expect(found?.value).toBe(Number.POSITIVE_INFINITY);
+    expect(found?.path).toContain("padding");
+    expect(found?.path).toContain("too large to verify");
+    // The array's declared length is checked against the budget before a
+    // single element is touched; if this instead iterated toward
+    // 0xffffffff, it would not finish in this test's lifetime, let alone
+    // under 100 ms.
+    expect(elapsedMs).toBeLessThan(100);
+  });
+
+  it("verifies a record that exactly fills the budget and refuses one that needs one entry more", () => {
+    // The walk spends one visit entering the record itself, leaving
+    // `MAX_TOTAL_VISITS - 1` for its entries; that many all-finite entries
+    // exactly exhausts the budget and still verifies (every entry was
+    // actually visited), while one entry more is refused up front, before
+    // any entry is visited, because the record's own entry count already
+    // exceeds what remains. `MAX_TOTAL_VISITS` is mirrored here rather than
+    // imported so the number stays this module's own implementation
+    // detail, not a public constant callers can lean on.
+    const MAX_TOTAL_VISITS = 4096;
+
+    function recordWithEntries(count: number): Record<string, number> {
+      const record: Record<string, number> = {};
+      for (let i = 0; i < count; i += 1) {
+        record[`n${String(i)}`] = 0;
+      }
+      return record;
+    }
+
+    expect(
+      firstNonFiniteField(recordWithEntries(MAX_TOTAL_VISITS - 1)),
+    ).toBeNull();
+
+    const refused = firstNonFiniteField(recordWithEntries(MAX_TOTAL_VISITS));
+    expect(refused).not.toBeNull();
+    expect(refused?.value).toBe(Number.POSITIVE_INFINITY);
+    expect(refused?.path).toContain("too large to verify");
+  });
+});

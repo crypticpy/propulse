@@ -1045,4 +1045,40 @@ describe("the finite-result invariant on the assembled fM record", () => {
     expect(result.kind).toBe("resolved");
     expect(Number.isFinite(resolved(result).fMMHz)).toBe(true);
   });
+
+  it("drops a sampler's foreign properties at the boundary, including a huge sparse array", () => {
+    // Codex P2, round 3 (`finiteResult.ts` line 95, #954 slice D): a hostile
+    // sampler can answer with the three required fields plus a sparse
+    // `padding` array whose declared `length` is enormous
+    // (`new Array(0xffffffff)` allocates nothing but still reports ~4.29
+    // billion as its length). Before this fix that object was stored by
+    // reference in `hours[].state`, so the finite-result invariant's own
+    // walk would have to cross it. The structural fix is to never let it in:
+    // `longPathMuf` copies only the three validated numbers into a fresh
+    // literal before storing anything in `hours[].state`.
+    const hostileState = {
+      foF2MHz: 8,
+      m3000F2: 3,
+      gyrofrequency300kmMHz: 1.2,
+      padding: new Array(0xffffffff),
+    };
+
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => hostileState as unknown as LongPathMufState,
+    });
+
+    expect(result.kind).toBe("resolved");
+    const record = resolved(result);
+    for (const controlPoint of record.controlPoints) {
+      for (const hour of controlPoint.hours) {
+        expect(Object.keys(hour.state).sort()).toEqual([
+          "foF2MHz",
+          "gyrofrequency300kmMHz",
+          "m3000F2",
+        ]);
+      }
+    }
+  });
 });

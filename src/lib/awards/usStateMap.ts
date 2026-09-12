@@ -5,6 +5,8 @@
  * Data only — no SVG paths.
  */
 
+import { US_STATES } from "@/lib/data/usStateAbbreviations";
+
 export interface USStateData {
   /** 2-letter abbreviation */
   abbr: string;
@@ -84,5 +86,5 @@ export const US_STATE_BY_NAME = new Map<string, USStateData>(
   US_STATES_DATA.map((s) => [s.name.toLowerCase(), s]),
 );
 
-/** Total number of US states for WAS */
-export const TOTAL_US_STATES = 50;
+/** Total number of US states for WAS, derived from the canonical state list */
+export const TOTAL_US_STATES = US_STATES.length;

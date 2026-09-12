@@ -59,6 +59,18 @@ export interface PathHourlyStatsRow {
 /** Page size per PostgREST request — keeps each request under the 8s statement timeout */
 export const HOURLY_STATS_PAGE_SIZE = 1000;
 
+/**
+ * Row cap for a single-request read, matching `max_rows = 1000` in
+ * supabase/config.toml. A larger cap would be clipped by PostgREST and the
+ * clipped answer would look complete.
+ */
+export const PATH_COVERAGE_ROW_CAP = 1000;
+
+/** The window start for a trailing query measured back from the read instant. */
+function windowStart(hours: number): string {
+  return new Date(Date.now() - hours * 3600_000).toISOString();
+}
+
 type PageResponse<T> = {
   data: T[] | null;
   error: { message: string } | null;
@@ -143,7 +155,7 @@ export async function queryPathHourlyStats(
 ): Promise<PathHourlyStatsRow[]> {
   const supabase = getSupabase();
   const { band, hours = 24, modeClass, txField, rxField } = query;
-  const since = new Date(Date.now() - hours * 3600_000).toISOString();
+  const since = windowStart(hours);
 
   return fetchAllPages<PathHourlyStatsRow>((from, to) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,4 +178,138 @@ export async function queryPathHourlyStats(
       .order("id", { ascending: true })
       .range(from, to);
   }, "path_hourly_stats");
+}
+
+/**
+ * One row of the coverage question: was anybody heard at this receiving field
+ * on this band-hour, whatever the transmitting field?
+ *
+ * The row also carries the counting columns, because the rows for one
+ * transmitting field are exactly the pair rows for that path. Deriving them
+ * from this read instead of issuing a second query is what keeps a verdict on
+ * one snapshot: two requests can straddle a collector commit, and a report
+ * present in the coverage answer but missing from a separate pair answer
+ * would be cached as a silent hour.
+ */
+export interface PathCoverageHourRow {
+  hour_utc: string;
+  mode_class: string;
+  tx_field: string;
+  spot_count: number;
+  unique_tx: number;
+  unique_rx: number;
+  backfilled_count: number;
+}
+
+/**
+ * The result of one coverage read.
+ *
+ * `truncated` says the cap was reached, so rows exist that this answer does
+ * not contain. Paging for them would be a second request and therefore a
+ * second snapshot: `compute_retained_spot_hour` replaces a whole
+ * `path_hourly_stats` hour in one commit, so a page taken after it can drop
+ * the pair while earlier pages still show a watched, quiet window, and the
+ * verdict would be a cached zero over rows that no longer exist. One request
+ * and an honest "there is more" beats two requests and a confident wrong
+ * answer.
+ */
+export interface PathCoverageRead {
+  rows: PathCoverageHourRow[];
+  truncated: boolean;
+}
+
+export interface PathCoverageHoursQuery {
+  band: string;
+  /** 2-char Maidenhead field of the receiving end; normalized to uppercase. */
+  rxField: string;
+  /** Trailing window in hours (default 6, the observed-activity default). */
+  hours?: number;
+  /** Explicit window start (ISO-8601), pinned by the caller's issuance. */
+  since?: string;
+}
+
+/**
+ * Query `path_hourly_stats` for every transmitting field that reached a given
+ * receiving field, so a caller can tell "nobody was listening there" from
+ * "somebody was listening and heard nothing", and count its own pair out of
+ * the same rows.
+ *
+ * The select stays narrow. This query fans over every `tx_field` for a busy
+ * receiving field, so `*` would multiply the page count against the 8 s
+ * statement timeout, and it would pull in the aggregate SNR columns, which no
+ * consumer of this reader is allowed to use.
+ */
+export async function queryPathCoverageHours(
+  query: PathCoverageHoursQuery,
+): Promise<PathCoverageRead> {
+  const supabase = getSupabase();
+  const { band, rxField, hours = 6 } = query;
+  const since = query.since ?? windowStart(hours);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table = (supabase as any).from("path_hourly_stats");
+  const { data, error } = await table
+    .select(
+      "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
+    )
+    .eq("band", band)
+    .eq("rx_field", rxField.toUpperCase())
+    .gte("hour_utc", since)
+    .order("hour_utc", { ascending: true })
+    .order("id", { ascending: true })
+    .range(0, PATH_COVERAGE_ROW_CAP - 1);
+
+  if (error) {
+    throw new Error(`path_hourly_stats query failed: ${error.message}`);
+  }
+  const rows = (data ?? []) as PathCoverageHourRow[];
+  return { rows, truncated: rows.length >= PATH_COVERAGE_ROW_CAP };
+}
+
+/** One readable band-hour; the only column the gap witness needs. */
+export interface ReadableBandHourRow {
+  hour_utc: string;
+}
+
+export interface ReadableBandHoursQuery {
+  band: string;
+  /** Trailing window in hours (default 6). */
+  hours?: number;
+  /** Explicit window start (ISO-8601), pinned by the caller's issuance. */
+  since?: string;
+}
+
+/**
+ * Query the gap-filtered `band_hourly_stats_readable` view for the hours it
+ * exposes on a band.
+ *
+ * This is the client's only witness of an aggregation gap.
+ * `spot_aggregation_hour_readable` returns false for `'path_hourly'` by
+ * construction and `collector_aggregation_gaps` grants SELECT to
+ * `service_role` only, so there is no path-grain readable view to ask. Since
+ * `compute_retained_spot_hour` records a gap per aggregation off the same
+ * two-hour `spot_history` prune, a band-hour gap and a path-hour gap for one
+ * hour come from the same event, which makes the presence of a row here the
+ * honest available proxy — an approximation, not an equivalence.
+ */
+export async function queryReadableBandHours(
+  query: ReadableBandHoursQuery,
+): Promise<ReadableBandHourRow[]> {
+  const supabase = getSupabase();
+  const { band, hours = 6 } = query;
+  const since = query.since ?? windowStart(hours);
+
+  return fetchAllPages<ReadableBandHourRow>(
+    (from, to) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("band_hourly_stats_readable")
+        .select("hour_utc")
+        .eq("band", band)
+        .gte("hour_utc", since)
+        .order("hour_utc", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    "band_hourly_stats_readable",
+  );
 }

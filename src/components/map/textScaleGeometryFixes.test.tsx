@@ -900,28 +900,17 @@ describe("BasemapCategory (round-10 fix: Image quality header row wraps in the f
   });
 });
 
-describe("SatelliteFilters (round-10 fix: tracking-status footer wraps in the fixed 232px submenu column)", () => {
-  it("wraps the tracking-label / Manage-link row instead of overflowing", () => {
+describe("SatelliteFilters (#1085: Layers submenu no longer lists satellites)", () => {
+  it("keeps chips and action buttons and does not inline a scrolling satellite list", () => {
     const source = readFileSync(
       resolve(REPO_ROOT, "src/components/map/layers/SatelliteFilters.tsx"),
       "utf8",
     );
-    const lines = source.split("\n");
-    const markerIndex = lines.findIndex((line) =>
-      line.includes(
-        "This footer sits in the same fixed 232px LayersPopover submenu column",
-      ),
-    );
-    expect(markerIndex).toBeGreaterThanOrEqual(0);
-
-    const rowLine = lines
-      .slice(markerIndex)
-      .find((line) => line.includes("<div className="));
-    expect(rowLine).toBeDefined();
-    expect(rowLine).toContain("flex-wrap");
-    expect(rowLine).not.toContain(
-      'className="flex items-center justify-between px-0.5 pt-1 border-t border-su-line/20"',
-    );
+    expect(source).toContain("See full list");
+    expect(source).toContain("Manage satellites");
+    expect(source).not.toContain("max-h-48 overflow-y-auto");
+    expect(source).not.toContain("satelliteShowAll");
+    expect(source).not.toContain("function SatRow");
   });
 });
 

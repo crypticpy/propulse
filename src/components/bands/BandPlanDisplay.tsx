@@ -248,7 +248,7 @@ export function BandPlanDisplay({
       {/* Band visualization */}
       <div className="relative">
         {/* Frequency labels above */}
-        <div className="flex justify-between mb-1 text-[10px] text-su-muted">
+        <div className="flex justify-between mb-1 text-xs text-su-muted">
           <span>{formatFrequency(bandStartKHz)} MHz</span>
           <span>{formatFrequency(bandEndKHz)} MHz</span>
         </div>
@@ -307,7 +307,7 @@ export function BandPlanDisplay({
               style={{ left: `calc(${highlightPosition}% - 2px)` }}
             >
               {/* Frequency label */}
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-su-text font-mono whitespace-nowrap">
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-su-text font-mono whitespace-nowrap">
                 {formatFrequency(highlightFrequency!)}
               </div>
             </div>
@@ -325,8 +325,11 @@ export function BandPlanDisplay({
               return (
                 <span
                   key={`start-${index}`}
-                  className="absolute text-[9px] text-su-muted -translate-x-1/2"
-                  style={{ left: `${info.leftPercent}%` }}
+                  className="absolute text-xs text-su-muted"
+                  style={{
+                    left: `${info.leftPercent}%`,
+                    transform: index === 0 ? undefined : "translateX(-50%)",
+                  }}
                 >
                   {formatFrequency(info.segment.startKHz)}
                 </span>
@@ -338,7 +341,7 @@ export function BandPlanDisplay({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         {(
           Object.entries(SEGMENT_COLORS) as [
             SegmentCategory,

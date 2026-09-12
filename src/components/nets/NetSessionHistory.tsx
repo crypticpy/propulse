@@ -156,7 +156,7 @@ export function NetSessionHistory({
                   aria-controls={`session-details-${session.id}`}
                   className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
                     isExpanded
-                      ? "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30"
+                      ? "bg-nebula-blue/20 text-su-text border-nebula-blue/30"
                       : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >

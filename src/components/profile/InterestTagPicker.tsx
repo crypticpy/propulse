@@ -84,7 +84,7 @@ export function InterestTagPicker({
     <div className="space-y-3">
       {/* Header + counter */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-su-muted">
+        <span className="text-xs uppercase tracking-widest text-su-muted">
           Interests
         </span>
         <span className={`text-xs font-medium ${counterColor}`}>
@@ -134,7 +134,7 @@ export function InterestTagPicker({
                   />
                 </svg>
                 <span
-                  className="text-[10px] uppercase tracking-widest font-medium"
+                  className="text-xs uppercase tracking-widest font-medium"
                   style={{ color: def.color }}
                 >
                   {def.label}
@@ -154,7 +154,7 @@ export function InterestTagPicker({
                         type="button"
                         disabled={disabled}
                         onClick={() => toggleTag(cat, tag)}
-                        className={`px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+                        className={`px-2 py-0.5 text-xs font-medium rounded-full border transition-colors ${
                           sel
                             ? "text-su-text"
                             : disabled

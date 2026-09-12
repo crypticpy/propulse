@@ -96,7 +96,7 @@ export function SessionSummaryCard({
               Export ADIF
             </button>
           )}
-          <span className="text-[10px] text-su-muted">
+          <span className="text-xs text-su-muted">
             {formatDate(session.startedAt)}
           </span>
         </div>
@@ -106,7 +106,7 @@ export function SessionSummaryCard({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Total check-ins */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted">
+          <p className="text-xs uppercase tracking-widest text-su-muted">
             Total Check-ins
           </p>
           <p className="text-lg font-bold text-su-text">
@@ -116,7 +116,7 @@ export function SessionSummaryCard({
 
         {/* Unique callsigns */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted">
+          <p className="text-xs uppercase tracking-widest text-su-muted">
             Unique Callsigns
           </p>
           <p className="text-lg font-bold text-su-text">
@@ -126,7 +126,7 @@ export function SessionSummaryCard({
 
         {/* Duration */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted">
+          <p className="text-xs uppercase tracking-widest text-su-muted">
             Duration
           </p>
           <p className="text-lg font-bold text-su-text">
@@ -136,7 +136,7 @@ export function SessionSummaryCard({
 
         {/* Relay count */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted">
+          <p className="text-xs uppercase tracking-widest text-su-muted">
             Relay Count
           </p>
           <p className="text-lg font-bold text-su-text">
@@ -146,7 +146,7 @@ export function SessionSummaryCard({
 
         {/* Peak queue depth */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted">
+          <p className="text-xs uppercase tracking-widest text-su-muted">
             Peak Queue Depth
           </p>
           <p className="text-lg font-bold text-su-text">
@@ -156,7 +156,7 @@ export function SessionSummaryCard({
 
         {/* Status breakdown */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
+          <p className="text-xs uppercase tracking-widest text-su-muted mb-1">
             Status Breakdown
           </p>
           {totalBreakdown > 0 ? (
@@ -172,10 +172,10 @@ export function SessionSummaryCard({
                 />
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[10px] text-signal-green">
+                <span className="text-xs text-signal-green">
                   {completed} completed
                 </span>
-                <span className="text-[10px] text-su-muted">
+                <span className="text-xs text-su-muted">
                   {skipped} skipped
                 </span>
               </div>

@@ -129,9 +129,9 @@ export function CloseoutPhase({
     >
       {/* Session Complete Header */}
       <div className="flex flex-col items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-full bg-signal-green/10 border border-signal-green/20 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-signal-green/10 border border-signal-green/20 flex items-center justify-center text-su-text">
           <svg
-            className="w-6 h-6 text-signal-green"
+            className="w-6 h-6"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -205,7 +205,7 @@ export function CloseoutPhase({
       <div className="flex flex-col items-center pt-2">
         <button
           onClick={() => setShowConfirmEnd(true)}
-          className="group px-10 py-4 text-base font-bold rounded-2xl bg-alert-red/10 text-alert-red border-2 border-alert-red/20 hover:bg-alert-red/20 hover:border-alert-red/30 hover:brightness-110 hover:shadow-[0_0_16px_rgba(239,68,68,0.25)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-alert-red/50 focus-visible:outline-none"
+          className="group px-10 py-4 text-base font-bold rounded-2xl bg-alert-red/10 text-su-text border-2 border-alert-red/20 hover:bg-alert-red/20 hover:border-alert-red/30 hover:brightness-110 hover:shadow-[0_0_16px_rgba(239,68,68,0.25)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-alert-red/50 focus-visible:outline-none"
           aria-label="Close net session"
         >
           <span className="inline-flex items-center gap-2">

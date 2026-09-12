@@ -92,7 +92,7 @@ export function RecommendationsBadge({
         <>
           {/* Best badge */}
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-su-muted uppercase tracking-wide">
+            <div className="text-xs text-su-muted uppercase tracking-wide">
               Best
             </div>
             <div className="flex items-baseline gap-1.5">
@@ -135,11 +135,11 @@ export function RecommendationsBadge({
             </div>
             <div className="flex items-center justify-between mt-0.5">
               <span
-                className={`text-[10px] capitalize ${getStatusColorClass(optimal.status)}`}
+                className={`text-xs capitalize ${getStatusColorClass(optimal.status)}`}
               >
                 {optimal.status}
               </span>
-              <span className="text-[10px] text-su-muted">
+              <span className="text-xs text-su-muted">
                 {optimal.snr > 0 ? "+" : ""}
                 {optimal.snr} dB
               </span>
@@ -148,7 +148,7 @@ export function RecommendationsBadge({
 
           {/* S-Unit */}
           <div className="flex-shrink-0 text-center">
-            <div className="text-[10px] text-su-muted">Signal</div>
+            <div className="text-xs text-su-muted">Signal</div>
             <div className="text-xs font-mono text-su-text">{optimal.sUnit}</div>
           </div>
         </>

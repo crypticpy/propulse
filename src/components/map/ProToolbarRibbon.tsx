@@ -38,11 +38,11 @@ interface ProToolbarRibbonProps {
 /* ─── Shared active-color map for presets ─────────────────────── */
 
 const ACTIVE_STYLES: Record<PresetName, string> = {
-  "dx-hunter": "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
-  contest: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
-  vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
-  emergency: "bg-alert-red/20 text-alert-red border-alert-red/40",
-  science: "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/40",
+  "dx-hunter": "bg-plasma-orange/20 text-su-text border-plasma-orange/40",
+  contest: "bg-caution-amber/20 text-su-text border-caution-amber/40",
+  vhf: "bg-cosmic-cyan/20 text-su-text border-cosmic-cyan/40",
+  emergency: "bg-alert-red/20 text-su-text border-alert-red/40",
+  science: "bg-nebula-blue/20 text-su-text border-nebula-blue/40",
 };
 
 /* ─── Divider helper ─────────────────────────────────────────── */

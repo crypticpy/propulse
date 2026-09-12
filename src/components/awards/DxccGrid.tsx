@@ -177,7 +177,7 @@ export function DxccGrid({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
         {filteredSlots.map((slot) => (
           <button
             key={slot.entityId}
@@ -194,8 +194,8 @@ export function DxccGrid({
             >
               {slot.prefix}
             </div>
-            <div className="text-[10px] text-su-muted truncate leading-tight">
-              {slot.name.length > 12 ? slot.name.slice(0, 11) + "…" : slot.name}
+            <div className="text-xs text-su-muted break-words leading-tight">
+              {slot.name}
             </div>
           </button>
         ))}

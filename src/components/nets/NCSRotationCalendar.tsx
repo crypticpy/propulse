@@ -94,7 +94,7 @@ export function NCSRotationCalendar({
   return (
     <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
         NCS Rotation
       </h3>
 
@@ -107,7 +107,7 @@ export function NCSRotationCalendar({
           return (
             <div key={day} className="flex flex-col items-center">
               {/* Day label */}
-              <span className="text-[10px] uppercase tracking-widest text-su-muted text-center mb-1">
+              <span className="text-xs uppercase tracking-widest text-su-muted text-center mb-1">
                 {DAY_LABELS[day]}
               </span>
 
@@ -155,7 +155,7 @@ export function NCSRotationCalendar({
 
       {/* Edit hint */}
       {isManager && (
-        <p className="text-[10px] text-su-muted mt-2 text-center">
+        <p className="text-xs text-su-muted mt-2 text-center">
           Click a day to assign NCS
         </p>
       )}

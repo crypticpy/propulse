@@ -244,7 +244,7 @@ function CardinalLabel({
       }}
     >
       <div
-        className="text-[10px] font-bold font-mono"
+        className="text-xs font-bold font-mono"
         style={{
           color: isNorth ? COLORS.north : COLORS.label,
           textShadow: `0 0 4px rgba(0, 0, 0, 0.8), 0 0 8px ${isNorth ? COLORS.north : "rgba(0, 0, 0, 0.5)"}`,
@@ -474,7 +474,7 @@ export function CompassRose({
           }}
         >
           <div
-            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold"
+            className="px-1.5 py-0.5 rounded text-xs font-mono font-bold"
             style={{
               backgroundColor: "rgba(10, 10, 26, 0.85)",
               color: COLORS.bearing,

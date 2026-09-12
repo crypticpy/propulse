@@ -9,12 +9,17 @@ import {
 } from "./index";
 import {
   clampSaturation,
+  CARD_GLASS_ALPHA,
+  compositeOnSurface,
   DEFAULT_ACCENT_HEX,
+  GRAPHICAL_CONTRAST,
+  guaranteedTextSurfaces,
   hexToChannels,
   SATURATION_DEFAULT,
   SATURATION_MAX,
   SATURATION_MIN,
   SATURATION_STEP,
+  STATUS_TEXT_CONTRAST,
   stationContrast,
   stationPalettes,
   stationTokens,
@@ -310,24 +315,25 @@ describe("colour-blind tone tokens", () => {
     expect(token("--su-accent")).toBe("#a855f7");
   });
 
-  it("keeps every swapped tone above the status-text floor on its panel", () => {
+  it("keeps every swapped tone above the status-text floor on guaranteed surfaces", () => {
     // The colour-blind palette is one fixed set of hues; the station palettes
     // are not. Raw tritanopia fair (#DDCC77) is 1.5:1 on the Light panel and
     // raw deuteranopia good (#0077BB) 3.7:1 on the dark one, so the tones are
-    // blended toward the far pole until they clear 4.5:1.
+    // blended toward the far pole until they clear 4.5:1 on every guaranteed
+    // surface (bare panel and Card glass over panel/canvas).
     expect(
       stationContrast(TRITANOPIA_PALETTE.fair, stationPalettes.light.panel),
     ).toBeLessThan(4.5);
     for (const mode of ["deuteranopia", "protanopia", "tritanopia"] as const) {
       for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+        const palette = stationPalettes[themeId];
         const tokens = stationTokens(themeId, "#ff6b35", mode);
+        const surfaces = guaranteedTextSurfaces(palette);
         for (const role of ["success", "warning", "danger"] as const) {
-          expect(
-            stationContrast(
-              tokens[`--su-${role}`],
-              stationPalettes[themeId].panel,
-            ),
-          ).toBeGreaterThanOrEqual(4.5);
+          const tone = tokens[`--su-${role}`];
+          for (const surface of surfaces) {
+            expect(stationContrast(tone, surface)).toBeGreaterThanOrEqual(4.5);
+          }
         }
       }
     }
@@ -356,10 +362,11 @@ describe("colour-blind tone tokens", () => {
 
   it("swaps the same tones in the scoped token set StationProvider injects", () => {
     const scoped = stationTokens("dark", "#ff6b35", "protanopia");
-    // Both protanopia tones already clear the dark panel, so they pass through.
+    // Warning already clears every guaranteed surface; success is blended
+    // lighter because raw #009988 misses glass-over-canvas on the dark palette.
     expect(scoped["--su-warning"]).toBe("#EE7733");
-    expect(scoped["--su-success"]).toBe("#009988");
-    expect(scoped["--su-success-rgb"]).toBe("0 153 136");
+    expect(scoped["--su-success"]).toBe("#1aa394");
+    expect(scoped["--su-success-rgb"]).toBe("26 163 148");
     expect(stationTokens("dark", "#ff6b35")["--su-success"]).toBe(
       stationPalettes.dark.success,
     );
@@ -511,12 +518,11 @@ describe("station token saturation", () => {
       for (const role of SURFACE_ROLES) {
         expect(vivid[`--su-${role}`]).toBe(base[`--su-${role}`]);
       }
-      expect(
-        stationContrast(
-          vivid["--su-accent-text"],
-          stationPalettes[themeId].panel,
-        ),
-      ).toBeGreaterThanOrEqual(4.5);
+      for (const surface of guaranteedTextSurfaces(stationPalettes[themeId])) {
+        expect(
+          stationContrast(vivid["--su-accent-text"], surface),
+        ).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
@@ -554,10 +560,13 @@ describe("station token saturation", () => {
     // scaling; scaleHexChroma can push one back below it (danger measured
     // ~4.41:1 on the dark panel at 140% before the post-scale refit).
     const vivid = stationTokens("dark", DEFAULT_ACCENT_HEX, "tritanopia", 1.4);
+    const surfaces = guaranteedTextSurfaces(stationPalettes.dark);
     for (const role of ["info", "success", "warning", "danger"] as const) {
-      expect(
-        stationContrast(vivid[`--su-${role}`], stationPalettes.dark.panel),
-      ).toBeGreaterThanOrEqual(4.5);
+      for (const surface of surfaces) {
+        expect(stationContrast(vivid[`--su-${role}`], surface)).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
     }
   });
 
@@ -583,4 +592,98 @@ describe("station token saturation", () => {
     );
     expect(vivid["--su-accent"]).not.toBe(inside);
   });
+});
+
+/** 16³ accent grid: channels sampled at 0, 17, …, 255 (#811). */
+function accentGrid(): string[] {
+  const accents: string[] = [];
+  for (let r = 0; r < 16; r++) {
+    for (let g = 0; g < 16; g++) {
+      for (let b = 0; b < 16; b++) {
+        accents.push(
+          `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`,
+        );
+      }
+    }
+  }
+  return accents;
+}
+
+function worstOnSurfaces(ink: string, surfaces: string[]): number {
+  return Math.min(...surfaces.map((surface) => stationContrast(ink, surface)));
+}
+
+describe("guaranteed text surfaces (#811)", () => {
+  it("composites Card glass at line/10 over panel and canvas", () => {
+    const palette = stationPalettes.light;
+    expect(guaranteedTextSurfaces(palette)).toEqual([
+      palette.panel,
+      compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.panel),
+      compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.canvas),
+    ]);
+  });
+
+  it("red-on-revert: panel-only gate kept #dd0055 as accent-text on Light; glass-over-canvas gate falls back to info", () => {
+    const palette = stationPalettes.light;
+    const accent = "#dd0055";
+    const surfaces = guaranteedTextSurfaces(palette);
+    expect(stationContrast(accent, palette.panel)).toBeGreaterThanOrEqual(
+      STATUS_TEXT_CONTRAST,
+    );
+    expect(worstOnSurfaces(accent, surfaces)).toBeLessThan(STATUS_TEXT_CONTRAST);
+    const tokens = stationTokens("light", accent);
+    expect(tokens["--su-accent-text"]).toBe(palette.info);
+    expect(tokens["--su-accent-text"]).not.toBe(accent);
+  });
+
+  it.each(Object.keys(stationPalettes) as ThemeId[])(
+    "%s: --su-accent-text clears 4.5:1 on every guaranteed surface for the 16³ accent grid",
+    (themeId) => {
+      const palette = stationPalettes[themeId];
+      const surfaces = guaranteedTextSurfaces(palette);
+      for (const accent of accentGrid()) {
+        const ink = stationTokens(themeId, accent)["--su-accent-text"];
+        expect(worstOnSurfaces(ink, surfaces)).toBeGreaterThanOrEqual(
+          STATUS_TEXT_CONTRAST,
+        );
+      }
+    },
+  );
+
+  it.each(Object.keys(stationPalettes) as ThemeId[])(
+    "%s: --su-accent-edge clears 3:1 on every guaranteed surface for the 16³ accent grid",
+    (themeId) => {
+      const palette = stationPalettes[themeId];
+      const surfaces = guaranteedTextSurfaces(palette);
+      for (const accent of accentGrid()) {
+        const edge = stationTokens(themeId, accent)["--su-accent-edge"];
+        expect(worstOnSurfaces(edge, surfaces)).toBeGreaterThanOrEqual(
+          GRAPHICAL_CONTRAST,
+        );
+      }
+    },
+  );
+
+  it.each(
+    (Object.keys(stationPalettes) as ThemeId[]).flatMap((themeId) =>
+      (["deuteranopia", "protanopia", "tritanopia"] as const).map(
+        (mode) => [themeId, mode] as const,
+      ),
+    ),
+  )(
+    "%s/%s: colour-blind success/warning/danger clear 4.5:1 on every guaranteed surface",
+    (themeId, mode) => {
+      const palette = stationPalettes[themeId];
+      const surfaces = guaranteedTextSurfaces(palette);
+      const tokens = stationTokens(themeId, DEFAULT_ACCENT_HEX, mode);
+      for (const role of ["success", "warning", "danger"] as const) {
+        const tone = tokens[`--su-${role}`];
+        for (const surface of surfaces) {
+          expect(stationContrast(tone, surface)).toBeGreaterThanOrEqual(
+            STATUS_TEXT_CONTRAST,
+          );
+        }
+      }
+    },
+  );
 });

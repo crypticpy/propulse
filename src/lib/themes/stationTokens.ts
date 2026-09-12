@@ -148,7 +148,63 @@ export function stationContrast(first: string, second: string) {
 }
 
 /** The design system's floor for status text (`docs/designs/design-system`). */
-const STATUS_TEXT_CONTRAST = 4.5;
+export const STATUS_TEXT_CONTRAST = 4.5;
+
+/** Floor for graphical accent objects (rules, rings, icon strokes). */
+export const GRAPHICAL_CONTRAST = 3;
+
+/** Alpha for Card's default glass surface (`bg-su-line/10`, `Card.tsx`). */
+export const CARD_GLASS_ALPHA = 0.1;
+
+type StationPaletteValues = (typeof stationPalettes)[ThemeId];
+
+/**
+ * Flatten `hex` at `alpha` over opaque `surface` — what the browser paints for
+ * `bg-<token>/N` — and return the resulting opaque `#rrggbb`.
+ */
+export function compositeOnSurface(
+  hex: string,
+  alpha: number,
+  surface: string,
+): string {
+  const channels = (value: string) =>
+    [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16));
+  const front = channels(hex);
+  const back = channels(surface);
+  return `#${front
+    .map((channel, index) =>
+      Math.round(channel * alpha + back[index] * (1 - alpha))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/**
+ * Surfaces `toneOnPanel` and `--su-accent-text` / `--su-accent-edge` guarantee
+ * legibility on: bare panel, Card glass over panel, Card glass over canvas.
+ */
+export function guaranteedTextSurfaces(
+  palette: StationPaletteValues,
+): string[] {
+  return [
+    palette.panel,
+    compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.panel),
+    compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.canvas),
+  ];
+}
+
+function worstContrast(ink: string, surfaces: string[]): number {
+  return Math.min(...surfaces.map((surface) => stationContrast(ink, surface)));
+}
+
+function meetsContrastFloor(
+  ink: string,
+  surfaces: string[],
+  floor: number,
+): boolean {
+  return worstContrast(ink, surfaces) >= floor;
+}
 
 /** Blend `hex` `amount` of the way toward `toward`; both are `#rrggbb`. */
 function mixHex(hex: string, toward: string, amount: number): string {
@@ -171,15 +227,17 @@ function mixHex(hex: string, toward: string, amount: number): string {
  * 1.5:1 on the Light panel and deuteranopia's `#0077BB` at 3.7:1 on the dark
  * one, and DS-09 routes the app-wide `text-caution-amber`/`text-signal-green`
  * utilities through these tokens. Blend the tone toward the pole furthest from
- * the surface until it clears the status-text floor: lightness moves, the hue
- * that makes the mode legible does not.
+ * the surface until it clears the status-text floor on every guaranteed
+ * surface (bare panel and Card glass over panel/canvas): lightness moves, the
+ * hue that makes the mode legible does not.
  */
-function toneOnPanel(tone: string, panel: string): string {
-  if (stationContrast(tone, panel) >= STATUS_TEXT_CONTRAST) return tone;
-  const pole = luminance(panel) > 0.18 ? "#000000" : "#ffffff";
+function toneOnPanel(tone: string, palette: StationPaletteValues): string {
+  const surfaces = guaranteedTextSurfaces(palette);
+  if (meetsContrastFloor(tone, surfaces, STATUS_TEXT_CONTRAST)) return tone;
+  const pole = luminance(palette.panel) > 0.18 ? "#000000" : "#ffffff";
   for (let amount = 0.1; amount < 1; amount += 0.1) {
     const mixed = mixHex(tone, pole, amount);
-    if (stationContrast(mixed, panel) >= STATUS_TEXT_CONTRAST) return mixed;
+    if (meetsContrastFloor(mixed, surfaces, STATUS_TEXT_CONTRAST)) return mixed;
   }
   return pole;
 }
@@ -213,9 +271,9 @@ export function stationTokens(
   // palette's distinguishable hues on a colour that carries no state.
   const colorBlind = COLOR_BLIND_PALETTES[colorBlindMode];
   if (colorBlind) {
-    colors["--su-success"] = toneOnPanel(colorBlind.good, palette.panel);
-    colors["--su-warning"] = toneOnPanel(colorBlind.fair, palette.panel);
-    colors["--su-danger"] = toneOnPanel(colorBlind.poor, palette.panel);
+    colors["--su-success"] = toneOnPanel(colorBlind.good, palette);
+    colors["--su-warning"] = toneOnPanel(colorBlind.fair, palette);
+    colors["--su-danger"] = toneOnPanel(colorBlind.poor, palette);
   }
   // Saturation scales chroma of the five tone tokens after the colour-blind
   // swap. Surfaces (canvas/panel/input/text/muted/line) and decorative purple
@@ -231,21 +289,32 @@ export function stationTokens(
     // is excluded: its text use (`--su-accent-text` below) already re-checks
     // contrast against the scaled value and falls back to `info`.
     for (const role of ["info", "success", "warning", "danger"] as const) {
-      colors[`--su-${role}`] = toneOnPanel(colors[`--su-${role}`], palette.panel);
+      colors[`--su-${role}`] = toneOnPanel(colors[`--su-${role}`], palette);
     }
   }
   const scaledAccent = colors["--su-accent"];
   const info = colors["--su-info"];
+  const textSurfaces = guaranteedTextSurfaces(palette);
   colors["--su-on-accent"] =
     stationContrast(scaledAccent, "#000000") >=
     stationContrast(scaledAccent, "#ffffff")
       ? "#000000"
       : "#ffffff";
-  colors["--su-accent-edge"] =
-    stationContrast(scaledAccent, palette.panel) >= 3 ? scaledAccent : info;
+  colors["--su-accent-edge"] = meetsContrastFloor(
+    scaledAccent,
+    textSurfaces,
+    GRAPHICAL_CONTRAST,
+  )
+    ? scaledAccent
+    : info;
   // A custom brand color is never assumed to be legible as text on a panel.
-  colors["--su-accent-text"] =
-    stationContrast(scaledAccent, palette.panel) >= 4.5 ? scaledAccent : info;
+  colors["--su-accent-text"] = meetsContrastFloor(
+    scaledAccent,
+    textSurfaces,
+    STATUS_TEXT_CONTRAST,
+  )
+    ? scaledAccent
+    : info;
   // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
   // inside a scoped StationProvider as well as on the document root.
   const channels = Object.fromEntries(

@@ -6,8 +6,8 @@
  *   - Storage path pattern: `{userId}/{imageId}.jpg`
  *   - Metadata table: `user_images`
  *
- * Uses full-scan push (no processQueue). Images are uploaded to Supabase
- * Storage and metadata is tracked in the `user_images` table for delta pulls.
+ * `push` full-scans referenced local blobs. `processQueue` uploads explicitly
+ * scheduled `user_images` entries and leaves failures queued for retry.
  */
 
 import { getSupabase } from "@/lib/supabase";
@@ -18,7 +18,7 @@ import {
   storeImageWithId,
   getAllImageIds,
 } from "@/lib/db/imageStore";
-import type { SyncModule, SyncableTable } from "../types";
+import type { SyncModule, SyncableTable, WriteQueueEntry } from "../types";
 import {
   computeImagePullCheckpoint,
   imageSyncDeltaFilter,
@@ -50,6 +50,78 @@ interface UserImageRow {
   created_at: string;
 }
 
+async function fetchServerImageIds(userId: string): Promise<Set<string>> {
+  const { data: serverRows, error: serverError } = (await untypedFrom(
+    "user_images",
+  )
+    .select("id")
+    .eq("user_id", userId)) as {
+    data: Array<{ id: string }> | null;
+    error: { message: string } | null;
+  };
+
+  if (serverError) {
+    throw new Error(
+      `[imageSync] Failed to query server metadata: ${serverError.message}`,
+    );
+  }
+
+  return new Set((serverRows ?? []).map((r) => r.id));
+}
+
+/** true when the blob and metadata both landed for this owner. */
+async function uploadLocalImage(
+  userId: string,
+  imageId: string,
+): Promise<boolean> {
+  const stored = await getImage(imageId);
+  if (!stored) {
+    console.warn(
+      `[imageSync] Image ${imageId} referenced but not found in IDB, skipping`,
+    );
+    return false;
+  }
+
+  const storagePath = `${userId}/${imageId}.jpg`;
+  const supabase = getSupabase();
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, stored.blob, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error(
+      `[imageSync] Storage upload failed for ${imageId}: ${uploadError.message}`,
+    );
+    return false;
+  }
+
+  const { error: metaError } = await untypedFrom("user_images").upsert(
+    {
+      id: imageId,
+      user_id: userId,
+      storage_path: storagePath,
+      width: stored.width,
+      height: stored.height,
+      size_bytes: stored.blob.size,
+      created_at: stored.createdAt,
+    },
+    { onConflict: "id" },
+  );
+
+  if (metaError) {
+    console.error(
+      `[imageSync] Metadata upsert failed for ${imageId}: ${metaError.message}`,
+    );
+    return false;
+  }
+
+  return true;
+}
+
 // ─── Sync Module ────────────────────────────────────────────────────────────
 
 export const imageSync: SyncModule = {
@@ -60,7 +132,6 @@ export const imageSync: SyncModule = {
   // ── Push ──────────────────────────────────────────────────────────────────
 
   async push(userId: string): Promise<void> {
-    const supabase = getSupabase();
     const referencedIds = collectReferencedImageIds(
       getLiveImageReferenceSnapshot(),
     );
@@ -70,25 +141,7 @@ export const imageSync: SyncModule = {
       return;
     }
 
-    // Get existing server metadata to find what's missing
-    const { data: serverRows, error: serverError } = (await untypedFrom(
-      "user_images",
-    )
-      .select("id")
-      .eq("user_id", userId)) as {
-      data: Array<{ id: string }> | null;
-      error: { message: string } | null;
-    };
-
-    if (serverError) {
-      throw new Error(
-        `[imageSync] Failed to query server metadata: ${serverError.message}`,
-      );
-    }
-
-    const serverIds = new Set((serverRows ?? []).map((r) => r.id));
-
-    // Find imageIds that are local but not on server
+    const serverIds = await fetchServerImageIds(userId);
     const missingIds = [...referencedIds].filter((id) => !serverIds.has(id));
 
     if (missingIds.length === 0) {
@@ -97,57 +150,15 @@ export const imageSync: SyncModule = {
     }
 
     let uploadedCount = 0;
+    let failedCount = 0;
 
     for (const imageId of missingIds) {
       try {
-        const stored = await getImage(imageId);
-        if (!stored) {
-          console.warn(
-            `[imageSync] Image ${imageId} referenced but not found in IDB, skipping`,
-          );
-          continue;
-        }
-
-        const storagePath = `${userId}/${imageId}.jpg`;
-
-        // Upload blob to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET)
-          .upload(storagePath, stored.blob, {
-            contentType: "image/jpeg",
-            upsert: true,
-          });
-
-        if (uploadError) {
-          console.error(
-            `[imageSync] Storage upload failed for ${imageId}: ${uploadError.message}`,
-          );
-          continue;
-        }
-
-        // Insert metadata row
-        const { error: metaError } = await untypedFrom("user_images").upsert(
-          {
-            id: imageId,
-            user_id: userId,
-            storage_path: storagePath,
-            width: stored.width,
-            height: stored.height,
-            size_bytes: stored.blob.size,
-            created_at: stored.createdAt,
-          },
-          { onConflict: "id" },
-        );
-
-        if (metaError) {
-          console.error(
-            `[imageSync] Metadata upsert failed for ${imageId}: ${metaError.message}`,
-          );
-          continue;
-        }
-
-        uploadedCount++;
+        const uploaded = await uploadLocalImage(userId, imageId);
+        if (uploaded) uploadedCount++;
+        else failedCount++;
       } catch (err) {
+        failedCount++;
         console.error(
           `[imageSync] Unexpected error uploading image ${imageId}:`,
           err,
@@ -158,6 +169,12 @@ export const imageSync: SyncModule = {
     console.log(
       `[imageSync] Uploaded ${uploadedCount} of ${missingIds.length} images`,
     );
+
+    if (failedCount > 0) {
+      throw new Error(
+        `[imageSync] ${failedCount} of ${missingIds.length} image uploads did not complete`,
+      );
+    }
   },
 
   // ── Pull ──────────────────────────────────────────────────────────────────
@@ -248,9 +265,46 @@ export const imageSync: SyncModule = {
     return computeImagePullCheckpoint(rows, (id) => processedIds.has(id));
   },
 
-  // ── processQueue — not used (push handles via full scan) ──────────────────
+  async processQueue(
+    userId: string,
+    entries: WriteQueueEntry[],
+  ): Promise<string[]> {
+    if (entries.length === 0) return [];
 
-  async processQueue(): Promise<string[]> {
-    return [];
+    const referencedIds = collectReferencedImageIds(
+      getLiveImageReferenceSnapshot(),
+    );
+    const serverIds = await fetchServerImageIds(userId);
+    const processed: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.operation !== "upsert") {
+        processed.push(entry.queueId);
+        continue;
+      }
+
+      const imageId = entry.data.id;
+      if (typeof imageId !== "string" || imageId.length === 0) continue;
+
+      if (!referencedIds.has(imageId) || serverIds.has(imageId)) {
+        processed.push(entry.queueId);
+        continue;
+      }
+
+      try {
+        const uploaded = await uploadLocalImage(userId, imageId);
+        if (uploaded) {
+          serverIds.add(imageId);
+          processed.push(entry.queueId);
+        }
+      } catch (err) {
+        console.error(
+          `[imageSync] Unexpected error uploading image ${imageId}:`,
+          err,
+        );
+      }
+    }
+
+    return processed;
   },
 };

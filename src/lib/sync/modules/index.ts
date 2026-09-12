@@ -6,7 +6,7 @@
  *
  * Tier 1 (Eager, 5s debounce): profile, preferences, targets, shack, dxcc
  * Tier 2 (Incremental, 30s batch): logbook, contests
- * Tier 3 (Lazy, immediate): watches, pins, skeds, alert rules
+ * Tier 3 (Lazy, immediate): watches, pins, skeds, alert rules, images
  */
 
 import { SyncManager } from "../SyncManager";
@@ -57,9 +57,15 @@ export function registerAllModules(): void {
   // ── Store → Sync wiring ───────────────────────────────────────────────
   // Subscribe to Tier 1 stores so any state change schedules an eager push.
   // The 5s debounce inside SyncManager prevents rapid-fire network calls.
-  useProfileStore.subscribe(() => manager.markDirty("eager"));
+  // Profile and shack also hold image references; schedule those blobs
+  // onto the lazy write queue so photo save actually uploads.
+  const scheduleEagerAndImages = () => {
+    manager.markDirty("eager");
+    manager.scheduleReferencedImageUploads();
+  };
+  useProfileStore.subscribe(scheduleEagerAndImages);
   useSettingsStore.subscribe(() => manager.markDirty("eager"));
-  useShackStore.subscribe(() => manager.markDirty("eager"));
+  useShackStore.subscribe(scheduleEagerAndImages);
   useDXCCStore.subscribe(() => manager.markDirty("eager"));
 
   // Theme, map, and DX stores are folded into preferencesSync blob.

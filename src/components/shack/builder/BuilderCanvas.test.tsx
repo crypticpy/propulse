@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useShackStore } from "@/stores/shackStore";
 import type { StationChain } from "@/types/stationChain";
+import { DraggableEquipmentCard } from "./DraggableEquipmentCard";
 import { BuilderCanvas } from "./BuilderCanvas";
 
 vi.mock("@/hooks/useChainPerformance", () => ({
@@ -42,7 +43,14 @@ function stubResizeObserver(width = 400) {
     observe(el: Element) {
       const entry = {
         target: el,
-        contentRect: { width, height: 300, top: 0, left: 0, bottom: 300, right: width },
+        contentRect: {
+          width,
+          height: 300,
+          top: 0,
+          left: 0,
+          bottom: 300,
+          right: width,
+        },
       };
       (this as unknown as { cb: ResizeObserverCallback }).cb(
         [entry as ResizeObserverEntry],
@@ -204,7 +212,77 @@ it("does not draw Chassis GND for an unrecorded radio when the overlay is on (#3
     />,
   );
   expect(screen.queryByText("Chassis GND")).toBeNull();
-  expect(
-    screen.queryByLabelText("Recorded ground connections"),
-  ).toBeNull();
+  expect(screen.queryByLabelText("Recorded ground connections")).toBeNull();
 });
+
+it("accepts inline drawer gear on the explicit second cable run with a compatible move effect", () => {
+  const chain: StationChain = {
+    ...emptyChain,
+    nodes: [
+      { type: "feedline_run", feedlineRunId: "run-a" },
+      { type: "feedline_run", feedlineRunId: "run-b" },
+    ],
+    feedlineRuns: ["run-a", "run-b"].map((id) => ({
+      id,
+      feedlineId: "cable",
+      inlineComponentIds: [],
+    })),
+  };
+  const props = canvasProps(chain);
+  const { container } = render(
+    <>
+      <DraggableEquipmentCard id="choke" type="inline" name="Test choke" />
+      <BuilderCanvas {...props} />
+    </>,
+  );
+  const data = new Map<string, string>();
+  const transfer = {
+    setData: (key: string, value: string) => data.set(key, value),
+    getData: (key: string) => data.get(key) ?? "",
+    get types() {
+      return [...data.keys()];
+    },
+    effectAllowed: "none",
+    dropEffect: "none",
+  };
+  fireEvent.dragStart(
+    screen.getByText("Test choke").closest('[draggable="true"]')!,
+    { dataTransfer: transfer },
+  );
+  const target = container.querySelector('[data-feedline-run-drop="run-b"]')!;
+  fireEvent.dragOver(target, { dataTransfer: transfer });
+  expect(transfer.effectAllowed).toBe("move");
+  expect(transfer.dropEffect).toBe("move");
+  fireEvent.drop(target, { dataTransfer: transfer });
+  expect(props.onDropEquipment).toHaveBeenCalledExactlyOnceWith(
+    "inline",
+    "choke",
+    1,
+    "run-b",
+  );
+});
+
+it.each(["radio", "antenna", "feedline", "accessory"])(
+  "does not insert %s equipment through a cable-run target",
+  (type) => {
+    const chain: StationChain = {
+      ...emptyChain,
+      nodes: [{ type: "feedline_run", feedlineRunId: "run-a" }],
+      feedlineRuns: [
+        { id: "run-a", feedlineId: "cable", inlineComponentIds: [] },
+      ],
+    };
+    const props = canvasProps(chain);
+    const { container } = render(<BuilderCanvas {...props} />);
+    const target = container.querySelector('[data-feedline-run-drop="run-a"]')!;
+    const transfer = {
+      types: ["application/x-equipment"],
+      getData: () => JSON.stringify({ type, id: "equipment" }),
+      dropEffect: "none",
+    };
+    fireEvent.dragOver(target, { dataTransfer: transfer });
+    expect(transfer.dropEffect).toBe("none");
+    fireEvent.drop(target, { dataTransfer: transfer });
+    expect(props.onDropEquipment).not.toHaveBeenCalled();
+  },
+);

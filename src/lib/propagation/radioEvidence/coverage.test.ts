@@ -114,7 +114,11 @@ describe("gap handling", () => {
 
     expect(verdict.kind).toBe("unknown");
     if (verdict.kind !== "unknown") return;
-    expect(verdict.reason).toBe("no_receiver_coverage");
+    // The plan wrote this case as no_receiver_coverage. That reason is a
+    // claim about the whole window, and four of its six hours were removed
+    // by the gap ledger, so the honest reason is the gap. Coverage still
+    // rests on readable hours only, which is what the span assertions hold.
+    expect(verdict.reason).toBe("aggregate_hour_not_readable");
     expect(verdict.span.readableHourStarts).toEqual(readableHours);
     expect(verdict.span.unreadableHourStarts).toEqual(WINDOW_HOURS.slice(2));
     expect(verdict.span.latestReadableHourEnd).toBe("2026-09-11T14:00:00.000Z");
@@ -217,6 +221,37 @@ describe("gap handling", () => {
       { startAt: WINDOW_HOURS[2], endAt: WINDOW_HOURS[3] },
       { startAt: WINDOW_HOURS[5], endAt: "2026-09-11T18:00:00.000Z" },
     ]);
+  });
+});
+
+describe("a gap outranks a window-wide coverage claim", () => {
+  it("names the unreadable hour rather than the missing receiver", () => {
+    // Five readable hours with nobody listening plus one unreadable hour.
+    // "Nobody was listening in this window" is a statement about six hours,
+    // and one of them was never read, so the gap is the reason.
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS.slice(0, 5)),
+      coverageRows: [],
+    });
+
+    expect(verdict.kind).toBe("unknown");
+    if (verdict.kind !== "unknown") return;
+    expect(verdict.reason).toBe("aggregate_hour_not_readable");
+  });
+
+  it("still names the receiver when every hour was readable", () => {
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS),
+      coverageRows: [],
+    });
+
+    expect(verdict.kind).toBe("unknown");
+    if (verdict.kind !== "unknown") return;
+    expect(verdict.reason).toBe("no_receiver_coverage");
   });
 });
 

@@ -92,6 +92,13 @@ export interface PathCoverageRow {
   unique_rx: number;
 }
 
+/** The span a record actually answers over: whole aggregation hours. */
+export interface AlignedWindow {
+  readonly startAt: string;
+  /** Exclusive, and never later than the last hour the collector wrote. */
+  readonly endAt: string;
+}
+
 /** The narrow projection of `band_hourly_stats_readable` the gap witness needs. */
 export interface ReadableBandHourRow {
   hour_utc: string;
@@ -235,6 +242,13 @@ export interface RadioEvidenceInputs extends ObservedActivityDescriptor {
   readonly pairRows: readonly PathActivityPairRow[];
   readonly coverageRows: readonly PathCoverageRow[];
   readonly readableHours: readonly ReadableBandHourRow[];
+  /**
+   * The aligned window, when a reader has already computed it to bound its
+   * queries. Supplying it makes one `alignedWindow` call the single source of
+   * the bounds the rows were fetched over and the bounds the record states;
+   * omitting it derives the same window from `issuedAt` and `windowSeconds`.
+   */
+  readonly window?: AlignedWindow;
 }
 
 /**

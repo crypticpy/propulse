@@ -20,6 +20,7 @@
 
 import {
   MODE_CLASSES,
+  type AlignedWindow,
   type CoverageVerdict,
   type ModeClass,
   type PathCoverageRow,
@@ -27,6 +28,8 @@ import {
   type ReadableSpan,
   type UnreadableSpan,
 } from "@/lib/propagation/radioEvidence/types";
+
+export type { AlignedWindow };
 
 const HOUR_MS = 3_600_000;
 
@@ -78,13 +81,6 @@ export function hourEnd(hourStart: string): string {
   return new Date(Date.parse(hourStart) + HOUR_MS).toISOString();
 }
 
-/** The span a record actually answers over: whole aggregation hours. */
-export interface AlignedWindow {
-  readonly startAt: string;
-  /** Exclusive, and never later than the last hour the collector wrote. */
-  readonly endAt: string;
-}
-
 /**
  * The window aligned to whole aggregation hours, ending at the last hour
  * boundary at or before `issuedAt`.
@@ -119,8 +115,9 @@ export function alignedWindow(
 export function candidateHourStarts(
   issuedAt: string,
   windowSeconds: number,
+  /** The window the caller already aligned, so the bounds are computed once. */
+  window: AlignedWindow = alignedWindow(issuedAt, windowSeconds),
 ): string[] {
-  const window = alignedWindow(issuedAt, windowSeconds);
   const closes = Date.parse(window.endAt);
   const hours: string[] = [];
   let start = Math.ceil(Date.parse(window.startAt) / HOUR_MS) * HOUR_MS;
@@ -135,11 +132,16 @@ export function readableSpan(
   issuedAt: string,
   windowSeconds: number,
   readableHours: readonly ReadableBandHourRow[],
+  window?: AlignedWindow,
 ): ReadableSpan {
   const exposed = new Set(
     readableHours.map((row) => normalizeHourStart(row.hour_utc)),
   );
-  const candidateHourStarts_ = candidateHourStarts(issuedAt, windowSeconds);
+  const candidateHourStarts_ = candidateHourStarts(
+    issuedAt,
+    windowSeconds,
+    window ?? alignedWindow(issuedAt, windowSeconds),
+  );
   const readableHourStarts = candidateHourStarts_.filter((hour) =>
     exposed.has(hour),
   );
@@ -205,6 +207,8 @@ export interface CoverageQuery {
   readonly coverageRows: readonly PathCoverageRow[];
   /** Modes the request asks about; defaults to all three. */
   readonly modeClasses?: readonly ModeClass[];
+  /** The aligned window, when the caller has already computed it. */
+  readonly window?: AlignedWindow;
 }
 
 /**
@@ -217,6 +221,7 @@ export function resolveCoverage(query: CoverageQuery): CoverageVerdict {
     query.issuedAt,
     query.windowSeconds,
     query.readableHours,
+    query.window,
   );
   // `window_not_aggregated` is not reachable from here: the window is a whole
   // number of hours (asserted above) and is aligned, so it always holds at
@@ -231,7 +236,18 @@ export function resolveCoverage(query: CoverageQuery): CoverageVerdict {
     heard.has(hour),
   );
   if (coveredHourStarts.length === 0) {
-    return { kind: "unknown", span, reason: "no_receiver_coverage" };
+    // "Nobody was listening" is a claim about the whole window, so it may only
+    // be made when the whole window was read. With an hour missing, the reason
+    // is the gap: that hour could hold the listening receiver this verdict
+    // says does not exist.
+    return {
+      kind: "unknown",
+      span,
+      reason:
+        span.unreadableHourStarts.length > 0
+          ? "aggregate_hour_not_readable"
+          : "no_receiver_coverage",
+    };
   }
   return {
     kind: "covered",

@@ -394,7 +394,9 @@ describe("qualification", () => {
 
     expect(record.state).toBe("unknown");
     if (record.state !== "unknown") return;
-    expect(record.reason).toBe("no_receiver_coverage");
+    // The gap, not the receiver: three of six hours were never read, so no
+    // claim about who was listening over the window can be made at all.
+    expect(record.reason).toBe("aggregate_hour_not_readable");
   });
 
   it("ignores a row with no receiver behind it", () => {

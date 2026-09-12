@@ -447,3 +447,35 @@ describe("partial receiver coverage cannot publish a zero", () => {
     );
   });
 });
+
+describe("a gap outranks a coverage claim in provenance", () => {
+  it("names the unreadable hour when one hour of six was never read", () => {
+    const gapped = record({
+      pairRows: [],
+      coverageRows: [],
+      readableHours: WINDOW_HOURS.slice(0, 5).map((hour_utc) => ({ hour_utc })),
+    });
+
+    expect(gapped.state).toBe("unknown");
+    expect(gapped.state === "unknown" && gapped.reason).toBe(
+      "aggregate_hour_not_readable",
+    );
+
+    const { head, evidenceSource } = projectObservedActivityHead(
+      gapped,
+      IDENTITY,
+    );
+
+    expect(head.state.availability).toBe("missing_input");
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("aggregate_hour_not_readable");
+    // Provenance says the same thing from the other side: the source is
+    // eligible only as far as it was read, and never further.
+    expect(evidenceSource.exclusionReason).toBeNull();
+    expect(evidenceSource.observedIntervalEndAt).toBe(
+      "2026-09-11T17:00:00.000Z",
+    );
+    expect(evidenceSource.observedIntervalEndAt).not.toBe(gapped.windowEndAt);
+  });
+});

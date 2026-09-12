@@ -257,7 +257,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
               {/* Title and subtitle */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
+                  <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
                     {title}
                   </h3>
 
@@ -269,7 +269,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
                         return (
                           <span
                             key={idx}
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}
+                            className={`text-xs font-mono px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}
                           >
                             {badge.label} {badge.value}
                           </span>
@@ -289,7 +289,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
 
                 {/* Subtitle (only when not collapsed) */}
                 {!collapsed && subtitle && (
-                  <p className="text-[10px] text-su-muted mt-0.5 truncate">
+                  <p className="text-xs text-su-muted mt-0.5 truncate">
                     {subtitle}
                   </p>
                 )}

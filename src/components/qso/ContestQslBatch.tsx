@@ -233,7 +233,7 @@ export function ContestQslBatch() {
                       {service.label}
                     </span>
                     {!service.available && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-caution-amber/20 text-caution-amber">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-caution-amber/20 text-su-text">
                         Coming Soon
                       </span>
                     )}
@@ -271,7 +271,7 @@ export function ContestQslBatch() {
 
       {/* Error log */}
       {hasErrors && (
-        <div className="rounded-lg border border-alert-red/20 bg-alert-red/5 overflow-hidden">
+        <div className="rounded-lg border border-alert-red/20 bg-alert-red/5 overflow-hidden text-su-text">
           <button
             onClick={() => setShowErrors((prev) => !prev)}
             className="
@@ -280,11 +280,11 @@ export function ContestQslBatch() {
               hover:bg-alert-red/5 transition-colors
             "
           >
-            <span className="text-alert-red font-medium">
+            <span className="font-medium">
               {allErrors.length} error{allErrors.length !== 1 ? "s" : ""}
             </span>
             <svg
-              className={`w-4 h-4 text-alert-red transition-transform ${showErrors ? "rotate-180" : ""}`}
+              className={`w-4 h-4 transition-transform ${showErrors ? "rotate-180" : ""}`}
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -298,7 +298,7 @@ export function ContestQslBatch() {
           {showErrors && (
             <div className="px-3 pb-3 space-y-1">
               {allErrors.map((error, i) => (
-                <p key={i} className="text-xs text-alert-red/80 font-mono">
+                <p key={i} className="text-xs font-mono">
                   {error}
                 </p>
               ))}

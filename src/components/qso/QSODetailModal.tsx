@@ -257,7 +257,7 @@ export function QSODetailModal({
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-alert-red/20 text-alert-red hover:bg-alert-red/30 border border-alert-red/30"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-alert-red/20 text-su-text hover:bg-alert-red/20 border border-alert-red/30"
           >
             Delete
           </button>

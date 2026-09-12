@@ -115,7 +115,7 @@ export function BandMapControls({
               px-1.5 py-0.5 rounded text-xs font-mono transition-all duration-150
               ${
                 contestFilter === cf.value
-                  ? "bg-caution-amber/20 text-caution-amber"
+                  ? "bg-caution-amber/20 text-su-text"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }
             `}
@@ -133,7 +133,7 @@ export function BandMapControls({
             px-1.5 py-0.5 rounded text-xs font-mono transition-all duration-150 ml-0.5
             ${
               showSubBands
-                ? "bg-nebula-blue/20 text-nebula-blue"
+                ? "bg-nebula-blue/20 text-su-text"
                 : "text-su-muted hover:text-su-text hover:bg-su-line/10"
             }
           `}

@@ -88,11 +88,11 @@ export function QSOSyncStatusIndicator(): JSX.Element {
   let statusText: string;
 
   if (syncing) {
-    pillColor = "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30";
+    pillColor = "bg-nebula-blue/20 text-su-text border-nebula-blue/30";
     dotColor = "bg-nebula-blue";
     statusText = "Syncing";
   } else if (hasError) {
-    pillColor = "bg-alert-red/20 text-alert-red border-alert-red/30";
+    pillColor = "bg-alert-red/20 text-su-text border-alert-red/30";
     dotColor = "bg-alert-red";
     statusText = "Error";
   } else if (isOffline) {
@@ -101,11 +101,11 @@ export function QSOSyncStatusIndicator(): JSX.Element {
     statusText = hasPending ? `Offline (${pendingCount})` : "Offline";
   } else if (hasPending) {
     pillColor =
-      "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30";
+      "bg-plasma-orange/20 text-su-text border-plasma-orange/30";
     dotColor = "bg-plasma-orange";
     statusText = `${pendingCount} pending`;
   } else {
-    pillColor = "bg-signal-green/20 text-signal-green border-signal-green/30";
+    pillColor = "bg-signal-green/20 text-su-text border-signal-green/30";
     dotColor = "bg-signal-green";
     statusText = lastSyncAt ? formatTimeAgo(lastSyncAt) : "Synced";
   }
@@ -257,7 +257,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
             {/* Error message */}
             {hasError && (
               <div className="mt-1 p-2 rounded bg-alert-red/10 border border-alert-red/20">
-                <p className="text-xs text-alert-red/90 break-words">
+                <p className="text-xs text-su-text break-words">
                   {error}
                 </p>
               </div>
@@ -274,7 +274,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
                 onClick={() => void handleRetry()}
                 disabled={retrying || syncing}
                 className="text-xs px-2 py-0.5 rounded font-medium transition-colors
-                           bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30
+                           bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20
                            disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >

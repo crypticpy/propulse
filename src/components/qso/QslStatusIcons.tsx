@@ -90,7 +90,7 @@ function QslBadge({
     // Green filled: confirmed
     return (
       <span
-        className={`inline-flex items-center justify-center rounded-sm font-mono font-bold ${sizeClasses} bg-signal-green/25 text-signal-green border border-signal-green/40`}
+        className={`inline-flex items-center justify-center rounded-sm font-mono font-bold ${sizeClasses} bg-signal-green/20 text-su-text border border-signal-green/40`}
         title={`${service.name}: Confirmed`}
         aria-label={`${service.name} confirmed`}
       >

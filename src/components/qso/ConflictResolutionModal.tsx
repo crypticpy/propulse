@@ -358,7 +358,7 @@ export function ConflictResolutionModal({
             type="button"
             disabled={isResolving}
             onClick={handleKeepTheirs}
-            className="rounded-lg border border-plasma-orange/30 bg-plasma-orange/20 px-4 py-2 text-sm font-medium text-plasma-orange transition-colors hover:bg-plasma-orange/30 disabled:opacity-50"
+            className="rounded-lg border border-plasma-orange/30 bg-plasma-orange/20 px-4 py-2 text-sm font-medium text-su-text transition-colors hover:bg-plasma-orange/20 disabled:opacity-50"
           >
             Keep Theirs
           </button>
@@ -366,7 +366,7 @@ export function ConflictResolutionModal({
             type="button"
             disabled={isResolving}
             onClick={handleSaveMerged}
-            className="rounded-lg border border-signal-green/30 bg-signal-green/20 px-4 py-2 text-sm font-medium text-signal-green transition-colors hover:bg-signal-green/30 disabled:opacity-50"
+            className="rounded-lg border border-signal-green/30 bg-signal-green/20 px-4 py-2 text-sm font-medium text-su-text transition-colors hover:bg-signal-green/20 disabled:opacity-50"
           >
             Save Merged
           </button>

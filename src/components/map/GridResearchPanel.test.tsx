@@ -30,6 +30,13 @@ describe("GridResearchPanel initialCallsign", () => {
     });
   });
 
+  it("gates the research feed on panel visibility", () => {
+    const { rerender } = render(<GridResearchPanel visible={false} grid="EM10" onClose={() => {}} />);
+    expect(mocks.useGridResearch).toHaveBeenLastCalledWith("EM10", undefined, false);
+    rerender(<GridResearchPanel visible grid="EM10" onClose={() => {}} />);
+    expect(mocks.useGridResearch).toHaveBeenLastCalledWith("EM10", undefined, true);
+  });
+
   it("opens directly to the normalized operator and retains profile actions", async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();

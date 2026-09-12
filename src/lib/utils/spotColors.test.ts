@@ -234,3 +234,13 @@ describe("getSpotColor", () => {
     expect(getSpotColor(spot, "age", now)).not.toBe(getBandColor("20m"));
   });
 });
+
+describe("unknown band keys", () => {
+  it.each(["constructor", "__proto__", "hasOwnProperty", "toString"])(
+    "returns the documented unknown color for %s through the legacy API",
+    (band) => {
+      expect(getBandColor(band)).toBe("#4488ff");
+      expect(getSpotColor({ band }, "band")).toBe("#4488ff");
+    },
+  );
+});

@@ -9,24 +9,7 @@
  */
 
 import { useMemo } from "react";
-
-// ─── Band color map ──────────────────────────────────────────────────────────
-
-const BAND_COLORS: Record<string, string> = {
-  "160m": "#ff6b6b",
-  "80m": "#e8596e",
-  "60m": "#d4507a",
-  "40m": "#f59e0b",
-  "30m": "#f0c040",
-  "20m": "#00ff88",
-  "17m": "#22d3ee",
-  "15m": "#3b82f6",
-  "12m": "#818cf8",
-  "10m": "#a855f7",
-  "6m": "#f472b6",
-  "2m": "#fb923c",
-  "70cm": "#94a3b8",
-};
+import { getFt8HudBandColor } from "@/lib/colors/palettes/spots";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -60,9 +43,7 @@ export function Ft8SpotterHUD({
     return `0:${seconds.toString().padStart(2, "0")}`;
   }, [cycleProgress, currentMode]);
 
-  const bandColor = currentBand
-    ? (BAND_COLORS[currentBand] ?? "#9ca3af")
-    : "#9ca3af";
+  const bandColor = getFt8HudBandColor(currentBand);
 
   // Empty state
   if (totalDecodes === 0) {

@@ -375,6 +375,24 @@ describe("the assembled long-path field strength", () => {
     expect(result.assumptions).toEqual([]);
   });
 
+  it("records an assumption when fL is at or above fM, an inverted or degenerate passband, item F", () => {
+    const result = resolved({
+      route: stretched(EQUATORIAL, LONG_PATH_MIN_DISTANCE_KM),
+      frequencyMHz: 5,
+      monthIndex: 0,
+      utcHour: 0,
+      r12: 400,
+      sample: () => ({
+        foF2MHz: 0.1,
+        m3000F2: 1,
+        gyrofrequency300kmMHz: 0.1,
+      }),
+    });
+    expect(result.fLMHz).toBeGreaterThanOrEqual(result.fMMHz);
+    expect(result.assumptions.join(" ")).toContain("fL");
+    expect(result.assumptions.join(" ")).toContain("fM");
+  });
+
   it("names which of section 5.3's two distance statements applies", () => {
     expect(LONG_PATH_MIN_DISTANCE_KM).toBe(7000);
     expect(LONG_PATH_ONLY_DISTANCE_KM).toBe(9000);
@@ -440,24 +458,57 @@ describe("what section 5.3.3 refuses rather than guesses", () => {
     ).toBe("unsupported");
   });
 
-  it("passes an unsupported fM through with its own label and the leaf record", () => {
+  it("declines a route longer than the declared sphere before either leaf ever runs, item E's hoisted check", () => {
+    // D > MAX_ROUTE_DISTANCE_KM is hoisted ahead of longPathMuf, so this is
+    // this leaf's own out_of_domain refusal, not a muf_unsupported pass-through.
     const result = longPathFieldStrength(
       inputs({ route: stretched(EQUATORIAL, MAX_ROUTE_DISTANCE_KM + 1) }),
     );
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") return;
-    expect(result.reason).toBe("muf_unsupported");
-    expect(result.muf?.kind).toBe("unsupported");
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.muf).toBeNull();
     expect(result.luf).toBeNull();
   });
 
-  it("passes an unsupported fL through with its own label and both leaf records", () => {
+  it("declines a month the tables have no column for before either leaf ever runs, item E's hoisted check", () => {
+    // monthIndex is hoisted ahead of both longPathMuf and longPathLuf, so
+    // this is out_of_domain with both leaf records null, not a
+    // luf_unsupported pass-through with a resolved muf.
     const result = longPathFieldStrength(inputs({ monthIndex: 12 }));
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") return;
-    expect(result.reason).toBe("luf_unsupported");
-    expect(result.muf?.kind).toBe("resolved");
-    expect(result.luf?.kind).toBe("unsupported");
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.muf).toBeNull();
+    expect(result.luf).toBeNull();
+  });
+
+  it("never calls the sampler when monthIndex, utcHour or r12 is hoisted out of domain", () => {
+    let calls = 0;
+    const countingSample: LongPathFieldStrengthInputs["sample"] = (
+      _point,
+      _label,
+      utcHour,
+    ) => {
+      calls += 1;
+      return diurnalState(utcHour);
+    };
+    for (const overrides of [
+      { monthIndex: 12 },
+      { utcHour: 24 },
+      { r12: -1 },
+      { route: stretched(EQUATORIAL, MAX_ROUTE_DISTANCE_KM + 1) },
+    ]) {
+      calls = 0;
+      const result = longPathFieldStrength(
+        inputs({ ...overrides, sample: countingSample }),
+      );
+      expect(result.kind).toBe("unsupported");
+      if (result.kind === "unsupported") {
+        expect(result.reason).toBe("out_of_domain");
+      }
+      expect(calls).toBe(0);
+    }
   });
 
   it("never returns a NaN on any numeric field of a resolved record", () => {
@@ -488,6 +539,44 @@ describe("what section 5.3.3 refuses rather than guesses", () => {
         expect(Number.isFinite(value)).toBe(true);
       }
     }
+  });
+
+  it.each([
+    {
+      name: "r12 = 401, just above item B's envelope",
+      overrides: { r12: 401 },
+    },
+    {
+      name: "monthIndex = 12, the same table-column check item E hoists",
+      overrides: { monthIndex: 12 },
+    },
+    {
+      name: "sampled foF2 = 1e-300, item A's near-zero missing-data sentinel, surfacing as muf_unsupported",
+      overrides: {
+        sample: () => ({
+          foF2MHz: 1e-300,
+          m3000F2: 3,
+          gyrofrequency300kmMHz: 1.2,
+        }),
+      },
+    },
+  ])("hostile input, refused outright: $name", ({ overrides }) => {
+    const result = longPathFieldStrength(inputs(overrides));
+    expect(result.kind).toBe("unsupported");
+  });
+
+  it("returns out_of_domain rather than an infinite El when an absurdly large but finite frequency overflows equation (39)'s bracket", () => {
+    // frequencyMHz only has to be finite and positive to pass the check above.
+    // At 1e200 MHz it still is, but (f + fH)^2 inside frequencyFactor()
+    // overflows double range on its own, well before fM, fL or any sampled
+    // ionospheric quantity is involved: this is the fieldStrengthLong sibling
+    // of the fM finding, an input whose own bound cannot see what it does in
+    // combination with the rest of the equation.
+    const result = longPathFieldStrength(inputs({ frequencyMHz: 1e200 }));
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("equations (39) to (41)");
   });
 });
 

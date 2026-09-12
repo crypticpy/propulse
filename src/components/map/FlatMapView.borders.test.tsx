@@ -72,6 +72,13 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
   useViewMapSpots: () => EMPTY_FEED,
 }));
 
+// The mounted map shell also reads the logbook. Keep that unrelated read
+// deterministic so IndexedDB cannot resolve after this binding test tears down.
+vi.mock("@/lib/db/logStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/logStore")>()),
+  getAllLogEntries: vi.fn(async () => []),
+}));
+
 async function mount() {
   installCanvasRecorder();
   const { FlatMapView } = await import("@/components/map/FlatMapView");

@@ -7,8 +7,8 @@
  * sites stay sub-floor and are allowlisted by content:
  *
  * - `FateBandActivity.tsx`: fox emoji glyph (`aria-label="Fox"`, decorative
- *   spot-row icon, not readable text) and the `km` unit suffix on distance
- *   columns (tabular unit label beside tabular-nums value).
+ *   spot-row icon, not readable text). The necessary km unit scales with
+ *   its value; two explicitly listed badge sites remain for a follow-up.
  *
  * User-read labels, buttons, tab chrome, decode rows, memory channels,
  * FT8 stats, console header, and fate/flex skin controls → `text-xs`.
@@ -44,8 +44,7 @@ const FILES = [
 ];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
-const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
+const INLINE_SIZE_RE = /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface AllowlistEntry {
   file: string;
@@ -62,19 +61,15 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     file: "src/components/sdr/skins/fate/FateBandActivity.tsx",
-    match: ">km</span>",
-    reason:
-      "tabular unit suffix beside a tabular-nums distance value — decorative scale label, not standalone readable text.",
-  },
-  {
-    file: "src/components/sdr/skins/fate/FateBandActivity.tsx",
-    match: "bg-plasma-orange/20 text-su-text text-[7px] px-1 rounded font-bold leading-normal",
+    match:
+      "bg-plasma-orange/20 text-su-text text-[7px] px-1 rounded font-bold leading-normal",
     reason:
       "held at 7px so this batch does not edit accentTintContrast.test.ts (#844 / PR #1163)",
   },
   {
     file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
-    match: "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
+    match:
+      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
     reason:
       "held at 10px so this batch does not edit pulseTextContrast.test.ts (#878)",
   },
@@ -91,6 +86,8 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
+    if (hasAlternateFloorSize(line))
+      sites.push({ file, line: index + 1, text: line });
     for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
       for (const match of line.matchAll(re)) {
         if (Number(match[1]) < 12) {
@@ -132,4 +129,38 @@ describe("sub-text-xs sizing stays at the floor in SDR (#808 batch 4)", () => {
       ).toBe(true);
     }
   });
+});
+
+function hasAlternateFloorSize(line: string): boolean {
+  const values = [
+    ...line.matchAll(
+      /text-\[(?:length:)?([^\]]+)\]|fontSize:\s*["']([^"']+)["']/g,
+    ),
+  ];
+  return values.some((match) => {
+    const value = match[1] ?? match[2];
+    if (/[a-z][a-z0-9-]*\s*\(/i.test(value)) return true;
+    const size = /^(\d*\.?\d+)(px|rem|em|pt)$/.exec(value);
+    if (!size) return false;
+    const factor = { px: 1, rem: 16, em: 16, pt: 4 / 3 }[size[2]]!;
+    return Number(size[1]) * factor <= 12;
+  });
+}
+it("detects equivalent alternate and fixed-floor font sizes", () => {
+  for (const token of [
+    "text-[12px]",
+    "text-[.6rem]",
+    "text-[9pt]",
+    "text-[length:0.7em]",
+    "text-[calc(0.75rem-2px)]",
+    'fontSize: "0.6rem"',
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(true);
+  for (const token of [
+    "text-xs",
+    "text-[1rem]",
+    "text-[#abcdef]",
+    "text-[14px]",
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(false);
 });

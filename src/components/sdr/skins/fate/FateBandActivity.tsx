@@ -441,7 +441,7 @@ export function FateDecodeRow({
         {d.distanceKm != null ? (
           <>
             {Math.round(d.distanceKm).toLocaleString()}
-            <span className="text-su-muted text-[8px] ml-0.5">km</span>
+            <span className="text-su-muted text-xs ml-0.5">km</span>
           </>
         ) : (
           <span className="text-su-muted">---</span>

@@ -77,7 +77,7 @@ export function FateBottomBar({
       {/* Left section: VFO frequency + band pill + connection */}
       <div className="flex items-center gap-2">
         {/* VFO frequency */}
-        <span className="font-mono text-[12px] font-medium text-cosmic-cyan tabular-nums tracking-wide">
+        <span className="font-mono text-xs font-medium text-cosmic-cyan tabular-nums tracking-wide">
           {freqHz ? `${formatFreqDisplay(freqHz)} MHz` : "—.———.——— MHz"}
         </span>
 

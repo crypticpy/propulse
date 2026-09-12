@@ -23,7 +23,7 @@ export function StatCard({
         {label}
       </div>
       {subtitle && (
-        <div className="text-[10px] text-su-muted mt-0.5">{subtitle}</div>
+        <div className="text-xs text-su-muted mt-0.5">{subtitle}</div>
       )}
     </div>
   );

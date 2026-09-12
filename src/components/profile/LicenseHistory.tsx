@@ -77,7 +77,7 @@ export function LicenseHistory() {
                           {entry.class}
                         </span>
                         {isCurrent && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-signal-green/20 text-signal-green rounded">
+                          <span className="px-1.5 py-0.5 text-xs font-medium bg-signal-green/20 text-signal-green rounded">
                             Current
                           </span>
                         )}

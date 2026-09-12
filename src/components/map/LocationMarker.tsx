@@ -320,7 +320,7 @@ function LocationMarkerInner({
             {/* Difficulty tag below label */}
             {type === "target" && showDifficultyTag && difficultyTag && (
               <div
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
+                className="px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap"
                 style={{
                   backgroundColor: `${finalColor}20`,
                   color: finalColor,

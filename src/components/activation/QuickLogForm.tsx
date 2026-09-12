@@ -169,7 +169,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
             </span>
           )}
           {rigConnected && (
-            <span className="text-signal-green text-[10px]">CAT</span>
+            <span className="text-signal-green text-xs">CAT</span>
           )}
         </div>
       )}
@@ -200,7 +200,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-sent"
-            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
+            className="block text-xs text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Sent
           </label>
@@ -222,7 +222,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-rcvd"
-            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
+            className="block text-xs text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Rcvd
           </label>
@@ -274,7 +274,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
       {/* Recent callsigns chips */}
       {recentCalls.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-su-text/80 uppercase mr-1">
+          <span className="text-xs text-su-text/80 uppercase mr-1">
             Recent:
           </span>
           {recentCalls.map((call) => (

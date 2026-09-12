@@ -68,10 +68,10 @@ export function SitRepLog() {
   if (sorted.length === 0) {
     return (
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Situation Reports
         </h2>
-        <p className="text-[10px] text-su-muted">No situation reports yet</p>
+        <p className="text-xs text-su-muted">No situation reports yet</p>
       </div>
     );
   }
@@ -79,13 +79,13 @@ export function SitRepLog() {
   return (
     <div className="p-3 border-b border-su-line/20">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted">
           Situation Reports ({sorted.length})
         </h2>
         <button
           type="button"
           onClick={handleExport}
-          className="text-[10px] text-su-muted hover:text-plasma-orange transition-colors"
+          className="text-xs text-su-muted hover:text-plasma-orange transition-colors"
         >
           Export All
         </button>
@@ -98,17 +98,17 @@ export function SitRepLog() {
             className="rounded-md bg-su-line/10 border border-su-line/20 p-2"
           >
             <div className="flex items-center justify-between mb-0.5">
-              <span className="text-[10px] font-mono text-su-muted">
+              <span className="text-xs font-mono text-su-muted">
                 {formatTimestamp(entry.timestamp)}
               </span>
-              <span className="text-[10px] font-mono text-plasma-orange">
+              <span className="text-xs font-mono text-plasma-orange">
                 {entry.author}
               </span>
             </div>
             <p className="text-xs text-su-text leading-snug">
               {truncate(entry.summary, 120)}
             </p>
-            <p className="text-[10px] text-su-muted mt-0.5">
+            <p className="text-xs text-su-muted mt-0.5">
               {entry.conditions}
             </p>
           </div>

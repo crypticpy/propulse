@@ -142,7 +142,7 @@ function PresetCard({
           <button
             type="button"
             onClick={onDelete}
-            className="px-2 py-1 text-xs rounded bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 transition-colors"
+            className="px-2 py-1 text-xs rounded bg-alert-red/10 border border-alert-red/30 text-su-text hover:bg-alert-red/20 transition-colors"
           >
             Delete
           </button>
@@ -347,7 +347,7 @@ export function PresetBuilder() {
 
       {/* Error display outside modal */}
       {error && !modalOpen && (
-        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm">
           {error}
         </div>
       )}
@@ -362,7 +362,7 @@ export function PresetBuilder() {
       >
         <div className="space-y-5">
           {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm">
               {error}
             </div>
           )}

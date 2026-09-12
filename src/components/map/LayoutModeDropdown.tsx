@@ -351,7 +351,7 @@ export function LayoutModeDropdown({
                       {opt.label}
                     </span>
                     <span
-                      className={`text-[10px] leading-tight ${isActive ? "text-plasma-orange/70" : "text-su-muted"}`}
+                      className={`text-xs leading-tight ${isActive ? "text-plasma-orange/70" : "text-su-muted"}`}
                     >
                       {opt.description}
                     </span>

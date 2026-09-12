@@ -118,7 +118,7 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
           <span className="text-xl font-bold text-su-text font-mono">
             {total}
           </span>
-          <span className="text-[10px] text-su-muted uppercase">QSOs</span>
+          <span className="text-xs text-su-muted uppercase">QSOs</span>
         </div>
       </div>
 

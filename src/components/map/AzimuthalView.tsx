@@ -1217,9 +1217,9 @@ function drawAzimuthalBorders(
   ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
   ctx.lineWidth = lineWidth;
 
+  ctx.beginPath();
   for (const country of WORLD_COUNTRIES) {
     for (const ring of country.borders) {
-      ctx.beginPath();
       let inPath = false;
 
       for (let i = 0; i < ring.length; i++) {
@@ -1280,9 +1280,9 @@ function drawAzimuthalStateBorders(
   ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
   ctx.lineWidth = lineWidth;
 
+  ctx.beginPath();
   for (const state of US_STATES) {
     for (const ring of state.borders) {
-      ctx.beginPath();
       let inPath = false;
 
       for (let i = 0; i < ring.length; i++) {

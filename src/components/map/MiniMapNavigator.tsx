@@ -450,7 +450,7 @@ export function MiniMapNavigator({
     >
       <div className="relative rounded-lg overflow-hidden bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
         <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-b border-su-line/20">
-          <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider">
+          <span className="text-xs font-medium text-su-muted uppercase tracking-wider">
             Overview
           </span>
           <button
@@ -486,17 +486,17 @@ export function MiniMapNavigator({
             {station && (
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#4488FF]" />
-                <span className="text-[8px] text-su-muted">QTH</span>
+                <span className="text-xs text-su-muted">QTH</span>
               </div>
             )}
             {target && (
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#ff6b35]" />
-                <span className="text-[8px] text-su-muted">Target</span>
+                <span className="text-xs text-su-muted">Target</span>
               </div>
             )}
           </div>
-          <span className="text-[7px] text-su-muted">Click to navigate</span>
+          <span className="text-xs text-su-muted">Click to navigate</span>
         </div>
       </div>
     </div>

@@ -1,0 +1,786 @@
+{
+  "schema_version": 1,
+  "derived_from": "ml/propagation_validation/reference/golden-v1.json",
+  "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+  "reference_version": "ITURHFProp Version: Sep 11 2026\nP533 Version: 14.2",
+  "case_count": 16,
+  "selection": "Every one of the 30 golden cases whose path is longer than 7 000 km, which is section 5.3's own domain and the whole of it: 16 cases, G14 to G27 plus G29 and G30. Eight of them (G14 to G19, G26, G27) are in the 7 000 to 9 000 km band where section 5.4 interpolates, and eight (G20 to G25, G29, G30) are past 9 000 km where section 5.3 is the only method. The cut is observable in the oracle, not chosen: the first test asserts that a golden case is in this fixture exactly when its distance exceeds 7 000 km, and that the oracle emitted a real El on every one of them rather than its -307 not-computed sentinel. These are also exactly the 16 cases the mode-set fixture leaves out, for the same reason from the other side: past 7 000 km the reference reports DMidx = NONE because the long-path method has no modes.",
+  "parity_is_partial": "DECLARED LIMITATION, read this before trusting a green run.\n\nWHAT THE ORACLE PUBLISHES. distance and ptick on all 16 cases; El, the section 5.3.3 field strength, on all 16; Ep, the section 5.4 result, on all 16; Es on the 8 cases below 9 000 km and the -307 sentinel on the other 8. BMUF and OPMUF on all 16, but only on the 8 past 9 000 km are they section 5.3.1's: MedianSkywaveFieldStrengthLong.c writes path->BMUF from the lower control-point fBM and path->OPMUF from fM inside `if(path->distance > 9000)`, and below that both columns are still slice A's short-path MUFBasic() values. So the 8 in-blend cases carry null in basic_muf_mhz and operational_muf_mhz here, and reading.muf_columns_published records which is which.\n\nWHAT IT DOES NOT PUBLISH. There is no fM column, no fL column, no fD column, no K column and no Aw column anywhere in the golden file. Everything section 5.3.1 and section 5.3.2 compute is exercised only through El on the 8 in-blend cases and through El, BMUF and OPMUF on the 8 past 9 000 km. A compensating pair of errors in fM and fL that left the equation (39) bracket unchanged would pass every column here. The unit tests in longPath/fM.test.ts and longPath/fL.test.ts exist because of that and assert those quantities against the published equations directly.\n\nAND THE El COLUMN IS ASSERTED TWICE, ONLY ONE OF WHICH IS PARITY. Our El is the recommendation's and the reference's is the reference's; see reference_divergence. The tight claim, el_reference_reading_dbuv_per_m, is the SAME LEAF re-evaluated under the reference's own readings, and it is the one that says equation (39) is right. The loose claim against our own reading is a drift detector and is not a tolerance.",
+  "columns": "distance is the route's ground distance and is slice A's geometry again, kept so that a long-path regression that is really a route regression is visible here. ptick is equation (19) at the fixed 300 km height summed over the section 5.3.1 hop division, which is ResolvedLongPathMuf.virtualSlantRangeKm; the reference computes the same number from its own fM hop division and passes it to both equation (33) and equation (40), so a ptick that agrees is evidence about the hop division and not only about equation (19). BMUF is the lower of the two control-point fBM values of equation (29), ResolvedLongPathMuf.basicMufMHz. OPMUF is fM, the lower of the two K fBM values of equation (31), ResolvedLongPathMuf.fMMHz; it is asserted tightly against the reference's own local-noon index and loosely against ours, because the noon index is a declared deviation (fM.ts deviation 2). El is equation (39), ResolvedLongPathFieldStrength.etlDbuVPerM. Ep is equation (42) and is asserted as a PURE FUNCTION OF THE ORACLE'S OWN Es AND El: nothing of ours feeds it, so a section 5.3 deviation cannot move it and what it measures is section 5.4 alone.",
+  "conventions": {
+    "sunspot_number": "Written straight into the reference's Path.SSN, which both the recommendation and the reference treat as R12. It reaches two different places with two different rules, and this fixture keeps them apart. The numerical map clips it: CalculateCPParameters.c applies SSN = min(SSN, MAXSSN) with MAXSSN 160, and our provider clips at the same 160, so G22 and G23 at 250 read the maps at 160 on both sides. Equation (33) does not clip it: the recommendation says R12 \"does not saturate for high values and can exceed 160\" and the reference reads path->SSN there unclipped, so the parity test passes the raw golden sunspot_number into longPathFieldStrength's r12 and lets only the provider clip.",
+    "time": "hour_utc is an integer UTC hour 0-23. The reference's SolarParameters() fixes the day of the month at 15, which is the provider's own monthly anchor, so validAt is YYYY-MM-15THH:00:00Z. Section 5.3 needs the whole diurnal curve rather than one hour: equation (32) reads fBM at all 24 hours at both control points and equation (33) reads the solar zenith angle at all 24 hours at every 90 km penetration point, so the sampler is called with the hour and the parity test builds a fresh validAt for each.",
+    "provider_mode": "reference, not enhanced: integer month, integer hour, bilinear interpolation of the 1.5-degree grid, which is the convention the oracle was run at.",
+    "transmitter_power": "The golden inputs carry tx_power_watts and the reference's Path.txpower is dB(1 kW), converted by the generator with 10 log10(W/1000). transmitter_power_db_kw carries that conversion so the parity test does no arithmetic on an input: 100 W is -10, 1 W is -30 and 1 kW is 0.",
+    "antennas": "The golden conventions state \"Both ends are ISOTROPIC with 0 dB gain offset and TX2RX orientation, so no antenna model leaks into the reference numbers\". Equation (39)'s Gtl is therefore 0 dBi, which is the module's own default; the parity test passes it explicitly so that the record says it was chosen rather than defaulted.",
+    "reference_reading": "The tight El, OPMUF and fL claims are made against the SAME LEAF evaluated under the reference's own readings, which the parity test reconstructs from exported pieces and from the provider's solar model. Three things are substituted: the reference's local-noon index (truncate then minus one, fM.ts deviation 2) into equation (32); the reference's whole fL curve, built by feeding its own SolarParameters zenith angles into the exported rawLufMHz and then applying its literal 0.7945, its non-strict transition test and its overwrite-then-compare at tr (fL.ts deviations 1, 3, 4 and 5), read at its hour + 1 index (fL.ts deviation 2); and its Ly of -0.17 (fieldStrengthLong.ts deviation 1). The provider's solar.ts is a port of the reference's own SolarParameters(), so substituting its zenith angle is reading the benchmark, not importing it. Nothing of the reference's C is imported anywhere and the substitutions live only in the parity test.",
+    "winter_anomaly": "fL.ts deviation 6 carries the published Table 5 northern September value of 0.01 where the reference's array holds 0.00. No golden case here falls in September, so that deviation is not exercised by this corpus at all and cannot be hiding inside any budget below. Two cases do exercise a non-zero Aw: G21 at 0.22474 and G26 at 0.22274, both from the southern and northern columns respectively."
+  },
+  "tolerances": {
+    "distance_km": 0.1,
+    "slant_range_km": 0.05,
+    "basic_muf_mhz": 0.03,
+    "operational_muf_mhz": 0.05,
+    "el_reference_reading_dbuv_per_m": 0.01,
+    "ep_dbuv_per_m": 0.01
+  },
+  "tolerance_derivation": "Not chosen to pass. Every budget is derived from the CCIR provider's measured residuals, pinned in src/lib/propagation/ionosphere/fixtures/reference-parity.json and asserted in provider.test.ts (foF2 within 2e-3 MHz, M(3000)F2 within 1e-3, foE within 1e-3 MHz), or from the printing width of the golden column, or from a named and measured structural difference. They apply to the 15 cases whose hop division matches the reference's; G25's does not, and its bounds are in reference_divergence.hop_count_bounds rather than here.\n\ndistance_km 0.1: slice A's budget, unchanged. The reference's Earth radius is 6371.009 km and ours is the declared 6371 km (contract M06), a relative difference of 1.4e-6, so at most 0.04 km over the 26 400 km longest route here; with the column's +-5e-3 km printing, 0.1 km covers it with room. Measured maximum 0.0363 km, on the longest path in the set.\n\nslant_range_km 0.05: equation (19) is a closed function of the hop division and the fixed 300 km height, so it carries no provider residual at all. What it carries is the same 1.4e-6 Earth-radius difference amplified by p'/D, which is at most 1.05 here, plus the column's +-5e-3 km printing. That is 0.026 km on the longest matching path, G29 at 17 650 km, and with printing 0.031; the budget is 0.05. Measured maximum 0.0221 km.\n\nbasic_muf_mhz 0.03: fBM = fz + (f4 - fz) fD with f4 = 1.1 foF2 M(3000)F2 and fz = foF2 + fH/2, so d(fBM) is at most 1.1 (M d(foF2) + foF2 d(M)) = 1.1 (3.4 x 2e-3 + 11 x 1e-3) = 0.020 MHz on this corpus, taking fD at its ceiling of 1. With the column's +-5e-3 MHz printing that is 0.025; the budget is 0.03. Measured maximum 0.0044 MHz.\n\noperational_muf_mhz 0.05: fM = K fBM and K runs from 1.420 to 1.734 on this corpus, so the fBM residual above is amplified to 0.035 MHz; the K factor itself is a ratio of two fBM values at the same control point, whose residuals are strongly correlated and largely cancel. With printing, 0.04; the budget is 0.05. Measured maximum 0.0049 MHz, against the reference's own noon index.\n\nel_reference_reading_dbuv_per_m 0.01: equation (39) is E0 F - 30 + Pt + Gtl + Gap - Ly, and only F carries a residual, through fM and fL. d(F)/F is of order 2 d(fM)/fM = 2 x 0.005/50 = 2e-4, and E0 is 50 to 62 dB here, so 0.012 dB at the very worst and less than half that in practice; the El column is printed to four decimals so its own half-digit is 5e-5. The budget is 0.01. Measured maximum 0.0011 dB across the 15 matching cases, and that single worst case is G26, whose El is -305.88 dB because equation (39)'s bracket is far negative there and a relative wobble in it is worth more decibels than anywhere else in the set; the other 14 all sit at or below 0.0001 dB. This is the sharpest statement in this file: equations (29) to (42) reproduce the reference to a ten-thousandth of a decibel on a working circuit once its own readings are substituted.\n\nep_dbuv_per_m 0.01: equation (42) takes the oracle's own Es and El, so it carries no provider residual whatsoever and the only error terms are the four-decimal printing of Es and El, propagated through Xi, and the two-decimal printing of Ep itself. The propagation is not negligible on G26, where Xs and Xl nearly cancel: a 5e-5 dB wobble on Es moves Ei by 4e-4 dB there. 0.005 for Ep's own half-digit plus that, rounded to 0.01. Measured maximum 0.0038 dB.",
+  "observed_max_delta": {
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 16 cases",
+    "distance_km": 0.0363,
+    "slant_range_km_hop_count_matches": 0.0221,
+    "slant_range_km_hop_count_differs": 127.081,
+    "basic_muf_mhz": 0.0044,
+    "operational_muf_mhz": 0.0049,
+    "el_reference_reading_dbuv_per_m": 0.0011,
+    "ep_dbuv_per_m": 0.0038,
+    "note": "All maxima except the slant range are taken over the 15 cases whose hop division matches the reference's, and all four of the MUF and El maxima are against the reference's own readings rather than ours. No case is out of tolerance. The El maximum is G26's 0.0011 dB and every other matching case is at or below 0.0001 dB. G25 is the one case whose hop division differs, because the reference adds a single hop and then stops checking while section 5.3.1 says the minimum elevation must be cleared; its own numbers are in reference_divergence."
+  },
+  "reference_divergence": {
+    "what_this_is": "NOT A PARITY COLUMN, and a green run here is not agreement with the oracle. Our El, our fM and our fL are the recommendation's, read as the three module headers say; the reference's are the reference's, and they differ by six declared deviations rather than by an error. This block records the per-case difference so that it is on the record and so that a future change to any of them is noticed, and gives it a bound wide enough that it can never be mistaken for a tolerance. The measurement that says the difference IS the deviations and nothing else is tolerances.el_reference_reading_dbuv_per_m: substituting the reference's local-noon index, its solar model, its 0.7945, its non-strict transition test, its hour + 1 fL index and its Ly of -0.17 into the SAME LEAF closes the whole gap to 0.0001 dB on all 15 cases whose hop division also matches.",
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 16 cases",
+    "hop_count_case": "G25 (26 400.16 km, the only LONGPATH circuit in the golden set), and it is the reference that is out of its own domain, not us. Section 5.3.1 divides the path into the minimum number of equal hops no longer than 4 000 km and then says \"If the elevation angle is less than 3 degrees, the number of hops is increased\". The reference tests the elevation once, adds one hop and never tests again: it settles on 8 hops of 3 300.02 km whose elevation is 2.598 degrees, below the 3.0 degree minimum its own sentence sets and its own MINELEANGLEL defines. We keep adding hops as the text says and settle on 9 hops of 2 933.35 km at 4.657 degrees. Everything downstream moves with the hop division: ptick by 127.08 km, fBM by 0.69 MHz, fM by 1.13 MHz and El by 2.77 dB even under the reference's own readings. Two other circuits sit near the same boundary and are not affected, G20 at 3.005 degrees and G21 at 3.006 degrees, both of which keep 3 hops under either reading. G25's per-column budgets are hop_count_bounds below and the per-case flag reading.hop_count_matches_reference is what selects them, so the wide budget cannot spread to a case that does not need it.",
+    "bounds": {
+      "el_dbuv_per_m": 20.0,
+      "operational_muf_mhz": 2.0,
+      "derivation": "The measured maxima are 12.9581 dB (G29) and 1.2245 MHz (G25); the bounds are those rounded up with about half again of headroom. They are drift detectors, not tolerances: the quantity they bound is a documented difference in reading, so a narrower bound would only encode today's provider and a wider one would stop reporting a change."
+    },
+    "hop_count_bounds": {
+      "applies_to": "G25 only, selected by reading.hop_count_matches_reference === false",
+      "slant_range_km": 150.0,
+      "basic_muf_mhz": 1.0,
+      "operational_muf_mhz": 1.5,
+      "el_reference_reading_dbuv_per_m": 3.0,
+      "derivation": "The measured differences are 127.081 km, 0.6932 MHz, 1.1311 MHz and 2.7731 dB, rounded up. Same character as bounds above: these record what the reference's single-added-hop reading costs, they are not an error budget, and a G25 that moved inside them would still be reported by the observed_max_delta check."
+    },
+    "observed_max": {
+      "el_dbuv_per_m": 12.9581,
+      "operational_muf_mhz": 1.2245
+    },
+    "sign": "The difference has no sign. Our El is above the reference's on 6 of the 16 circuits and below it on 10, because the two largest contributors pull opposite ways: our Ly of -0.14 raises El by exactly 0.03 dB everywhere, while our fL at the prediction's own hour is usually the larger of the two fL readings and a larger fL lowers the equation (39) bracket.",
+    "cases": [
+      {
+        "case_id": "G14",
+        "el_delta_db": -5.9081,
+        "our_fm_mhz": 52.8207,
+        "reference_noon_fm_mhz": 52.9035,
+        "our_fl_mhz": 12.8858,
+        "reference_reading_fl_mhz": 10.7966,
+        "our_transition_utc_hour": 15,
+        "reference_transition_utc_hour": 15,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G15",
+        "el_delta_db": -2.2653,
+        "our_fm_mhz": 35.7518,
+        "reference_noon_fm_mhz": 36.0084,
+        "our_fl_mhz": 4.9044,
+        "reference_reading_fl_mhz": 2.9954,
+        "our_transition_utc_hour": 0,
+        "reference_transition_utc_hour": 0,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G16",
+        "el_delta_db": 4.2957,
+        "our_fm_mhz": 28.1813,
+        "reference_noon_fm_mhz": 28.2505,
+        "our_fl_mhz": 10.3946,
+        "reference_reading_fl_mhz": 11.419,
+        "our_transition_utc_hour": 0,
+        "reference_transition_utc_hour": 0,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G17",
+        "el_delta_db": -1.4177,
+        "our_fm_mhz": 40.2904,
+        "reference_noon_fm_mhz": 40.1306,
+        "our_fl_mhz": 13.9447,
+        "reference_reading_fl_mhz": 13.3814,
+        "our_transition_utc_hour": 9,
+        "reference_transition_utc_hour": 10,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G18",
+        "el_delta_db": -0.6587,
+        "our_fm_mhz": 32.5773,
+        "reference_noon_fm_mhz": 33.0021,
+        "our_fl_mhz": 1.9672,
+        "reference_reading_fl_mhz": 1.7476,
+        "our_transition_utc_hour": 7,
+        "reference_transition_utc_hour": 7,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G19",
+        "el_delta_db": -1.8616,
+        "our_fm_mhz": 24.3569,
+        "reference_noon_fm_mhz": 24.267,
+        "our_fl_mhz": 5.3988,
+        "reference_reading_fl_mhz": 3.5696,
+        "our_transition_utc_hour": 17,
+        "reference_transition_utc_hour": 17,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G20",
+        "el_delta_db": -0.6015,
+        "our_fm_mhz": 35.6141,
+        "reference_noon_fm_mhz": 35.6536,
+        "our_fl_mhz": 4.2095,
+        "reference_reading_fl_mhz": 3.8398,
+        "our_transition_utc_hour": 18,
+        "reference_transition_utc_hour": 18,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G21",
+        "el_delta_db": -1.2094,
+        "our_fm_mhz": 17.4166,
+        "reference_noon_fm_mhz": 17.7095,
+        "our_fl_mhz": 1.7954,
+        "reference_reading_fl_mhz": 1.7954,
+        "our_transition_utc_hour": 4,
+        "reference_transition_utc_hour": 4,
+        "winter_anomaly_factor": 0.22474
+      },
+      {
+        "case_id": "G22",
+        "el_delta_db": 0.7974,
+        "our_fm_mhz": 49.9995,
+        "reference_noon_fm_mhz": 49.9425,
+        "our_fl_mhz": 20.8533,
+        "reference_reading_fl_mhz": 21.0789,
+        "our_transition_utc_hour": 22,
+        "reference_transition_utc_hour": 22,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G23",
+        "el_delta_db": 0.7598,
+        "our_fm_mhz": 43.9899,
+        "reference_noon_fm_mhz": 44.0194,
+        "our_fl_mhz": 19.0786,
+        "reference_reading_fl_mhz": 19.45,
+        "our_transition_utc_hour": 9,
+        "reference_transition_utc_hour": 9,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G24",
+        "el_delta_db": -0.8603,
+        "our_fm_mhz": 17.3102,
+        "reference_noon_fm_mhz": 17.4479,
+        "our_fl_mhz": 2.4855,
+        "reference_reading_fl_mhz": 2.1315,
+        "our_transition_utc_hour": 8,
+        "reference_transition_utc_hour": 8,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G25",
+        "el_delta_db": 2.3111,
+        "our_fm_mhz": 19.6755,
+        "reference_noon_fm_mhz": 19.7689,
+        "our_fl_mhz": 23.8455,
+        "reference_reading_fl_mhz": 23.3284,
+        "our_transition_utc_hour": null,
+        "reference_transition_utc_hour": null,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G26",
+        "el_delta_db": 2.1176,
+        "our_fm_mhz": 11.2347,
+        "reference_noon_fm_mhz": 11.2452,
+        "our_fl_mhz": 1.8548,
+        "reference_reading_fl_mhz": 1.6238,
+        "our_transition_utc_hour": 22,
+        "reference_transition_utc_hour": 22,
+        "winter_anomaly_factor": 0.22274
+      },
+      {
+        "case_id": "G27",
+        "el_delta_db": 8.3838,
+        "our_fm_mhz": 28.1813,
+        "reference_noon_fm_mhz": 28.2505,
+        "our_fl_mhz": 10.3946,
+        "reference_reading_fl_mhz": 11.419,
+        "our_transition_utc_hour": 0,
+        "reference_transition_utc_hour": 0,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G29",
+        "el_delta_db": -12.9581,
+        "our_fm_mhz": 48.595,
+        "reference_noon_fm_mhz": 48.6521,
+        "our_fl_mhz": 13.7669,
+        "reference_reading_fl_mhz": 11.4845,
+        "our_transition_utc_hour": 21,
+        "reference_transition_utc_hour": 21,
+        "winter_anomaly_factor": 0
+      },
+      {
+        "case_id": "G30",
+        "el_delta_db": -7.1178,
+        "our_fm_mhz": 37.6476,
+        "reference_noon_fm_mhz": 37.6351,
+        "our_fl_mhz": 12.5206,
+        "reference_reading_fl_mhz": 8.9362,
+        "our_transition_utc_hour": 23,
+        "reference_transition_utc_hour": 23,
+        "winter_anomaly_factor": 0
+      }
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "G14",
+      "label": "Singapore-Nairobi 15m equatorial",
+      "inputs": {
+        "tx_lat": 1.3521,
+        "tx_lon": 103.8198,
+        "rx_lat": -1.2921,
+        "rx_lon": 36.8219,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 11,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 7454.96,
+        "slant_range_km": 7826.19,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -3.5501,
+        "es_dbuv_per_m": -0.7307,
+        "ep_dbuv_per_m": -1.36
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G15",
+      "label": "Austin-Sao Paulo 15m",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -23.5505,
+        "rx_lon": -46.6333,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 23,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 8095.11,
+        "slant_range_km": 8461.71,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -1.0404,
+        "es_dbuv_per_m": 1.2347,
+        "ep_dbuv_per_m": 0.0
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G16",
+      "label": "Austin-London 20m transatlantic",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "slant_range_km": 8278.12,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -26.6819,
+        "es_dbuv_per_m": -22.8668,
+        "ep_dbuv_per_m": -24.56
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G17",
+      "label": "Tokyo-Sydney 15m",
+      "inputs": {
+        "tx_lat": 35.6762,
+        "tx_lon": 139.6503,
+        "rx_lat": -33.8688,
+        "rx_lon": 151.2093,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 4,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 7825.83,
+        "slant_range_km": 8194.13,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -16.3488,
+        "es_dbuv_per_m": -13.828,
+        "ep_dbuv_per_m": -14.85
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G18",
+      "label": "Wellington-Honolulu 20m",
+      "inputs": {
+        "tx_lat": -41.2865,
+        "tx_lon": 174.7762,
+        "rx_lat": 21.3069,
+        "rx_lon": -157.8583,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 9,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 7510.65,
+        "slant_range_km": 7881.4,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": 8.7135,
+        "es_dbuv_per_m": 5.3077,
+        "ep_dbuv_per_m": 6.2
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G19",
+      "label": "Perth-Cape Town 17m southern",
+      "inputs": {
+        "tx_lat": -31.9505,
+        "tx_lon": 115.8605,
+        "rx_lat": -33.9249,
+        "rx_lon": 18.4241,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 16,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 8697.26,
+        "slant_range_km": 9061.08,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -14.9203,
+        "es_dbuv_per_m": -28.3015,
+        "ep_dbuv_per_m": -16.7
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G20",
+      "label": "London-Cape Town 17m long north-south",
+      "inputs": {
+        "tx_lat": 51.5074,
+        "tx_lon": -0.1278,
+        "rx_lat": -33.9249,
+        "rx_lon": 18.4241,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 19,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 9671.01,
+        "slant_range_km": 10032.52,
+        "basic_muf_mhz": 25.09,
+        "operational_muf_mhz": 35.65,
+        "el_dbuv_per_m": 2.0482,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": 2.05
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G21",
+      "label": "Santiago-Auckland 20m south Pacific",
+      "inputs": {
+        "tx_lat": -33.4489,
+        "tx_lon": -70.6693,
+        "rx_lat": -36.8485,
+        "rx_lon": 174.7633,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 7,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 9670.05,
+        "slant_range_km": 10031.55,
+        "basic_muf_mhz": 10.05,
+        "operational_muf_mhz": 17.71,
+        "el_dbuv_per_m": -18.5989,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -18.6
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G22",
+      "label": "Buenos Aires-Madrid 15m solar max",
+      "inputs": {
+        "tx_lat": -34.6037,
+        "tx_lon": -58.3816,
+        "rx_lat": 40.4168,
+        "rx_lon": -3.7038,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 13,
+        "sunspot_number": 250,
+        "frequency_mhz": 21.2,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 10044.96,
+        "slant_range_km": 10539.02,
+        "basic_muf_mhz": 34.9,
+        "operational_muf_mhz": 49.94,
+        "el_dbuv_per_m": -37.4078,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -37.41
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 4,
+        "reference_hop_count": 4,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G23",
+      "label": "Austin-Tokyo 12m solar max",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 35.6762,
+        "rx_lon": 139.6503,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 21,
+        "sunspot_number": 250,
+        "frequency_mhz": 24.9,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 10544.07,
+        "slant_range_km": 11034.4,
+        "basic_muf_mhz": 30.34,
+        "operational_muf_mhz": 44.02,
+        "el_dbuv_per_m": -25.5329,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -25.53
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 4,
+        "reference_hop_count": 4,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G24",
+      "label": "Austin-Sydney 20m near-antipodal",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -33.8688,
+        "rx_lon": 151.2093,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 10,
+        "sunspot_number": 160,
+        "frequency_mhz": 14.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 13630.07,
+        "slant_range_km": 14240.29,
+        "basic_muf_mhz": 10.39,
+        "operational_muf_mhz": 17.45,
+        "el_dbuv_per_m": -18.7392,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -18.74
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 5,
+        "reference_hop_count": 5,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G25",
+      "label": "Austin-Sydney 20m LONGPATH",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -33.8688,
+        "rx_lon": 151.2093,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 10,
+        "sunspot_number": 160,
+        "frequency_mhz": 14.1,
+        "path_direction": "LONGPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 26400.16,
+        "slant_range_km": 27363.43,
+        "basic_muf_mhz": 12.51,
+        "operational_muf_mhz": 20.9,
+        "el_dbuv_per_m": -51.0783,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -51.08
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 9,
+        "reference_hop_count": 8,
+        "hop_count_matches_reference": false
+      }
+    },
+    {
+      "case_id": "G26",
+      "label": "Austin-London 10m solar min closed",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 0,
+        "sunspot_number": 10,
+        "frequency_mhz": 28.5,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "slant_range_km": 8278.12,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -305.8822,
+        "es_dbuv_per_m": -77.017,
+        "ep_dbuv_per_m": -103.21
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G27",
+      "label": "Austin-London 30m 1 W narrow-band",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 1.0,
+        "transmitter_power_db_kw": -30.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "slant_range_km": 8278.12,
+        "basic_muf_mhz": null,
+        "operational_muf_mhz": null,
+        "el_dbuv_per_m": -69.4215,
+        "es_dbuv_per_m": -51.4926,
+        "ep_dbuv_per_m": -58.75
+      },
+      "reading": {
+        "range": "blend_7000_to_9000_km",
+        "muf_columns_published": false,
+        "hop_count": 3,
+        "reference_hop_count": 3,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G29",
+      "label": "Delhi-Santiago 20m digital long haul",
+      "inputs": {
+        "tx_lat": 28.6139,
+        "tx_lon": 77.209,
+        "rx_lat": -33.4489,
+        "rx_lon": -70.6693,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 17,
+        "sunspot_number": 130,
+        "frequency_mhz": 14.1,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 1000.0,
+        "transmitter_power_db_kw": 0.0
+      },
+      "expected": {
+        "distance_km": 16920.26,
+        "slant_range_km": 17649.78,
+        "basic_muf_mhz": 32.93,
+        "operational_muf_mhz": 48.65,
+        "el_dbuv_per_m": -7.3383,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -7.34
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 6,
+        "reference_hop_count": 6,
+        "hop_count_matches_reference": true
+      }
+    },
+    {
+      "case_id": "G30",
+      "label": "Austin-Johannesburg 15m 14 Mm",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -26.2041,
+        "rx_lon": 28.0473,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 20,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "path_direction": "SHORTPATH",
+        "tx_power_watts": 100.0,
+        "transmitter_power_db_kw": -10.0
+      },
+      "expected": {
+        "distance_km": 14734.79,
+        "slant_range_km": 15340.33,
+        "basic_muf_mhz": 25.66,
+        "operational_muf_mhz": 37.64,
+        "el_dbuv_per_m": -6.8021,
+        "es_dbuv_per_m": null,
+        "ep_dbuv_per_m": -6.8
+      },
+      "reading": {
+        "range": "above_9000_km",
+        "muf_columns_published": true,
+        "hop_count": 5,
+        "reference_hop_count": 5,
+        "hop_count_matches_reference": true
+      }
+    }
+  ]
+}

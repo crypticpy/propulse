@@ -88,7 +88,7 @@ function ActivationOperatorContext({
         >
           Operator context
         </h3>
-        <span className="text-right text-[10px] text-su-muted">
+        <span className="text-right text-xs text-su-muted">
           {profile.result?.sources.length
             ? profile.result.sources.map(formatProfileSource).join(" + ")
             : "QRZ · HamQTH · Callook"}
@@ -347,7 +347,7 @@ export function ActivationDetailPanel() {
     >
       <div className="space-y-5">
         <div className="flex items-center gap-2">
-          <span className="rounded border border-cosmic-cyan/30 bg-cosmic-cyan/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cosmic-cyan">
+          <span className="rounded border border-cosmic-cyan/30 bg-cosmic-cyan/10 px-1.5 py-0.5 font-mono text-xs font-bold text-cosmic-cyan">
             {spot.program}
           </span>
           <span className="text-xs text-signal-green">Live activation report</span>
@@ -398,19 +398,19 @@ export function ActivationDetailPanel() {
             {path ? (
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
-                  <div className="text-[10px] uppercase text-su-muted">Distance</div>
+                  <div className="text-xs uppercase text-su-muted">Distance</div>
                   <div className="mt-1 font-mono text-sm text-su-text">
                     {formatDistance(path.shortPath.distance)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
-                  <div className="text-[10px] uppercase text-su-muted">Bearing</div>
+                  <div className="text-xs uppercase text-su-muted">Bearing</div>
                   <div className="mt-1 font-mono text-sm text-su-text">
                     {Math.round(path.shortPath.bearing)}° {formatBearing(path.shortPath.bearing)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
-                  <div className="text-[10px] uppercase text-su-muted">Est. hops</div>
+                  <div className="text-xs uppercase text-su-muted">Est. hops</div>
                   <div className="mt-1 font-mono text-sm text-su-text">{path.hops}</div>
                 </div>
               </div>

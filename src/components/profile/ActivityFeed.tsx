@@ -42,10 +42,10 @@ const EVENT_ICONS: Record<ActivityEventType, string> = {
 };
 
 const EVENT_COLORS: Record<ActivityEventType, string> = {
-  qso_milestone: "bg-signal-green/20 text-signal-green",
-  award_earned: "bg-plasma-orange/20 text-plasma-orange",
-  achievement_unlocked: "bg-caution-amber/20 text-caution-amber",
-  new_dxcc: "bg-nebula-blue/20 text-nebula-blue",
+  qso_milestone: "bg-signal-green/20 text-su-text",
+  award_earned: "bg-plasma-orange/20 text-su-text",
+  achievement_unlocked: "bg-caution-amber/20 text-su-text",
+  new_dxcc: "bg-nebula-blue/20 text-su-text",
   contest_result: "bg-purple-500/20 text-purple-400",
   equipment_change: "bg-cyan-500/20 text-cyan-400",
   location_change: "bg-emerald-500/20 text-emerald-400",

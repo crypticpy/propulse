@@ -35,7 +35,7 @@ const ROLE_CLASSES: Record<NetManagerRole, string> = {
 function RoleBadge({ role }: { role: NetManagerRole }) {
   return (
     <span
-      className={`inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${ROLE_CLASSES[role]}`}
+      className={`inline-block text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${ROLE_CLASSES[role]}`}
     >
       {ROLE_LABELS[role]}
     </span>
@@ -222,7 +222,7 @@ export function NetControllerPage() {
               </p>
 
               {/* Next session */}
-              <div className="flex items-center gap-1.5 text-[11px] text-su-muted mb-4">
+              <div className="flex items-center gap-1.5 text-xs text-su-muted mb-4">
                 <svg
                   className="w-3.5 h-3.5 shrink-0"
                   fill="none"

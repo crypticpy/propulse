@@ -3,7 +3,7 @@
  * Provides CRUD operations, ADIF import/export, and callsign lookup utilities
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { LogEntry } from "../lib/db/types";
 import { useGuestStore } from "../stores/guestStore";
 import { useUserStore } from "../stores/userStore";
@@ -99,6 +99,9 @@ export function useLogbook(): UseLogbookResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const mounted = useRef(false);
+  const loadRevision = useRef(0);
+
   // Get station and guest store actions
   const station = useUserStore((state) => state.station);
   const updateSessionEntryCount = useGuestStore(
@@ -121,10 +124,14 @@ export function useLogbook(): UseLogbookResult {
    * Load all entries from the database
    */
   const loadEntries = useCallback(async () => {
+    if (!mounted.current) return;
+    const revision = ++loadRevision.current;
+    const isCurrent = () => mounted.current && revision === loadRevision.current;
     try {
       setLoading(true);
       setError(null);
       const allEntries = await getAllLogEntries();
+      if (!isCurrent()) return;
       // Sort by date descending (newest first)
       allEntries.sort((a, b) => {
         const dateCompare = b.date.localeCompare(a.date);
@@ -135,18 +142,23 @@ export function useLogbook(): UseLogbookResult {
       });
       setEntries(allEntries);
     } catch (err) {
+      if (!isCurrent()) return;
       const message =
         err instanceof Error ? err.message : "Failed to load log entries";
       setError(message);
       console.error("Error loading log entries:", err);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
   // Load entries on mount
   useEffect(() => {
-    loadEntries();
+    mounted.current = true;
+    void loadEntries();
+    return () => {
+      mounted.current = false;
+    };
   }, [loadEntries]);
 
   /**

@@ -200,10 +200,10 @@ export function RecommendationsPanel({
             <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
               Recommendations
             </h3>
-            <span className="text-[10px] font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
+            <span className="text-xs font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               Kp={currentKp}
             </span>
-            <span className="text-[10px] font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
+            <span className="text-xs font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               SFI={currentSfi}
             </span>
           </div>
@@ -396,7 +396,7 @@ function AlternativeBandPill({
         >
           {recommendation.band}
         </div>
-        <div className="text-[10px] text-su-muted">{recommendation.snr} dB</div>
+        <div className="text-xs text-su-muted">{recommendation.snr} dB</div>
       </div>
     </div>
   );
@@ -426,7 +426,7 @@ function TimeWindowRow({ window }: { window: TimeWindow }) {
           Peak: {formatHour(window.peakHour)}
         </span>
         {isActive ? (
-          <span className="px-2 py-0.5 text-[10px] font-medium text-signal-green bg-signal-green/20 rounded-full">
+          <span className="px-2 py-0.5 text-xs font-medium text-signal-green bg-signal-green/20 rounded-full">
             NOW
           </span>
         ) : (

@@ -180,13 +180,13 @@ export function ContestDock({ className = "" }: ContestDockProps) {
               </span>
               <Link
                 to="/contest"
-                className="text-[10px] text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors"
+                className="text-xs text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors"
                 title="Open full Contest view"
               >
                 Open full view →
               </Link>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-su-muted">
+            <div className="flex items-center gap-3 text-xs text-su-muted">
               <span>
                 QSOs{" "}
                 <span className="text-su-text font-mono">
@@ -249,7 +249,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
         />
 
         {/* Lightweight toggles */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-su-muted">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-su-muted">
           <button
             type="button"
             onClick={() => setSpotPrefillInRun(!spotPrefillInRun)}

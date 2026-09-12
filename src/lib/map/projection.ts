@@ -78,6 +78,20 @@ export interface AzimuthalProjection extends ProjectionCommon {
 
 export type Projection = EquirectangularProjection | AzimuthalProjection;
 
+/**
+ * Convert a desired on-screen pixel size into canvas user space after
+ * `ctx.scale(zoom, zoom)`. Floors at 1 screen px before dividing so high
+ * zoom cannot re-inflate labels via a 1 canvas-unit floor (#1251).
+ */
+export function screenPxToCanvas(
+  desiredScreenPx: number,
+  zoomScale: number,
+  minZoomDamp = 1,
+): number {
+  const zoomDamp = Math.max(minZoomDamp, zoomScale);
+  return Math.max(1, desiredScreenPx) / zoomDamp;
+}
+
 export function createEquirectangularProjection(opts: {
   width: number;
   height: number;

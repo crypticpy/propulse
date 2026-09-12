@@ -1,5 +1,6 @@
 import { useTextScale } from "@/hooks/useTextScale";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
 import { useLocation } from "react-router-dom";
 import { ArrowRight, Plus, Settings2 } from "lucide-react";
 import {
@@ -330,6 +331,7 @@ function Catalog() {
           ))}
         </div>
       </Section>
+      <TreatmentGallery />
       <Section title="A type system with a purpose">
         <Grid>
           <Surface>
@@ -661,5 +663,140 @@ function Catalog() {
         </Stack>
       </Dialog>
     </Stack>
+  );
+}
+
+function TreatmentGallery() {
+  const id = useId();
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedSetup, setSelectedSetup] = useState("Home HF");
+  const tabs = ["Overview", "Connections"];
+  return (
+    <Section
+      title="Shared color treatments"
+      description="Compare feedback, actions and selection with the preview theme and accent controls."
+    >
+      <Stack>
+        <Inline>
+          <Badge tone="success">Connected</Badge>
+          <Badge tone="warning">Needs review</Badge>
+          <Badge tone="danger">Unavailable</Badge>
+          <Button variant="primary">Primary action</Button>
+          <Button>Secondary action</Button>
+          <Button pending>Saving</Button>
+        </Inline>
+        <Notice title="Review your setup" tone="warning">
+          Supporting copy stays readable alongside the status label.
+        </Notice>
+        <Inline>
+          {(
+            [
+              "neutral",
+              "info",
+              "success",
+              "warning",
+              "danger",
+              "accent",
+              "purple",
+            ] as const
+          ).map((tone) => (
+            <span
+              key={tone}
+              className={`inline-flex flex-col gap-1 rounded-lg border px-3 py-2 ${stationTreatmentClasses({ tone, treatment: "solid" })}`}
+            >
+              <strong>{tone}</strong>
+              <span className="su-treatment-secondary text-sm">
+                Solid label and hint
+              </span>
+            </span>
+          ))}
+        </Inline>
+        <Surface>
+          <div
+            role="tablist"
+            aria-label="Treatment preview sections"
+            className="flex flex-wrap gap-2"
+          >
+            {tabs.map((label, index) => (
+              <button
+                key={label}
+                id={`${id}-tab-${index}`}
+                type="button"
+                role="tab"
+                aria-selected={selectedTab === index}
+                aria-controls={`${id}-panel`}
+                tabIndex={selectedTab === index ? 0 : -1}
+                onClick={() => setSelectedTab(index)}
+                onKeyDown={(event) => {
+                  let next = index;
+                  if (event.key === "ArrowRight")
+                    next = (index + 1) % tabs.length;
+                  else if (event.key === "ArrowLeft")
+                    next = (index + tabs.length - 1) % tabs.length;
+                  else if (event.key === "Home") next = 0;
+                  else if (event.key === "End") next = tabs.length - 1;
+                  else return;
+                  event.preventDefault();
+                  setSelectedTab(next);
+                  document.getElementById(`${id}-tab-${next}`)?.focus();
+                }}
+                className={`rounded-lg border px-4 py-3 ${stationTreatmentClasses({ tone: "accent", treatment: "subtle", interactive: true })}`}
+              >
+                {selectedTab === index && <span aria-hidden="true">✓ </span>}
+                {label}
+              </button>
+            ))}
+          </div>
+          <div
+            id={`${id}-panel`}
+            role="tabpanel"
+            aria-labelledby={`${id}-tab-${selectedTab}`}
+            tabIndex={0}
+            className="pt-4"
+          >
+            {selectedTab === 0
+              ? "Choose an operating setup below."
+              : "The selected setup supplies the connection preview."}
+          </div>
+        </Surface>
+        <Table caption="Operating setup selection">
+          <thead>
+            <tr>
+              <th scope="col">Setup</th>
+              <th scope="col">State</th>
+            </tr>
+          </thead>
+          <tbody>
+            {["Home HF", "Portable kit"].map((setup) => (
+              <tr
+                key={setup}
+                data-selected={selectedSetup === setup}
+                className={stationTreatmentClasses({
+                  tone: "accent",
+                  treatment: "subtle",
+                  interactive: true,
+                })}
+              >
+                <td>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name={`${id}-setup`}
+                      checked={selectedSetup === setup}
+                      onChange={() => setSelectedSetup(setup)}
+                    />
+                    <span>{setup}</span>
+                  </label>
+                  <div className="su-treatment-secondary text-sm">
+                    Saved equipment and connections
+                  </div>
+                </td>
+                <td>{selectedSetup === setup ? "✓ Selected" : "Available"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Stack>
+    </Section>
   );
 }

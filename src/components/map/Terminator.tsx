@@ -19,6 +19,10 @@ interface TerminatorProps {
   opacity?: number;
   /** Use more visible dashing for standard/grayscale map mode */
   standardMode?: boolean;
+  /** Draw dashed instead of solid (`labelOptions.terminatorDashed`,
+   * #1091 PR 8). Default `false`: a solid line is the most visible
+   * default, matching the flat map and disc. */
+  dashed?: boolean;
 }
 
 /**
@@ -44,6 +48,7 @@ export function Terminator({
   color = "#ff6b35",
   opacity = 0.8,
   standardMode = false,
+  dashed = false,
 }: TerminatorProps) {
   // Calculate terminator points
   const points = useMemo(() => {
@@ -71,7 +76,7 @@ export function Terminator({
       lineWidth={5}
       opacity={opacity}
       transparent
-      dashed
+      dashed={dashed}
       dashScale={standardMode ? 30 : 50}
       dashSize={standardMode ? 5 : 3}
       gapSize={standardMode ? 3 : 1}

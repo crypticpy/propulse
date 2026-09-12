@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { HTMLAttributes, ReactNode } from "react";
 import type { StationTone } from "./tokens";
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
 
 const icons = {
   neutral: CircleHelp,
@@ -23,7 +24,7 @@ export function Badge({
   return (
     <span
       {...props}
-      className={`su-badge su-tone-${tone} ${props.className ?? ""}`}
+      className={`su-badge ${stationTreatmentClasses({ tone, treatment: "subtle" })} ${props.className ?? ""}`}
     >
       {children}
     </span>
@@ -63,13 +64,15 @@ export function Notice({
   const Icon = icons[tone];
   return (
     <div
-      className={`su-notice su-tone-${tone}`}
+      className={`su-notice ${stationTreatmentClasses({ tone, treatment: "subtle" })}`}
       role={live ? (tone === "danger" ? "alert" : "status") : undefined}
     >
       <Icon size={20} aria-hidden="true" />
       <div>
         <p className="su-notice-title">{title}</p>
-        {children && <div className="su-hint">{children}</div>}
+        {children && (
+          <div className="su-hint su-treatment-secondary">{children}</div>
+        )}
       </div>
     </div>
   );

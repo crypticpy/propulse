@@ -6,9 +6,12 @@
  */
 
 import { useMemo } from "react";
-import { useDXStore } from "@/stores/dxStore";
+import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
+import { useResolvedMapSpots } from "@/components/map/hooks/useResolvedMapSpots";
+import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { useSolarFlux } from "@/hooks/useSolarData";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import {
   getEntityFromGrid,
   getDistanceBearing,
@@ -19,6 +22,39 @@ import {
   type TimeWindow,
 } from "@/lib/utils/gridUtils";
 import { isValidGrid } from "@/lib/utils/grid";
+import { useMapStore } from "@/stores/mapStore";
+import type { SpotSource } from "@/types/livespot";
+import type { DXSpot } from "@/types/dxcluster";
+
+const EMPTY_ACTIVITY: ActivityStats = {
+  total: 0,
+  byBand: {},
+  byMode: {},
+  recentCallsigns: [],
+};
+
+function resolvedSpotToActivitySpot(resolved: ResolvedSpot): DXSpot & { source: SpotSource } {
+  const spot = resolved.originalSpot;
+  return {
+    id: spot.id,
+    source: resolved.source,
+    spotter: resolved.spotter ?? spot.spotter,
+    spotterGrid: spot.spotterGrid,
+    dx: resolved.callsign,
+    dxGrid: spot.dxGrid,
+    frequency: resolved.frequency,
+    mode: resolved.mode,
+    comment: spot.comment ?? "",
+    time: resolved.time,
+    band: spot.band ?? getBandFromFrequency(resolved.frequency),
+    dxLat: resolved.dxLat,
+    dxLon: resolved.dxLon,
+    spotterLat: resolved.spotterLat,
+    spotterLon: resolved.spotterLon,
+    dxLocApprox: resolved.dxLocApprox,
+    spotterLocApprox: resolved.spotterLocApprox,
+  };
+}
 
 /**
  * Complete grid research data
@@ -80,13 +116,28 @@ export interface GridResearchData {
 export function useGridResearch(
   grid: string,
   overrideHomeGrid?: string,
+  enabled = true,
 ): GridResearchData {
   // Get user's active location for home grid
   const activeLocation = useActiveLocation();
   const homeGrid = overrideHomeGrid ?? activeLocation?.grid ?? null;
 
-  // Get all DX spots for activity analysis
-  const allSpots = useDXStore((state) => state.spots);
+  const spotPrefs = useOptionalViewEffectiveSpots();
+  const gridActivityEndpoint = useMapStore((state) => state.gridActivityEndpoint);
+  const spotSources =
+    spotPrefs.filters.sources.length > 0
+      ? [...spotPrefs.filters.sources]
+      : undefined;
+  const { allResolvedSpots, isLoading: isSpotLoading } = useResolvedMapSpots({
+    grid: homeGrid ?? undefined,
+    enabled,
+    resolveEnabled: enabled,
+    sources: spotSources,
+  });
+  const activitySpots = useMemo(
+    () => allResolvedSpots.map(resolvedSpotToActivitySpot),
+    [allResolvedSpots],
+  );
 
   // Get solar flux for propagation predictions
   const { data: solarFluxData, isLoading: isSolarLoading } = useSolarFlux();
@@ -148,20 +199,21 @@ export function useGridResearch(
     };
   }, [distanceBearing]);
 
-  // Calculate activity stats
   const activity = useMemo(() => {
     if (!validGrid) {
-      return {
-        total: 0,
-        byBand: {},
-        byMode: {},
-        recentCallsigns: [],
-      };
+      return EMPTY_ACTIVITY;
     }
-    // Use first 4 characters as the grid prefix for broader matching
-    const gridPrefix = normalizedGrid.substring(0, 4);
-    return getActivityStats(allSpots, gridPrefix);
-  }, [validGrid, normalizedGrid, allSpots]);
+    const precision = normalizedGrid.length >= 6 ? 6 : 4;
+    const gridPrefix = normalizedGrid.substring(0, precision);
+    return getActivityStats(activitySpots, gridPrefix, {
+      endpoint: gridActivityEndpoint,
+    });
+  }, [
+    activitySpots,
+    gridActivityEndpoint,
+    normalizedGrid,
+    validGrid,
+  ]);
 
   // Calculate best contact time
   const bestTime = useMemo(() => {
@@ -178,7 +230,7 @@ export function useGridResearch(
     bearing,
     activity,
     bestTime,
-    isLoading: isSolarLoading,
+    isLoading: isSolarLoading || isSpotLoading,
     isValidGrid: validGrid,
     homeGrid,
   };

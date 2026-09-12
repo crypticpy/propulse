@@ -1648,7 +1648,11 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* Day/night terminator line */}
         {layers.terminator && (
-          <Terminator date={displayTime} standardMode={isStandard} />
+          <Terminator
+            date={displayTime}
+            standardMode={isStandard}
+            dashed={labelOptions.terminatorDashed}
+          />
         )}
 
         {/* Greyline band with intensity-based visualization.

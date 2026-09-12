@@ -1,5 +1,5 @@
 import { useThemeStore } from "@/stores/themeStore";
-import { useState } from "react";
+import { createRef, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -12,6 +12,10 @@ import {
   Tabs,
   Dialog,
   Button,
+  Badge,
+  Notice,
+  IconButton,
+  ActionLink,
   ImagePicker,
   stationPalettes,
   stationTokens,
@@ -19,6 +23,96 @@ import {
 } from "./index";
 
 describe("station design primitives", () => {
+  it("keeps feedback meaning and secondary copy inside the shared treatment", () => {
+    const { rerender } = render(
+      <>
+        <Badge tone="warning" title="Draft status">
+          Needs review
+        </Badge>
+        <Notice title="Save failed" tone="danger" live>
+          Your draft is preserved.
+        </Notice>
+      </>,
+    );
+    const badge = screen.getByText("Needs review");
+    expect(badge.getAttribute("title")).toBe("Draft status");
+    expect(badge.classList.contains("su-treatment--subtle")).toBe(true);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Save failed");
+    expect(alert.classList.contains("su-tone-danger")).toBe(true);
+    expect(
+      screen
+        .getByText("Your draft is preserved.")
+        .classList.contains("su-treatment-secondary"),
+    ).toBe(true);
+    rerender(
+      <Notice title="Saved" tone="success" live>
+        Ready to use.
+      </Notice>,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("Ready to use.");
+  });
+
+  it("preserves action refs, native attributes and pending behavior with recipes", async () => {
+    const clicked = vi.fn();
+    const ref = createRef<HTMLButtonElement>();
+    const { rerender } = render(
+      <Button ref={ref} variant="primary" onClick={clicked} name="save" pending>
+        Save draft
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "Save draft" });
+    expect(ref.current).toBe(button);
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.getAttribute("name")).toBe("save");
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.classList.contains("su-treatment--solid")).toBe(true);
+    const user = userEvent.setup();
+    await user.click(button);
+    expect(clicked).not.toHaveBeenCalled();
+    rerender(
+      <Button ref={ref} variant="primary" onClick={clicked}>
+        Save draft
+      </Button>,
+    );
+    expect(button.hasAttribute("aria-busy")).toBe(false);
+    await user.click(button);
+    expect(clicked).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains quiet actions, link destinations and icon button names", () => {
+    const iconRef = createRef<HTMLButtonElement>();
+    render(
+      <>
+        <Button variant="quiet">Cancel</Button>
+        <Button variant="danger">Remove</Button>
+        <ActionLink href="/station" variant="primary">
+          Open station
+        </ActionLink>
+        <IconButton ref={iconRef} label="Inspect equipment">
+          <span aria-hidden="true">+</span>
+        </IconButton>
+      </>,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Cancel" })
+        .classList.contains("su-treatment"),
+    ).toBe(false);
+    expect(
+      screen
+        .getByRole("button", { name: "Remove" })
+        .classList.contains("su-tone-danger"),
+    ).toBe(true);
+    const link = screen.getByRole("link", { name: "Open station" });
+    expect(link.getAttribute("href")).toBe("/station");
+    expect(link.classList.contains("su-treatment--solid")).toBe(true);
+    expect(iconRef.current).toBe(
+      screen.getByRole("button", { name: "Inspect equipment" }),
+    );
+  });
+
   it("announces a unit suffix alongside the hint and validation error", () => {
     render(
       <StationProvider>
@@ -162,13 +256,13 @@ describe("station design primitives", () => {
     const hint = selectedTile.querySelector(".su-hint");
     expect(strong?.textContent).toBe("Homebrew tuner");
     expect(hint?.textContent).toBe("Owned · 2 ports");
-    expect(
-      strong?.compareDocumentPosition(hint as Node),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(strong?.compareDocumentPosition(hint as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     // The mark is a sibling that precedes the name/hint wrapper in the DOM.
-    expect(
-      mark?.compareDocumentPosition(strong as Node),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(mark?.compareDocumentPosition(strong as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
 
     const unselectedTile = screen.getByRole("button", {
       name: /Portable dipole/,

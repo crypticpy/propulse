@@ -114,15 +114,18 @@
  *
  * NO NaN AND NO SILENT CLAMP. Every out-of-domain input yields a labelled
  * `unsupported` record with a reason, never a number. The two reasons are
- * `out_of_domain` (the path is not one section 5.3 applies to, or a sampler
- * answered with a value outside that quantity's own physical domain, such as
- * a non-positive foF2 or M(3000)F2 or a negative gyrofrequency) and
- * `no_elevation_solution` (no hop count within the recommendation's own limits
- * clears the 3.0-degree minimum).
+ * `out_of_domain` (the path is not one section 5.3 applies to, a sampler
+ * answered with a value outside that quantity's own physical domain such as
+ * a non-positive foF2 or M(3000)F2 or a negative gyrofrequency, an
+ * intermediate equation did not produce a finite value, or the assembled
+ * result still carried a non-finite number that no bound above could see;
+ * see `finiteResult.ts`) and `no_elevation_solution` (no hop count within the
+ * recommendation's own limits clears the 3.0-degree minimum).
  */
 
 import tables from "../assets/p533-fl-tables.json";
 import type { ControlPointLabel, ControlPointSite } from "../controlPoints";
+import { firstNonFiniteField } from "../finiteResult";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import {
   routeSampleAtFraction,
@@ -187,6 +190,51 @@ export const FD_COEFFICIENTS = [
 
 /** Equation (32)'s leading constant. */
 export const K_CONSTANT = 1.2; // equation (32)
+
+/**
+ * Envelope on the sampler's foF2, MHz. NOT a physics limit: a generous margin
+ * over the highest foF2 ever observed (around 20 MHz), so a runaway sampler
+ * cannot overflow equation (29) into an infinite or NaN fBM.
+ */
+export const SAMPLED_FOF2_MAX_MHZ = 50;
+
+/**
+ * Lower envelope on the sampler's foF2, MHz. NOT a physics limit: no real F2
+ * layer collapses this close to zero, so a value below it is a missing-data
+ * sentinel rather than an ionosphere. Closed for the same reason the upper
+ * bound is: a foF2 admitted at the old ">0" boundary, such as 1e-3 MHz, is
+ * finite and positive and still passes every check, but it collapses fz and
+ * f4 near zero at whichever hour it lands on. If that hour is the noon fBM
+ * equation (32) reads, the K-factor's fBM/fBM,noon and
+ * (fBM,noon/fBM)^(1/3) ratios swing by orders of magnitude between hours,
+ * producing a finite but physically meaningless operational MUF that
+ * `firstNonFiniteField` cannot see, because it is finite. This envelope
+ * refuses the sampler before any of that happens.
+ */
+export const SAMPLED_FOF2_MIN_MHZ = 0.1;
+
+/**
+ * Envelope on the sampler's M(3000)F2, dimensionless. NOT a physics limit:
+ * the propagation factor is physically between about 1 and 4.
+ */
+export const SAMPLED_M3000F2_MAX = 6;
+
+/**
+ * Envelope on the sampler's 300 km gyrofrequency, MHz. NOT a physics limit:
+ * the terrestrial field gives at most about 1.7 MHz at the surface.
+ */
+export const SAMPLED_GYROFREQUENCY_MAX_MHZ = 3;
+
+/**
+ * Lower envelope on the sampler's 300 km gyrofrequency, MHz. NOT a physics
+ * limit: the terrestrial field never actually collapses to zero at 300 km, so
+ * a value below this margin is a missing-data sentinel. Closed for the same
+ * reason as `SAMPLED_FOF2_MIN_MHZ`: fL.ts's own gyrofrequency input shares
+ * this same floor (`fL.ts` deviation-free bound, section 5.3.2's fH), so the
+ * mean of two control-point values this leaf produces stays inside the range
+ * the sibling leaf accepts.
+ */
+export const SAMPLED_GYROFREQUENCY_MIN_MHZ = 0.1;
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -516,6 +564,13 @@ function divideIntoHops(groundDistanceKm: number):
     }
     hopCount += 1;
   }
+  // Structurally unreachable for any D admitted by longPathMuf's own domain
+  // (LONG_PATH_MIN_DISTANCE_KM <= D <= MAX_ROUTE_DISTANCE_KM): elevation
+  // rises monotonically as hopCount grows and the hop shortens, so well
+  // before hopCount reaches LONG_PATH_MAX_HOP_COUNT the loop above always
+  // finds an elevation above LONG_PATH_MIN_ELEVATION_DEG. Kept as a
+  // defensive final case, not a reachable one; see fM.test.ts's "always
+  // finds a hop count well inside its own bound".
   return {
     kind: "none",
     detail:
@@ -534,7 +589,15 @@ function divideIntoHops(groundDistanceKm: number):
  * missing-data sentinel of `m3000F2 = -1`, satisfies `Number.isFinite` and
  * would otherwise reach equation (29) and produce a resolved but corrupted
  * `fBM`. foF2 and M(3000)F2 are physically positive (section 3.4); the
- * gyrofrequency at 300 km is physically non-negative.
+ * gyrofrequency at 300 km is physically non-negative. THE UPPER BOUNDS ARE
+ * ENVELOPES, NOT PHYSICS LIMITS: a finite value can still be so large that it
+ * is not a physical answer for this quantity and would overflow equation
+ * (29) or equation (32) despite satisfying every check above. A sampler
+ * returning, for instance, `foF2MHz = Number.MAX_VALUE` is finite and
+ * positive and yet turns f4 into an overflowed `fBM`, whose ratio against
+ * itself later in the K-factor is `Infinity / Infinity`, a NaN. The envelope
+ * closes that path at the boundary these quantities can actually be sampled
+ * at, well above anything the ionosphere produces.
  */
 const SAMPLED_STATE_BOUNDS: readonly {
   readonly name: keyof LongPathMufState;
@@ -543,18 +606,32 @@ const SAMPLED_STATE_BOUNDS: readonly {
 }[] = [
   {
     name: "foF2MHz",
-    description: "a finite value greater than 0",
-    withinBound: (value) => value > 0,
+    description:
+      `a finite value of at least ${String(SAMPLED_FOF2_MIN_MHZ)} and at ` +
+      `most ${String(SAMPLED_FOF2_MAX_MHZ)} (an envelope; the highest foF2 ` +
+      `ever observed is around 20 MHz, and a value near zero is a ` +
+      `missing-data sentinel, not an ionosphere)`,
+    withinBound: (value) =>
+      value >= SAMPLED_FOF2_MIN_MHZ && value <= SAMPLED_FOF2_MAX_MHZ,
   },
   {
     name: "m3000F2",
-    description: "a finite value greater than 0",
-    withinBound: (value) => value > 0,
+    description:
+      `a finite value greater than 0 and at most ` +
+      `${String(SAMPLED_M3000F2_MAX)} (an envelope; the propagation factor ` +
+      `is physically between about 1 and 4)`,
+    withinBound: (value) => value > 0 && value <= SAMPLED_M3000F2_MAX,
   },
   {
     name: "gyrofrequency300kmMHz",
-    description: "a finite value of 0 or greater",
-    withinBound: (value) => value >= 0,
+    description:
+      `a finite value of at least ${String(SAMPLED_GYROFREQUENCY_MIN_MHZ)} ` +
+      `and at most ${String(SAMPLED_GYROFREQUENCY_MAX_MHZ)} (an envelope; ` +
+      `the terrestrial field gives at most about 1.7 MHz at the surface, ` +
+      `and a value near zero is a missing-data sentinel)`,
+    withinBound: (value) =>
+      value >= SAMPLED_GYROFREQUENCY_MIN_MHZ &&
+      value <= SAMPLED_GYROFREQUENCY_MAX_MHZ,
   },
 ];
 
@@ -649,7 +726,19 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
   for (const controlPoint of sites) {
     const hours: LongPathMufHour[] = [];
     for (let hour = 0; hour < HOURS_PER_DAY; hour += 1) {
-      const state = sample(controlPoint.point, controlPoint.label, hour);
+      const sampled = sample(controlPoint.point, controlPoint.label, hour);
+      // A hostile `LongPathMufSampler` can return an object that carries
+      // extra properties, a prototype, a cycle, or getter-backed fields that
+      // answer differently on every read (Codex P2s, `finiteResult.ts` and
+      // this site, #954 slice D). Read each of the three fields exactly once
+      // into a plain literal, validate THAT snapshot, and store it, so the
+      // numbers the bounds check admitted are the numbers equation (29) and
+      // `hours[].state` use, and nothing foreign enters the record.
+      const state: LongPathMufState = {
+        foF2MHz: sampled.foF2MHz,
+        m3000F2: sampled.m3000F2,
+        gyrofrequency300kmMHz: sampled.gyrofrequency300kmMHz,
+      };
       const complaint = invalidSampledStateDetail(
         state,
         controlPoint.label,
@@ -679,13 +768,22 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       (lowest, hour) => Math.min(lowest, hour.basicMufMHz),
       Number.POSITIVE_INFINITY,
     );
-    if (!(basicMufMHz > 0) || !(noonBasicMufMHz > 0)) {
+    // Finite, not just positive: an overflowed fBM (a sampled state so large
+    // that equation (29) produced Infinity) is still `> 0` and would
+    // otherwise reach the K-factor and divide Infinity by Infinity, a NaN.
+    if (
+      !(Number.isFinite(basicMufMHz) && basicMufMHz > 0) ||
+      !(Number.isFinite(noonBasicMufMHz) && noonBasicMufMHz > 0) ||
+      !Number.isFinite(minimumBasicMufMHz)
+    ) {
       return unsupported(
         "out_of_domain",
         `fBM at ${controlPoint.label} is ${basicMufMHz.toFixed(3)} MHz at the ` +
-          `prediction hour and ${noonBasicMufMHz.toFixed(3)} MHz at local ` +
-          `noon; equation (32) divides by both, so a non-positive basic MUF ` +
-          `has no K-factor rather than an infinite one.`,
+          `prediction hour, ${noonBasicMufMHz.toFixed(3)} MHz at local noon ` +
+          `and ${minimumBasicMufMHz.toFixed(3)} MHz at its 24-hour minimum; ` +
+          `equation (32) divides by the first two and squares a ratio of the ` +
+          `third, so each must be finite and the first two must be positive ` +
+          `rather than producing an infinite or NaN K-factor.`,
         D,
       );
     }
@@ -719,7 +817,7 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
     LongPathMufControlPoint,
     LongPathMufControlPoint,
   ];
-  return {
+  const resolved: ResolvedLongPathMuf = {
     kind: "resolved",
     groundDistanceKm: D,
     hopCount,
@@ -737,4 +835,19 @@ export function longPathMuf(inputs: LongPathMufInputs): LongPathMufResult {
       near.hours[utcHour].state.gyrofrequency300kmMHz / 2 +
       far.hours[utcHour].state.gyrofrequency300kmMHz / 2, // equation (39): "mean of the values ... at both control points"
   };
+
+  // The last check, after every input and intermediate bound above: no
+  // resolved fM record leaves this function carrying a non-finite number
+  // anywhere in its own tree, whatever combination of in-bounds inputs
+  // produced it. See `finiteResult.ts`.
+  const nonFinite = firstNonFiniteField(resolved);
+  if (nonFinite !== null) {
+    return unsupported(
+      "out_of_domain",
+      `the resolved fM record's ${nonFinite.path} is ` +
+        `${String(nonFinite.value)}, not a finite number.`,
+      D,
+    );
+  }
+  return resolved;
 }

@@ -47,13 +47,18 @@
  * the absorption leaf. Evaluating the whole circuit once at a single midpoint,
  * as the shipped code does, is a different quantity with a different magnitude.
  *
- * Mirror height: `hr = min(1490 / M(3000)F2 - 176, 500)` km. This is the
- * relation the reference itself uses for its long-hop branch, and it is the
- * only hr this leaf claims. The full P.533-14 section 5.1 G-polynomial mirror
- * height (which additionally depends on foF2/foE ratio and hop length) is
- * **not implemented here**; neither is a true hmF2. `estimateHmF2`, the
- * `250 + 100 (1 - cos z)` heuristic that used to stand in for this, has no
- * physical basis and is removed rather than reused.
+ * Mirror height: `hr = min(1490 / M(3000)F2 - 176, 500)` km, P.533-14
+ * equation (2). It is the height section 3.5.1.1 determines the hop count at
+ * and the height section 5.2.1 uses for F2 mode selection, and it is the
+ * only hr this leaf claims. The full P.533-14 section 5.1 mirror height, which
+ * additionally depends on the foF2/foE ratio, the operating frequency and the
+ * hop length, is a different quantity and lives in `reflectionHeight.ts`
+ * (#1108); `physics/modeSet.ts` uses it for product elevation, slant range and
+ * section 4 screening, and equation (2) for selection. Its header carries the
+ * evidence for why the two are not interchangeable. A true hmF2 is still not
+ * modelled anywhere: `estimateHmF2`, the `250 + 100 (1 - cos z)` heuristic that
+ * used to stand in for this, has no physical basis and is removed rather than
+ * reused.
  */
 
 import { EARTH_RADIUS_KM } from "./route";
@@ -64,7 +69,15 @@ export const D_REGION_HEIGHT_KM = 90;
 /** Height the P.533-14 equation (20) incidence angle is taken at, km. */
 export const ABSORPTION_INCIDENCE_HEIGHT_KM = 110;
 
-/** Upper bound on the mirror height, km. P.533-14 section 5.1. */
+/**
+ * Upper bound on the equation (2) mirror height, km.
+ *
+ * The 500 km of `hr = min(1490/M(3000)F2 - 176, 500)`, P.533-14 equation (2),
+ * which section 3.5.1.1 uses to find the lowest-order mode and section 5.2.1
+ * uses to select the mode set. It is NOT section 5.1's cap: the mirror height
+ * equation (13) takes its elevation from is capped at 800 km
+ * (`MAX_F2_REFLECTION_HEIGHT_KM` in `reflectionHeight.ts`).
+ */
 export const MAX_MIRROR_HEIGHT_KM = 500;
 
 /**

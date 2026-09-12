@@ -75,14 +75,14 @@ export function WorkStationPanel({
       {info && (
         <div className="grid grid-cols-2 gap-2 text-center text-xs">
           <div className="rounded-lg bg-su-line/10 p-2">
-            <div className="text-[10px] text-su-muted uppercase">Bearing</div>
+            <div className="text-xs text-su-muted uppercase">Bearing</div>
             <div className="font-mono text-su-text">
               {Math.round(info.shortPath.bearing)}°{" "}
               {formatBearing(info.shortPath.bearing)}
             </div>
           </div>
           <div className="rounded-lg bg-su-line/10 p-2">
-            <div className="text-[10px] text-su-muted uppercase">Distance</div>
+            <div className="text-xs text-su-muted uppercase">Distance</div>
             <div className="font-mono text-su-text">
               {formatDistance(info.shortPath.distance)}
             </div>

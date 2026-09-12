@@ -70,7 +70,14 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
   "tileLabels",
   "autoRotate",
   "qthOrientation",
+  "terminatorDashed",
 ]);
+
+/** Display controls the azimuthal view honours. The layer set below is
+ * keyed by `PropSphereLayerKey`, so label-option switches need their own
+ * allowance here (#1091 PR 8: the dashed terminator applies on all three
+ * views). */
+const AZIMUTHAL_DISPLAY_CONTROL_KEYS = new Set(["terminatorDashed"]);
 
 /** Layers FlatMapView does not draw. Radar and grid activity are omitted
  * on purpose: the flat canvas drapes radar (`useFlatRadarCanvas`) and paints
@@ -179,7 +186,9 @@ export function toggleExclusiveLayer<T extends Record<string, boolean>>(
   const next = { ...layers, [layerKey]: enabling };
 
   const preferred =
-    enabling && EXCLUSIVE_SURFACE_LAYER_SET.has(layerKey) ? layerKey : undefined;
+    enabling && EXCLUSIVE_SURFACE_LAYER_SET.has(layerKey)
+      ? layerKey
+      : undefined;
   return normalizeExclusiveLayers(next, preferred);
 }
 
@@ -203,7 +212,8 @@ export function getLayerAvailability(
 
   if (
     viewMode === "azimuthal" &&
-    !AZIMUTHAL_SUPPORTED_LAYERS.has(layerKey as PropSphereLayerKey)
+    !AZIMUTHAL_SUPPORTED_LAYERS.has(layerKey as PropSphereLayerKey) &&
+    !AZIMUTHAL_DISPLAY_CONTROL_KEYS.has(layerKey)
   ) {
     return { available: false, reason: "Not available in Azimuthal view" };
   }

@@ -39,7 +39,7 @@ export function AtmosSidebar() {
     <aside className="w-56 shrink-0 bg-deep-space/60 border-r border-su-line/20 overflow-y-auto">
       {/* RIM Summary */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Radio Impact
         </h2>
         <RIMScoreCard />
@@ -47,7 +47,7 @@ export function AtmosSidebar() {
 
       {/* Local Weather */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Station Weather
         </h2>
         <LocalWeatherCard />
@@ -60,7 +60,7 @@ export function AtmosSidebar() {
 
       {/* Layer toggles */}
       <div className="p-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Layers
         </h2>
         <div className="space-y-0.5">
@@ -86,7 +86,7 @@ export function AtmosSidebar() {
 
       {/* Monitored Regions */}
       <div className="p-3 border-t border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Monitored Regions
         </h2>
         <MonitoredRegionManager />

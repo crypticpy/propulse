@@ -88,7 +88,7 @@ export function ScheduleOverlap({
     <div className="space-y-2">
       {/* Viewer row */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
+        <div className="text-xs uppercase tracking-widest text-su-muted mb-1">
           You
         </div>
         <div className="flex gap-[2px]">
@@ -113,7 +113,7 @@ export function ScheduleOverlap({
 
       {/* Target row */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
+        <div className="text-xs uppercase tracking-widest text-su-muted mb-1">
           {targetCallsign}
         </div>
         <div className="flex gap-[2px]">
@@ -141,7 +141,7 @@ export function ScheduleOverlap({
         {TICK_LABELS.map(({ hour, label }) => (
           <div
             key={hour}
-            className="font-mono text-[9px] text-su-muted"
+            className="font-mono text-xs text-su-muted"
             style={{ width: "25%", paddingLeft: hour === 0 ? 0 : undefined }}
           >
             {label}
@@ -151,7 +151,7 @@ export function ScheduleOverlap({
 
       {/* Summary */}
       {overlapRange && (
-        <p className="text-[11px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Best overlap:{" "}
           <span className="text-su-text font-mono">{overlapRange}</span>
         </p>

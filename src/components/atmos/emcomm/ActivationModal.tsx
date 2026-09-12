@@ -13,22 +13,22 @@ const LEVELS: { value: ActivationLevel; label: string; color: string }[] = [
   {
     value: "monitoring",
     label: "Monitoring",
-    color: "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30",
+    color: "bg-nebula-blue/20 text-su-text border-nebula-blue/30",
   },
   {
     value: "standby",
     label: "Standby",
-    color: "bg-caution-amber/20 text-caution-amber border-caution-amber/30",
+    color: "bg-caution-amber/20 text-su-text border-caution-amber/30",
   },
   {
     value: "partial",
     label: "Partial",
-    color: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30",
+    color: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",
   },
   {
     value: "full",
     label: "Full",
-    color: "bg-alert-red/20 text-alert-red border-alert-red/30",
+    color: "bg-alert-red/20 text-su-text border-alert-red/30",
   },
 ];
 

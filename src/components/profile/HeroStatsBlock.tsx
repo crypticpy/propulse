@@ -177,7 +177,7 @@ function HeroCard({
 
       {/* Optional subtitle */}
       {subtitle && (
-        <div className="text-[10px] text-su-muted mt-0.5">{subtitle}</div>
+        <div className="text-xs text-su-muted mt-0.5">{subtitle}</div>
       )}
 
       {/* Optional progress bar */}
@@ -374,7 +374,7 @@ export function HeroStatsBlock({ className }: HeroStatsBlockProps) {
 
       {topMode && (
         <div className="mt-3 text-center">
-          <span className="text-[11px] text-su-muted uppercase tracking-wider">
+          <span className="text-xs text-su-muted uppercase tracking-wider">
             Primary Mode
           </span>
           <span

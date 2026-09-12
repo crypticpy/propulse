@@ -206,7 +206,7 @@ export function BandModeSelector({ className }: { className?: string }) {
               className={`inline-block h-1.5 w-1.5 rounded-full ${sourceBadge.dotClass}`}
             />
             <span
-              className={`text-[10px] font-medium tracking-wide uppercase ${sourceBadge.textClass}`}
+              className={`text-xs font-medium tracking-wide uppercase ${sourceBadge.textClass}`}
             >
               {sourceBadge.label}
             </span>
@@ -216,7 +216,7 @@ export function BandModeSelector({ className }: { className?: string }) {
             <button
               type="button"
               onClick={handleResumeCat}
-              className="text-[10px] font-medium text-su-muted hover:text-su-text transition-colors"
+              className="text-xs font-medium text-su-muted hover:text-su-text transition-colors"
             >
               Resume ↩
             </button>

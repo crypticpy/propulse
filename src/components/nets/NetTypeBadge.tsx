@@ -18,7 +18,7 @@ export function NetTypeBadge({ type, size = "md" }: NetTypeBadgeProps) {
   const colorClasses = NET_TYPE_COLORS[type];
 
   const sizeClasses =
-    size === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5";
+    size === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-0.5";
 
   return (
     <span

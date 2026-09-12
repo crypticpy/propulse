@@ -99,26 +99,30 @@ export function EqBandPanel({
     const el = panelRef.current;
     if (!el) return;
 
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-
-    let left = anchorX - PANEL_WIDTH / 2;
-    let top = anchorY + GAP;
-
-    if (top + rect.height > vh - 8) {
-      top = anchorY - GAP - rect.height;
-    }
-
-    left = Math.max(8, Math.min(vw - PANEL_WIDTH - 8, left));
-    top = Math.max(8, top);
-
-    if (left !== position.left || top !== position.top) {
-      setPosition({ left, top });
-    }
-    // Run once on mount to re-clamp with actual size
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      let left = anchorX - rect.width / 2;
+      let top = anchorY + GAP;
+      if (top + rect.height > vh - 8) {
+        top = anchorY - GAP - rect.height;
+      }
+      left = Math.max(8, Math.min(vw - rect.width - 8, left));
+      top = Math.max(8, Math.min(vh - rect.height - 8, top));
+      setPosition((previous) =>
+        previous.left === left && previous.top === top ? previous : { left, top },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [anchorX, anchorY]);
 
   // ─── Click-outside & Escape dismiss ───────────────────────────────────────
 
@@ -197,6 +201,8 @@ export function EqBandPanel({
         left: position.left,
         top: position.top,
         width: PANEL_WIDTH,
+        maxHeight: "calc(100dvh - 16px)",
+        overflowY: "auto",
         zIndex: 9999,
       }}
       className="bg-su-canvas/95 backdrop-blur-sm border border-su-line/40
@@ -222,7 +228,7 @@ export function EqBandPanel({
       <div className="border-t border-su-line/40" />
 
       {/* Rotary knobs row */}
-      <div className="flex items-center justify-around px-2.5 py-3">
+      <div className="flex flex-wrap items-center justify-around gap-2 px-2.5 py-3">
         <RotaryKnob
           value={band.freqHz}
           min={20}

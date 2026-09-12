@@ -196,7 +196,7 @@ export function PinList({
               <span>{tab.label}</span>
               <span
                 className={`
-                ml-1 px-1.5 py-0.5 rounded-full text-[10px]
+                ml-1 px-1.5 py-0.5 rounded-full text-xs
                 ${
                   activeFilter === tab.id
                     ? "bg-cyan-500/30 text-cyan-300"

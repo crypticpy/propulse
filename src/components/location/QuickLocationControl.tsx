@@ -63,7 +63,7 @@ export function QuickLocationControl({
                 isTemporaryActive
                   ? "bg-caution-amber/10 text-caution-amber hover:bg-caution-amber/20"
                   : "text-su-muted hover:bg-su-line/10 hover:text-su-text"
-              } ${variant === "profile" ? "px-0.5 text-sm font-medium" : "px-1 text-[10px]"} ${className}`
+              } ${variant === "profile" ? "px-0.5 text-sm font-medium" : "px-1 text-xs"} ${className}`
         }
         aria-label={label}
         title={label}

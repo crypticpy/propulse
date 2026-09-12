@@ -625,10 +625,10 @@ export function BuilderCanvas({
         {!isDraggingFromDrawer && (
           <div className="flex flex-col items-center justify-center h-full py-8 px-4">
             {/* Pipeline placeholder diagram */}
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex w-full max-w-sm items-center gap-2 mb-6">
               {/* Radio ghost */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-20 h-14 rounded-xl border border-plasma-orange/30 bg-plasma-orange/5 flex items-center justify-center">
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <div style={{ maxWidth: "5rem" }} className="w-full h-14 rounded-xl border border-plasma-orange/30 bg-plasma-orange/5 flex items-center justify-center">
                   <svg
                     className="w-5 h-5 text-plasma-orange/50"
                     fill="none"
@@ -643,7 +643,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Radio
                 </span>
               </div>
@@ -658,8 +658,8 @@ export function BuilderCanvas({
               </svg>
 
               {/* Feedline ghost */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-20 h-14 rounded-xl border border-feedline-teal/30 bg-feedline-teal/5 flex items-center justify-center">
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <div style={{ maxWidth: "5rem" }} className="w-full h-14 rounded-xl border border-feedline-teal/30 bg-feedline-teal/5 flex items-center justify-center">
                   <svg
                     className="w-5 h-5 text-feedline-teal/50"
                     fill="none"
@@ -674,7 +674,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Cable
                 </span>
               </div>
@@ -689,8 +689,8 @@ export function BuilderCanvas({
               </svg>
 
               {/* Antenna ghost */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-20 h-14 rounded-xl border border-signal-green/30 bg-signal-green/5 flex items-center justify-center">
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <div style={{ maxWidth: "5rem" }} className="w-full h-14 rounded-xl border border-signal-green/30 bg-signal-green/5 flex items-center justify-center">
                   <svg
                     className="w-5 h-5 text-signal-green/50"
                     fill="none"
@@ -705,7 +705,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Antenna
                 </span>
               </div>
@@ -714,7 +714,7 @@ export function BuilderCanvas({
             {/* Instructions */}
             <p className="text-sm text-su-muted text-center max-w-xs">
               Drag equipment from the drawer below to start building your signal
-              signal path
+              path
             </p>
 
             {/* Animated down arrow */}
@@ -757,7 +757,7 @@ export function BuilderCanvas({
         >
           +
         </button>
-        <span className="text-[10px] text-su-muted font-mono w-10 text-center">
+        <span className="text-xs text-su-muted font-mono w-10 text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button
@@ -772,7 +772,7 @@ export function BuilderCanvas({
         <button
           type="button"
           onClick={handleZoomToFit}
-          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium"
+          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-xs font-medium"
           aria-label="Zoom to fit"
         >
           Fit

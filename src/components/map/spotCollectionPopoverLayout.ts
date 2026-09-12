@@ -199,6 +199,15 @@ function countRowsThatFit(
   return count;
 }
 
+/** Row capacity excludes the list host's padding, which clientHeight includes. */
+export function readWallListContentHeight(list: HTMLElement): number {
+  const style = getComputedStyle(list);
+  const padding =
+    (parseFloat(style.paddingTop) || 0) +
+    (parseFloat(style.paddingBottom) || 0);
+  return Math.max(0, list.clientHeight - padding);
+}
+
 /**
  * The wall never scrolls, so the list is capped instead. Rows are measured
  * one by one from their own height (see `wallRowHeight`) rather than from a
@@ -209,11 +218,13 @@ function countRowsThatFit(
  * `listBodyHeight` is the measured height of the clipped list container
  * (`ResizeObserver` on the row host). It already reflects header, footer,
  * wrapped subtitle, and the shrink-0 "+N more" row — no chrome constant.
+ * `mountedMoreRowHeight` is reclaimed only if every row would then fit.
  * `rowHeights` must be in the same pixel space (measured or estimated).
  */
 export function deriveWallVisibleSpotCount(
   listBodyHeight: number,
   rowHeights: readonly number[],
+  mountedMoreRowHeight = 0,
 ): number {
   const totalSpots = rowHeights.length;
   if (totalSpots <= 0) return 0;
@@ -221,8 +232,11 @@ export function deriveWallVisibleSpotCount(
   // Pre-measure: render every row once so layout can allocate the list slot.
   if (listBodyHeight <= 0) return totalSpots;
 
+  // If every row fits after removing the mounted affordance, release it.
+  // Otherwise its sibling space must remain reserved by flex layout.
+  const withoutMore = listBodyHeight + Math.max(0, mountedMoreRowHeight);
+  if (countRowsThatFit(rowHeights, withoutMore) >= totalSpots) return totalSpots;
   const fit = countRowsThatFit(rowHeights, listBodyHeight);
-  if (fit >= totalSpots) return totalSpots;
 
   // At least one row: a popover that shows only "+N more" tells the operator
   // nothing, and the header already names the collection. The "+N more" row

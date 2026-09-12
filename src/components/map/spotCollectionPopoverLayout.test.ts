@@ -6,6 +6,7 @@ import {
   mergeMeasuredRowHeights,
   resolveSpotCollectionPortalElement,
   readRootFontPx,
+  readWallListContentHeight,
   resolveWallRowHeights,
   ROOT_FONT_PX_DEFAULT,
   spotRowKey,
@@ -416,5 +417,30 @@ describe("computeSpotCollectionPopoverLayout (#879)", () => {
     expect(layout.frame.position).toBe("absolute");
     expect(layout.portalElement).toBe(host);
     expect(layout.maxHeight).toBe(505);
+  });
+});
+
+
+describe("wall list content budget (#1065)", () => {
+  it("reveals all rows when removing the overflow affordance makes them fit", () => {
+    expect(deriveWallVisibleSpotCount(140, [50, 50, 50], 30)).toBe(3);
+    expect(deriveWallVisibleSpotCount(170, [50, 50, 50], 0)).toBe(3);
+  });
+
+  it("keeps the affordance space reserved while some rows still cannot fit", () => {
+    expect(deriveWallVisibleSpotCount(110, [50, 50, 50], 30)).toBe(2);
+  });
+
+  it("does not count list padding as space for an additional row", () => {
+    const list = document.createElement("div");
+    list.style.padding = "4px";
+    document.body.appendChild(list);
+    Object.defineProperty(list, "clientHeight", { value: 100 });
+    try {
+      expect(readWallListContentHeight(list)).toBe(92);
+      expect(deriveWallVisibleSpotCount(readWallListContentHeight(list), [50, 50])).toBe(1);
+    } finally {
+      list.remove();
+    }
   });
 });

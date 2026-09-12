@@ -117,7 +117,7 @@ export function ProfileWorkspaceShell({
                 label: visitor
                   ? (section.visitorLabel ?? section.label)
                   : section.label,
-                // Preserve the existing unmount-on-tab-change behavior.
+                // Tab panels unmount when inactive; bio/link drafts live in ProfilePage.
                 content:
                   section.value === activeTab ? (
                     <div

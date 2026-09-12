@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
 import { applyIdentitySave } from "@/stores/applyIdentitySave";
+import { useProfileStore } from "@/stores/profileStore";
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { UserStation } from "@/types/user";
 
@@ -100,18 +101,21 @@ vi.mock("@/hooks/useLogbookStats", () => ({
   useLogbookStats: () => ({ qsosByDate: {} }),
 }));
 vi.mock("@/hooks/useLogbook", () => ({ useLogbook: () => ({ entries: [] }) }));
+vi.mock("@/components/ui/ImageUploadButton", () => ({
+  ImageUploadButton: () => <div>Image upload</div>,
+}));
+vi.mock("@/hooks/useImageUrl", () => ({
+  useImageUrl: () => ({ url: null }),
+}));
 // Keep the real page, station-ui navigation and privacy branches. Substitute
 // expensive child features; marker text reveals whether restricted data mounts.
 vi.mock("@/components/profile", () => ({
   ...Object.fromEntries(
     [
-      "BioSection",
-      "SocialLinksSection",
       "AwardsTab",
       "StatsTab",
       "QRCodeModal",
       "LicenseCard",
-      "StationIdentityForm",
       "ProfileCardDesktop",
       "ProfileCardMobile",
       "HeroStatsBlock",
@@ -119,6 +123,44 @@ vi.mock("@/components/profile", () => ({
       "ArchetypeRadar",
       "MyShackTab",
     ].map((name) => [name, () => <div>{name}</div>]),
+  ),
+  StationIdentityForm: ({
+    callsign,
+    setCallsign,
+    operatorName,
+    setOperatorName,
+    grid,
+    setGrid,
+    idPrefix = "test",
+  }: {
+    callsign: string;
+    setCallsign: (value: string) => void;
+    operatorName: string;
+    setOperatorName: (value: string) => void;
+    grid: string;
+    setGrid: (value: string) => void;
+    idPrefix?: string;
+  }) => (
+    <div>
+      <label htmlFor={`${idPrefix}-callsign`}>Callsign</label>
+      <input
+        id={`${idPrefix}-callsign`}
+        value={callsign}
+        onChange={(event) => setCallsign(event.target.value)}
+      />
+      <label htmlFor={`${idPrefix}-operator-name`}>Operator name</label>
+      <input
+        id={`${idPrefix}-operator-name`}
+        value={operatorName}
+        onChange={(event) => setOperatorName(event.target.value)}
+      />
+      <label htmlFor={`${idPrefix}-grid`}>Grid</label>
+      <input
+        id={`${idPrefix}-grid`}
+        value={grid}
+        onChange={(event) => setGrid(event.target.value)}
+      />
+    </div>
   ),
   PublicShackPanel: ({ equipment }: { equipment: unknown }) => (
     <div>Shared equipment: {JSON.stringify(equipment)}</div>
@@ -168,6 +210,43 @@ function openProfile(path = "/profile/N0TEST") {
       </Routes>
     </MemoryRouter>,
   );
+}
+
+const originalProfileState = useProfileStore.getState();
+
+function seedOwnerProfile() {
+  useProfileStore.setState({
+    ...originalProfileState,
+    bio: "Saved bio",
+    profileImageUrl: "",
+    socialLinks: [{ type: "website", url: "https://saved.example" }],
+    station: {
+      callsign: "W0TEST",
+      operatorName: "Pat",
+      homeLocationId: "",
+      activeLocationId: null,
+      savedLocations: [],
+      grid: "EM38",
+      lat: 38.5,
+      lon: -93,
+    },
+  });
+}
+
+function openOwnerProfile(initialPath = "/profile") {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/logbook" element={<div>Logbook page</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function beginBioEdit() {
+  const aboutSection = screen.getByRole("heading", { name: "About" }).parentElement!;
+  fireEvent.click(within(aboutSection).getByRole("button", { name: "Edit" }));
 }
 beforeEach(() => {
   fixture.authenticated = true;
@@ -519,5 +598,131 @@ describe("identity save preserves locations (#351)", () => {
     expect(callsignOnly?.homeLocationId).toBe("");
     expect(callsignOnly?.lat).toBe(0);
     expect(callsignOnly?.lon).toBe(0);
+  });
+});
+
+describe("profile draft retention (#354)", () => {
+  beforeEach(() => {
+    seedOwnerProfile();
+    fixture.mobile = false;
+  });
+
+  it("retains a dirty bio draft when switching profile tabs", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    beginBioEdit();
+    const bioField = screen.getByLabelText("Bio");
+    fireEvent.change(bioField, { target: { value: "Draft bio text" } });
+    fireEvent.click(screen.getByRole("tab", { name: "My shack" }));
+    expect(screen.getByText("MyShackTab")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    expect((screen.getByLabelText("Bio") as HTMLTextAreaElement).value).toBe(
+      "Draft bio text",
+    );
+  });
+
+  it("does not prompt when switching tabs with a clean bio editor", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    beginBioEdit();
+    fireEvent.click(screen.getByRole("tab", { name: "My shack" }));
+    expect(screen.queryByText("Save profile changes?")).toBeNull();
+  });
+
+  it("prompts before route exit and restores saved values on discard", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    beginBioEdit();
+    fireEvent.change(screen.getByLabelText("Bio"), {
+      target: { value: "Draft bio text" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: /Open logbook/i }));
+    expect(
+      await screen.findByRole("heading", { name: "Save profile changes?" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(await screen.findByText("Logbook page")).toBeTruthy();
+    expect(useProfileStore.getState().bio).toBe("Saved bio");
+  });
+
+  it("keeps editing when the unsaved-changes dialog is dismissed", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    beginBioEdit();
+    fireEvent.change(screen.getByLabelText("Bio"), {
+      target: { value: "Draft bio text" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: /Open logbook/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Keep editing" }),
+    );
+    expect(screen.getByRole("heading", { name: "Profile & station" })).toBeTruthy();
+    expect((screen.getByLabelText("Bio") as HTMLTextAreaElement).value).toBe(
+      "Draft bio text",
+    );
+    expect(screen.queryByText("Logbook page")).toBeNull();
+  });
+
+  it("validates links before saving on route exit", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    const linksSection = screen.getByRole("heading", { name: "Links" })
+      .parentElement!;
+    fireEvent.click(within(linksSection).getByRole("button", { name: "Edit" }));
+    const websiteField = screen.getByPlaceholderText("https://...");
+    fireEvent.change(websiteField, { target: { value: "bad-url" } });
+    fireEvent.click(screen.getByRole("link", { name: /Open logbook/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    expect(screen.getByText("URL must start with http:// or https://")).toBeTruthy();
+    expect(screen.queryByText("Logbook page")).toBeNull();
+    expect(useProfileStore.getState().socialLinks[0]?.url).toBe(
+      "https://saved.example",
+    );
+  });
+
+  it("discards both dirty bio and link drafts together on route exit", async () => {
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    beginBioEdit();
+    fireEvent.change(screen.getByLabelText("Bio"), {
+      target: { value: "Draft bio text" },
+    });
+    const linksSection = screen.getByRole("heading", { name: "Links" })
+      .parentElement!;
+    fireEvent.click(within(linksSection).getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByPlaceholderText("https://..."), {
+      target: { value: "https://draft.example" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: /Open logbook/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+    expect(await screen.findByText("Logbook page")).toBeTruthy();
+    expect(useProfileStore.getState().bio).toBe("Saved bio");
+    expect(useProfileStore.getState().socialLinks[0]?.url).toBe(
+      "https://saved.example",
+    );
+  });
+
+  it("prompts before closing a dirty mobile identity editor", async () => {
+    fixture.mobile = true;
+    openOwnerProfile();
+    await screen.findByRole("heading", { name: "Profile & station" });
+    fireEvent.click(screen.getByRole("button", { name: "Edit identity" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit station identity",
+    });
+    fireEvent.change(within(dialog).getByLabelText(/Callsign/i), {
+      target: { value: "W1ABC" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
+    expect(
+      await screen.findByRole("heading", { name: "Save profile changes?" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(
+      screen.getByRole("dialog", { name: "Edit station identity" }),
+    ).toBeTruthy();
+    expect(
+      (within(dialog).getByLabelText(/Callsign/i) as HTMLInputElement).value,
+    ).toBe("W1ABC");
   });
 });

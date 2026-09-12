@@ -32,8 +32,8 @@ import type { LadderState } from "@/lib/verdict/ladder";
 import { useVerdictStore } from "@/stores/verdictStore";
 
 const LADDER_CHIP_CLASSES: Record<LadderState, string> = {
-  hot: "bg-plasma-orange/20 border-plasma-orange text-plasma-orange",
-  verified: "bg-signal-green/20 border-signal-green text-signal-green",
+  hot: "bg-plasma-orange/20 border-plasma-orange text-su-text",
+  verified: "bg-signal-green/20 border-signal-green text-su-text",
   stirring: "border-caution-amber/50 text-caution-amber",
   forecast: "border-signal-green/40 text-signal-green/70",
   closed: "border-su-line/40 text-su-muted",
@@ -87,7 +87,7 @@ function BandVerdictChip({
         <span>{LADDER_LABEL[entry.stable]}</span>
         {surprise && (
           <span
-            className="rounded bg-plasma-orange/20 px-1 text-xs uppercase tracking-wide text-plasma-orange"
+            className="rounded bg-plasma-orange/20 px-1 text-xs uppercase tracking-wide text-su-text"
             title="Activity the forecast did not predict"
           >
             Surprise
@@ -124,7 +124,7 @@ function BandVerdictChip({
           </span>
         )}
         {activity?.crowded && (
-          <span className="rounded bg-plasma-orange/20 px-1 text-xs uppercase tracking-wide text-plasma-orange">
+          <span className="rounded bg-plasma-orange/20 px-1 text-xs uppercase tracking-wide text-su-text">
             Crowded
           </span>
         )}
@@ -172,7 +172,7 @@ export function BandVerdictPanel() {
             aria-pressed={dxMode}
             className={`ml-auto rounded border px-1.5 py-0.5 font-mono text-xs uppercase tracking-wide transition-colors ${
               dxMode
-                ? "border-nebula-blue bg-nebula-blue/10 text-nebula-blue"
+                ? "border-nebula-blue bg-nebula-blue/10 text-su-text"
                 : "border-su-line/40 text-su-text/80 hover:text-su-text"
             }`}
           >

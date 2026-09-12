@@ -127,7 +127,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-signal-green/20 hover:bg-signal-green/30 text-signal-green border border-signal-green/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-signal-green/20 hover:bg-signal-green/20 text-su-text border border-signal-green/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save SitRep
         </button>

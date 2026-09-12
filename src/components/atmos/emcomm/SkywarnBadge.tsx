@@ -19,7 +19,7 @@ function statusConfig(status: SkywarnStatus) {
     case "possible":
       return {
         label: "SKYWARN Possible",
-        color: "bg-caution-amber/20 text-caution-amber",
+        color: "bg-caution-amber/20 text-su-text",
         pulse: false,
       };
     case "inactive":

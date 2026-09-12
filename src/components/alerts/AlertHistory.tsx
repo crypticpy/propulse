@@ -309,7 +309,7 @@ export const SpotAlertHistory: React.FC<SpotAlertHistoryProps> = ({
           {Array.from(mutedCallsigns.keys()).map((call) => (
             <span
               key={call}
-              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-caution-amber/10 text-caution-amber"
+              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-caution-amber/10 text-su-text"
             >
               {call}
             </span>

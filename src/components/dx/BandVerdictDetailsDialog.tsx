@@ -77,12 +77,12 @@ export function BandVerdictDetailsDialog({
               {LADDER_LABEL[entry.stable]}
             </span>
             {entry.fading && (
-              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-caution-amber">
+              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-su-text">
                 Fading
               </span>
             )}
             {entry.result.evaluation.surprise && (
-              <span className="rounded border border-plasma-orange/30 bg-plasma-orange/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-plasma-orange">
+              <span className="rounded border border-plasma-orange/30 bg-plasma-orange/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-su-text">
                 Surprise
               </span>
             )}
@@ -120,7 +120,7 @@ export function BandVerdictDetailsDialog({
                 {LADDER_LABEL[canonical.state]}
               </span>
               {canonical.stale && (
-                <span className="ml-1.5 rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-caution-amber">
+                <span className="ml-1.5 rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-su-text">
                   Stale
                 </span>
               )}

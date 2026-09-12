@@ -81,7 +81,7 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
       zIndexClassName="z-[550]"
     >
       {!homeLocation ? (
-        <div className="rounded-xl border border-caution-amber/30 bg-caution-amber/10 p-4 text-sm text-caution-amber">
+        <div className="rounded-xl border border-caution-amber/30 bg-caution-amber/10 p-4 text-sm text-su-text">
           Set up your home station first, then you can apply a travel location.
         </div>
       ) : (
@@ -97,7 +97,7 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
           {error && (
             <div
               role="alert"
-              className="rounded-lg border border-alert-red/30 bg-alert-red/10 px-3 py-2 text-sm text-alert-red"
+              className="rounded-lg border border-alert-red/30 bg-alert-red/10 px-3 py-2 text-sm text-su-text"
             >
               {error}
             </div>
@@ -118,7 +118,7 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
               <button
                 type="button"
                 onClick={useHome}
-                className="min-h-11 rounded-lg border border-signal-green/30 bg-signal-green/10 px-4 py-2 text-sm font-medium text-signal-green transition-colors hover:bg-signal-green/20"
+                className="min-h-11 rounded-lg border border-signal-green/30 bg-signal-green/10 px-4 py-2 text-sm font-medium text-su-text transition-colors hover:bg-signal-green/20"
               >
                 Use Home QTH
               </button>
@@ -133,7 +133,7 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
             <button
               type="button"
               onClick={applyLocation}
-              className="min-h-11 rounded-lg border border-plasma-orange/50 bg-plasma-orange/20 px-4 py-2 text-sm font-semibold text-plasma-orange transition-colors hover:bg-plasma-orange/30"
+              className="min-h-11 rounded-lg border border-plasma-orange/50 bg-plasma-orange/20 px-4 py-2 text-sm font-semibold text-su-text transition-colors hover:bg-plasma-orange/20"
             >
               Use This Location
             </button>

@@ -35,18 +35,18 @@ const SIZE_CLASSES = {
 // The glow shadow follows the active color rather than being fixed to green.
 
 const DEFAULT_ACTIVE_CLASS =
-  "bg-signal-green/20 text-signal-green border-signal-green/30 shadow-[0_0_6px_rgba(0,255,136,0.15)]";
+  "bg-signal-green/20 text-su-text border-signal-green/30 shadow-[0_0_6px_rgba(0,255,136,0.15)]";
 
 const ACTIVE_CLASSES: Record<string, string> = {
   "signal-green": DEFAULT_ACTIVE_CLASS,
   "cosmic-cyan":
-    "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/30 shadow-[0_0_6px_rgba(68,221,255,0.15)]",
+    "bg-cosmic-cyan/20 text-su-text border-cosmic-cyan/30 shadow-[0_0_6px_rgba(68,221,255,0.15)]",
   "plasma-orange":
     "bg-plasma-orange/20 text-su-text border-plasma-orange/30 shadow-[0_0_6px_rgba(255,107,53,0.15)]",
   "caution-amber":
-    "bg-caution-amber/20 text-caution-amber border-caution-amber/30 shadow-[0_0_6px_rgba(255,210,63,0.15)]",
+    "bg-caution-amber/20 text-su-text border-caution-amber/30 shadow-[0_0_6px_rgba(255,210,63,0.15)]",
   "alert-red":
-    "bg-alert-red/20 text-alert-red border-alert-red/30 shadow-[0_0_6px_rgba(255,68,85,0.15)]",
+    "bg-alert-red/20 text-su-text border-alert-red/30 shadow-[0_0_6px_rgba(255,68,85,0.15)]",
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────

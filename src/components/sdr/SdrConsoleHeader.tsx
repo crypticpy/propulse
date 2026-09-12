@@ -92,7 +92,7 @@ export function SdrConsoleHeader({
           type="button"
           onClick={onDisconnectRadio}
           disabled={!canControlConnected}
-          className="px-2 py-0.5 text-xs font-semibold rounded bg-alert-red/15 border border-alert-red/30 text-alert-red hover:bg-alert-red/25 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-2 py-0.5 text-xs font-semibold rounded bg-alert-red/20 border border-alert-red/30 text-su-text hover:bg-alert-red/20 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         >
           Disconnect
         </button>

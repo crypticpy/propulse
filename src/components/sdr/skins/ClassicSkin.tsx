@@ -226,7 +226,7 @@ export function ClassicSkin(props: SdrSkinProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
       {(daemonError || lastResponseError) && (
-        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm">
           {daemonError ?? lastResponseError}
         </div>
       )}

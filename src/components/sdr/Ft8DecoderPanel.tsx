@@ -103,7 +103,7 @@ export function Ft8DecoderPanel({
           onClick={onToggle}
           className={`rounded px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide transition-colors ${
             enabled
-              ? "bg-signal-green/20 text-signal-green ring-1 ring-signal-green/40"
+              ? "bg-signal-green/20 text-su-text ring-1 ring-signal-green/40"
               : "bg-su-line/10 text-su-text/80 ring-1 ring-su-line/40 hover:bg-su-line/20"
           }`}
         >
@@ -129,7 +129,7 @@ export function Ft8DecoderPanel({
                 onClick={() => onModeChange(m)}
                 className={`flex-1 rounded py-1 text-xs font-semibold tracking-wide transition-colors ${
                   mode === m
-                    ? "bg-cosmic-cyan/20 text-cosmic-cyan ring-1 ring-cosmic-cyan/40"
+                    ? "bg-cosmic-cyan/20 text-su-text ring-1 ring-cosmic-cyan/40"
                     : "bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               >
@@ -157,7 +157,7 @@ export function Ft8DecoderPanel({
 
           {/* Time sync warning */}
           {timeSyncResult && !timeSyncResult.isAcceptable && (
-            <div className="mx-3 rounded bg-caution-amber/10 px-2 py-1.5 text-xs leading-tight text-caution-amber/90">
+            <div className="mx-3 rounded bg-caution-amber/10 px-2 py-1.5 text-xs leading-tight text-su-text">
               Clock drift: {timeSyncResult.offsetMs > 0 ? "+" : ""}
               {timeSyncResult.offsetMs}ms — FT8 requires &lt;500ms accuracy
             </div>
@@ -165,7 +165,7 @@ export function Ft8DecoderPanel({
 
           {/* Error display */}
           {error && (
-            <div className="mx-3 rounded bg-alert-red/10 px-2 py-1.5 text-xs leading-tight text-alert-red/90">
+            <div className="mx-3 rounded bg-alert-red/10 px-2 py-1.5 text-xs leading-tight text-su-text">
               {error}
             </div>
           )}

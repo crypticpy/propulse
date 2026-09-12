@@ -162,7 +162,7 @@ export function FateTopBar({
             transition-all duration-200 border shrink-0
             ${
               ft8DecoderEnabled
-                ? "border-signal-green/30 bg-signal-green/10 text-signal-green hover:bg-signal-green/15"
+                ? "border-signal-green/30 bg-signal-green/10 text-su-text hover:bg-signal-green/20"
                 : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-text hover:border-su-line/50"
             }
           `}
@@ -186,7 +186,7 @@ export function FateTopBar({
               px-2 py-0.5 rounded text-xs font-bold tracking-wide transition-colors
               ${
                 ft8DecoderMode === "FT8"
-                  ? "bg-signal-green/15 text-signal-green"
+                  ? "bg-signal-green/15 text-su-text"
                   : "text-su-muted hover:text-su-text"
               }
             `}
@@ -200,7 +200,7 @@ export function FateTopBar({
               px-2 py-0.5 rounded text-xs font-bold tracking-wide transition-colors
               ${
                 ft8DecoderMode === "FT4"
-                  ? "bg-cosmic-cyan/15 text-cosmic-cyan"
+                  ? "bg-cosmic-cyan/15 text-su-text"
                   : "text-su-muted hover:text-su-text"
               }
             `}
@@ -215,7 +215,7 @@ export function FateTopBar({
           onClick={() => onCqFilterChange(!showCqOnly)}
           className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
             showCqOnly
-              ? "bg-signal-green/15 text-signal-green"
+              ? "bg-signal-green/15 text-su-text"
               : "text-su-muted hover:text-su-text"
           }`}
         >

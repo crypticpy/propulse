@@ -696,7 +696,7 @@ function SliceTab() {
               <span className="text-xs px-1 py-0.5 rounded bg-su-line/20 text-su-muted">
                 ANT1
               </span>
-              <span className="text-xs px-1 py-0.5 rounded bg-signal-green/20 text-signal-green">
+              <span className="text-xs px-1 py-0.5 rounded bg-signal-green/20 text-su-text">
                 RX
               </span>
             </div>

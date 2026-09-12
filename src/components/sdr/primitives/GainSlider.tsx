@@ -116,7 +116,7 @@ export function GainSlider({
               className={`flex-1 px-1.5 py-0.5 ${cfg.labelText} font-medium rounded border transition-colors
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   value === step.value
-                    ? `bg-signal-green/15 text-signal-green border-signal-green/30`
+                    ? `bg-signal-green/15 text-su-text border-signal-green/30`
                     : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20"
                 }`}
             >

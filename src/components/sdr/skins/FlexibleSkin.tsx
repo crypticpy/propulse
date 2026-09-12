@@ -686,7 +686,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
     <div className="su-fixed-dark flex flex-col h-full bg-[#0a0a0f] overflow-hidden">
       {/* ── Error banner ─────────────────────────────────────────────── */}
       {(daemonError || lastResponseError) && (
-        <div className="px-3 py-1.5 bg-alert-red/10 border-b border-alert-red/30 text-alert-red text-xs">
+        <div className="px-3 py-1.5 bg-alert-red/10 border-b border-alert-red/30 text-su-text text-xs">
           {daemonError ?? lastResponseError}
         </div>
       )}

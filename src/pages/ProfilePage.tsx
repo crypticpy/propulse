@@ -9,8 +9,8 @@ import { useVisualEffects } from "@/hooks/useVisualEffects";
  * Also supports viewing another user's profile via /profile/:callsign.
  */
 
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { useProfileStore } from "@/stores/profileStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
@@ -35,8 +35,6 @@ import { useViewerFollowing } from "@/hooks/useViewerFollowing";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 // LocationManager moved to Settings — locations managed via /settings route
 import {
-  BioSection,
-  SocialLinksSection,
   AwardsTab,
   StatsTab,
   QRCodeModal,
@@ -66,6 +64,19 @@ import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
 import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
 import { useStationIdentityDraft } from "@/components/profile/identityLookupDraft";
+import {
+  BioSection,
+  createBioDraftState,
+  isBioDraftDirty,
+  type BioSectionDraftState,
+} from "@/components/profile/BioSection";
+import {
+  SocialLinksSection,
+  createSocialLinksDraftState,
+  isSocialLinksDraftDirty,
+  validateSocialLinksDraft,
+  type SocialLinksDraftState,
+} from "@/components/profile/SocialLinksSection";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
@@ -695,6 +706,7 @@ export default function ProfilePage() {
   const effects = useVisualEffects();
   const { callsign: routeCallsign } = useParams<{ callsign?: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const isViewingOther = !!routeCallsign;
 
   const station = useProfileStore((s) => s.station);
@@ -735,24 +747,212 @@ export default function ProfilePage() {
     }
   }, [location.pathname]);
 
+  const bio = useProfileStore((s) => s.bio);
+  const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const setBio = useProfileStore((s) => s.setBio);
+  const setProfileImageUrl = useProfileStore((s) => s.setProfileImageUrl);
+  const socialLinks = useProfileStore((s) => s.socialLinks);
+  const setSocialLinks = useProfileStore((s) => s.setSocialLinks);
+
   const {
     formProps: identityForm,
     handleSave: saveIdentityDraft,
     handleCancelEdit: revertIdentityDraft,
+    isDirty: identityDraftDirty,
   } = useStationIdentityDraft();
+
+  const [bioDraft, setBioDraft] = useState<BioSectionDraftState>(() =>
+    createBioDraftState(bio, profileImageUrl),
+  );
+  const [linksDraft, setLinksDraft] = useState<SocialLinksDraftState>(() =>
+    createSocialLinksDraftState(socialLinks),
+  );
+
+  useEffect(() => {
+    setBioDraft((prev) => {
+      if (isBioDraftDirty(prev, bio, profileImageUrl)) return prev;
+      return createBioDraftState(bio, profileImageUrl, prev.isEditing);
+    });
+  }, [bio, profileImageUrl]);
+
+  useEffect(() => {
+    setLinksDraft((prev) => {
+      if (isSocialLinksDraftDirty(prev, socialLinks)) return prev;
+      return createSocialLinksDraftState(socialLinks, prev.isEditing);
+    });
+  }, [socialLinks]);
 
   // Editing state for sidebar card inline edit
   const [isEditing, setIsEditing] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
+  type PendingProfileExit =
+    | { kind: "route"; proceed: () => void }
+    | { kind: "identity-close" };
+
+  const [pendingExit, setPendingExit] = useState<PendingProfileExit | null>(
+    null,
+  );
+  const pendingExitRef = useRef<PendingProfileExit | null>(null);
+  pendingExitRef.current = pendingExit;
+
+  const bioDirty = isBioDraftDirty(bioDraft, bio, profileImageUrl);
+  const linksDirty = isSocialLinksDraftDirty(linksDraft, socialLinks);
+  const identityDirty = isEditing && identityDraftDirty;
+  const hasDirtyDrafts = bioDirty || linksDirty || identityDirty;
+
+  const discardAllDirtyDrafts = useCallback(() => {
+    if (identityDirty) {
+      revertIdentityDraft();
+      setIsEditing(false);
+    }
+    if (bioDirty) {
+      setBioDraft(createBioDraftState(bio, profileImageUrl, false));
+    }
+    if (linksDirty) {
+      setLinksDraft(createSocialLinksDraftState(socialLinks, false));
+    }
+  }, [
+    bio,
+    bioDirty,
+    identityDirty,
+    linksDirty,
+    profileImageUrl,
+    revertIdentityDraft,
+    socialLinks,
+  ]);
+
+  const saveAllDirtyDrafts = useCallback((): boolean => {
+    let ok = true;
+    if (linksDirty) {
+      const result = validateSocialLinksDraft(linksDraft);
+      if (!result.ok) {
+        setLinksDraft((prev) => ({
+          ...prev,
+          validationErrors: result.validationErrors,
+        }));
+        ok = false;
+      } else {
+        setSocialLinks(result.filtered);
+        setLinksDraft(createSocialLinksDraftState(result.filtered, false));
+      }
+    }
+    if (bioDirty) {
+      const trimmedBio = bioDraft.draft.trim();
+      const trimmedImage = bioDraft.imageDraft.trim();
+      setBio(trimmedBio);
+      setProfileImageUrl(trimmedImage);
+      setBioDraft(createBioDraftState(trimmedBio, trimmedImage, false));
+    }
+    if (identityDirty) {
+      ok = saveIdentityDraft() && ok;
+      if (ok) setIsEditing(false);
+    }
+    return ok;
+  }, [
+    bioDirty,
+    bioDraft.draft,
+    bioDraft.imageDraft,
+    identityDirty,
+    linksDirty,
+    linksDraft,
+    saveIdentityDraft,
+    setBio,
+    setProfileImageUrl,
+    setSocialLinks,
+  ]);
+
+  const finishPendingExit = useCallback(() => {
+    const pending = pendingExitRef.current;
+    if (!pending) return;
+    if (pending.kind === "route") {
+      pending.proceed();
+    } else {
+      setIsEditing(false);
+    }
+    setPendingExit(null);
+  }, []);
+
+  const requestRouteExit = useCallback(
+    (proceed: () => void) => {
+      if (!hasDirtyDrafts) {
+        proceed();
+        return;
+      }
+      setPendingExit({ kind: "route", proceed });
+    },
+    [hasDirtyDrafts],
+  );
+
+  useEffect(() => {
+    if (!hasDirtyDrafts) return;
+    const handleClick = (event: MouseEvent) => {
+      const anchor = (event.target as Element).closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("http")) return;
+      const url = new URL(href, window.location.origin);
+      if (url.pathname === location.pathname) return;
+      event.preventDefault();
+      event.stopPropagation();
+      requestRouteExit(() =>
+        navigate(url.pathname + url.search + url.hash),
+      );
+    };
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [hasDirtyDrafts, location.pathname, navigate, requestRouteExit]);
+
+  useEffect(() => {
+    if (!hasDirtyDrafts) return;
+    const trap = () => window.history.pushState(null, "", window.location.href);
+    trap();
+    const onPopState = () => {
+      trap();
+      requestRouteExit(() => {
+        window.history.go(-1);
+      });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [hasDirtyDrafts, requestRouteExit]);
+
+  const handleKeepEditing = useCallback(() => {
+    setPendingExit(null);
+  }, []);
+
+  const handleDiscardAndExit = useCallback(() => {
+    discardAllDirtyDrafts();
+    finishPendingExit();
+  }, [discardAllDirtyDrafts, finishPendingExit]);
+
+  const handleSaveAndExit = useCallback(() => {
+    if (!saveAllDirtyDrafts()) return;
+    finishPendingExit();
+  }, [finishPendingExit, saveAllDirtyDrafts]);
+
+  const requestIdentityClose = useCallback(() => {
+    if (identityDirty) {
+      setPendingExit({ kind: "identity-close" });
+      return;
+    }
+    revertIdentityDraft();
+    setIsEditing(false);
+  }, [identityDirty, revertIdentityDraft]);
+
+  useEffect(() => {
+    if (!hasDirtyDrafts) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasDirtyDrafts]);
+
   const handleSave = useCallback(() => {
     if (saveIdentityDraft()) setIsEditing(false);
   }, [saveIdentityDraft]);
-
-  const handleCancelEdit = useCallback(() => {
-    revertIdentityDraft();
-    setIsEditing(false);
-  }, [revertIdentityDraft]);
 
   const formProps = {
     ...identityForm,
@@ -790,7 +990,7 @@ export default function ProfilePage() {
             <div className="profile-workspace-panels">
               {/* Bio */}
               <div className={panelClass} style={panelStyle}>
-                <BioSection />
+                <BioSection state={bioDraft} onStateChange={setBioDraft} />
               </div>
               <div className="profile-workspace-pair">
                 {/* License Card */}
@@ -799,7 +999,10 @@ export default function ProfilePage() {
                 </div>{" "}
                 {/* Social Links */}
                 <div className={panelClass} style={panelStyle}>
-                  <SocialLinksSection />
+                  <SocialLinksSection
+                    state={linksDraft}
+                    onStateChange={setLinksDraft}
+                  />
                 </div>
               </div>
               {/* Interest Tags — editable picker */}
@@ -1013,7 +1216,7 @@ export default function ProfilePage() {
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             showQR={() => setShowQR(true)}
-            onCancelEdit={handleCancelEdit}
+            onCancelEdit={requestIdentityClose}
             formProps={formProps}
           />
         )
@@ -1027,11 +1230,32 @@ export default function ProfilePage() {
             grid={displayGrid !== "----" ? displayGrid : undefined}
           />
           <Dialog
+            open={pendingExit !== null}
+            onClose={handleKeepEditing}
+            title="Save profile changes?"
+            description="You have unsaved profile edits. Save them, discard them, or keep editing."
+            footer={
+              <>
+                <Button onClick={handleKeepEditing}>Keep editing</Button>
+                <Button variant="danger" onClick={handleDiscardAndExit}>
+                  Discard
+                </Button>
+                <Button variant="primary" onClick={handleSaveAndExit}>
+                  Save
+                </Button>
+              </>
+            }
+          >
+            <p className="su-hint">
+              Discarding restores your last saved profile values.
+            </p>
+          </Dialog>
+          <Dialog
             open={isMobile && isEditing}
-            onClose={handleCancelEdit}
+            onClose={requestIdentityClose}
             title="Edit station identity"
             description="Update your callsign, operator name, and home grid."
-            footer={<Button onClick={handleCancelEdit}>Cancel</Button>}
+            footer={<Button onClick={requestIdentityClose}>Cancel</Button>}
           >
             <div className="profile-workspace-legacy">
               <StationIdentityForm

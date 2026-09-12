@@ -1,9 +1,10 @@
 /**
  * Editable social links section.
  * Displays links as compact pills in read mode; shows full form in edit mode.
+ *
+ * Draft state is controlled by ProfilePage so edits survive tab changes (#354).
  */
 
-import { useState } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import type { SocialLink, SocialLinkType } from "@/types/user";
 
@@ -31,51 +32,120 @@ const LINK_TYPES: {
   },
 ];
 
-export function SocialLinksSection() {
+export interface SocialLinksDraftState {
+  draft: SocialLink[];
+  isEditing: boolean;
+  validationErrors: Record<SocialLinkType, string | undefined>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- draft helpers shared with ProfilePage (#354)
+export function createSocialLinksDraftState(
+  socialLinks: SocialLink[],
+  isEditing = false,
+): SocialLinksDraftState {
+  return {
+    draft: [...socialLinks],
+    isEditing,
+    validationErrors: {
+      qrz: undefined,
+      hamqth: undefined,
+      website: undefined,
+      twitter: undefined,
+      mastodon: undefined,
+    },
+  };
+}
+
+function normalizeSocialLinks(links: SocialLink[]): SocialLink[] {
+  return links.filter((l) => l.url.trim());
+}
+
+function linksEqual(a: SocialLink[], b: SocialLink[]): boolean {
+  const norm = (links: SocialLink[]) =>
+    normalizeSocialLinks(links)
+      .map((l) => `${l.type}:${l.url.trim()}`)
+      .sort()
+      .join("|");
+  return norm(a) === norm(b);
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- draft helpers shared with ProfilePage (#354)
+export function isSocialLinksDraftDirty(
+  state: SocialLinksDraftState,
+  savedLinks: SocialLink[],
+): boolean {
+  if (!state.isEditing) return false;
+  return !linksEqual(state.draft, savedLinks);
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- draft helpers shared with ProfilePage (#354)
+export function validateSocialLinksDraft(state: SocialLinksDraftState): {
+  ok: boolean;
+  filtered: SocialLink[];
+  validationErrors: SocialLinksDraftState["validationErrors"];
+} {
+  const filtered = normalizeSocialLinks(state.draft);
+  const validationErrors: SocialLinksDraftState["validationErrors"] = {
+    qrz: undefined,
+    hamqth: undefined,
+    website: undefined,
+    twitter: undefined,
+    mastodon: undefined,
+  };
+  for (const link of filtered) {
+    const url = link.url.trim();
+    if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
+      validationErrors[link.type] = "URL must start with http:// or https://";
+    }
+  }
+  const ok = !Object.values(validationErrors).some(Boolean);
+  return { ok, filtered, validationErrors };
+}
+
+export interface SocialLinksSectionProps {
+  state: SocialLinksDraftState;
+  onStateChange: (next: SocialLinksDraftState) => void;
+}
+
+export function SocialLinksSection({
+  state,
+  onStateChange,
+}: SocialLinksSectionProps) {
   const socialLinks = useProfileStore((s) => s.socialLinks);
   const setSocialLinks = useProfileStore((s) => s.setSocialLinks);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<SocialLink[]>(socialLinks);
-  const [validationErrors, setValidationErrors] = useState<Map<string, string>>(
-    new Map(),
-  );
+
+  const { draft, isEditing, validationErrors } = state;
+
+  const patch = (partial: Partial<SocialLinksDraftState>) => {
+    onStateChange({ ...state, ...partial });
+  };
 
   const handleEdit = () => {
-    setDraft([...socialLinks]);
-    setIsEditing(true);
+    onStateChange(createSocialLinksDraftState(socialLinks, true));
   };
 
   const handleSave = () => {
-    const filtered = draft.filter((l) => l.url.trim());
-    const errors = new Map<string, string>();
-    for (const link of filtered) {
-      const url = link.url.trim();
-      if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
-        errors.set(link.type, "URL must start with http:// or https://");
-      }
-    }
-    if (errors.size > 0) {
-      setValidationErrors(errors);
+    const result = validateSocialLinksDraft(state);
+    if (!result.ok) {
+      patch({ validationErrors: result.validationErrors });
       return;
     }
-    setValidationErrors(new Map());
-    setSocialLinks(filtered);
-    setIsEditing(false);
+    setSocialLinks(result.filtered);
+    onStateChange(createSocialLinksDraftState(result.filtered, false));
   };
 
   const handleCancel = () => {
-    setDraft(socialLinks);
-    setValidationErrors(new Map());
-    setIsEditing(false);
+    onStateChange(createSocialLinksDraftState(socialLinks, false));
   };
 
   const updateLink = (type: SocialLinkType, url: string) => {
-    setDraft((prev) => {
-      const existing = prev.find((l) => l.type === type);
-      if (existing) {
-        return prev.map((l) => (l.type === type ? { ...l, url } : l));
-      }
-      return [...prev, { type, url }];
+    const existing = draft.find((l) => l.type === type);
+    const nextDraft = existing
+      ? draft.map((l) => (l.type === type ? { ...l, url } : l))
+      : [...draft, { type, url }];
+    patch({
+      draft: nextDraft,
+      validationErrors: { ...validationErrors, [type]: undefined },
     });
   };
 
@@ -153,9 +223,9 @@ export function SocialLinksSection() {
               placeholder={meta.placeholder}
               className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
             />
-            {validationErrors.get(meta.type) && (
+            {validationErrors[meta.type] && (
               <p className="mt-1 text-xs text-alert-red">
-                {validationErrors.get(meta.type)}
+                {validationErrors[meta.type]}
               </p>
             )}
           </div>

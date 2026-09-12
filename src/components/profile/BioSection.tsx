@@ -4,9 +4,11 @@
  * Displays the operator's profile photo alongside their bio text.
  * Supports markdown formatting, photo URL input, and generous
  * character limits for detailed station descriptions.
+ *
+ * Draft state is controlled by ProfilePage so edits survive tab changes (#354).
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import { ImageUploadButton } from "@/components/ui/ImageUploadButton";
 import { useImageUrl } from "@/hooks/useImageUrl";
@@ -14,7 +16,46 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 
 const MAX_BIO_LENGTH = 10_000;
 
-export function BioSection() {
+export interface BioSectionDraftState {
+  draft: string;
+  imageDraft: string;
+  isEditing: boolean;
+  imageError: boolean;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- draft helpers shared with ProfilePage (#354)
+export function createBioDraftState(
+  bio: string,
+  profileImageUrl: string,
+  isEditing = false,
+): BioSectionDraftState {
+  return {
+    draft: bio,
+    imageDraft: profileImageUrl,
+    isEditing,
+    imageError: false,
+  };
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- draft helpers shared with ProfilePage (#354)
+export function isBioDraftDirty(
+  state: BioSectionDraftState,
+  savedBio: string,
+  savedImageUrl: string,
+): boolean {
+  if (!state.isEditing) return false;
+  return (
+    state.draft.trim() !== savedBio.trim() ||
+    state.imageDraft.trim() !== savedImageUrl.trim()
+  );
+}
+
+export interface BioSectionProps {
+  state: BioSectionDraftState;
+  onStateChange: (next: BioSectionDraftState) => void;
+}
+
+export function BioSection({ state, onStateChange }: BioSectionProps) {
   const bio = useProfileStore((s) => s.bio);
   const setBio = useProfileStore((s) => s.setBio);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
@@ -23,36 +64,28 @@ export function BioSection() {
   const setProfileImageId = useProfileStore((s) => s.setProfileImageId);
   const { url: uploadedImageUrl } = useImageUrl(profileImageId);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(bio);
-  const [imageDraft, setImageDraft] = useState(profileImageUrl);
-  const [imageError, setImageError] = useState(false);
   const [imgError, setImgError] = useState(false);
-  // Sync drafts when store changes externally (e.g., backup restore, ingestion)
-  useEffect(() => {
-    if (!isEditing) {
-      setDraft(bio);
-      setImageDraft(profileImageUrl);
-      setImgError(false);
-    }
-  }, [bio, profileImageUrl, isEditing]);
+
+  const { draft, imageDraft, isEditing, imageError } = state;
+
+  const patch = (partial: Partial<BioSectionDraftState>) => {
+    onStateChange({ ...state, ...partial });
+  };
 
   const handleSave = () => {
     setBio(draft.trim());
     setProfileImageUrl(imageDraft.trim());
-    setIsEditing(false);
+    onStateChange(
+      createBioDraftState(draft.trim(), imageDraft.trim(), false),
+    );
   };
 
   const handleCancel = () => {
-    setDraft(bio);
-    setImageDraft(profileImageUrl);
-    setIsEditing(false);
+    onStateChange(createBioDraftState(bio, profileImageUrl, false));
   };
 
   const displayImageUrl = uploadedImageUrl || profileImageUrl;
   const isEmpty = !bio && !displayImageUrl;
-
-  // ─── Read mode ──────────────────────────────────────────────────────────
 
   if (!isEditing) {
     return (
@@ -63,9 +96,7 @@ export function BioSection() {
           </h3>
           <button
             onClick={() => {
-              setDraft(bio);
-              setImageDraft(profileImageUrl);
-              setIsEditing(true);
+              onStateChange(createBioDraftState(bio, profileImageUrl, true));
             }}
             className="text-xs text-plasma-orange hover:text-plasma-orange/80 transition-colors"
           >
@@ -74,10 +105,13 @@ export function BioSection() {
         </div>
 
         {isEmpty ? (
-          <EmptyState onAdd={() => setIsEditing(true)} />
+          <EmptyState
+            onAdd={() => {
+              onStateChange(createBioDraftState(bio, profileImageUrl, true));
+            }}
+          />
         ) : (
           <div className="flex gap-5">
-            {/* Photo */}
             {displayImageUrl && !imgError && (
               <div className="shrink-0">
                 <div className="w-28 h-28 rounded-xl overflow-hidden border border-su-line/40 bg-void-black">
@@ -90,7 +124,6 @@ export function BioSection() {
                 </div>
               </div>
             )}
-            {/* Bio text */}
             <div className="flex-1 min-w-0">
               {bio ? (
                 <MarkdownRenderer
@@ -109,15 +142,12 @@ export function BioSection() {
     );
   }
 
-  // ─── Edit mode ──────────────────────────────────────────────────────────
-
   return (
     <div>
       <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
         About
       </h3>
 
-      {/* Upload photo */}
       <div className="mb-3">
         <label className="block text-xs text-su-muted mb-1">Upload Photo</label>
         <ImageUploadButton
@@ -132,20 +162,18 @@ export function BioSection() {
         />
       </div>
 
-      {/* Photo URL input */}
       <div className="mb-3">
         <label className="block text-xs text-su-muted mb-1">
           Profile Photo URL (alternative)
         </label>
         <div className="flex gap-3 items-start">
-          {/* Preview */}
           <div className="w-20 h-20 rounded-lg overflow-hidden border border-su-line/40 bg-void-black shrink-0 flex items-center justify-center">
             {imageDraft && !imageError ? (
               <img
                 src={imageDraft}
                 alt="Preview"
                 className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
+                onError={() => patch({ imageError: true })}
               />
             ) : (
               <svg
@@ -164,8 +192,7 @@ export function BioSection() {
             type="url"
             value={imageDraft}
             onChange={(e) => {
-              setImageDraft(e.target.value);
-              setImageError(false);
+              patch({ imageDraft: e.target.value, imageError: false });
             }}
             placeholder="https://example.com/photo.jpg"
             className="flex-1 bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm
@@ -179,7 +206,6 @@ export function BioSection() {
         )}
       </div>
 
-      {/* Bio textarea */}
       <label
         htmlFor="bio-textarea"
         className="block text-xs text-su-muted mb-1"
@@ -189,7 +215,9 @@ export function BioSection() {
       <textarea
         id="bio-textarea"
         value={draft}
-        onChange={(e) => setDraft(e.target.value.slice(0, MAX_BIO_LENGTH))}
+        onChange={(e) =>
+          patch({ draft: e.target.value.slice(0, MAX_BIO_LENGTH) })
+        }
         placeholder="Tell others about your station, operating history, interests, achievements, and antenna farm..."
         rows={8}
         className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm
@@ -222,8 +250,6 @@ export function BioSection() {
     </div>
   );
 }
-
-// ─── Empty state ──────────────────────────────────────────────────────────
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (

@@ -138,7 +138,7 @@ function GreylineIntensityChart({
     typeof window === "undefined"
       ? CHART_FALLBACK.height / 72
       : window.innerHeight / 100;
-  const fs = Math.max(11, Math.round(vh * 1.45));
+  const fs = Math.max(12, Math.round(vh * 1.45));
   const left = Math.round(fs * 3.2);
   const right = Math.round(fs * 1.2);
   const chartTop = Math.round(fs * 0.6);
@@ -233,7 +233,7 @@ function GreylineIntensityChart({
                   y={rowY + bandRowHeight * 0.8}
                   textAnchor="end"
                   fill="var(--hcr-chart-dim, #cbd5e1)"
-                  fontSize={fs * 0.85}
+                  fontSize={Math.max(12, fs * 0.85)}
                 >
                   {band}
                 </text>

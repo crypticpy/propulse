@@ -225,8 +225,7 @@ import { drawLightningLayer } from "./layers/lightningLayer";
 import {
   drawCountryBordersLayer,
   drawStateBordersLayer,
-  drawBoostedCountryBordersLayer,
-  drawBoostedStateBordersLayer,
+  drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
 
 interface FlatMapViewProps {
@@ -2700,96 +2699,6 @@ function drawWASOverlay(
     }
     ctx.fill();
   }
-  ctx.restore();
-}
-
-/**
- * Draw borders with boosted opacity within the night-side clip region.
- * Uses the terminator to build a clip path, then re-draws country and/or
- * state borders at higher opacity so they remain visible on the dark side.
- */
-function drawNightBoostedBorders(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  width: number,
-  height: number,
-  drawCountry: boolean,
-  drawStates: boolean,
-  projection: Projection,
-) {
-  const subsolar = getSubsolarPoint(date);
-  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-
-  // Build clip path for the night side using the terminator
-  ctx.save();
-  ctx.beginPath();
-
-  // Generate terminator boundary points
-  const tanSubsolarLat = Math.tan(subsolarLatRad);
-  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
-
-  const terminatorPoints: { x: number; y: number }[] = [];
-  for (let lon = -180; lon <= 180; lon += 2) {
-    const lonRad = lon * (Math.PI / 180);
-    const deltaLon = lonRad - subsolarLonRad;
-    let lat: number;
-    if (isNearEquinox) {
-      lat = 0;
-    } else {
-      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
-    }
-    terminatorPoints.push(latLonToCanvas(lat, lon, width, height));
-  }
-
-  // Determine which side is the night side
-  // The anti-subsolar point is the center of the night side
-  const antiSubsolarLat = -subsolar.lat;
-  const antiSubsolarLon =
-    subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
-  const antiPoint = latLonToCanvas(
-    antiSubsolarLat,
-    antiSubsolarLon,
-    width,
-    height,
-  );
-
-  // Draw terminator as a path
-  for (let i = 0; i < terminatorPoints.length; i++) {
-    const p = terminatorPoints[i];
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
-  }
-
-  // Close the night side: extend to the edge that contains the anti-subsolar point
-  if (antiPoint.y < height / 2) {
-    // Night side is at the top
-    const lastP = terminatorPoints[terminatorPoints.length - 1];
-    ctx.lineTo(width, lastP.y);
-    ctx.lineTo(width, 0);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(0, terminatorPoints[0].y);
-  } else {
-    // Night side is at the bottom
-    const lastP = terminatorPoints[terminatorPoints.length - 1];
-    ctx.lineTo(width, lastP.y);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.lineTo(0, terminatorPoints[0].y);
-  }
-  ctx.closePath();
-  ctx.clip();
-
-  // Draw boosted country borders within the night clip
-  if (drawCountry) {
-    drawBoostedCountryBordersLayer(ctx, projection, FLAT_LAYER_PROFILE);
-  }
-
-  // Draw boosted state borders within the night clip
-  if (drawStates) {
-    drawBoostedStateBordersLayer(ctx, projection, FLAT_LAYER_PROFILE);
-  }
-
   ctx.restore();
 }
 
@@ -5524,14 +5433,12 @@ export function FlatMapView({
       layers.terminator &&
       (labelOptions.borders || labelOptions.stateBorders)
     ) {
-      drawNightBoostedBorders(
+      drawNightBoostedBordersLayer(
         context,
         displayTime,
-        renderWidth,
-        renderHeight,
-        labelOptions.borders,
-        labelOptions.stateBorders,
         bordersProjection,
+        FLAT_LAYER_PROFILE,
+        { country: labelOptions.borders, states: labelOptions.stateBorders },
       );
     }
     if (layers.labels) {

@@ -58,7 +58,7 @@ export function UpgradePrompt({
     <div className="inline-flex items-center gap-2 text-xs text-su-muted">
       <LockIcon />
       <span className="inline-flex items-center gap-1.5">
-        <span className="px-1.5 py-0.5 rounded bg-plasma-orange/15 text-su-text font-semibold text-[10px] uppercase tracking-wide">
+        <span className="px-1.5 py-0.5 rounded bg-plasma-orange/15 text-su-text font-semibold text-xs uppercase tracking-wide">
           Pro
         </span>
         <span>{feature}</span>

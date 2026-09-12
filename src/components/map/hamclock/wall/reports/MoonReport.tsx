@@ -180,7 +180,7 @@ function MoonElevationChart({
     typeof window === "undefined"
       ? CHART_FALLBACK.height / 72
       : window.innerHeight / 100;
-  const fs = Math.max(11, Math.round(vh * 1.45));
+  const fs = Math.max(12, Math.round(vh * 1.45));
   const left = Math.round(fs * 3.2);
   const right = Math.round(fs * 1.2);
   const top = Math.round(fs * 0.6);
@@ -368,7 +368,7 @@ function EmeDegradationChart({
     typeof window === "undefined"
       ? CHART_FALLBACK.height / 72
       : window.innerHeight / 100;
-  const fs = Math.max(11, Math.round(vh * 1.45));
+  const fs = Math.max(12, Math.round(vh * 1.45));
   const left = Math.round(fs * 3.2);
   const right = Math.round(fs * 1.2);
   const top = Math.round(fs * 1.6);
@@ -469,7 +469,7 @@ function EmeDegradationChart({
                   y={Math.max(fs, py - fs * 0.6)}
                   textAnchor="middle"
                   fill="var(--hcr-chart-warn, #fde68a)"
-                  fontSize={fs * 0.85}
+                  fontSize={Math.max(12, fs * 0.85)}
                 >
                   {label}
                 </text>

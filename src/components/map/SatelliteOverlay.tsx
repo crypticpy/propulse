@@ -42,6 +42,8 @@ import {
 import {
   latLonAltToVector3,
   MAX_TRACK_DOTS,
+  ORBIT_LINE_OPACITY,
+  ORBIT_LINE_WIDTH,
   orbitTrackPointToGlobeVector,
   selectTrackDotIndices,
   selectTrackLabelIndices,
@@ -77,22 +79,6 @@ const LABEL_OCCLUSION_THRESHOLD = 0.05;
  * `GroundTrack` instance via a single interval owned by `SatelliteOverlay`. */
 const MINUTE_TICK_MS = 60_000;
 
-/**
- * drei Line2 pixel widths for the globe "Map orbit" line (#1082).
- * 1.5 / 2.5 was too thin against Earth imagery at default zoom; selected
- * is thicker so the open-modal satellite's track is the one you can follow.
- */
-const ORBIT_LINE_WIDTH = { unselected: 3, selected: 4.5 } as const;
-
-/**
- * Past is dimmer than future but still readable (rule 7); selected future
- * is the brightest stroke on the station navy canvas.
- */
-const ORBIT_LINE_OPACITY = {
-  past: 0.42,
-  future: 0.82,
-  futureSelected: 0.95,
-} as const;
 
 /**
  * Category colors for satellite markers.

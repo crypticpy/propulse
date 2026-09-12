@@ -30,6 +30,25 @@ export const SATELLITE_ALT_SCALE = 3.0;
 export const SATELLITE_SURFACE_OFFSET = 0.015;
 
 /**
+ * drei Line2 pixel widths for globe orbit lines drawn at visual altitude
+ * (#1082): the per-satellite "Map orbit" track and the ISS tracker's orbit
+ * ring. 1.5 was too thin against Earth imagery at default zoom; `selected`
+ * is thicker so the open-modal satellite's track is the one you can follow.
+ */
+export const ORBIT_LINE_WIDTH = { unselected: 3, selected: 4.5 } as const;
+
+/**
+ * Opacities for the same lines. Past is dimmer than future but still
+ * readable (rule 7); selected future is the brightest stroke on the station
+ * navy canvas.
+ */
+export const ORBIT_LINE_OPACITY = {
+  past: 0.42,
+  future: 0.82,
+  futureSelected: 0.95,
+} as const;
+
+/**
  * Convert lat/lon/alt to a 3D position on the globe, at the exaggerated
  * visual altitude used for satellite markers and orbit rings.
  */

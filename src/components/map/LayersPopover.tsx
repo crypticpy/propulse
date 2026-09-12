@@ -32,6 +32,8 @@ import {
 } from "@/hooks/useViewClusterSpots";
 import BasemapCategory from "./layers/BasemapCategory";
 import SatelliteFilters from "./layers/SatelliteFilters";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { SatellitePanel } from "./SatellitePanel";
 import {
   getLayerAvailability,
   type PropSphereViewMode,
@@ -402,6 +404,7 @@ interface LayersPopoverProps {
 export function LayersPopover({ compact = false }: LayersPopoverProps) {
   const [open, setOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [satelliteListOpen, setSatelliteListOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1377,7 +1380,13 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                       {/* Satellite filters inline (Activity category) */}
                       {activeCategory === "activity" && layers.satellites && (
                         <div className="mt-1 ml-1">
-                          <SatelliteFilters />
+                          <SatelliteFilters
+                            onSeeFullList={() => {
+                              closePopover();
+                              setSatelliteListOpen(true);
+                            }}
+                            onManageSatellites={closePopover}
+                          />
                         </div>
                       )}
                       {activeCategory === "activity" &&
@@ -1485,6 +1494,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           </div>,
           document.body,
         )}
+      <AccessibleDialog
+        open={satelliteListOpen}
+        onClose={() => setSatelliteListOpen(false)}
+        title="Satellites"
+        size="lg"
+      >
+        <SatellitePanel className="!bg-transparent !border-0 min-h-[28rem]" />
+      </AccessibleDialog>
     </>
   );
 }

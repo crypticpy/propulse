@@ -15,6 +15,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useMapStore } from "@/stores/mapStore";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
 import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import type {
@@ -642,10 +643,8 @@ export function SatellitePanel({
     isAvailable,
     refetch,
   } = useSatellites();
-
-  const [filterCategory, setFilterCategory] = useState<
-    SatelliteCategory | "all"
-  >("all");
+  const filterCategory = useMapStore((s) => s.satelliteCategoryFilter);
+  const setFilterCategory = useMapStore((s) => s.setSatelliteCategoryFilter);
 
   // Custom TLE dialog state
   const [showCustomTLE, setShowCustomTLE] = useState(false);

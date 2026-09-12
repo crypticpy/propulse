@@ -138,7 +138,7 @@ export function EquipmentCardSm({
           {title}
         </span>
         <span
-          className={`text-[10px] uppercase tracking-widest font-semibold leading-tight ${ACCENT_TEXT[equipmentType]}`}
+          className={`text-xs uppercase tracking-widest font-semibold leading-tight ${ACCENT_TEXT[equipmentType]}`}
         >
           {resolvedTypeLabel}
         </span>
@@ -164,7 +164,7 @@ export function EquipmentCardSm({
       {/* ── Tier badge ── */}
       {tier && (
         <span
-          className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-full"
+          className="flex-shrink-0 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full"
           style={{
             backgroundColor: `${accentHex}1A`,
             color: accentHex,
@@ -176,7 +176,7 @@ export function EquipmentCardSm({
 
       {/* ── In Use indicator ── */}
       {inUse && (
-        <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-su-line/10 text-su-muted">
+        <span className="flex-shrink-0 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded bg-su-line/10 text-su-muted">
           In Use
         </span>
       )}

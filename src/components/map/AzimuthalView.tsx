@@ -66,17 +66,12 @@ import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
-import type { LightningStrike } from "@/lib/api/lightning";
-import {
-  LIGHTNING_COLOR_FLAT,
-  LIGHTNING_COLOR_STRONG,
-  LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
 import { createAzimuthalProjection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
+import { drawLightningLayer } from "./layers/lightningLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1435,57 +1430,6 @@ function drawAzimuthalNightBoostedBorders(
   ctx.restore();
 }
 
-/**
- * Draw lightning strike markers on azimuthal projection
- * Strike size and colour vary by peak current (currentKA)
- */
-function drawAzLightning(
-  ctx: CanvasRenderingContext2D,
-  strikes: LightningStrike[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  const now = Date.now();
-  for (const strike of strikes) {
-    const point = azimuthalProject(
-      strike.lat,
-      strike.lon,
-      centerLat,
-      centerLon,
-    );
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    const age = now - strike.time;
-    const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
-
-    // Intensity based on peak current (200 kA max, 0.3 floor)
-    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
-
-    // Outer glow — scaled by intensity
-    ctx.globalAlpha = alpha * 0.3;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 6 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-
-    // Inner core — scaled by intensity, brighter white for strong strikes
-    ctx.globalAlpha = alpha * 0.8;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle =
-      strike.currentKA > LIGHTNING_STRONG_KA
-        ? LIGHTNING_COLOR_STRONG
-        : LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -2736,7 +2680,7 @@ export function AzimuthalView({
       );
     }
     if (layers.lightning && lightningStrikes.length > 0) {
-      drawAzLightning(ctx, lightningStrikes, center.lat, center.lon);
+      drawLightningLayer(ctx, lightningStrikes, projection);
     }
     if (layers.fires && fireHotspots.length > 0) {
       drawFiresLayer(ctx, fireHotspots, projection, AZIMUTHAL_LAYER_PROFILE);

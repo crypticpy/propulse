@@ -53,6 +53,10 @@
 - Any design, and any PR that touches UI (anything a person sees; the path list is in the constitution), needs an `approved` **design review** comment from a Claude Fable session naming the current head SHA before merge; `pr-contract` checks the comment. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and Composer reviews do not count — see the Design and UI review section of `docs/AGENT-CONSTITUTION.md`.
 - After five bot review rounds on a PR, `.github/workflows/review-cap.yml` labels it `review-capped` and `pr-contract` blocks merge until an **architecture review** comment (`ship` or `redesign` verdict) names the current head; that review is posted by CI automation (`anthropics/claude-code-action@v1`), never by the fix agent, the orchestrator, or the owner — see the Review cap section of `docs/AGENT-CONSTITUTION.md`.
 
+## Delivery Board
+
+Work is tracked on [Project #4](https://github.com/users/crypticpy/projects/4). Read its README first: it names the delivery phases, the epic each item belongs to and the lead model per epic. Claim only items shown in the **Ready to work** view, inside the epic you were handed, P1 before P2 before P3, oldest first. Owner-gated items sit in **Owner decisions**; anything in **Future initiatives** is parked and not claimable. Keep `ready`/`blocked`/`needs-owner` and `size:*`/`difficulty:*` labels current, and record blockers as native blocked-by links; the board fields are synced from them at each sweep.
+
 ## Configuration & API Notes
 
 - Local dev proxies some `/api/*` paths to NOAA in `vite.config.ts` (keeps frontend calls consistent).

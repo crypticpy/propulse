@@ -172,12 +172,6 @@ import type { GridGlowSpot } from "./GridGlowCanvas";
 import { useWsprSpots } from "@/hooks/useWspr";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { getWsprBandColor } from "@/lib/map/wsprBandColors";
-import {
-  LIGHTNING_COLOR_FLAT,
-  LIGHTNING_COLOR_STRONG,
-  LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
-import type { LightningStrike } from "@/lib/api/lightning";
 import type { WsprSpot } from "@/lib/api/wspr";
 import {
   useContestQsoLocations,
@@ -226,6 +220,7 @@ import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
+import { drawLightningLayer } from "./layers/lightningLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1080,51 +1075,6 @@ function drawAurora(
   }
 
   // Restore context state
-  ctx.restore();
-}
-
-/**
- * Draw lightning strike markers on the 2D map
- * Renders recent strikes as bright dots scaled by peak current (currentKA)
- */
-function drawLightning(
-  ctx: CanvasRenderingContext2D,
-  strikes: LightningStrike[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  const now = Date.now();
-  for (const strike of strikes) {
-    const { x, y } = latLonToCanvas(strike.lat, strike.lon, width, height);
-
-    // Fade based on age (full opacity for recent, fade over 10 minutes)
-    const age = now - strike.time;
-    const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
-
-    // Intensity based on peak current (200 kA max, 0.3 floor)
-    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
-
-    // Outer glow — scaled by intensity
-    ctx.globalAlpha = alpha * 0.3;
-    ctx.beginPath();
-    ctx.arc(x, y, (6 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-
-    // Inner core — scaled by intensity, brighter white for strong strikes
-    ctx.globalAlpha = alpha * 0.8;
-    ctx.beginPath();
-    ctx.arc(x, y, (3 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle =
-      strike.currentKA > LIGHTNING_STRONG_KA
-        ? LIGHTNING_COLOR_STRONG
-        : LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -5692,13 +5642,7 @@ export function FlatMapView({
 
     // Draw lightning strikes
     if (layers.lightning && lightningStrikes.length > 0) {
-      drawLightning(
-        ctx,
-        lightningStrikes,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      drawLightningLayer(ctx, lightningStrikes, projection);
     }
 
     // Draw fire hotspots

@@ -7,6 +7,7 @@ import { useUTCClock } from "@/hooks/useUTCClock";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useMirrorHeight } from "@/hooks/useMirrorHeight";
+import { getMidpoint } from "@/lib/utils/path";
 import {
   getFrequencyLimits,
   getMUFAtLocation,
@@ -567,13 +568,21 @@ export function MufReport({ open, onClose }: MufReportProps) {
     };
   }, [timeShifted, ladderReady, observedEntry]);
 
-  // The mirror height is read at the QTH rather than at a circuit midpoint:
-  // this report's other numbers are all QTH-point estimates, and the midpoint
-  // the HOPS tab shows is derived from the trace itself, so feeding it back in
-  // would make the height depend on the height.
+  // The mirror height is read at the circuit's control point: the great-circle
+  // midpoint between home and target, which is where the engine samples the
+  // path MUF and the reflection point of a single hop. The midpoint is pure
+  // geometry, so it does not depend on the height it feeds. Without a target,
+  // or with a degenerate pair (`getMidpoint` returns home for those), the
+  // point is the QTH, which is also the only point the rest of this report
+  // describes.
+  const controlPoint = useMemo(() => {
+    if (!location) return null;
+    if (!target) return { lat: location.lat, lon: location.lon };
+    return getMidpoint(location.lat, location.lon, target.lat, target.lon);
+  }, [location, target]);
   const mirrorHeight = useMirrorHeight(
-    location?.lat ?? null,
-    location?.lon ?? null,
+    controlPoint?.lat ?? null,
+    controlPoint?.lon ?? null,
     at,
   );
 

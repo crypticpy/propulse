@@ -7,6 +7,7 @@ import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
 import { declaredMirrorHeightStandin } from "@/lib/utils/rayTrace";
+import { getMidpoint } from "@/lib/utils/path";
 import { MufTile } from "../tiles/MufTile";
 import { useProfileStore } from "@/stores/profileStore";
 import { getMUFAtLocation } from "@/lib/api/muf";
@@ -744,5 +745,33 @@ describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
     // The provenance reached the engine rather than only the caption.
     const call = rayTraceMocks.traceRayPath.mock.calls.at(-1);
     expect(call?.[0].mirrorHeight).toEqual(MODELLED_MIRROR_HEIGHT);
+  });
+
+  it("reads the mirror height at the great-circle midpoint of the circuit, not the QTH", async () => {
+    mocks.target.mockReturnValue(LONDON);
+    mocks.mirrorHeight.mockReturnValue(MODELLED_MIRROR_HEIGHT);
+
+    await hopsCaption();
+    const expected = getMidpoint(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      LONDON.lat,
+      LONDON.lon,
+    );
+    const call = mocks.mirrorHeight.mock.calls.at(-1);
+    expect(call?.[0]).toBeCloseTo(expected.lat, 6);
+    expect(call?.[1]).toBeCloseTo(expected.lon, 6);
+    // Sanity: the control point is neither endpoint.
+    expect(Math.abs(expected.lat - AUSTIN.lat)).toBeGreaterThan(5);
+  });
+
+  it("reads the mirror height at the QTH when no target is set", async () => {
+    mocks.target.mockReturnValue(null);
+    mocks.mirrorHeight.mockReturnValue(DECLARED_STANDIN);
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const call = mocks.mirrorHeight.mock.calls.at(-1);
+    expect(call?.[0]).toBeCloseTo(AUSTIN.lat, 6);
+    expect(call?.[1]).toBeCloseTo(AUSTIN.lon, 6);
   });
 });

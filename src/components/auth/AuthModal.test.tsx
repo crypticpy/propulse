@@ -1,13 +1,26 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { supabaseConfigured, signInWithPasswordMock, getSupabaseMock } =
-  vi.hoisted(() => ({
-    supabaseConfigured: { value: true },
-    signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
-    getSupabaseMock: vi.fn(),
-  }));
+const {
+  supabaseConfigured,
+  signInWithPasswordMock,
+  signUpMock,
+  updateUserMock,
+  getSupabaseMock,
+} = vi.hoisted(() => ({
+  supabaseConfigured: { value: true },
+  signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
+  signUpMock: vi.fn().mockResolvedValue({ error: null }),
+  updateUserMock: vi.fn().mockResolvedValue({ error: null }),
+  getSupabaseMock: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase", () => ({
   get isSupabaseConfigured() {
@@ -37,14 +50,50 @@ function resetAuthState() {
   });
 }
 
+/**
+ * The modal focuses the active view's first input 80ms after `isOpen` or
+ * `displayView` changes (AuthModal.tsx, "Focus first input on open"), and
+ * AccessibleDialog focuses the panel's first focusable on the open frame.
+ * user-event resolves the target of every keystroke from
+ * `document.activeElement`, so a test that starts typing before that timer has
+ * fired loses the rest of what it types to the auto-focused field — the
+ * password ends up empty or truncated, which disables the submit button and
+ * sends the submit handlers down their early-return paths.
+ *
+ * Waiting for the active element alone is not enough on the views that are
+ * open at dialog-open time (sign-in, reset): AccessibleDialog's frame-time
+ * focus lands on the same input first (it is the panel's first focusable under
+ * chrome="bare"), so the id check can pass while the modal's own 80ms timer is
+ * still queued and would yank focus back mid-typing. The trailing wait is a
+ * timer queued after that one, so by timer ordering it cannot resolve until
+ * the modal's focus call has run; after it, every keystroke is deterministic.
+ */
+async function waitForAutoFocus(inputId: string) {
+  await waitFor(
+    () => {
+      expect(document.activeElement?.id).toBe(inputId);
+    },
+    { timeout: 2000 },
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  });
+}
+
 beforeEach(() => {
   resetAuthState();
   // Reset here (not just at the end of the test that flips it) so a failed
   // assertion in that test can never leak `false` into every test after it.
   supabaseConfigured.value = true;
   signInWithPasswordMock.mockClear().mockResolvedValue({ error: null });
+  signUpMock.mockClear().mockResolvedValue({ error: null });
+  updateUserMock.mockClear().mockResolvedValue({ error: null });
   getSupabaseMock.mockReset().mockReturnValue({
-    auth: { signInWithPassword: signInWithPasswordMock },
+    auth: {
+      signInWithPassword: signInWithPasswordMock,
+      signUp: signUpMock,
+      updateUser: updateUserMock,
+    },
   });
 });
 afterEach(resetAuthState);
@@ -163,6 +212,7 @@ describe("AuthModal", () => {
 
     const user = userEvent.setup();
     render(<AuthModal />);
+    await waitForAutoFocus("auth-email");
 
     await user.type(screen.getByLabelText("Email address"), "op@example.com");
     await user.type(screen.getByLabelText("Password"), "hunter22");
@@ -190,5 +240,201 @@ describe("AuthModal", () => {
       ).toHaveLength(1);
     });
     expect(useAuthUIStore.getState().isOpen).toBe(true);
+  });
+
+  describe("sign-up: account password policy gate", () => {
+    async function openSignUpView(user: ReturnType<typeof userEvent.setup>) {
+      useAuthUIStore.getState().openAuthModal();
+      render(<AuthModal />);
+      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Create Account" }),
+        ).toBeTruthy();
+      });
+      await waitForAutoFocus("signup-email");
+    }
+
+    it("disables Create Account for a password missing a special character, and enables it once the policy is met", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      await user.type(screen.getByLabelText("Password"), "password1");
+      await user.type(screen.getByLabelText("Confirm password"), "password1");
+
+      const submit = screen.getByRole("button", {
+        name: "Create Account",
+      }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      await user.clear(screen.getByLabelText("Password"));
+      await user.type(screen.getByLabelText("Password"), "Password1!");
+      await user.clear(screen.getByLabelText("Confirm password"));
+      await user.type(screen.getByLabelText("Confirm password"), "Password1!");
+
+      expect(submit.disabled).toBe(false);
+    });
+
+    it("renders the strength meter once a password is typed", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Password"), "password1");
+
+      await waitFor(() => {
+        expect(screen.getByText("Fair")).toBeTruthy();
+      });
+    });
+
+    it("rejects a too-weak password on submit even when the disabled button is bypassed, and never calls Supabase sign-up", async () => {
+      // The Create Account button has no <form> to submit — Enter in the
+      // password field calls handleSignUp() directly via handleKeyDown,
+      // regardless of the button's disabled state. That's the bypass path.
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      const passwordInput = screen.getByLabelText("Password");
+      await user.type(passwordInput, "password1");
+      await user.type(screen.getByLabelText("Confirm password"), "password1");
+
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      expect(
+        await screen.findByText(
+          "Password is too weak. Add numbers and special characters.",
+          {},
+          { timeout: 2000 },
+        ),
+      ).toBeTruthy();
+      expect(signUpMock).not.toHaveBeenCalled();
+    });
+
+    it("on success, switches to the check_email view and shows the address that was typed", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      await user.type(screen.getByLabelText("Password"), "Password1!");
+      await user.type(screen.getByLabelText("Confirm password"), "Password1!");
+      await user.click(screen.getByRole("button", { name: "Create Account" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Check Your Email" }),
+        ).toBeTruthy();
+      });
+      expect(screen.getByText("op@example.com")).toBeTruthy();
+    });
+  });
+
+  describe("reset_password view: account password policy gate", () => {
+    async function openResetView() {
+      render(<AuthModal />);
+      act(() => {
+        useAuthStore.setState({ isRecoveryMode: true });
+      });
+      await waitFor(() => {
+        expect(
+          screen.getAllByRole("heading", { name: "Set New Password" }),
+        ).toHaveLength(1);
+      });
+      await waitForAutoFocus("reset-password");
+    }
+
+    it("disables Update Password for a password missing a special character, and enables it once the policy is met", async () => {
+      await openResetView();
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText("New password"), "password1");
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "password1",
+      );
+
+      const submit = screen.getByRole("button", {
+        name: "Update Password",
+      }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      await user.clear(screen.getByLabelText("New password"));
+      await user.type(screen.getByLabelText("New password"), "Password1!");
+      await user.clear(screen.getByLabelText("Confirm new password"));
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "Password1!",
+      );
+
+      expect(submit.disabled).toBe(false);
+    });
+
+    it("rejects a too-weak password on submit even when the disabled button is bypassed, and never calls Supabase updateUser", async () => {
+      await openResetView();
+      const user = userEvent.setup();
+
+      const passwordInput = screen.getByLabelText("New password");
+      await user.type(passwordInput, "password1");
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "password1",
+      );
+
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      expect(
+        await screen.findByText(
+          "Password is too weak. Add numbers and special characters.",
+          {},
+          { timeout: 2000 },
+        ),
+      ).toBeTruthy();
+      expect(updateUserMock).not.toHaveBeenCalled();
+    });
+
+    it("on success, shows the success message and closes the modal 1500ms later", async () => {
+      vi.useFakeTimers();
+      render(<AuthModal />);
+      act(() => {
+        useAuthStore.setState({ isRecoveryMode: true });
+      });
+      // Let the recovery-mode open settle, then the modal's own 80ms
+      // focus-on-open timer fire, the same way the other fake-timer tests
+      // above advance past both.
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      const passwordInput = screen.getByLabelText("New password");
+      fireEvent.change(passwordInput, { target: { value: "Password1!" } });
+      fireEvent.change(screen.getByLabelText("Confirm new password"), {
+        target: { value: "Password1!" },
+      });
+
+      // No <form> exists to submit — Enter in the password field calls
+      // handleUpdatePassword() directly via handleKeyDown, the same bypass
+      // path the tests above use, so this works under fake timers without
+      // needing user-event's advanceTimers option.
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      // Flush the microtasks handleUpdatePassword awaits (fake timers only
+      // fake timer callbacks, not promise resolution).
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText("Password updated successfully.")).toBeTruthy();
+      expect(useAuthUIStore.getState().isOpen).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(useAuthUIStore.getState().isOpen).toBe(false);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      vi.useRealTimers();
+    });
   });
 });

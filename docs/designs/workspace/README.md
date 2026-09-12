@@ -14,6 +14,9 @@ through local scratch directories.
   the heat-map sheet, v2, owner-approved on 2026-09-08. `HeatMapPanel` and `HeatMapStrip`
   (`src/components/workspace/widgets/HeatMapPanel.tsx`,
   `src/components/workspace/widgets/HeatMapStrip.tsx`) were built from it.
+- [`registry-reconciliation.md`](https://github.com/crypticpy/propulse/blob/main/docs/designs/workspace/registry-reconciliation.md) —
+  paper inventory of registry vs wall/Home/Solar catalogs (issue #904). Not a
+  catalog merge; #715 stays open under #623 for the code work.
 
 ### Not yet decided
 

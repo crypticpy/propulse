@@ -64,6 +64,25 @@ export interface PathMufSample {
   evidence: EvidenceStamp;
 }
 
+/**
+ * Why a circuit has no path MUF, when it has none.
+ *
+ * `null` used to stand for all of these at once, which meant a circuit that
+ * simply has no path was reported as "need solar flux" even when the flux was
+ * supplied. The reason travels with the absence so the verdict can say what is
+ * actually missing.
+ */
+export type PathMufUnavailable =
+  | "no_solar_flux"
+  | "invalid_clock"
+  | "coincident_endpoints"
+  | "antipodal_endpoints"
+  | "no_control_points";
+
+export type PathMufOutcome =
+  | { kind: "sampled"; sample: PathMufSample }
+  | { kind: "unavailable"; reason: PathMufUnavailable };
+
 export interface NearbySpotHit {
   id: string;
   dx: string;

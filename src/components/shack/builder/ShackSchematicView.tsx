@@ -992,7 +992,7 @@ export function ShackSchematicView({
           />
         </svg>
         <span className="text-xs text-su-muted font-medium">
-          {chains.length} signal path{chains.length !== 1 ? "s" : ""}
+          {chains.length}{" "}<span className="hidden sm:inline">signal </span>path{chains.length !== 1 ? "s" : ""}
         </span>
       </div>
 

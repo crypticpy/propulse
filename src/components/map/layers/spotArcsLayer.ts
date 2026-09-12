@@ -5,22 +5,37 @@
  * azimuthal disc call the same draw code instead of duplicating geometry,
  * watch dimming, grouped-endpoint suppression and the selected-arc glow
  * (#1247, following `bordersLayer.ts`/`terminatorLayer.ts`'s #1091 pattern).
+ * Widths, radii and shadow blur all go through `projection.screenPx`, so
+ * they are only actually zoom-damped when the caller's `Projection` was
+ * built with `zoomDamp` following the zoom (both maps do this; #1247
+ * review -- the disc previously passed `zoomDamp: 1` for this layer, which
+ * made `screenPx` a no-op).
  *
  * Geometry absorbs the flat map's former `flatSpotPath.ts`: a slerp-sampled
- * short great circle (length-scaled step count, min 8 samples), which the
- * equirectangular branch caches up to 512 entries the same way `flatSpotPath`
+ * short great circle (length-scaled step count), which is cached up to 512
+ * entries total across both projection kinds the same way `flatSpotPath`
  * did. The path-break rule is chosen by `projection.kind`:
  *
  * - `equirectangular`: the flat map's exact antimeridian/pole split,
  *   verbatim, now driven by `projection.wrapWidth`/`wrapHeight` instead of
- *   its own `width`/`height` parameters.
+ *   its own `width`/`height` parameters. Step count floors at 8 samples.
+ *   Cached on `from`/`to`/`width`/`height` alone -- projected output for a
+ *   given coordinate pair never changes on the flat map.
  * - `azimuthal`: a rim-visibility break -- a sample whose
  *   `projection.project(...)` comes back `visible: false` ends the current
- *   sub-path, verbatim from the disc's old `buildGreatCirclePath`. The
- *   azimuthal branch is not cached: `AzimuthalProjection` does not expose
- *   the disc's rotation (`centerLat`/`centerLon`), so a lat/lon-only cache
- *   key could replay stale geometry across a pan. The disc's pre-layer code
- *   never cached this path either, so this is not a regression.
+ *   sub-path, verbatim from the disc's old `buildGreatCirclePath`. Step
+ *   count floors at 32 samples (higher than the flat map's 8: the disc's
+ *   projection compresses distance non-linearly toward the rim, so a short
+ *   arc near the edge needs more samples to stay a visually smooth curve;
+ *   #1247 review). `AzimuthalProjection` does not expose the disc's
+ *   rotation (`centerLat`/`centerLon`), so caching keys only on
+ *   `from`/`to` would replay stale geometry across a pan/zoom -- callers
+ *   that want this branch cached must supply `style.cacheScope` (built the
+ *   same way `AzimuthalView.tsx` scopes `drawTerminatorLayer`: center
+ *   lat/lon alone -- zoom is applied by `screenPx`/the canvas transform,
+ *   not by `project()`, so it does not belong in the scope); without a
+ *   scope this branch is recomputed every call, matching the disc's
+ *   pre-layer (uncached) behaviour.
  *
  * Watch dimming (0.3 for an arc not in the matched set, only while a watch
  * is active) and age fade (`style.ageFade`, the caller-supplied
@@ -42,7 +57,39 @@ interface Point2D {
 type Segment = readonly Point2D[];
 
 const MAX_CACHED_PATHS = 512;
-const equirectPathCache = new Map<string, readonly Segment[]>();
+/** LRU-bounded path cache shared by both projection kinds (#1247 review). */
+const spotArcSegmentCache = new Map<string, readonly Segment[]>();
+
+function cacheGetSpotArcSegments(key: string): readonly Segment[] | undefined {
+  const hit = spotArcSegmentCache.get(key);
+  if (hit) {
+    spotArcSegmentCache.delete(key);
+    spotArcSegmentCache.set(key, hit);
+  }
+  return hit;
+}
+
+function cacheSetSpotArcSegments(key: string, value: readonly Segment[]): void {
+  if (spotArcSegmentCache.size >= MAX_CACHED_PATHS) {
+    spotArcSegmentCache.delete(spotArcSegmentCache.keys().next().value!);
+  }
+  spotArcSegmentCache.set(key, value);
+}
+
+/**
+ * Freeze the outer segments array and each point object going in, restoring
+ * the frozen-geometry contract from the deleted `flatSpotPath.ts` (cached
+ * geometry must not be mutable by a caller holding a reference to it).
+ */
+function freezeSegments(
+  segments: readonly (readonly Point2D[])[],
+): readonly Segment[] {
+  return Object.freeze(
+    segments.map((segment) =>
+      Object.freeze(segment.map((point) => Object.freeze(point))),
+    ),
+  );
+}
 
 function vector3(lat: number, lon: number): [number, number, number] {
   return [
@@ -52,17 +99,27 @@ function vector3(lat: number, lon: number): [number, number, number] {
   ];
 }
 
+/** Equirectangular branch step-count floor (`flatSpotPath.ts`, verbatim). */
+const EQUIRECT_MIN_SAMPLES = 8;
+/** Azimuthal branch step-count floor -- higher than the flat map's because
+ * the disc's projection compresses distance non-linearly toward the rim, so
+ * a short arc near the edge needs more samples to stay a visually smooth
+ * curve (#1247 review). */
+const AZIMUTHAL_MIN_SAMPLES = 32;
+
 /**
  * Sample the short great circle between two points, in lat/lon degrees,
- * including both endpoints. Step count is length-scaled with an 8-sample
- * floor (`flatSpotPath.ts`, verbatim). Exact antipodes have no unique short
- * path -- pick a deterministic perpendicular direction, same as before.
+ * including both endpoints. Step count is length-scaled with a `minSamples`
+ * floor (`flatSpotPath.ts`'s 8-sample floor, generalised). Exact antipodes
+ * have no unique short path -- pick a deterministic perpendicular
+ * direction, same as before.
  */
 function sampleGreatCircle(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number,
+  minSamples: number,
 ): { lat: number; lon: number }[] {
   const a = vector3(lat1, lon1);
   const b = vector3(lat2, lon2);
@@ -87,7 +144,7 @@ function sampleGreatCircle(
   for (let i = 0; i < 3; i++) tangent[i] /= length;
 
   const steps =
-    angle < 1e-12 ? 1 : Math.max(8, Math.ceil(angle / (Math.PI / 96)));
+    angle < 1e-12 ? 1 : Math.max(minSamples, Math.ceil(angle / (Math.PI / 96)));
   const points: { lat: number; lon: number }[] = [{ lat: lat1, lon: lon1 }];
   for (let i = 1; i < steps; i++) {
     const t = (angle * i) / steps;
@@ -120,8 +177,14 @@ function equirectangularSpotSegments(
   projection: Extract<Projection, { kind: "equirectangular" }>,
 ): readonly Segment[] {
   const width = projection.wrapWidth;
-  const project = (lat: number, lon: number): Point2D =>
-    projection.project(lat, lon);
+  // Strip to `{x, y}`: `projection.project` returns a `ProjectedPoint`
+  // (adds `visible`/`rim`), but cached path geometry must stay the plain
+  // `Point2D` shape `flatSpotPath.ts` produced, not carry projection
+  // metadata that happens to be true only at cache-build time (#1247 review).
+  const project = (lat: number, lon: number): Point2D => {
+    const { x, y } = projection.project(lat, lon);
+    return { x, y };
+  };
 
   // Opposite meridians meet at a pole. Their projected longitude jumps by
   // exactly half the canvas, so ordinary date-line detection cannot split
@@ -146,10 +209,16 @@ function equirectangularSpotSegments(
           ]
         : null;
   if (polarSegments) {
-    return polarSegments.map((segment) => Object.freeze(segment.slice()));
+    return freezeSegments(polarSegments);
   }
 
-  const samples = sampleGreatCircle(lat1, lon1, lat2, lon2);
+  const samples = sampleGreatCircle(
+    lat1,
+    lon1,
+    lat2,
+    lon2,
+    EQUIRECT_MIN_SAMPLES,
+  );
   const points = samples.map((p) => project(p.lat, p.lon));
   const segments: Point2D[][] = [[points[0]]];
   for (let i = 1; i < points.length; i++) {
@@ -171,7 +240,7 @@ function equirectangularSpotSegments(
       segments[segments.length - 1].push(point);
     }
   }
-  return segments.map((segment) => Object.freeze(segment.slice()));
+  return freezeSegments(segments);
 }
 
 /**
@@ -186,7 +255,13 @@ function azimuthalSpotSegments(
   lon2: number,
   projection: Extract<Projection, { kind: "azimuthal" }>,
 ): readonly Segment[] {
-  const samples = sampleGreatCircle(lat1, lon1, lat2, lon2);
+  const samples = sampleGreatCircle(
+    lat1,
+    lon1,
+    lat2,
+    lon2,
+    AZIMUTHAL_MIN_SAMPLES,
+  );
   const segments: Point2D[][] = [];
   let current: Point2D[] | null = null;
   for (const sample of samples) {
@@ -202,13 +277,18 @@ function azimuthalSpotSegments(
       current.push({ x: projected.x, y: projected.y });
     }
   }
-  return segments;
+  return freezeSegments(segments);
 }
 
 /**
- * Compute (and, on the equirectangular projection, cache) the short
- * great-circle path between two points as canvas-space sub-paths. Exported
- * for direct geometry testing; `drawSpotArcsLayer` is the normal caller.
+ * Compute (and, when cacheable, cache) the short great-circle path between
+ * two points as canvas-space sub-paths. Exported for direct geometry
+ * testing; `drawSpotArcsLayer` is the normal caller.
+ *
+ * `cacheScope` only matters for the azimuthal branch: without it (the
+ * default), azimuthal geometry is recomputed every call, matching the
+ * disc's pre-layer behaviour. With it, the azimuthal branch is cached the
+ * same way the equirectangular branch always is (see the top docblock).
  */
 export function spotArcSegments(
   lat1: number,
@@ -216,6 +296,7 @@ export function spotArcSegments(
   lat2: number,
   lon2: number,
   projection: Projection,
+  cacheScope?: string,
 ): readonly Segment[] {
   if (
     ![lat1, lon1, lat2, lon2].every(Number.isFinite) ||
@@ -228,18 +309,22 @@ export function spotArcSegments(
   }
 
   if (projection.kind === "azimuthal") {
-    return azimuthalSpotSegments(lat1, lon1, lat2, lon2, projection);
+    if (cacheScope === undefined) {
+      return azimuthalSpotSegments(lat1, lon1, lat2, lon2, projection);
+    }
+    const key = `azimuthal:${cacheScope}:${lat1}:${lon1}:${lat2}:${lon2}`;
+    const hit = cacheGetSpotArcSegments(key);
+    if (hit) return hit;
+    const result = azimuthalSpotSegments(lat1, lon1, lat2, lon2, projection);
+    cacheSetSpotArcSegments(key, result);
+    return result;
   }
 
   const { wrapWidth: width, wrapHeight: height } = projection;
   if (width <= 0 || height <= 0) return [];
-  const key = `${lat1}:${lon1}:${lat2}:${lon2}:${width}:${height}`;
-  const hit = equirectPathCache.get(key);
-  if (hit) {
-    equirectPathCache.delete(key);
-    equirectPathCache.set(key, hit);
-    return hit;
-  }
+  const key = `equirect:${lat1}:${lon1}:${lat2}:${lon2}:${width}:${height}`;
+  const hit = cacheGetSpotArcSegments(key);
+  if (hit) return hit;
   const result = equirectangularSpotSegments(
     lat1,
     lon1,
@@ -247,14 +332,11 @@ export function spotArcSegments(
     lon2,
     projection,
   );
-  if (equirectPathCache.size >= MAX_CACHED_PATHS) {
-    equirectPathCache.delete(equirectPathCache.keys().next().value!);
-  }
-  equirectPathCache.set(key, result);
+  cacheSetSpotArcSegments(key, result);
   return result;
 }
 
-export function traceSpotArcPath(
+function traceSpotArcPath(
   ctx: Pick<CanvasRenderingContext2D, "beginPath" | "moveTo" | "lineTo">,
   segments: readonly Segment[],
 ): void {
@@ -268,7 +350,7 @@ export function traceSpotArcPath(
 }
 
 /** DX station = transmitter (filled circle); reporting/spotter station = receiver (hollow square). */
-export function traceSpotArcEndpoint(
+function traceSpotArcEndpoint(
   ctx: Pick<CanvasRenderingContext2D, "beginPath" | "arc" | "rect">,
   x: number,
   y: number,
@@ -321,6 +403,16 @@ export interface SpotArcsLayerStyle {
   /** Apply `arc.ageOpacity`; off by default (#1247 -- unfaded paths are the
    * most visible default when the two maps disagreed on this). */
   readonly ageFade: boolean;
+  /** Cache-key namespace for the azimuthal branch's geometry cache, exactly
+   * like `TerminatorLayerStyle.cacheScope`: `AzimuthalProjection` doesn't
+   * expose the disc's rotation (`centerLat`/`centerLon`), so caching keys
+   * only on `from`/`to` would replay stale geometry across a pan. Build it
+   * from every input that changes `projection.project` output -- center
+   * lat/lon alone; zoom is applied by `screenPx`/the canvas transform, not
+   * by `project()`, so it does not belong in the scope -- the same way
+   * `AzimuthalView.tsx` scopes `drawTerminatorLayer`. Ignored on the
+   * equirectangular branch, which is always cached (#1247 review). */
+  readonly cacheScope?: string;
 }
 
 function drawNormalSpotArc(
@@ -335,6 +427,7 @@ function drawNormalSpotArc(
     arc.to.lat,
     arc.to.lon,
     projection,
+    style.cacheScope,
   );
   if (segments.length === 0) return;
 
@@ -409,6 +502,7 @@ function drawSelectedSpotArc(
     arc.to.lat,
     arc.to.lon,
     projection,
+    style.cacheScope,
   );
   if (segments.length === 0) return;
   const scale = style.spotDotScale;

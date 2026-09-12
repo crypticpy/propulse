@@ -23,7 +23,7 @@ import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { projectLiveSpotsForView } from "@/lib/spots/presentation/pipeline";
 import { useMapStore } from "@/stores/mapStore";
 import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
-import { useSpotAgePrefs, useUIInteractionPrefs } from "@/stores/userStore";
+import { useUIInteractionPrefs } from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
@@ -776,9 +776,6 @@ export function LiveSpotArcs({
       ? viewSpots.filters.sources
       : undefined;
 
-  // Get spot age visualization preferences
-  const spotAgePrefs = useSpotAgePrefs();
-
   // Get UI interaction preferences for callsign labels
   const uiPrefs = useUIInteractionPrefs();
 
@@ -979,7 +976,10 @@ export function LiveSpotArcs({
           });
           const filterOpacity = activeBandOpacity * contactOpacity;
 
-          const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
+          // Gated on the same `spotPathAgeFade` switch as the arc opacity
+          // above, not the separate `spotAgePrefs.enabled` preference, so
+          // the globe's age treatment follows one switch (#1247 review).
+          const endpointScale = spotPathAgeFade ? ageInfo.scale : 1.0;
 
           // The batched visual endpoints follow the exact same visibility
           // decision as their hit targets; aggregates never leave ghost dots.

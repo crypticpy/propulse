@@ -577,6 +577,10 @@ function spotArcInput(
     skipDxEndpoint?: boolean;
     skipSpotterEndpoint?: boolean;
     selected?: boolean;
+    /** Only compute `getSpotAgeOpacity` when the fade switch is on -- it ran
+     * for every spot every frame regardless of `style.ageFade` before this
+     * (#1247 review). */
+    ageFade?: boolean;
   } = {},
 ): SpotArcInput {
   return {
@@ -585,7 +589,7 @@ function spotArcInput(
     to: { lat: spot.dxLat, lon: spot.dxLon },
     colour: getSpotColor(spot, colorMode),
     isWatched: options.isWatched ?? true,
-    ageOpacity: getSpotAgeOpacity(spot.time),
+    ageOpacity: options.ageFade ? getSpotAgeOpacity(spot.time) : 1,
     skipDxEndpoint: options.skipDxEndpoint ?? false,
     skipSpotterEndpoint: options.skipSpotterEndpoint ?? false,
     selected: options.selected ?? false,
@@ -612,15 +616,22 @@ function drawSpotArcs(
     watchMatchedIds?: Set<string>;
     ageFade?: boolean;
     groupedMembers?: ReadonlySet<LiveSpot>;
+    domEndpointSpots?: ReadonlySet<LiveSpot>;
+    cacheScope?: string;
   } = {},
 ) {
   const arcs: SpotArcInput[] = spots.map((spot) =>
     spotArcInput(spot, colorMode, {
       isWatched: options.watchMatchedIds?.has(spot.id) ?? true,
+      // The DOM endpoint button is the disc's TX marker and hit target: skip
+      // the canvas TX circle for any spot it already renders one for, not
+      // only spots suppressed by grouped-endpoint suppression (#1247 review).
       skipDxEndpoint:
         !drawEndpoints ||
-        (options.groupedMembers?.has(spot.originalSpot) ?? false),
+        (options.groupedMembers?.has(spot.originalSpot) ?? false) ||
+        (options.domEndpointSpots?.has(spot.originalSpot) ?? false),
       skipSpotterEndpoint: !drawEndpoints,
+      ageFade: options.ageFade,
     }),
   );
   drawSpotArcsLayer(ctx, projection, arcs, {
@@ -628,6 +639,7 @@ function drawSpotArcs(
     spotDotScale,
     watchDimming: options.watchDimming ?? false,
     ageFade: options.ageFade ?? false,
+    cacheScope: options.cacheScope,
   });
 }
 
@@ -829,12 +841,19 @@ function drawSelectedSpotArc(
   projection: Projection,
   spot: ResolvedSpot,
   spotDotScale: number,
+  cacheScope?: string,
 ) {
   drawSpotArcsLayer(
     ctx,
     projection,
     [spotArcInput(spot, "mode", { selected: true })],
-    { highViz: false, spotDotScale, watchDimming: false, ageFade: false },
+    {
+      highViz: false,
+      spotDotScale,
+      watchDimming: false,
+      ageFade: false,
+      cacheScope,
+    },
   );
 
   const dx = projection.project(spot.dxLat, spot.dxLon);
@@ -1615,14 +1634,25 @@ export function AzimuthalView({
     zoom,
   ]);
 
-  const unclusteredResolvedSpots = useMemo(() => {
-    const singles = new Set(
-      azimuthalSpotClusters
-        .filter((cluster) => cluster.members.length === 1)
-        .map((cluster) => cluster.members[0].originalSpot),
-    );
-    return resolvedSpots.filter((spot) => singles.has(spot.originalSpot));
-  }, [azimuthalSpotClusters, resolvedSpots]);
+  // The spots that get a DOM endpoint button from `AzimuthalSpotEndpointButtons`
+  // below -- every single-member cluster, not just `groupedMembers` (#1247
+  // review). Shared with `drawSpotArcs`'s `domEndpointSpots` option so the
+  // canvas layer doesn't paint a duplicate TX circle on top of that button.
+  const domEndpointSpots = useMemo(
+    () =>
+      new Set(
+        azimuthalSpotClusters
+          .filter((cluster) => cluster.members.length === 1)
+          .map((cluster) => cluster.members[0].originalSpot),
+      ),
+    [azimuthalSpotClusters],
+  );
+
+  const unclusteredResolvedSpots = useMemo(
+    () =>
+      resolvedSpots.filter((spot) => domEndpointSpots.has(spot.originalSpot)),
+    [domEndpointSpots, resolvedSpots],
+  );
 
   const labeledAzimuthalSpots = useMemo(
     () => unclusteredResolvedSpots.slice(0, MAX_AZIMUTHAL_CALLSIGN_LABELS),
@@ -2095,13 +2125,34 @@ export function AzimuthalView({
       zoomDamp: 1,
     });
 
+    // Spot arcs get their own damped projection, same reasoning as the
+    // terminator below: `screenPx` needs `zoomDamp: zoom` to counteract the
+    // ctx.scale(zoom, zoom) transform above so arc widths, endpoint radii
+    // and the selected-arc glow's shadow blur stay visually constant across
+    // zoom levels (#1247 review), unlike `projection`'s zoomDamp: 1 above.
+    const spotArcsProjection = createAzimuthalProjection({
+      centerLat: center.lat,
+      centerLon: center.lon,
+      centerX: CENTER,
+      centerY: CENTER,
+      radius: RADIUS,
+      zoomScale: zoom,
+      zoomDamp: zoom,
+    });
+    // `project()` for this AzimuthalProjection only depends on center
+    // lat/lon (zoom is applied by the ctx.scale transform above and by
+    // `screenPx`, not by `project()`) -- same reasoning as the terminator's
+    // cacheScope below, so zoom stays out of this scope too (#1247 review).
+    const spotArcsCacheScope = `${center.lat}|${center.lon}`;
+
     // Draw terminator line (if terminator layer is enabled). The shared
     // layer's screenPx damping is meant to counteract the ctx.scale(zoom,
     // zoom) transform above so the terminator's width stays visually
-    // constant across zoom levels -- unlike every other azimuthal layer
-    // here (zoomDamp: 1), which scales with that canvas transform instead.
-    // Dedicated projection instance so this one divergence doesn't change
-    // `projection`'s damping for the borders passes below (#1091 PR 8).
+    // constant across zoom levels -- unlike most other azimuthal layers
+    // here (zoomDamp: 1), which scale with that canvas transform instead;
+    // spot arcs are the other exception (`spotArcsProjection` above, #1247
+    // review). Dedicated projection instance so this one divergence doesn't
+    // change `projection`'s damping for the borders passes below (#1091 PR 8).
     if (layers.terminator) {
       const terminatorProjection = createAzimuthalProjection({
         centerLat: center.lat,
@@ -2203,13 +2254,18 @@ export function AzimuthalView({
     // are on, since it's a superset (uncapped, with endpoints).
     if (
       layers.spots &&
+      // Redundant with `layers.spots && !pathPresentation.hideOtherPaths`
+      // here (`pathsVisible` is `layers.spots || layers.spotTraces`, forced
+      // false only by the same isolate-target-path condition
+      // `hideOtherPaths` already captures) -- kept for symmetry with
+      // FlatMapView.tsx's identical gate (#1247 review).
       spotLayerPolicy.pathsVisible &&
       !pathPresentation.hideOtherPaths &&
       resolvedSpots.length > 0
     ) {
       drawSpotArcs(
         ctx,
-        projection,
+        spotArcsProjection,
         resolvedSpots,
         spotColorMode,
         highVizSpots,
@@ -2220,6 +2276,8 @@ export function AzimuthalView({
           watchMatchedIds: matchedSpotIds,
           ageFade: labelOptions.spotPathAgeFade,
           groupedMembers,
+          domEndpointSpots,
+          cacheScope: spotArcsCacheScope,
         },
       );
     } else if (
@@ -2231,13 +2289,16 @@ export function AzimuthalView({
       // compressed projection. Destination controls remain visible separately.
       drawSpotArcs(
         ctx,
-        projection,
+        spotArcsProjection,
         [...backgroundTraceSpots],
         spotColorMode,
         highVizSpots,
         spotDotScale,
         false,
-        { ageFade: labelOptions.spotPathAgeFade },
+        {
+          ageFade: labelOptions.spotPathAgeFade,
+          cacheScope: spotArcsCacheScope,
+        },
       );
     }
 
@@ -2357,7 +2418,13 @@ export function AzimuthalView({
       !selectedSpotMatchesTarget &&
       !pathPresentation.hideOtherPaths
     ) {
-      drawSelectedSpotArc(ctx, projection, resolvedSelectedSpot, spotDotScale);
+      drawSelectedSpotArc(
+        ctx,
+        spotArcsProjection,
+        resolvedSelectedSpot,
+        spotDotScale,
+        spotArcsCacheScope,
+      );
     }
 
     // Draw target and path if set
@@ -2407,6 +2474,7 @@ export function AzimuthalView({
     watchEnabled,
     matchedSpotIds,
     groupedMembers,
+    domEndpointSpots,
     labeledAzimuthalSpots,
     activationSpots,
     resolvedSelectedSpot,

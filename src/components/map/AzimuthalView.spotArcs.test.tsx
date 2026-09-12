@@ -18,8 +18,13 @@ import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
 import type { LiveSpot } from "@/types/livespot";
+import { getModeColor } from "@/lib/utils/spotColors";
+import { createAzimuthalProjection } from "@/lib/map/projection";
+import { spotArcSegments } from "@/components/map/layers/spotArcsLayer";
+import { CANVAS_SIZE } from "@/lib/webgl/AzimuthalRenderer";
 import {
   createCanvasRecorder,
+  groupStrokeSegments,
   makeStubRect,
   StubResizeObserver,
 } from "@/components/map/layers/canvasRecorder.test-helper";
@@ -149,6 +154,53 @@ function strokeAlphas(): number[] {
   return alphas;
 }
 
+/** Both seeded spots are FT8, so every spot-arc stroke uses this colour --
+ * lets a test bind to strokes the spot layer actually drew instead of any
+ * `stroke()` call at all (home marker and terminator stroke unconditionally,
+ * #1247 review). */
+const SPOT_COLOR = getModeColor("FT8");
+
+/** The `globalAlpha` in effect at each `stroke()` call whose `strokeStyle`
+ * was last set to `color`, in order. */
+function strokeAlphasForColor(color: string): number[] {
+  const alphas: number[] = [];
+  let currentAlpha = 1;
+  let currentStroke: string | undefined;
+  for (const op of ops) {
+    if (op.name === "set:globalAlpha") {
+      currentAlpha = op.value as number;
+    } else if (op.name === "set:strokeStyle") {
+      currentStroke = op.value as string;
+    } else if (op.name === "stroke" && currentStroke === color) {
+      alphas.push(currentAlpha);
+    }
+  }
+  return alphas;
+}
+
+/** Canvas centre/radius the disc actually renders at (`CANVAS_SIZE = 600`,
+ * `RADIUS = CANVAS_SIZE / 2 - 40`, both module-private in
+ * `AzimuthalView.tsx`) -- mirrored here so a test can independently compute
+ * where a spot's endpoint projects without importing view internals. */
+const DISC_CENTER = CANVAS_SIZE / 2;
+const DISC_RADIUS = CANVAS_SIZE / 2 - 40;
+
+/** The screen coords a spot's DX endpoint projects to on the disc, given
+ * the test station sits at `STATION` (center = station, zoom = 1 on
+ * mount). */
+function dxScreenPoint(spot: LiveSpot) {
+  const projection = createAzimuthalProjection({
+    centerLat: STATION.lat,
+    centerLon: STATION.lon,
+    centerX: DISC_CENTER,
+    centerY: DISC_CENTER,
+    radius: DISC_RADIUS,
+    zoomScale: 1,
+    zoomDamp: 1,
+  });
+  return projection.project(spot.dxLat!, spot.dxLon!);
+}
+
 describe("AzimuthalView shared spotArcsLayer binding", () => {
   const originalLayers = useMapStore.getState().layers;
   const originalLabelOptions = useMapStore.getState().labelOptions;
@@ -188,7 +240,14 @@ describe("AzimuthalView shared spotArcsLayer binding", () => {
   it("strokes an arc for a live spot under the Spots layer (new capability, #1247)", async () => {
     useWatchStore.setState({ enabled: false, matchedSpotIds: new Set() });
     await mount();
-    expect(ops.some((op) => op.name === "stroke")).toBe(true);
+    // Bind to a stroke whose colour is the seeded (FT8) spot colour, unique
+    // to this layer's arc/RX-square strokes -- unlike a bare `stroke()`
+    // existence check, which can't fail (home marker and terminator stroke
+    // unconditionally, #1247 review).
+    const spotStrokes = groupStrokeSegments(ops).filter(
+      (segment) => segment.strokeStyle === SPOT_COLOR,
+    );
+    expect(spotStrokes.length).toBeGreaterThan(0);
   });
 
   it("dims the unmatched spot's arc when a watch is active", async () => {
@@ -215,15 +274,92 @@ describe("AzimuthalView shared spotArcsLayer binding", () => {
       labelOptions: { ...originalLabelOptions, spotPathAgeFade: false },
     });
     const first = await mount();
-    const alphasOff = strokeAlphas();
+    const spotAlphasOff = strokeAlphasForColor(SPOT_COLOR);
     first.unmount();
 
     useMapStore.setState({
       labelOptions: { ...originalLabelOptions, spotPathAgeFade: true },
     });
     await mount();
-    const alphasOn = strokeAlphas();
+    const spotAlphasOn = strokeAlphasForColor(SPOT_COLOR);
 
-    expect(alphasOff).not.toEqual(alphasOn);
+    // Both seeded spots are equally far past the 15-minute age-fade window
+    // (fixed 2026-09-09 timestamp), so `getAgeOpacity` floors at 0.2 for
+    // every spot-arc stroke when the switch is on, and stays unfaded (1)
+    // when it is off -- pin the actual faded value, not just "these differ"
+    // (#1247 review).
+    expect(spotAlphasOff.length).toBeGreaterThan(0);
+    expect(spotAlphasOn.length).toBeGreaterThan(0);
+    expect(spotAlphasOff.every((a) => Math.abs(a - 1) < 1e-6)).toBe(true);
+    expect(spotAlphasOn.every((a) => Math.abs(a - 0.2) < 1e-6)).toBe(true);
+  });
+
+  it("draws no TX arc glyph for a single unclustered spot (disc DOM endpoint button owns it, #1247 item 1)", async () => {
+    useWatchStore.setState({ enabled: false, matchedSpotIds: new Set() });
+    await mount();
+    // The TX glyph is two concentric `arc()` calls (fill + white outline) at
+    // the spot's projected DX screen point (`traceSpotArcEndpoint`, "tx").
+    // Both seeded spots are far enough apart on the disc (London, Cape Town
+    // from a station at 0,0) to each form their own single-member cluster,
+    // so both get a DOM endpoint button and neither should get a canvas TX
+    // circle at its DX point.
+    for (const spot of SPOTS) {
+      const { x, y } = dxScreenPoint(spot);
+      const hasTxGlyphAtSpot = ops.some(
+        (op) =>
+          op.name === "arc" &&
+          Math.abs(op.args[0] - x) < 0.5 &&
+          Math.abs(op.args[1] - y) < 0.5,
+      );
+      expect(hasTxGlyphAtSpot).toBe(false);
+    }
+  });
+
+  it("hits the azimuthal geometry cache across a redraw with the same scope, and misses when the scope changes (#1247 item 3)", () => {
+    const projectionAt = (centerLat: number, centerLon: number) =>
+      createAzimuthalProjection({
+        centerLat,
+        centerLon,
+        centerX: DISC_CENTER,
+        centerY: DISC_CENTER,
+        radius: DISC_RADIUS,
+        zoomScale: 1,
+        zoomDamp: 1,
+      });
+
+    const from = { lat: 40, lon: -74 };
+    const to = { lat: 51.5, lon: -0.1 };
+    const scopeA = "10|20";
+    const scopeB = "11|21";
+
+    const first = spotArcSegments(
+      from.lat,
+      from.lon,
+      to.lat,
+      to.lon,
+      projectionAt(10, 20),
+      scopeA,
+    );
+    const second = spotArcSegments(
+      from.lat,
+      from.lon,
+      to.lat,
+      to.lon,
+      projectionAt(10, 20),
+      scopeA,
+    );
+    // Same scope -> same cached segments array instance (cache hit).
+    expect(second).toBe(first);
+
+    const third = spotArcSegments(
+      from.lat,
+      from.lon,
+      to.lat,
+      to.lon,
+      projectionAt(11, 21),
+      scopeB,
+    );
+    // Different scope -> recomputed, distinct array instance (cache miss).
+    expect(third).not.toBe(first);
   });
 });

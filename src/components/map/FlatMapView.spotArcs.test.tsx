@@ -16,8 +16,10 @@ import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore } from "@/stores/watchStore";
 import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
 import type { LiveSpot } from "@/types/livespot";
+import { getModeColor } from "@/lib/utils/spotColors";
 import {
   createCanvasRecorder,
+  groupStrokeSegments,
   makeStubRect,
   StubResizeObserver,
 } from "./layers/canvasRecorder.test-helper";
@@ -137,6 +139,30 @@ function strokeAlphas(): number[] {
   return alphas;
 }
 
+/** Both seeded spots are FT8, so every spot-arc stroke uses this colour --
+ * lets a test bind to strokes the spot layer actually drew instead of any
+ * `stroke()` call at all (home marker and terminator stroke unconditionally,
+ * #1247 review). */
+const SPOT_COLOR = getModeColor("FT8");
+
+/** The `globalAlpha` in effect at each `stroke()` call whose `strokeStyle`
+ * was last set to `color`, in order. */
+function strokeAlphasForColor(color: string): number[] {
+  const alphas: number[] = [];
+  let currentAlpha = 1;
+  let currentStroke: string | undefined;
+  for (const op of ops) {
+    if (op.name === "set:globalAlpha") {
+      currentAlpha = op.value as number;
+    } else if (op.name === "set:strokeStyle") {
+      currentStroke = op.value as string;
+    } else if (op.name === "stroke" && currentStroke === color) {
+      alphas.push(currentAlpha);
+    }
+  }
+  return alphas;
+}
+
 describe("FlatMapView shared spotArcsLayer binding", () => {
   const originalLabelOptions = useMapStore.getState().labelOptions;
   const originalLayers = useMapStore.getState().layers;
@@ -166,7 +192,14 @@ describe("FlatMapView shared spotArcsLayer binding", () => {
   it("strokes an arc for a live spot", async () => {
     useWatchStore.setState({ enabled: false, matchedSpotIds: new Set() });
     await mount();
-    expect(ops.some((op) => op.name === "stroke")).toBe(true);
+    // Bind to a stroke whose colour is the seeded (FT8) spot colour, unique
+    // to this layer's arc/RX-square strokes -- unlike a bare `stroke()`
+    // existence check, which can't fail (home marker and terminator stroke
+    // unconditionally, #1247 review).
+    const spotStrokes = groupStrokeSegments(ops).filter(
+      (segment) => segment.strokeStyle === SPOT_COLOR,
+    );
+    expect(spotStrokes.length).toBeGreaterThan(0);
   });
 
   it("dims the unmatched spot's arc when a watch is active", async () => {
@@ -193,15 +226,23 @@ describe("FlatMapView shared spotArcsLayer binding", () => {
       labelOptions: { ...originalLabelOptions, spotPathAgeFade: false },
     });
     const first = await mount();
-    const alphasOff = strokeAlphas();
+    const spotAlphasOff = strokeAlphasForColor(SPOT_COLOR);
     first.unmount();
 
     useMapStore.setState({
       labelOptions: { ...originalLabelOptions, spotPathAgeFade: true },
     });
     await mount();
-    const alphasOn = strokeAlphas();
+    const spotAlphasOn = strokeAlphasForColor(SPOT_COLOR);
 
-    expect(alphasOff).not.toEqual(alphasOn);
+    // Both seeded spots are equally far past the 15-minute age-fade window
+    // (fixed 2026-09-09 timestamp), so `getAgeOpacity` floors at 0.2 for
+    // every spot-arc stroke when the switch is on, and stays unfaded (1)
+    // when it is off -- pin the actual faded value, not just "these differ"
+    // (#1247 review).
+    expect(spotAlphasOff.length).toBeGreaterThan(0);
+    expect(spotAlphasOn.length).toBeGreaterThan(0);
+    expect(spotAlphasOff.every((a) => Math.abs(a - 1) < 1e-6)).toBe(true);
+    expect(spotAlphasOn.every((a) => Math.abs(a - 0.2) < 1e-6)).toBe(true);
   });
 });

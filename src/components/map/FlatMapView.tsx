@@ -1,9 +1,3 @@
-import {
-  drawSpotArcsLayer,
-  SPOT_ARC_SELECTED_COLOR,
-  type SpotArcInput,
-} from "@/components/map/layers/spotArcsLayer";
-import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 /**
  * FlatMapView Component
  *
@@ -44,8 +38,15 @@ import type { LiveSpot } from "@/types/livespot";
 import {
   resolveSpotLocations,
   getGreatCirclePoints,
+  getAgeOpacity as getSpotAgeOpacity,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import {
+  drawSpotArcsLayer,
+  SPOT_ARC_SELECTED_COLOR,
+  spotArcSegments,
+  type SpotArcInput,
+} from "@/components/map/layers/spotArcsLayer";
 import {
   getSpotColor,
   getBandColor,
@@ -1265,6 +1266,10 @@ function spotArcInput(
     isWatched?: boolean;
     skipDxEndpoint?: boolean;
     selected?: boolean;
+    /** Only compute `getSpotAgeOpacity` when the fade switch is on -- it ran
+     * for every spot every frame regardless of `style.ageFade` before this
+     * (#1247 review). */
+    ageFade?: boolean;
   } = {},
 ): SpotArcInput {
   return {
@@ -1273,7 +1278,7 @@ function spotArcInput(
     to: { lat: spot.dxLat, lon: spot.dxLon },
     colour: getSpotColor(spot, colorMode),
     isWatched: options.isWatched ?? true,
-    ageOpacity: getSpotAgeOpacity(spot.time),
+    ageOpacity: options.ageFade ? getSpotAgeOpacity(spot.time) : 1,
     skipDxEndpoint: options.skipDxEndpoint ?? false,
     selected: options.selected ?? false,
   };
@@ -1308,6 +1313,7 @@ function drawSpotArcs(
     spotArcInput(spot, colorMode, {
       isWatched: watchMatchedIds?.has(spot.id) ?? true,
       skipDxEndpoint: groupedMembers?.has(spot.originalSpot) ?? false,
+      ageFade,
     }),
   );
   drawSpotArcsLayer(ctx, projection, arcs, {
@@ -1331,6 +1337,19 @@ function drawSelectedSpotArc(
   spotDotScale: number,
   labelScale: number,
 ) {
+  // Restores the pre-#1247 `drawSelectedSpotArc` early return: an empty arc
+  // (invalid coordinates) draws neither the arc nor the callsign pill below
+  // (#1247 review -- `drawSpotArcsLayer` already skips the arc itself, but
+  // this function used to keep drawing the label regardless).
+  const segments = spotArcSegments(
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    projection,
+  );
+  if (segments.length === 0) return;
+
   drawSpotArcsLayer(
     ctx,
     projection,

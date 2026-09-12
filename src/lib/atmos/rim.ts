@@ -11,24 +11,144 @@
  *   - Infrastructure Risk: antenna/tower/power risk from weather events
  *   - EmComm Readiness: emergency communications readiness scoring
  *
- * Composite is a weighted average: HF 0.35 + VHF 0.25 + Infra 0.25 + EmComm 0.15
+ * Composite is a weighted average of *available* sub-scores only:
+ * HF 0.35 + VHF 0.25 + Infra 0.25 + EmComm 0.15, renormalised when any
+ * sub-score is missing. Missing inputs are never replaced with defaults.
  */
 
 import type { RIMResult, RIMSubScore } from "@/types/atmos";
 import type { RIMInput } from "./rimTypes";
 import { computeEmcommScore } from "@/lib/atmos/emcommScoring";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+export const RIM_WEIGHTS = {
+  hfBand: 0.35,
+  vhfUhf: 0.25,
+  infraRisk: 0.25,
+  emcommReadiness: 0.15,
+} as const;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+export type RimScoreSlot = keyof typeof RIM_WEIGHTS;
+
+const SLOTS: readonly RimScoreSlot[] = [
+  "hfBand",
+  "vhfUhf",
+  "infraRisk",
+  "emcommReadiness",
+];
+
+function clamp(value: number, lo: number, max: number): number {
+  return Math.max(lo, Math.min(max, value));
 }
 
-// ---------------------------------------------------------------------------
-// Sub-Score Computations
-// ---------------------------------------------------------------------------
+function oneSentence(parts: string[], empty: string): string {
+  if (parts.length === 0) return empty;
+  if (parts.length === 1) return `${parts[0]}.`;
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}.`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}.`;
+}
+
+function hfReason(input: RIMInput, available: boolean): string {
+  if (!available) {
+    return "NO DATA — Kp, SFI, X-ray, proton flux, and TEC have not arrived.";
+  }
+  const parts: string[] = [];
+  if (input.kpIndex != null) {
+    parts.push(
+      input.kpIndex >= 3
+        ? `Kp ${input.kpIndex} cuts HF`
+        : `Kp ${input.kpIndex} is quiet`,
+    );
+  }
+  if (input.solarFlux != null) {
+    const sfi = Math.round(input.solarFlux);
+    if (input.solarFlux > 150) parts.push(`SFI ${sfi} lifts MUF`);
+    else if (input.solarFlux < 70) parts.push(`SFI ${sfi} is low`);
+    else parts.push(`SFI ${sfi}`);
+  }
+  if (input.xrayFlux != null && input.xrayFlux > 1e-4) {
+    parts.push("X-ray absorption");
+  }
+  if (input.protonFlux != null && input.protonFlux > 100) {
+    parts.push(`proton flux ${Math.round(input.protonFlux)} pfu`);
+  }
+  if (input.tecValue != null) {
+    const tec = Math.round(input.tecValue);
+    if (input.tecValue > 80) parts.push(`TEC ${tec} TECU storm density`);
+    else if (input.tecValue < 10) parts.push(`TEC ${tec} TECU is thin`);
+    else parts.push(`TEC ${tec} TECU`);
+  }
+  if (input.nearestLightningKm != null && input.nearestLightningKm < 500) {
+    parts.push(`lightning QRN at ${Math.round(input.nearestLightningKm)} km`);
+  }
+  return oneSentence(parts, "Quiet space weather leaves HF near baseline.");
+}
+
+function vhfReason(input: RIMInput, available: boolean): string {
+  if (!available) {
+    return "NO DATA — no weather alerts or lightning to score VHF/UHF.";
+  }
+  const parts: string[] = [];
+  const extreme = input.activeAlertSeverities.filter((s) => s === "Extreme").length;
+  const severe = input.activeAlertSeverities.filter((s) => s === "Severe").length;
+  if (extreme > 0) parts.push(`${extreme} extreme alert${extreme === 1 ? "" : "s"}`);
+  if (severe > 0) parts.push(`${severe} severe alert${severe === 1 ? "" : "s"}`);
+  if (input.nearestLightningKm != null && input.nearestLightningKm < 200) {
+    parts.push(
+      `lightning at ${Math.round(input.nearestLightningKm)} km adds convective ducting`,
+    );
+  } else if (input.nearestLightningKm != null) {
+    parts.push(`lightning at ${Math.round(input.nearestLightningKm)} km`);
+  }
+  return oneSentence(parts, "VHF/UHF holds near its quiet baseline.");
+}
+
+function infraReason(input: RIMInput, available: boolean): string {
+  if (!available) {
+    return "NO DATA — no alerts, lightning, or flood stage at gauges.";
+  }
+  const parts: string[] = [];
+  const extreme = input.activeAlertSeverities.filter((s) => s === "Extreme").length;
+  const severe = input.activeAlertSeverities.filter((s) => s === "Severe").length;
+  const moderate = input.activeAlertSeverities.filter(
+    (s) => s === "Moderate",
+  ).length;
+  if (extreme > 0) parts.push(`${extreme} extreme alert${extreme === 1 ? "" : "s"}`);
+  if (severe > 0) parts.push(`${severe} severe alert${severe === 1 ? "" : "s"}`);
+  if (moderate > 0) {
+    parts.push(`${moderate} moderate alert${moderate === 1 ? "" : "s"}`);
+  }
+  if (input.nearestLightningKm != null && input.nearestLightningKm < 10) {
+    parts.push(`lightning ${Math.round(input.nearestLightningKm)} km from the station`);
+  }
+  if (input.floodProximity && input.floodProximity !== "none") {
+    parts.push(`${input.floodProximity} flood stage`);
+  }
+  return oneSentence(parts, "No scored weather is stressing infrastructure.");
+}
+
+function emcommReason(input: RIMInput, available: boolean): string {
+  if (!available) {
+    return "NO DATA — no station, repeaters, alerts, or flood stage to score.";
+  }
+  const parts: string[] = [];
+  if (input.repeaterCount > 0) {
+    const pct =
+      input.operationalRepeaterRatio != null
+        ? ` at ${Math.round(input.operationalRepeaterRatio * 100)}% operational`
+        : "";
+    parts.push(`${input.repeaterCount} repeater${input.repeaterCount === 1 ? "" : "s"}${pct}`);
+  }
+  if (input.nvisViable) parts.push("NVIS is viable");
+  if (input.alertMaxSeverityLevel >= 3) {
+    parts.push("severe alerts cut readiness");
+  } else if (input.alertMaxSeverityLevel === 0) {
+    parts.push("no severe alerts");
+  }
+  if (input.floodProximity && input.floodProximity !== "none") {
+    parts.push(`${input.floodProximity} flood stage`);
+  }
+  return oneSentence(parts, "EmComm sits on its unmoved baseline.");
+}
 
 /**
  * Compute HF Band Score (0-100, 100 = ideal conditions).
@@ -49,12 +169,12 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
       label: "HF Bands",
       trend: "stable",
       dataAvailable: false,
+      reason: hfReason(input, false),
     };
   }
 
   let score = 100;
 
-  // Kp penalty
   if (input.kpIndex != null) {
     if (input.kpIndex >= 7) {
       score -= 70;
@@ -65,7 +185,6 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
     }
   }
 
-  // SFI bonus/penalty
   if (input.solarFlux != null) {
     if (input.solarFlux > 150) {
       score += 10;
@@ -74,18 +193,14 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
     }
   }
 
-  // X-ray absorption (GOES flux in W/m^2)
   if (input.xrayFlux != null) {
     if (input.xrayFlux > 1e-3) {
-      // X-class flare
       score -= 60;
     } else if (input.xrayFlux > 1e-4) {
-      // M-class flare
       score -= 30;
     }
   }
 
-  // Proton flux (pfu)
   if (input.protonFlux != null) {
     if (input.protonFlux > 1000) {
       score -= 70;
@@ -94,20 +209,16 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
     }
   }
 
-  // TEC (Total Electron Content) — higher is generally better for HF
-  // propagation (higher MUF), but extremely elevated TEC (>80 TECU)
-  // during storm conditions can degrade signal quality.
   if (input.tecValue != null) {
     if (input.tecValue > 80) {
-      score -= 15; // Storm-enhanced density — scintillation risk
+      score -= 15;
     } else if (input.tecValue > 40) {
-      score += 5; // Elevated ionisation — good HF propagation
+      score += 5;
     } else if (input.tecValue < 10) {
-      score -= 10; // Low ionisation — poor higher-band propagation
+      score -= 10;
     }
   }
 
-  // Lightning QRN
   if (input.nearestLightningKm != null) {
     if (input.nearestLightningKm < 50) {
       score -= 25;
@@ -123,31 +234,31 @@ function computeHfBandScore(input: RIMInput): RIMSubScore {
     label: "HF Bands",
     trend: "stable",
     dataAvailable: true,
+    reason: hfReason(input, true),
   };
 }
 
 /**
  * Compute VHF/UHF Score (0-100, 100 = ideal conditions).
  *
- * VHF is generally reliable; main concerns are severe weather and
- * convective ducting opportunities.
+ * Available only from alerts or lightning — Kp is not a VHF input and must
+ * not unlock the quiet-day default of 80.
  */
 function computeVhfUhfScore(input: RIMInput): RIMSubScore {
-  const hasAnyData =
-    input.activeAlertSeverities.length > 0 || input.nearestLightningKm != null;
+  const hasAnyData = input.alertsFeedOk || input.lightningFeedOk;
 
-  if (!hasAnyData && input.kpIndex == null) {
+  if (!hasAnyData) {
     return {
       value: 80,
       label: "VHF/UHF",
       trend: "stable",
       dataAvailable: false,
+      reason: vhfReason(input, false),
     };
   }
 
   let score = 80;
 
-  // Alert severity penalty
   for (const severity of input.activeAlertSeverities) {
     if (severity === "Extreme") {
       score -= 40;
@@ -156,7 +267,6 @@ function computeVhfUhfScore(input: RIMInput): RIMSubScore {
     }
   }
 
-  // Lightning nearby: convective ducting potential bonus
   if (input.nearestLightningKm != null && input.nearestLightningKm < 200) {
     score += 5;
   }
@@ -166,19 +276,15 @@ function computeVhfUhfScore(input: RIMInput): RIMSubScore {
     label: "VHF/UHF",
     trend: "stable",
     dataAvailable: true,
+    reason: vhfReason(input, true),
   };
 }
 
 /**
  * Compute Infrastructure Risk score (0-100, 100 = no risk).
- *
- * Assesses antenna/tower/power risk from weather events.
  */
 function computeInfraRiskScore(input: RIMInput): RIMSubScore {
-  const hasAnyData =
-    input.activeAlertSeverities.length > 0 ||
-    input.nearestLightningKm != null ||
-    (input.floodProximity != null && input.floodProximity !== "none");
+  const hasAnyData = input.alertsFeedOk || input.lightningFeedOk || input.floodFeedOk;
 
   if (!hasAnyData) {
     return {
@@ -186,13 +292,13 @@ function computeInfraRiskScore(input: RIMInput): RIMSubScore {
       label: "Infrastructure",
       trend: "stable",
       dataAvailable: false,
+      reason: infraReason(input, false),
     };
   }
 
   let score = 100;
   let cumulativePenalty = 0;
 
-  // Alert severity penalties (cumulative, capped at -70)
   for (const severity of input.activeAlertSeverities) {
     if (severity === "Extreme") {
       cumulativePenalty += 50;
@@ -205,12 +311,10 @@ function computeInfraRiskScore(input: RIMInput): RIMSubScore {
 
   score -= Math.min(cumulativePenalty, 70);
 
-  // Lightning direct strike risk
   if (input.nearestLightningKm != null && input.nearestLightningKm < 10) {
     score -= 20;
   }
 
-  // River gauge flood proximity
   if (input.floodProximity === "major") {
     score -= 30;
   } else if (input.floodProximity === "moderate") {
@@ -226,33 +330,87 @@ function computeInfraRiskScore(input: RIMInput): RIMSubScore {
     label: "Infrastructure",
     trend: "stable",
     dataAvailable: true,
+    reason: infraReason(input, true),
   };
 }
 
+// Station coordinates alone are not EmComm evidence — availability must
+// reflect what the scorer's underlying feeds actually answered (#916 review).
+function emcommInputsPresent(input: RIMInput): boolean {
+  return (
+    input.repeatersFeedOk ||
+    input.alertsFeedOk ||
+    input.floodFeedOk ||
+    input.sfiFeedOk
+  );
+}
+
 /**
- * Compute EmComm Readiness score by delegating to the dedicated scoring module.
+ * Compute EmComm Readiness, wrapping the dedicated scorer so a missing-input
+ * path can mark the sub-score unavailable instead of shipping its baseline.
  */
-function computeEmcommReadiness(input: RIMInput) {
-  return computeEmcommScore({
+function computeEmcommReadiness(input: RIMInput): RIMSubScore {
+  const score = computeEmcommScore({
     repeaterCount: input.repeaterCount,
     operationalRepeaterRatio: input.operationalRepeaterRatio,
     nvisViable: input.nvisViable,
     alertMaxSeverityLevel: input.alertMaxSeverityLevel,
     floodProximity: input.floodProximity ?? "none",
   });
+  const available = emcommInputsPresent(input);
+  return {
+    ...score,
+    dataAvailable: available,
+    reason: emcommReason(input, available),
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Main Entry Point
-// ---------------------------------------------------------------------------
+export interface RimScoreParts {
+  hfBand: RIMSubScore;
+  vhfUhf: RIMSubScore;
+  infraRisk: RIMSubScore;
+  emcommReadiness: RIMSubScore;
+}
 
-/** Weight factors for composite score */
-const WEIGHTS = {
-  hf: 0.35,
-  vhf: 0.25,
-  infra: 0.25,
-  emcomm: 0.15,
-} as const;
+/**
+ * Weighted composite of available sub-scores. Unavailable slots are dropped
+ * and remaining weights renormalised; their stored values are never mixed
+ * in. When every slot is missing the composite is 0 and `partial` is true.
+ */
+export function composeRimScores(
+  parts: RimScoreParts,
+  regionId: string,
+  updatedAt = Date.now(),
+): RIMResult {
+  const excludedInputs: string[] = [];
+  let weighted = 0;
+  let totalWeight = 0;
+
+  for (const slot of SLOTS) {
+    const sub = parts[slot];
+    if (sub.dataAvailable) {
+      weighted += sub.value * RIM_WEIGHTS[slot];
+      totalWeight += RIM_WEIGHTS[slot];
+    } else {
+      excludedInputs.push(sub.label);
+    }
+  }
+
+  const composite =
+    totalWeight > 0 ? clamp(Math.round(weighted / totalWeight), 0, 100) : 0;
+
+  return {
+    regionId,
+    composite,
+    hfBand: parts.hfBand,
+    vhfUhf: parts.vhfUhf,
+    infraRisk: parts.infraRisk,
+    emcommReadiness: parts.emcommReadiness,
+    updatedAt,
+    partial: excludedInputs.length > 0,
+    excludedInputs,
+  };
+}
 
 /**
  * Compute the full Radio Impact Model result.
@@ -262,25 +420,13 @@ const WEIGHTS = {
  * @returns RIMResult with composite score and 4 sub-scores
  */
 export function computeRIM(input: RIMInput, regionId: string): RIMResult {
-  const hfBand = computeHfBandScore(input);
-  const vhfUhf = computeVhfUhfScore(input);
-  const infraRisk = computeInfraRiskScore(input);
-  const emcommReadiness = computeEmcommReadiness(input);
-
-  const composite = Math.round(
-    hfBand.value * WEIGHTS.hf +
-      vhfUhf.value * WEIGHTS.vhf +
-      infraRisk.value * WEIGHTS.infra +
-      emcommReadiness.value * WEIGHTS.emcomm,
-  );
-
-  return {
+  return composeRimScores(
+    {
+      hfBand: computeHfBandScore(input),
+      vhfUhf: computeVhfUhfScore(input),
+      infraRisk: computeInfraRiskScore(input),
+      emcommReadiness: computeEmcommReadiness(input),
+    },
     regionId,
-    composite: clamp(composite, 0, 100),
-    hfBand,
-    vhfUhf,
-    infraRisk,
-    emcommReadiness,
-    updatedAt: Date.now(),
-  };
+  );
 }

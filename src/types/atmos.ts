@@ -43,6 +43,8 @@ export interface RIMSubScore {
   label: string;
   trend: "up" | "down" | "stable";
   dataAvailable: boolean;
+  /** One sentence naming the inputs that moved this score. Absent on older fixtures. */
+  reason?: string;
 }
 
 /** RIM result for a monitored region */
@@ -54,6 +56,10 @@ export interface RIMResult {
   infraRisk: RIMSubScore;
   emcommReadiness: RIMSubScore;
   updatedAt: number; // Date.now()
+  /** True when at least one sub-score was dropped from the composite. */
+  partial?: boolean;
+  /** Labels of sub-scores excluded because their inputs were missing. */
+  excludedInputs?: string[];
 }
 
 /** Default layer visibility */

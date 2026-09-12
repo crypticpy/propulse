@@ -580,9 +580,9 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
       className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2"
     >
       {/* ── STATUS BAR: Mode pills + CAT badge ─────────────────────────────── */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div
-          className="flex items-center gap-1"
+          className="flex flex-wrap items-center gap-1"
           role="radiogroup"
           aria-label="Operating mode"
         >
@@ -616,9 +616,9 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
       </div>
 
       {/* ── PRIMARY ROW: Callsign + DXCC Badge + Frequency + Mode + LOG ──── */}
-      <div ref={callsignRowRef} className="flex items-center gap-2">
+      <div ref={callsignRowRef} className="flex flex-wrap items-center gap-2">
         {/* Callsign */}
-        <div className="flex-[2] min-w-0">
+        <div className="flex-[2_1_12rem] min-w-0">
           <CallsignInput
             value={form.callsign}
             onChange={(v) => setField("callsign", v)}
@@ -634,7 +634,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
         )}
 
         {/* Frequency */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-[1_1_8rem] min-w-0">
           <FrequencyInput
             value={form.frequency}
             onChange={(v) => setField("frequency", v)}

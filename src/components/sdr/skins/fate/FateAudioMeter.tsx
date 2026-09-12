@@ -151,7 +151,7 @@ export function FateAudioMeter({ analyserNode }: FateAudioMeterProps) {
         className="flex items-center justify-center rounded border border-su-line/20 bg-[#0c0c16]"
         style={{ width: 120, height: 16 }}
       >
-        <span className="text-[9px] font-mono text-su-muted">No Audio</span>
+        <span className="text-xs font-mono text-su-muted">No Audio</span>
       </div>
     );
   }
@@ -206,9 +206,9 @@ export function FateAudioMeter({ analyserNode }: FateAudioMeterProps) {
 
       {/* Label */}
       <span
-        className="text-[8px] font-mono tabular-nums leading-none shrink-0"
+        className="text-xs font-mono tabular-nums leading-none shrink-0"
         style={{
-          width: 28,
+          width: "4ch",
           textAlign: "right",
           color: isLow
             ? COLOR_AMBER

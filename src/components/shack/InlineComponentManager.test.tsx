@@ -4,6 +4,18 @@ import { useShackStore } from "@/stores/shackStore";
 import { StationProvider } from "@/components/station-ui";
 import { InlineComponentManager } from "./InlineComponentManager";
 
+// Avoid mounting the real useLogbook (IndexedDB) chain that EquipmentCard
+// pulls in via useOperatorRank — it resolves after teardown in this test
+// file, matching the pattern already used in gearPhotoDialogFocus.test.tsx.
+vi.mock("@/hooks/useOperatorRank", () => ({
+  useOperatorRank: () => ({
+    rank: "ethereal",
+    hasChromaticEffects: false,
+    hasParticles: false,
+    preferences: { enableParticles: false },
+  }),
+}));
+
 const initial = useShackStore.getState();
 beforeEach(() => {
   useShackStore.setState({

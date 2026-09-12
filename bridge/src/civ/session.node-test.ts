@@ -65,7 +65,7 @@ function scopeHeader(options: {
     Buffer.concat([
       Buffer.from([
         CIV_SCOPE_SUB.WAVE_DATA,
-        options.scopeIndex ?? 0x01,
+        options.scopeIndex ?? 0x00,
         bcd(1),
         bcd(options.seqMax),
         options.scopeMode ?? ScopeMode.Fixed,
@@ -494,7 +494,7 @@ test("a sweep assembles into one line across its header and pixel frames", () =>
   assert.equal(line.spanHz, 100_000);
   assert.deepEqual(Array.from(line.pixels), [3, 4, 5, 6]);
   assert.equal(line.scopeMode, ScopeMode.Fixed);
-  assert.equal(line.scopeIndex, 0x01);
+  assert.equal(line.scopeIndex, 0x00);
 });
 
 test("a multi-frame header contributes no pixels of its own", () => {

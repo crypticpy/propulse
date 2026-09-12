@@ -41,6 +41,9 @@ const UNSOLICITED_LOG_LIMIT = 20;
 /** How many scope frames to log before going quiet */
 const SCOPE_LOG_LIMIT = 3;
 
+/** How many completed spectrum lines to log before going quiet */
+const SPECTRUM_LOG_LIMIT = 3;
+
 // ─── Transport ────────────────────────────────────────────────────────────────
 
 /** Whether a command expects an explicit ACK/NG or a data response frame */
@@ -127,6 +130,7 @@ export class CivSession {
   private commandQueue: Promise<void> = Promise.resolve();
   private unsolicitedFrameCount = 0;
   private scopeFrameCount = 0;
+  private spectrumLineCount = 0;
 
   // Spectrum assembly
   private assembly: LineAssembly | null = null;
@@ -174,6 +178,7 @@ export class CivSession {
   /** Drop all scope state. Call when the link closes. */
   resetSpectrum(): void {
     this.setSpectrumEnabled(false);
+    this.spectrumLineCount = 0;
   }
 
   // ── Incoming Data ─────────────────────────────────────────────────────────
@@ -510,6 +515,13 @@ export class CivSession {
       scopeMode,
       scopeIndex,
     };
+
+    this.spectrumLineCount++;
+    if (this.spectrumLineCount <= SPECTRUM_LOG_LIMIT) {
+      console.log(
+        `[${this.transport.logTag}] Spectrum line #${this.spectrumLineCount}: center=${(line.centerHz / 1e6).toFixed(3)}MHz span=${(line.spanHz / 1e3).toFixed(0)}kHz bins=${line.pixels.length}`,
+      );
+    }
 
     this.assembly = null;
     this.handlers.onSpectrumLine(line);

@@ -128,7 +128,6 @@ export class IcomSerialBackend {
 
   // Track which optional fields are unsupported (avoid repeated errors)
   private warnedUnsupported = new Set<string>();
-  private spectrumLineCount = 0;
 
   constructor(config: IcomSerialConfig) {
     this.config = {
@@ -956,12 +955,6 @@ export class IcomSerialBackend {
   }
 
   private emitSpectrumLine(line: CivSpectrumLine): void {
-    this.spectrumLineCount++;
-    if (this.spectrumLineCount <= 3 || this.spectrumLineCount % 100 === 0) {
-      console.log(
-        `[icom-serial] Spectrum line #${this.spectrumLineCount}: center=${(line.centerHz / 1e6).toFixed(3)}MHz span=${(line.spanHz / 1e3).toFixed(0)}kHz bins=${line.pixels.length} handlers=${this.spectrumHandlers.length}`,
-      );
-    }
     for (const handler of this.spectrumHandlers) {
       try {
         handler(line);

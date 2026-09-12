@@ -29,7 +29,7 @@ export function NVISBriefing() {
   if (!location) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Set station location in Settings
         </p>
       </div>
@@ -55,7 +55,7 @@ export function NVISBriefing() {
             NVIS Not Viable
           </span>
         </div>
-        <p className="text-[10px] text-su-muted leading-tight">
+        <p className="text-xs text-su-muted leading-tight">
           f0F2 too low ({analysis.f0F2.toFixed(1)} MHz). Regional skywave
           communications unlikely on HF low bands.
         </p>
@@ -76,13 +76,13 @@ export function NVISBriefing() {
             NVIS Active
           </span>
         </div>
-        <span className={`text-[10px] font-mono ${conditionColor}`}>
+        <span className={`text-xs font-mono ${conditionColor}`}>
           {analysis.reliability}%
         </span>
       </div>
 
       {/* Details grid */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <div className="text-su-muted">Optimal Freq</div>
         <div className="text-su-muted font-mono text-right">
           {analysis.optimalFrequency.toFixed(2)} MHz
@@ -105,7 +105,7 @@ export function NVISBriefing() {
       </div>
 
       {/* Condition summary */}
-      <p className="text-[10px] text-su-muted leading-tight">
+      <p className="text-xs text-su-muted leading-tight">
         {analysis.conditionSummary}
       </p>
     </div>

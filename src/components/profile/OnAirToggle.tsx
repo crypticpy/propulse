@@ -197,7 +197,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
   return (
     <div className="bg-panel/30 border border-su-line/20 rounded-xl p-4">
       {/* Header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
         On Air Status
       </h3>
 
@@ -233,7 +233,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
           {/* Band + Mode row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
+              <label className="block text-xs uppercase tracking-widest text-su-muted mb-1">
                 Band
               </label>
               <select
@@ -250,7 +250,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
+              <label className="block text-xs uppercase tracking-widest text-su-muted mb-1">
                 Mode
               </label>
               <select
@@ -270,7 +270,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Frequency */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
+            <label className="block text-xs uppercase tracking-widest text-su-muted mb-1">
               Frequency
             </label>
             <input
@@ -284,7 +284,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Notes */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
+            <label className="block text-xs uppercase tracking-widest text-su-muted mb-1">
               Notes
             </label>
             <input
@@ -299,7 +299,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Auto-expire */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
+            <label className="block text-xs uppercase tracking-widest text-su-muted mb-1">
               Auto-expire
             </label>
             <select

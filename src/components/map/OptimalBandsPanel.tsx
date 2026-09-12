@@ -393,11 +393,11 @@ export function OptimalBandsPanel({
           <div className="p-3 space-y-2">
             {/* Distance */}
             <div>
-              <div className="text-[10px] text-su-muted mb-0.5">Distance</div>
+              <div className="text-xs text-su-muted mb-0.5">Distance</div>
               <div className="text-lg font-mono text-su-text">
                 {formatDistance(pathMetrics.shortPath.distance)}
               </div>
-              <div className="text-[10px] text-su-muted">
+              <div className="text-xs text-su-muted">
                 {pathMetrics.hops} hop{pathMetrics.hops > 1 ? "s" : ""} •{" "}
                 {Math.round(illumination)}% daylight
               </div>
@@ -405,9 +405,9 @@ export function OptimalBandsPanel({
 
             {/* Difficulty */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-su-muted">Difficulty:</span>
+              <span className="text-xs text-su-muted">Difficulty:</span>
               <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                className="px-1.5 py-0.5 rounded text-xs font-medium"
                 style={{
                   backgroundColor: `${difficultyColor}20`,
                   color: difficultyColor,
@@ -419,7 +419,7 @@ export function OptimalBandsPanel({
 
             {/* Optimal Bands */}
             <div>
-              <div className="text-[10px] text-su-muted mb-1">
+              <div className="text-xs text-su-muted mb-1">
                 Optimal Bands
               </div>
               {optimalBands.length > 0 ? (
@@ -432,7 +432,7 @@ export function OptimalBandsPanel({
                     >
                       <div className="flex items-center gap-2">
                         <span
-                          className={`w-4 text-center text-[10px] font-bold ${
+                          className={`w-4 text-center text-xs font-bold ${
                             index === 0
                               ? "text-signal-green"
                               : "text-caution-amber"
@@ -443,7 +443,7 @@ export function OptimalBandsPanel({
                         <BandPill band={band.band} size="md" />
                       </div>
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        className={`text-xs px-1.5 py-0.5 rounded ${
                           band.status === "excellent"
                             ? "bg-signal-green/20 text-signal-green"
                             : band.status === "good"
@@ -466,7 +466,7 @@ export function OptimalBandsPanel({
             </div>
 
             {/* Target info */}
-            <div className="pt-2 border-t border-su-line/20 text-[10px] text-su-muted font-mono">
+            <div className="pt-2 border-t border-su-line/20 text-xs text-su-muted font-mono">
               → {target.name || target.grid || "Target"}
             </div>
           </div>

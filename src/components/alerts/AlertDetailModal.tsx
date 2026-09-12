@@ -122,11 +122,11 @@ const PRIORITY_LABELS: Record<
   },
   WARNING: {
     text: "Warning",
-    classes: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+    classes: "bg-caution-amber/20 text-su-text border-caution-amber/40",
   },
   CRITICAL: {
     text: "Critical",
-    classes: "bg-alert-red/20 text-alert-red border-alert-red/40",
+    classes: "bg-alert-red/20 text-su-text border-alert-red/40",
   },
 };
 
@@ -249,8 +249,8 @@ export function AlertDetailModal({
                     key={band}
                     className={`px-2 py-0.5 text-xs font-mono rounded border ${
                       alert.priority === "CRITICAL"
-                        ? "bg-alert-red/10 text-alert-red border-alert-red/30"
-                        : "bg-caution-amber/10 text-caution-amber border-caution-amber/30"
+                        ? "bg-alert-red/10 text-su-text border-alert-red/30"
+                        : "bg-caution-amber/10 text-su-text border-caution-amber/30"
                     }`}
                   >
                     {band}

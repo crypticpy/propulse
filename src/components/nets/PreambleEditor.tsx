@@ -136,7 +136,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
 
       {/* Variable chips */}
       <div className="mt-3">
-        <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
+        <p className="text-xs uppercase tracking-widest text-su-muted mb-1.5">
           Insert variable
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -155,7 +155,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
       {/* Preview */}
       {template.trim() && (
         <div className="mt-4">
-          <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
+          <p className="text-xs uppercase tracking-widest text-su-muted mb-1.5">
             Preview
           </p>
           <div className="bg-su-line/20 border border-su-line/50 rounded-lg p-3">

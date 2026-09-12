@@ -307,13 +307,13 @@ export function NetMilestoneCard(props: NetMilestoneCardProps) {
         {/* Card content */}
         <div className="relative z-[1] flex flex-col items-center justify-center h-full px-6 py-5 text-center">
           {/* Header */}
-          <span className="text-[10px] uppercase tracking-[0.3em] text-su-muted mb-1">
+          <span className="text-xs uppercase tracking-[0.3em] text-su-muted mb-1">
             PROPULSE NET MILESTONE
           </span>
 
           {/* Badge */}
           <span
-            className={`inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded border mb-3 ${BADGE_COLORS[config.badge]}`}
+            className={`inline-block px-2 py-0.5 text-xs font-semibold uppercase tracking-wider rounded border mb-3 ${BADGE_COLORS[config.badge]}`}
           >
             {config.badge}
           </span>

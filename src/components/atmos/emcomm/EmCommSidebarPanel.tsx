@@ -79,7 +79,7 @@ export function EmCommSidebarPanel() {
     <aside className="w-56 shrink-0 bg-deep-space/60 border-r border-su-line/20 overflow-y-auto">
       {/* ── Activation Status ─────────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Activation Status
         </h2>
         <p className="text-sm font-bold text-su-text truncate">
@@ -87,7 +87,7 @@ export function EmCommSidebarPanel() {
         </p>
         <div className="mt-1.5 flex items-center gap-2">
           <span
-            className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono uppercase border ${levelStyle.bg} ${levelStyle.text}`}
+            className={`inline-block px-2 py-0.5 rounded text-xs font-mono uppercase border ${levelStyle.bg} ${levelStyle.text}`}
           >
             {activeIncident.level}
           </span>
@@ -98,7 +98,7 @@ export function EmCommSidebarPanel() {
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
-          className="mt-2 text-[10px] text-su-muted hover:text-alert-red transition-colors"
+          className="mt-2 text-xs text-su-muted hover:text-alert-red transition-colors"
         >
           Deactivate
         </button>
@@ -107,13 +107,13 @@ export function EmCommSidebarPanel() {
       {/* ── Frequency Plan ────────────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
+          <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted">
             Frequency Plan
           </h2>
           <button
             type="button"
             onClick={() => setPlanEditorOpen(true)}
-            className="text-[10px] text-su-muted hover:text-plasma-orange transition-colors"
+            className="text-xs text-su-muted hover:text-plasma-orange transition-colors"
           >
             Manage Plans
           </button>
@@ -123,7 +123,7 @@ export function EmCommSidebarPanel() {
 
       {/* ── Net Link Forecast ───────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           12h Link Forecast
         </h2>
         <NetLinkForecast />
@@ -131,7 +131,7 @@ export function EmCommSidebarPanel() {
 
       {/* ── NVIS Briefing ──────────────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           NVIS Coverage
         </h2>
         <NVISBriefing />
@@ -139,7 +139,7 @@ export function EmCommSidebarPanel() {
 
       {/* ── Repeater Analysis ────────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Repeaters in Zone
         </h2>
         <RepeaterAnalysis />
@@ -147,14 +147,14 @@ export function EmCommSidebarPanel() {
 
       {/* ── Quick Actions ─────────────────────────────────────────────── */}
       <div className="p-3 border-b border-su-line/20">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Quick Actions
         </h2>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setSitRepExpanded((v) => !v)}
-            className={`flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md border transition-colors ${
+            className={`flex-1 px-2 py-1.5 text-xs font-mono rounded-md border transition-colors ${
               sitRepExpanded
                 ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30"
                 : "bg-su-line/10 hover:bg-su-line/20 text-su-muted border-su-line/40"
@@ -165,7 +165,7 @@ export function EmCommSidebarPanel() {
           <button
             type="button"
             onClick={() => setIcs213Open(true)}
-            className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
+            className="flex-1 px-2 py-1.5 text-xs font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
           >
             New ICS-213
           </button>
@@ -190,7 +190,7 @@ export function EmCommSidebarPanel() {
             const messages = useEmcommStore.getState().ics213Messages;
             exportActivationLog(activeIncident, sitReps, messages);
           }}
-          className="w-full px-2 py-1.5 text-[10px] font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
+          className="w-full px-2 py-1.5 text-xs font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
         >
           Export Log
         </button>
@@ -205,7 +205,7 @@ export function EmCommSidebarPanel() {
 
       {/* ── Layer Toggles ─────────────────────────────────────────────── */}
       <div className="p-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-su-muted mb-2">
           Layers
         </h2>
         <div className="space-y-0.5">

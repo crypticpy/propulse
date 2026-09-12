@@ -166,7 +166,7 @@ export function RadioPickerModal({
                 <div className="text-sm font-semibold text-su-text">
                   Use active profile radio
                 </div>
-                <div className="text-[10px] text-su-muted font-mono">
+                <div className="text-xs text-su-muted font-mono">
                   {activeEquipmentId ?? "none"}
                 </div>
               </div>
@@ -209,7 +209,7 @@ export function RadioPickerModal({
                             </div>
                           )}
                         </div>
-                        <div className="text-[10px] text-su-muted font-mono flex-shrink-0">
+                        <div className="text-xs text-su-muted font-mono flex-shrink-0">
                           {equipment!.maxPower}W
                         </div>
                       </div>
@@ -276,12 +276,12 @@ export function RadioPickerModal({
                         <div className="text-sm font-semibold text-su-text truncate">
                           {radio.manufacturer} {radio.model}
                           {hasTested && (
-                            <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                            <span className="ml-2 text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
                               Tested
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-su-muted truncate">
+                        <div className="text-xs text-su-muted truncate">
                           Tier: {radio.tier} • Bands:{" "}
                           {radio.bands.slice(0, 4).join(", ")}
                           {radio.bands.length > 4 ? "…" : ""}
@@ -289,7 +289,7 @@ export function RadioPickerModal({
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {inProfile ? (
-                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
+                          <div className="text-xs px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
                             In profile
                           </div>
                         ) : (
@@ -299,13 +299,13 @@ export function RadioPickerModal({
                               e.stopPropagation();
                               addRadio(radio.id);
                             }}
-                            className="text-[10px] px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+                            className="text-xs px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
                             title="Add this radio to your profile"
                           >
                             Add
                           </button>
                         )}
-                        <div className="text-[10px] text-su-muted font-mono">
+                        <div className="text-xs text-su-muted font-mono">
                           {radio.maxPower}W
                         </div>
                       </div>
@@ -323,7 +323,7 @@ export function RadioPickerModal({
               Create and edit custom radios in the Manage tab.
             </div>
             <div className="flex items-center justify-between">
-              <div className="text-[10px] text-su-muted">
+              <div className="text-xs text-su-muted">
                 Selected: {selectedCustomIds.size}
               </div>
               <div className="flex items-center gap-2">
@@ -331,7 +331,7 @@ export function RadioPickerModal({
                   <button
                     type="button"
                     onClick={() => setSelectedCustomIds(new Set())}
-                    className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
+                    className="text-xs px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                   >
                     Clear
                   </button>
@@ -343,7 +343,7 @@ export function RadioPickerModal({
                     for (const id of selectedCustomIds) addRadio(id);
                     setSelectedCustomIds(new Set());
                   }}
-                  className="text-[10px] px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Add selected custom radios to your profile"
                 >
                   Add selected
@@ -388,21 +388,21 @@ export function RadioPickerModal({
                           <div className="text-sm font-semibold text-su-text truncate">
                             {getDisplayLabel(radio)}
                           </div>
-                          <div className="text-[10px] text-su-muted truncate">
+                          <div className="text-xs text-su-muted truncate">
                             {radio.manufacturer} {radio.model} • {radio.maxPower}W
                           </div>
                         </div>
                       </label>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {inProfile ? (
-                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
+                          <div className="text-xs px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
                             In profile
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => addRadio(radio.id)}
-                            className="text-[10px] px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+                            className="text-xs px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
                           >
                             Add
                           </button>
@@ -416,7 +416,7 @@ export function RadioPickerModal({
                               onClose();
                             }
                           }}
-                          className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
+                          className="text-xs px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                           title="Use this radio for this tool"
                         >
                           Use

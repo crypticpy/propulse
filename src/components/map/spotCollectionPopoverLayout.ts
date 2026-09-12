@@ -20,7 +20,8 @@ export const ROOT_FONT_PX_DEFAULT = 16;
  * lg/xl (#879 review round 3). Callers multiply by the measured root font
  * size and re-derive when the scale changes. */
 
-/** Header, footer, and borders -- excludes the scrollable/capped list body. */
+/** @deprecated Pre–#1065 chrome allowance; wall row caps now measure the list
+ * body directly. Kept for tests that simulate a measured list height. */
 export const SPOT_COLLECTION_POPOVER_CHROME_REM = 6;
 /** A two-line row: callsign/frequency line plus the badge line. */
 export const SPOT_COLLECTION_WALL_ROW_REM = 3.375;
@@ -205,39 +206,28 @@ function countRowsThatFit(
  * and budgeting it at the short height rendered rows the clipped body could
  * not show while still counting them as visible.
  *
- * `rootFontPx` scales the chrome and "+N more" budgets to the operator's text
- * scale; `rowHeights` must already be in the same pixel space (pass heights
- * from `wallRowHeight(spot, rootFontPx)` or real measured row heights).
+ * `listBodyHeight` is the measured height of the clipped list container
+ * (`ResizeObserver` on the row host). It already reflects header, footer,
+ * wrapped subtitle, and the shrink-0 "+N more" row — no chrome constant.
+ * `rowHeights` must be in the same pixel space (measured or estimated).
  */
 export function deriveWallVisibleSpotCount(
-  maxHeight: number,
+  listBodyHeight: number,
   rowHeights: readonly number[],
-  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
 ): number {
   const totalSpots = rowHeights.length;
   if (totalSpots <= 0) return 0;
 
-  const listBudget = Math.max(
-    0,
-    maxHeight - SPOT_COLLECTION_POPOVER_CHROME_REM * rootFontPx,
-  );
+  // Pre-measure: render every row once so layout can allocate the list slot.
+  if (listBodyHeight <= 0) return totalSpots;
 
-  if (countRowsThatFit(rowHeights, listBudget) >= totalSpots) {
-    return totalSpots;
-  }
+  const fit = countRowsThatFit(rowHeights, listBodyHeight);
+  if (fit >= totalSpots) return totalSpots;
 
   // At least one row: a popover that shows only "+N more" tells the operator
-  // nothing, and the header already names the collection.
-  return Math.max(
-    1,
-    Math.min(
-      totalSpots,
-      countRowsThatFit(
-        rowHeights,
-        listBudget - SPOT_COLLECTION_WALL_MORE_ROW_REM * rootFontPx,
-      ),
-    ),
-  );
+  // nothing, and the header already names the collection. The "+N more" row
+  // sits outside the measured list body, so its height is not subtracted here.
+  return Math.max(1, Math.min(totalSpots, fit));
 }
 
 /**

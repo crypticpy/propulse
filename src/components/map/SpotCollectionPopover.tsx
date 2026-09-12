@@ -106,6 +106,10 @@ export function SpotCollectionPopover({
   const [measuredRowHeights, setMeasuredRowHeights] = useState<
     Record<string, number>
   >({});
+  // Measured height of the clipped row host on the wall. Replaces the fixed
+  // chrome allowance from #879 — flex layout and the shrink-0 "+N more" row
+  // determine the real slot (#1065).
+  const [listBodyHeightPx, setListBodyHeightPx] = useState(0);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
   // The wall row budgets are rem, so the cap has to know the real root font
   // size: the text-scale control takes it from 14.4px to 22px, and a 16px
@@ -177,19 +181,9 @@ export function SpotCollectionPopover({
   const wallVisibleCount = useMemo(
     () =>
       isWallCanvas
-        ? deriveWallVisibleSpotCount(
-            layout.maxHeight,
-            wallRowHeights,
-            rootFontPx,
-          )
+        ? deriveWallVisibleSpotCount(listBodyHeightPx, wallRowHeights)
         : sortedSpots.length,
-    [
-      isWallCanvas,
-      layout.maxHeight,
-      rootFontPx,
-      sortedSpots.length,
-      wallRowHeights,
-    ],
+    [isWallCanvas, listBodyHeightPx, sortedSpots.length, wallRowHeights],
   );
 
   // Rows shown when the wall's no-scroll rule caps the list instead of
@@ -246,7 +240,35 @@ export function SpotCollectionPopover({
     setMeasuredRowHeights((previous) =>
       Object.keys(previous).length === 0 ? previous : {},
     );
+    setListBodyHeightPx(0);
   }, [visible]);
+
+  // The wall row cap budgets against the painted list slot, not a rem chrome
+  // estimate. When the header wraps, the footer grows (e.g. onMapTheseSpots),
+  // or "+N more" appears, flex layout shrinks this host and the observer
+  // re-derives the count (#1065).
+  useLayoutEffect(() => {
+    if (!visible || !isWallCanvas) return;
+    const listBody = wallListRef.current;
+    if (!listBody) return;
+
+    const measureListBody = () => {
+      const height = listBody.clientHeight;
+      setListBodyHeightPx((previous) =>
+        previous === height ? previous : height,
+      );
+    };
+
+    measureListBody();
+
+    let listBodyObserver: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      listBodyObserver = new ResizeObserver(measureListBody);
+      listBodyObserver.observe(listBody);
+    }
+
+    return () => listBodyObserver?.disconnect();
+  }, [isWallCanvas, layoutEpoch, visible, visibleSpots.length, hiddenSpotCount]);
 
   useEffect(() => {
     if (!visible) return;
@@ -375,6 +397,7 @@ export function SpotCollectionPopover({
       >
         <div
           ref={wallListRef}
+          data-spot-list-body={isWallCanvas ? "" : undefined}
           className={
             isWallCanvas ? "min-h-0 flex-1 overflow-hidden p-1" : undefined
           }

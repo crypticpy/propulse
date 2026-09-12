@@ -53,7 +53,7 @@ export function EmCommQuickActions() {
         <button
           type="button"
           onClick={tuneEmergencyFrequency}
-          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-alert-red/20 text-alert-red hover:bg-alert-red/30 border border-alert-red/30 backdrop-blur-sm transition-colors"
+          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-alert-red/20 text-su-text hover:bg-alert-red/20 border border-alert-red/30 backdrop-blur-sm transition-colors"
           title="Tune to 14.300 MHz (Global Emergency)"
         >
           14.300

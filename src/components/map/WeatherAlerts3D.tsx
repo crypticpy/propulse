@@ -420,7 +420,7 @@ function AlertMarker({
           </div>
           <div
             ref={labelRef}
-            className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap text-center"
+            className="mt-0.5 px-1.5 py-0.5 rounded text-xs font-mono whitespace-nowrap text-center"
             style={{
               backgroundColor: "rgba(10, 10, 26, 0.85)",
               color,

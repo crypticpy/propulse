@@ -4,8 +4,29 @@ import {
   type ButtonHTMLAttributes,
 } from "react";
 import { LoaderCircle } from "lucide-react";
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
 
 type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
+
+const buttonTreatments: Record<ButtonVariant, string> = {
+  primary: stationTreatmentClasses({
+    tone: "accent",
+    treatment: "solid",
+    interactive: true,
+  }),
+  secondary: stationTreatmentClasses({
+    tone: "neutral",
+    treatment: "outline",
+    interactive: true,
+  }),
+  danger: stationTreatmentClasses({
+    tone: "danger",
+    treatment: "outline",
+    interactive: true,
+  }),
+  quiet: "",
+};
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   pending?: boolean;
@@ -30,7 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type={type}
         disabled={disabled || pending}
         aria-busy={pending || undefined}
-        className={`su-button su-button--${variant} ${className}`}
+        className={`su-button su-button--${variant} ${buttonTreatments[variant]} ${className}`}
       >
         {pending && (
           <LoaderCircle aria-hidden="true" className="su-spinner" size={18} />
@@ -67,6 +88,9 @@ export function ActionLink({
   variant?: Exclude<ButtonVariant, "danger">;
 }) {
   return (
-    <a {...props} className={`su-button su-button--${variant} ${className}`} />
+    <a
+      {...props}
+      className={`su-button su-button--${variant} ${buttonTreatments[variant]} ${className}`}
+    />
   );
 }

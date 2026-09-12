@@ -15,6 +15,12 @@ export interface ProjectedPoint {
   x: number;
   y: number;
   visible: boolean;
+  /** Normalised distance from the disc centre (0 at centre, 1 at the rim),
+   * `Math.sqrt(p.x*p.x + p.y*p.y)` on the azimuthal projection's own
+   * pre-radius-scale coordinates; undefined on the flat map, which has no
+   * rim. Lets the shared borders layer (#1091) apply the disc's edge-drop
+   * rule without reaching into the view's normalised-coordinate math. */
+  rim?: number;
 }
 
 export interface LocalScale {
@@ -30,6 +36,14 @@ export interface Projection {
   readonly zoomScale: number;
   /** Horizontal period in user-space px, undefined when the projection does not repeat. Wrapping stays the layer's job. */
   readonly wrapWidth?: number;
+  /** Canvas height in user-space px, set alongside `wrapWidth` on the
+   * equirectangular projection (`addWrappedRingPath` needs both); undefined
+   * on the disc, which has no wrap. */
+  readonly wrapHeight?: number;
+  /** The azimuthal disc's radius in user-space px; undefined on the flat
+   * map. Lets the shared borders layer (#1091) compute the disc's
+   * jump-break threshold without reaching into the view's own radius const. */
+  readonly discRadiusPx?: number;
   project(lat: number, lon: number): ProjectedPoint;
   scaleAt(lat: number, lon: number): LocalScale;
   /** Convert an on-screen px size into this projection's user space (the flat map's zoomDamp). */
@@ -49,6 +63,8 @@ export function createEquirectangularProjection(opts: {
     kind: "equirectangular",
     zoomScale,
     wrapWidth: width,
+    wrapHeight: height,
+    discRadiusPx: undefined,
     project: (lat, lon) => ({
       x: ((lon + 180) / 360) * width,
       y: ((90 - lat) / 180) * height,
@@ -88,6 +104,8 @@ export function createAzimuthalProjection(opts: {
     kind: "azimuthal",
     zoomScale,
     wrapWidth: undefined,
+    wrapHeight: undefined,
+    discRadiusPx: radius,
     project(lat, lon) {
       const p = azimuthalProject(lat, lon, centerLat, centerLon);
       return {
@@ -97,6 +115,10 @@ export function createAzimuthalProjection(opts: {
         // coordinates (NaN/Infinity fail every comparison, including this
         // one) -- do not simplify this back to a constant `true`.
         visible: Math.hypot(p.x, p.y) <= 1 + 1e-9,
+        // Same expression `drawAzimuthalBorders`/`drawAzimuthalStateBorders`
+        // used inline before #1091: Math.sqrt, not Math.hypot, to stay
+        // bit-identical with the pre-refactor rim-drop check.
+        rim: Math.sqrt(p.x * p.x + p.y * p.y),
       }; // == the azimuthal view's projToCanvas helper; antipode sits exactly on 1
     },
     scaleAt(lat, lon) {

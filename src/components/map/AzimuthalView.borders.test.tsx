@@ -33,6 +33,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { useMapStore } from "@/stores/mapStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { useUserStore } from "@/stores/userStore";
 import type { ReactNode } from "react";
 
@@ -93,8 +94,8 @@ class StubResizeObserver {
 }
 
 // Property sets whose values distinguish one stroked border pass from
-// another. The base-pass and night-boosted passes both reuse
-// `drawAzimuthalBorders`/`drawAzimuthalStateBorders`, so only the
+// another. The base-pass and night-boosted passes both reuse the shared
+// `drawCountryBordersLayer`/`drawStateBordersLayer` passes, so only the
 // lineWidth/strokeStyle set immediately before each call tells them apart.
 const TRACKED_PROPS = new Set(["lineWidth", "strokeStyle", "globalAlpha"]);
 
@@ -219,8 +220,9 @@ function strokeSegments(): StrokeSegment[] {
 /**
  * Expected stroked border passes with the terminator at its store default
  * (on) and both border layers on, keyed by the `lineWidth`/`strokeStyle`
- * `drawAzimuthalBorders`/`drawAzimuthalStateBorders` set right before each
- * call (see `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
+ * the shared `drawCountryBordersLayer`/`drawStateBordersLayer` passes
+ * (`bordersLayer.ts`, #1091 PR 6) set right before each call (see
+ * `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
  * (`loadMapStyle()`'s fallback -- no `propulse-map-style` key is present in
  * this test's fresh localStorage), which is why the base-pass
  * lineWidths are the satellite branch's 0.8/0.5 rather than standard's
@@ -268,6 +270,8 @@ const EXPECTED_SEGMENTS = [
 describe("AzimuthalView border batching (#1150)", () => {
   const originalLayers = useMapStore.getState().layers;
   const originalLabelOptions = useMapStore.getState().labelOptions;
+  const originalMapStyle = useMapStore.getState().mapStyle;
+  const originalThemeId = useThemeStore.getState().themeId;
 
   beforeEach(() => {
     expandGroup.mockClear();
@@ -301,7 +305,9 @@ describe("AzimuthalView border batching (#1150)", () => {
     useMapStore.setState({
       layers: originalLayers,
       labelOptions: originalLabelOptions,
+      mapStyle: originalMapStyle,
     });
+    useThemeStore.getState().setTheme(originalThemeId);
   });
 
   it("strokes every accumulated ring for the standard and night-boosted country/state passes", async () => {
@@ -330,6 +336,44 @@ describe("AzimuthalView border batching (#1150)", () => {
           `${expected.label} should have accumulated most of its ~${expected.observedMoveLineCount} rings`,
         ).toBeGreaterThan(expected.minMoveLineCount);
       }
+    }
+  });
+
+  // #1091 PR 6 closes a reported coverage gap: the disc's light-theme drift
+  // (tracked in #1173) is a hardcoded `lightTheme: false` at both border
+  // call sites in AzimuthalView.tsx, which only becomes observable when
+  // `mapStyle === "standard"` (the colour ternary in bordersLayer.ts's
+  // `countryBorderStyle`/`stateBorderStyle` only reads `lightTheme` inside
+  // the `standardMode` branch) -- the test above mounts with the
+  // `loadMapStyle()` fallback ("satellite"), where `lightTheme` is inert,
+  // so it could never have caught a regression here.
+  it("keeps drawing white borders in standard mode when the theme store is light (#1173)", async () => {
+    useMapStore.setState({ mapStyle: "standard" });
+    useThemeStore.getState().setTheme("light");
+
+    await mount();
+
+    const segments = strokeSegments();
+    const country = segments.filter(
+      (segment) =>
+        segment.lineWidth === 1.0 &&
+        segment.strokeStyle === "rgba(255, 255, 255, 0.65)",
+    );
+    const state = segments.filter(
+      (segment) =>
+        segment.lineWidth === 0.7 &&
+        segment.strokeStyle === "rgba(255, 255, 255, 0.45)",
+    );
+    expect(
+      country.length,
+      "base-pass country borders, light theme",
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      state.length,
+      "base-pass state borders, light theme",
+    ).toBeGreaterThanOrEqual(1);
+    for (const match of [...country, ...state]) {
+      expect(match.beginPathCount).toBe(1);
     }
   });
 });

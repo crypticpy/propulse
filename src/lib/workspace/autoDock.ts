@@ -26,9 +26,10 @@
  *      rails: rails whose orientation matches the widget's `aspect` (or any
  *      rail, if the widget is `transposable`, `any`, or `square`) are tried
  *      first, then the rest, in the canvas's declared rail order (left,
- *      then right, then bottom). The first candidate with room takes it, so
- *      a full left rail already falls back to right, and vice versa, before
- *      anything is refused.
+ *      then right, then bottom, then top). The first candidate with room
+ *      takes it, so a full left rail already falls back to right, and vice
+ *      versa, before anything is refused. A full top rail falls back to the
+ *      other rails the same way.
  *   3. A widget that fits no eligible rail is refused with a sentence
  *      naming every eligible rail's fullness (owner decision, plan §10 Q3:
  *      refuse, never evict, never spill).
@@ -226,9 +227,10 @@ export function autoDock(
       continue;
     }
 
-    // Try every eligible rail (left -> right -> bottom, the array order in
-    // `CanvasRules.rails`) before refusing: a full left rail falls back to
-    // right, a full right rail falls back to left, and so on.
+    // Try every eligible rail (left -> right -> bottom -> top, the array
+    // order in `CanvasRules.rails`) before refusing: a full left rail falls
+    // back to right, a full top rail falls back to the remaining rails, and
+    // so on.
     const fit = candidates.find((rail) => (used.get(rail.side) ?? 0) + entry.weight <= rail.weightBudget);
     if (fit) {
       used.set(fit.side, (used.get(fit.side) ?? 0) + entry.weight);

@@ -10,12 +10,21 @@
  *
  * Mounts the real `AzimuthalView` (same canvas-recorder + station setup as
  * `AzimuthalView.hazards.test.tsx`) with both `labelOptions.borders` and
- * `labelOptions.stateBorders` enabled, and the terminator layer disabled so
- * the night-boosted border pass (which calls the same two draw functions a
- * second time under a clip) doesn't double the counts. For each `stroke` op
- * in the recorded frame, it counts the `beginPath` ops since the previous
- * `stroke` and asserts there is exactly one -- and that hundreds of
- * `moveTo`/`lineTo` ops were accumulated under it, not just the last ring's.
+ * `labelOptions.stateBorders` enabled, and the terminator layer left at its
+ * store default (on, see `mapStore.ts`'s `layers.terminator: true`), so the
+ * night-boosted border pass (`drawAzimuthalNightBoostedBorders`, which
+ * redraws country/state borders a second time inside a clipped path) is
+ * exercised too -- not just the config with the terminator forced off.
+ *
+ * For each `stroke` op in the recorded frame, groups the
+ * `beginPath`/`moveTo`/`lineTo` ops since the previous `stroke` (discounting
+ * a `beginPath` that is consumed by a `clip()` first -- that's the
+ * night-boosted pass's own clip polygon, never stroked, not a border path)
+ * and keys the resulting segments by the `lineWidth`/`strokeStyle` the code
+ * sets immediately before each pass, so the base-pass and
+ * night-boosted country and state batches can each be asserted
+ * individually against their own observed magnitude instead of one shared
+ * arbitrary floor.
  */
 import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -60,8 +69,7 @@ vi.mock("@/hooks/useViewMapSpots", () => ({
 
 interface CanvasOp {
   name: string;
-  args: number[];
-  strArgs: unknown[];
+  value?: number | string;
 }
 
 const ops: CanvasOp[] = [];
@@ -84,8 +92,16 @@ class StubResizeObserver {
   disconnect() {}
 }
 
+// Property sets whose values distinguish one stroked border pass from
+// another. The base-pass and night-boosted passes both reuse
+// `drawAzimuthalBorders`/`drawAzimuthalStateBorders`, so only the
+// lineWidth/strokeStyle set immediately before each call tells them apart.
+const TRACKED_PROPS = new Set(["lineWidth", "strokeStyle", "globalAlpha"]);
+
 /**
- * Same recorder technique as `AzimuthalView.hazards.test.tsx`. Answers every
+ * Same recorder technique as `AzimuthalView.hazards.test.tsx`, extended to
+ * also record the property sets (`lineWidth`/`strokeStyle`/`globalAlpha`)
+ * and `clip()` calls that the batching test needs. Answers every
  * `getContext()` call the same way regardless of context id, so the WebGL
  * globe init path resolves harmlessly while the 2D overlay canvas we care
  * about records its real draw calls.
@@ -97,8 +113,8 @@ function installCanvasRecorder() {
     {
       get: (_target, prop: string) => {
         if (prop === "canvas") return { width: 600, height: 600 };
-        return (...args: unknown[]) => {
-          ops.push({ name: prop, args: args.map(Number), strArgs: args });
+        return (..._args: unknown[]) => {
+          ops.push({ name: prop });
           if (prop === "measureText") return { width: 10 };
           if (
             prop === "createLinearGradient" ||
@@ -111,7 +127,12 @@ function installCanvasRecorder() {
           return undefined;
         };
       },
-      set: () => true,
+      set: (_target, prop: string, value: unknown) => {
+        if (TRACKED_PROPS.has(prop)) {
+          ops.push({ name: `set:${prop}`, value: value as number | string });
+        }
+        return true;
+      },
     },
   );
   HTMLCanvasElement.prototype.getContext = vi.fn(() => context) as never;
@@ -136,41 +157,113 @@ function Wrap({ children }: { children: ReactNode }) {
   );
 }
 
+// Fixed so `getSubsolarPoint` (and therefore the night-boosted pass's clip
+// polygon) is deterministic. Passed directly as the `displayTime` prop, so
+// no `vi.setSystemTime` is needed -- the component never reads the real
+// clock for this path.
+const DISPLAY_TIME = new Date("2026-09-09T12:00:00Z");
+
 async function mount() {
   installCanvasRecorder();
   const { AzimuthalView } = await import("@/components/map/AzimuthalView");
   return render(
     <Wrap>
-      <AzimuthalView displayTime={new Date("2026-09-09T12:00:00Z")} />
+      <AzimuthalView displayTime={DISPLAY_TIME} />
     </Wrap>,
   );
 }
 
+interface StrokeSegment {
+  lineWidth: number | undefined;
+  strokeStyle: string | undefined;
+  beginPathCount: number;
+  moveLineCount: number;
+}
+
 /**
- * For every `stroke` op, count how many `moveTo`/`lineTo` ops were recorded
- * since the immediately preceding `beginPath`, and how many `beginPath` ops
- * occurred since the previous `stroke`. Border strokes should show exactly
- * one `beginPath` and hundreds of accumulated move/line ops; the pre-fix
- * bug produces one `beginPath` per ring, so only the last ring's handful of
- * points survive to the stroke.
+ * For every `stroke` op, group the `beginPath`/`moveTo`/`lineTo` ops since
+ * the previous `stroke` and tag the group with whatever `lineWidth`/
+ * `strokeStyle` were last set. A `beginPath` that is consumed by a `clip()`
+ * before any `stroke()` belongs to the night-boosted pass's clip polygon
+ * (closed with `closePath()` + `clip()`, never stroked), not to a stroked
+ * border path, so it (and its move/line ops) is discarded rather than
+ * carried into the next stroked segment's counts.
  */
-function strokeSegments() {
-  const segments: { beginPathCount: number; moveLineCount: number }[] = [];
+function strokeSegments(): StrokeSegment[] {
+  const segments: StrokeSegment[] = [];
   let beginPathCount = 0;
   let moveLineCount = 0;
+  let lineWidth: number | undefined;
+  let strokeStyle: string | undefined;
   for (const op of ops) {
-    if (op.name === "beginPath") {
+    if (op.name === "set:lineWidth") {
+      lineWidth = op.value as number;
+    } else if (op.name === "set:strokeStyle") {
+      strokeStyle = op.value as string;
+    } else if (op.name === "beginPath") {
       beginPathCount++;
       moveLineCount = 0;
     } else if (op.name === "moveTo" || op.name === "lineTo") {
       moveLineCount++;
+    } else if (op.name === "clip") {
+      beginPathCount = 0;
+      moveLineCount = 0;
     } else if (op.name === "stroke") {
-      segments.push({ beginPathCount, moveLineCount });
+      segments.push({ lineWidth, strokeStyle, beginPathCount, moveLineCount });
       beginPathCount = 0;
     }
   }
   return segments;
 }
+
+/**
+ * Expected stroked border passes with the terminator at its store default
+ * (on) and both border layers on, keyed by the `lineWidth`/`strokeStyle`
+ * `drawAzimuthalBorders`/`drawAzimuthalStateBorders` set right before each
+ * call (see `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
+ * (`loadMapStyle()`'s fallback -- no `propulse-map-style` key is present in
+ * this test's fresh localStorage), which is why the base-pass
+ * lineWidths are the satellite branch's 0.8/0.5 rather than standard's
+ * 1.0/0.7.
+ *
+ * `minMoveLineCount` is pinned at more than half of the observed
+ * move/line-op count for that pass (observed counts noted per entry, from
+ * an instrumented run against this exact station/time/config) -- comfortably
+ * above the ~20-country slice a truncated loop would produce, but below the
+ * real total, so a regression that keeps single-beginPath batching but
+ * drops most rings (e.g. a tightened rim-distance cutoff or an early
+ * `break`) still fails the count check.
+ */
+const EXPECTED_SEGMENTS = [
+  {
+    label: "base-pass country borders",
+    lineWidth: 0.8,
+    strokeStyle: "rgba(255, 255, 255, 0.3)",
+    observedMoveLineCount: 10575,
+    minMoveLineCount: 5300,
+  },
+  {
+    label: "base-pass state borders",
+    lineWidth: 0.5,
+    strokeStyle: "rgba(255, 255, 255, 0.2)",
+    observedMoveLineCount: 14456,
+    minMoveLineCount: 7300,
+  },
+  {
+    label: "night-boosted country borders",
+    lineWidth: 1,
+    strokeStyle: "rgba(255, 255, 255, 0.55)",
+    observedMoveLineCount: 10575,
+    minMoveLineCount: 5300,
+  },
+  {
+    label: "night-boosted state borders",
+    lineWidth: 0.7,
+    strokeStyle: "rgba(255, 255, 255, 0.4)",
+    observedMoveLineCount: 14456,
+    minMoveLineCount: 7300,
+  },
+] as const;
 
 describe("AzimuthalView border batching (#1150)", () => {
   const originalLayers = useMapStore.getState().layers;
@@ -182,10 +275,10 @@ describe("AzimuthalView border batching (#1150)", () => {
       StubResizeObserver;
     Element.prototype.getBoundingClientRect = () => STUB_RECT;
     useMapStore.setState({
-      // Disable the terminator so the night-boosted border pass (which
-      // redraws country/state borders a second time under a clip) doesn't
-      // add a second pair of beginPath/stroke segments to count.
-      layers: { ...originalLayers, terminator: false },
+      // Terminator stays at the store default (on) so the night-boosted
+      // border pass -- what a default user actually sees -- is covered,
+      // not just the country/state passes alone.
+      layers: originalLayers,
       labelOptions: {
         ...originalLabelOptions,
         borders: true,
@@ -211,25 +304,32 @@ describe("AzimuthalView border batching (#1150)", () => {
     });
   });
 
-  it("strokes every accumulated ring for both country and state borders", async () => {
+  it("strokes every accumulated ring for the standard and night-boosted country/state passes", async () => {
     await mount();
 
-    const segments = strokeSegments().filter(
-      (segment) => segment.moveLineCount > 0,
-    );
+    const segments = strokeSegments();
 
-    // Both the country-border pass and the state-border pass should have
-    // stroked exactly one accumulated path (one beginPath before the whole
-    // batch of rings) with hundreds of move/line ops -- not one beginPath
-    // per ring, which would leave only a handful of points (the last ring)
-    // by the time stroke() runs.
-    const borderSegments = segments.filter(
-      (segment) => segment.moveLineCount > 50,
-    );
-    expect(borderSegments.length).toBeGreaterThanOrEqual(2);
+    for (const expected of EXPECTED_SEGMENTS) {
+      const matches = segments.filter(
+        (segment) =>
+          segment.lineWidth === expected.lineWidth &&
+          segment.strokeStyle === expected.strokeStyle,
+      );
 
-    for (const segment of borderSegments) {
-      expect(segment.beginPathCount).toBe(1);
+      expect(
+        matches.length,
+        `expected to find ${expected.label}`,
+      ).toBeGreaterThanOrEqual(1);
+
+      for (const match of matches) {
+        // One beginPath per stroked batch -- not one per ring (the
+        // pre-fix bug) and not inflated by the clip polygon's beginPath.
+        expect(match.beginPathCount, expected.label).toBe(1);
+        expect(
+          match.moveLineCount,
+          `${expected.label} should have accumulated most of its ~${expected.observedMoveLineCount} rings`,
+        ).toBeGreaterThan(expected.minMoveLineCount);
+      }
     }
   });
 });

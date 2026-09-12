@@ -9,6 +9,7 @@
  * Uses batch occlusion for performance with many simultaneous alerts.
  */
 
+import { getWeatherSeverityColor as severityColor } from "@/lib/colors/palettes/weather";
 import React, {
   useRef,
   useMemo,
@@ -25,6 +26,8 @@ import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
 } from "@/lib/map/globeRenderOrder";
+
+export { ALERT_SEVERITY_COLORS } from "@/lib/colors/palettes/weather";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -116,31 +119,6 @@ function getUpDirection(lat: number, lon: number): THREE.Vector3 {
     Math.cos(phi),
     Math.sin(phi) * Math.sin(theta),
   ).normalize();
-}
-
-/**
- * Severity color map matching the 2D FlatMapView palette. Exported so
- * LayerLegend (src/lib/map/layerLegends.ts) can render a legend that can
- * never drift out of sync with the actual marker colors.
- */
-export const ALERT_SEVERITY_COLORS: Record<
-  "Extreme" | "Severe" | "Moderate" | "Minor",
-  string
-> = {
-  Extreme: "#ff0040",
-  Severe: "#ff6600",
-  Moderate: "#ffaa00",
-  Minor: "#ffdd44",
-};
-
-/**
- * Return the severity color matching the 2D FlatMapView palette.
- */
-function severityColor(severity: WeatherAlert["severity"]): string {
-  return (
-    ALERT_SEVERITY_COLORS[severity as keyof typeof ALERT_SEVERITY_COLORS] ??
-    ALERT_SEVERITY_COLORS.Minor
-  );
 }
 
 /**

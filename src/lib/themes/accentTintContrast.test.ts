@@ -929,7 +929,7 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/cluster/ClusterConnectionForm.tsx",
     what: "the compact filter-count badge",
-    snippet: `bg-plasma-orange/20 text-su-text text-[10px] leading-none normal-case tracking-normal"`,
+    snippet: `bg-plasma-orange/20 text-su-text text-xs leading-none normal-case tracking-normal"`,
   },
   {
     file: "src/components/cluster/ClusterConnectionForm.tsx",

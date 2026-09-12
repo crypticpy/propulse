@@ -218,7 +218,7 @@ export function ContactThisStation({
   return (
     <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-5 space-y-4">
       {/* Section header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted">
         Contact This Station
       </h3>
 
@@ -245,7 +245,7 @@ export function ContactThisStation({
 
       {/* Band conditions bar chart */}
       <div className="space-y-1.5">
-        <h4 className="text-[10px] uppercase tracking-widest text-su-muted">
+        <h4 className="text-xs uppercase tracking-widest text-su-muted">
           Band Conditions
         </h4>
         <BandConditionsBar
@@ -261,7 +261,7 @@ export function ContactThisStation({
           {sharedBands.map((band) => (
             <span
               key={`band-${band}`}
-              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30"
+              className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30"
             >
               {band}
             </span>
@@ -269,7 +269,7 @@ export function ContactThisStation({
           {sharedModes.map((mode) => (
             <span
               key={`mode-${mode}`}
-              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30"
+              className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30"
             >
               {mode}
             </span>
@@ -280,7 +280,7 @@ export function ContactThisStation({
       {/* Schedule overlap */}
       {hasScheduleData && (
         <div className="space-y-1.5">
-          <h4 className="text-[10px] uppercase tracking-widest text-su-muted">
+          <h4 className="text-xs uppercase tracking-widest text-su-muted">
             Schedule Overlap
           </h4>
           <ScheduleOverlap
@@ -295,7 +295,7 @@ export function ContactThisStation({
       {/* Best recommendation card */}
       {recommendations.length > 0 && (
         <div className="bg-plasma-orange/10 border border-plasma-orange/20 rounded-xl px-4 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-plasma-orange/70 mb-1">
+          <div className="text-xs uppercase tracking-widest text-plasma-orange/70 mb-1">
             Recommendation
           </div>
           {recommendations.map((rec, i) => (

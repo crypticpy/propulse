@@ -286,7 +286,7 @@ export function SporadicELayer({
 
           {/* Sub-label with bands and duration */}
           <div
-            className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap"
+            className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs whitespace-nowrap"
             style={{
               backgroundColor: "rgba(30, 10, 40, 0.7)",
               color: "rgba(233, 121, 249, 0.7)",

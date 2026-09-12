@@ -391,7 +391,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
         aria-label="Expand contest rate panel"
         role="status"
       >
-        <span className="text-[10px] uppercase tracking-wider text-su-text/80 font-semibold">
+        <span className="text-xs uppercase tracking-wider text-su-text/80 font-semibold">
           RATE
         </span>
         <span className="tabular-nums font-semibold text-su-text">
@@ -428,7 +428,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
           <span className="text-xs font-medium text-su-text truncate max-w-[200px]">
             {contestName}
           </span>
-          <span className="text-[10px] text-su-text/80 tabular-nums">
+          <span className="text-xs text-su-text/80 tabular-nums">
             {formatDuration(activeSession.startTime)} elapsed
           </span>
         </div>
@@ -461,7 +461,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
           <span className="text-xs text-su-text/80">/hr</span>
           <TrendArrow trend={rateSnapshot.trend} />
         </div>
-        <div className="text-[10px] text-su-text/80 mt-0.5">
+        <div className="text-xs text-su-text/80 mt-0.5">
           10-min rolling average
         </div>
       </div>
@@ -471,7 +471,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
         <>
           <div className="border-t border-su-line/20" />
           <div className="px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5">
+            <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5">
               Rate by Band
             </div>
             <div className="space-y-1">
@@ -483,7 +483,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
                 const color = bandColor(band);
                 return (
                   <div key={band} className="flex items-center gap-2">
-                    <span className="text-[10px] text-su-text/80 w-8 text-right shrink-0 tabular-nums">
+                    <span className="text-xs text-su-text/80 w-8 text-right shrink-0 tabular-nums">
                       {band}
                     </span>
                     <div className="flex-1 h-3 rounded-sm overflow-hidden bg-su-line/10">
@@ -496,7 +496,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
                         }}
                       />
                     </div>
-                    <span className="text-[10px] text-su-text/80 w-6 text-right shrink-0 tabular-nums">
+                    <span className="text-xs text-su-text/80 w-6 text-right shrink-0 tabular-nums">
                       {rate}
                     </span>
                   </div>
@@ -514,7 +514,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
           <div className="px-3 py-2">
             <div
               className={`
-                text-[11px] px-2 py-1.5 rounded-md border
+                text-xs px-2 py-1.5 rounded-md border
                 ${adviceStyle.border} ${adviceStyle.bg} ${adviceStyle.text}
                 ${isOpportunity ? "contest-rate-pulse" : ""}
               `}
@@ -530,7 +530,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
 
       {/* ── Score summary ── */}
       <div className="border-t border-su-line/20" />
-      <div className="px-3 py-2 flex items-center justify-between text-[10px] text-su-text/80">
+      <div className="px-3 py-2 flex items-center justify-between text-xs text-su-text/80">
         <div className="flex items-center gap-3">
           <span>
             <span className="text-su-text/70 font-medium tabular-nums">

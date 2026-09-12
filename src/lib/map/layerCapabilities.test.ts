@@ -123,6 +123,14 @@ describe("PropSphere renderer capability matrix", () => {
     });
   });
 
+  it("offers the dashed terminator switch on all three views", () => {
+    for (const view of ["globe", "flat", "azimuthal"] as const) {
+      expect(getLayerAvailability("terminatorDashed", view)).toEqual({
+        available: true,
+      });
+    }
+  });
+
   it("rejects stale or external layer keys", () => {
     expect(getLayerAvailability("not-a-layer", "globe")).toEqual({
       available: false,

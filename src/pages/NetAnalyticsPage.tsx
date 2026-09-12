@@ -524,7 +524,7 @@ export function NetAnalyticsPage() {
                       className="flex flex-col items-center flex-1 gap-1"
                     >
                       {count > 0 && (
-                        <span className="text-[9px] text-su-muted font-mono">
+                        <span className="text-xs text-su-muted font-mono">
                           {count}
                         </span>
                       )}
@@ -541,7 +541,7 @@ export function NetAnalyticsPage() {
                           }}
                         />
                       </div>
-                      <span className="text-[10px] text-su-muted font-mono">
+                      <span className="text-xs text-su-muted font-mono">
                         {DAY_LABELS[i]}
                       </span>
                     </div>
@@ -562,7 +562,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4 flex flex-col gap-1">
       <span className="text-2xl font-bold text-su-text">{value}</span>
-      <span className="text-[10px] uppercase tracking-widest text-su-muted">
+      <span className="text-xs uppercase tracking-widest text-su-muted">
         {label}
       </span>
     </div>
@@ -578,7 +578,7 @@ function ChartCard({
 }) {
   return (
     <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
-      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
         {title}
       </h3>
       {children}

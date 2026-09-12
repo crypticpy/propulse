@@ -775,7 +775,7 @@ export function FullscreenPropSphere({
                   {PANEL_ICONS[panelId] ?? null}
                 </span>
                 <span
-                  className="text-[9px] font-semibold text-su-text/70 whitespace-nowrap tracking-wide"
+                  className="text-xs font-semibold text-su-text/70 whitespace-nowrap tracking-wide"
                   style={{
                     writingMode: "vertical-rl",
                     textOrientation: "mixed",
@@ -806,7 +806,7 @@ export function FullscreenPropSphere({
           <div className="bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-xl px-5 py-3 flex items-center gap-4">
             <span className="font-mono text-lg text-su-text/90 tracking-wider tabular-nums">
               {utcString}
-              <span className="text-[10px] text-su-text/80 ml-1.5">UTC</span>
+              <span className="text-xs text-su-text/80 ml-1.5">UTC</span>
             </span>
             <div className="w-px h-5 bg-su-line/30" />
             <WatchStatusPill />

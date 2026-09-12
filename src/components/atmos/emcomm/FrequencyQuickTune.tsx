@@ -59,7 +59,7 @@ function TuneButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="shrink-0 px-2.5 py-1 rounded text-[10px] font-mono font-bold tracking-wider bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25 border border-plasma-orange/20 transition-colors"
+      className="shrink-0 px-2.5 py-1 rounded text-xs font-mono font-bold tracking-wider bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25 border border-plasma-orange/20 transition-colors"
     >
       TUNE
     </button>
@@ -68,7 +68,7 @@ function TuneButton({ onClick }: { onClick: () => void }) {
 
 function ModeBadge({ mode }: { mode: string }) {
   return (
-    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-su-line/10 text-su-muted border border-su-line/20">
+    <span className="inline-block px-1.5 py-0.5 rounded text-xs font-mono font-semibold bg-su-line/10 text-su-muted border border-su-line/20">
       {mode}
     </span>
   );
@@ -89,7 +89,7 @@ function FrequencyRow({ entry }: { entry: FrequencyPlanEntry }) {
           </span>
           <ModeBadge mode={entry.mode} />
         </div>
-        <p className="text-[11px] text-su-muted truncate mt-0.5">
+        <p className="text-xs text-su-muted truncate mt-0.5">
           {entry.purpose}
         </p>
       </div>
@@ -117,7 +117,7 @@ function EmergencyFrequencyRow({
           </span>
           <ModeBadge mode={freq.mode} />
         </div>
-        <p className="text-[11px] text-su-muted truncate mt-0.5">
+        <p className="text-xs text-su-muted truncate mt-0.5">
           {freq.description}
         </p>
       </div>
@@ -138,7 +138,7 @@ export function FrequencyQuickTune() {
     <div className="space-y-3">
       {/* Active frequency plan entries */}
       <div>
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
           Frequency Plan
         </h4>
         {activePlan ? (
@@ -161,7 +161,7 @@ export function FrequencyQuickTune() {
 
       {/* Emergency frequencies */}
       <div>
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
           Emergency Frequencies
         </h4>
         <div className="rounded-md border border-su-line/20 bg-void-black/30 overflow-hidden">

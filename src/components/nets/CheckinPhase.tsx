@@ -66,7 +66,7 @@ export function CheckinPhase({
           <span
             className={`
               inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full
-              ${hasCheckins ? "bg-signal-green/20 text-signal-green border border-signal-green/30" : "bg-su-line/10 text-su-muted border border-su-line/50"}
+              ${hasCheckins ? "bg-signal-green/20 text-su-text border border-signal-green/30" : "bg-su-line/10 text-su-muted border border-su-line/50"}
               transition-colors
             `}
             aria-label={`${count} check-in${count !== 1 ? "s" : ""}`}

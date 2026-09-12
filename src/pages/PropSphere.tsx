@@ -49,6 +49,7 @@ import { SatelliteDetailModal } from "@/components/map/layers";
 import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
+import { FramedGlobeSatellitesPanel } from "@/components/map/FramedGlobeSatellitesPanel";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
 import { revealPropSpherePathAnalysis } from "@/components/map/openPathAnalysis";
 import { MapToolbarShell } from "@/components/map/MapToolbarShell";
@@ -1299,6 +1300,10 @@ export function PropSphere() {
 
                 {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
                 {layers.issTracker && <ISSSkyTracker />}
+
+                {/* Persistent Satellites list — framed 3D globe (#1083).
+                    Pro mounts the same SatellitePanel from FullscreenPropSphere. */}
+                <FramedGlobeSatellitesPanel />
 
                 {/* Bottom-right corner column. PropSphere owns this corner:
                     the tilt slider, the simulated-time warning, the labels

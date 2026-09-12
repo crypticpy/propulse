@@ -226,14 +226,18 @@ describe("traceRayPath", () => {
 
   it("declares what it stands in for", () => {
     const result = trace("short");
-    expect(result.assumptions.join(" ")).toContain("300 km");
-    // fL stopped being a stand-in in #1108: every crossing carries its own
-    // |fH sin(dip)| at 100 km, so claiming the 1.2 MHz scalar here would be
-    // the engine describing something it no longer does.
-    expect(result.assumptions.join(" ")).not.toContain("1.2 MHz");
-    expect(result.assumptions.join(" ")).toContain(
-      "applied per crossing inside the mean",
+    const declared = result.assumptions.join(" ");
+    expect(declared).toContain("300 km");
+    // fL stopped being a stand-in in #1108. The engine now names its own
+    // source for it, and the leaf's fallback sentence must be absent: the
+    // predicate is that sentence, not the string "1.2 MHz", which the engine
+    // legitimately quotes while saying it is not used.
+    expect(declared).toContain(
+      "|fH sin(dip)| from the six-degree Magfit field expansion evaluated at " +
+        "100 km at each D-region crossing",
     );
+    expect(declared).not.toContain("used because no value was supplied");
+    expect(declared).toContain("applied per crossing inside the mean");
   });
 
   it("declares the mirror height it used, not the one it defaults to", () => {

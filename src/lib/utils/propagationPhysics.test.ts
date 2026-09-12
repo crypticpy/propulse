@@ -365,74 +365,115 @@ describe("item 9 - auroral penalty uses geomagnetic latitude", () => {
 });
 
 describe("the longitudinal gyrofrequency reaches the absorption (#1108)", () => {
-  const AT = new Date("2026-03-21T12:00:00Z");
+  // Two lit crossings, each near its own local solar noon on the equinox, so
+  // the difference these tests measure is a real daytime absorption and not a
+  // night-time number rounding to nothing. SFI 140, vertical incidence.
+  const KENYA_AT = new Date("2026-03-21T09:28:00Z");
+  const FAIRBANKS_AT = new Date("2026-03-21T21:51:00Z");
+  const SFI = 140;
 
   function standIn(
     lat: number,
     lon: number,
+    at: Date,
     frequencyMHz: number,
-    sfi: number,
   ): number {
-    // The same crossing context the adapter builds, with the module's declared
-    // 1.2 MHz scalar instead of the field model's fL. Everything else matches,
-    // so the difference between the two is the fL correction and nothing else.
+    // The same crossing context the adapter builds, with the absorption leaf's
+    // declared 1.2 MHz scalar forced in place of the field model's fL.
+    // Everything else matches, so the difference between the two calls is the
+    // fL correction and nothing else.
     return calculateDLayerAbsorption(
       frequencyMHz,
-      calculateZenithAngle(lat, lon, AT),
-      sfi,
+      calculateZenithAngle(lat, lon, at),
+      SFI,
       90,
       {
         latitudeDeg: lat,
-        monthIndex: AT.getUTCMonth(),
+        monthIndex: at.getUTCMonth(),
         modifiedDipDeg: modifiedDipAngle(lat, lon),
-        date: AT,
+        date: at,
         gyrofrequencyMHz: DEFAULT_GYROFREQUENCY_MHZ,
       },
     );
   }
 
-  it("absorbs 0.498 dB more at the dip equator at 14 MHz than the 1.2 MHz stand-in", () => {
-    // Kenya, 0 N 38 E: fL = 0.353066 MHz at 100 km, so the (f + fL)^2 divisor
-    // shrinks and the circuit absorbs more than the declared scalar says.
-    const corrected = getAbsorptionAtLocation(0, 38, AT, 14, 150);
-    const declared = standIn(0, 38, 14, 150);
-    expect(corrected).toBeGreaterThan(declared);
-    expect(10 * Math.log10(corrected / declared)).toBeCloseTo(0.497978, 4);
+  it("absorbs 0.3270 dB more at the dip equator at 14 MHz than the 1.2 MHz stand-in", () => {
+    // Kenya, 0 N 38 E at local noon: fL = 0.353066 MHz at 100 km, so the
+    // (f + fL)^2 divisor shrinks and the circuit absorbs more than the declared
+    // scalar says. A decibel difference is only meaningful next to the loss it
+    // is a difference of, so both are pinned.
+    const corrected = getAbsorptionAtLocation(0, 38, KENYA_AT, 14, SFI);
+    const declared = standIn(0, 38, KENYA_AT, 14);
+    expect(declared).toBeCloseTo(2.691181, 4);
+    expect(corrected).toBeCloseTo(3.018149, 4);
+    expect(corrected - declared).toBeCloseTo(0.326968, 4);
   });
 
   it("flips sign at high dip, where fL exceeds the stand-in", () => {
-    // Fairbanks, 64.84 N 147.72 W: fL = 1.486163 MHz, above 1.2, so the
-    // corrected circuit absorbs less.
-    const corrected = getAbsorptionAtLocation(64.84, -147.72, AT, 14, 150);
-    const declared = standIn(64.84, -147.72, 14, 150);
-    expect(corrected).toBeLessThan(declared);
-    expect(10 * Math.log10(corrected / declared)).toBeCloseTo(-0.162005, 4);
+    // Fairbanks, 64.84 N 147.72 W at local noon: fL = 1.486163 MHz, above 1.2,
+    // so the corrected circuit absorbs less.
+    const corrected = getAbsorptionAtLocation(
+      64.84,
+      -147.72,
+      FAIRBANKS_AT,
+      14,
+      SFI,
+    );
+    const declared = standIn(64.84, -147.72, FAIRBANKS_AT, 14);
+    expect(declared).toBeCloseTo(1.249101, 4);
+    expect(corrected).toBeCloseTo(1.203364, 4);
+    expect(corrected - declared).toBeCloseTo(-0.045737, 4);
   });
 
-  it("keeps the global 14 MHz correction inside +0.714 dB and -0.332 dB", () => {
-    // Equation (20) divides by (f + fL)^2, so the numerator cancels and the
-    // correction is exactly 20 log10((f + 1.2) / (f + fL)) dB everywhere. The
-    // issue quotes "about 0.9 dB"; the shipped expansion actually gives these
-    // two cells, and pinning the measured extremes is what makes a later change
-    // that widens the correction fail here rather than quietly reclassify a
-    // band on the wall.
-    let max = { db: -Infinity, lat: NaN, lon: NaN };
-    let min = { db: Infinity, lat: NaN, lon: NaN };
+  it("keeps the global 14 MHz absorption factor inside 1.1788 and 0.9265", () => {
+    // What the corrected fL changes is a *multiplier* on equation (20)'s loss,
+    // Li(fL) / Li(1.2) = ((f + 1.2) / (f + fL))^2, because the crossing terms,
+    // the SSN factor and cos i_110 are common to both. Equation (20) is already
+    // a loss in dB, so there is no frequency-only decibel bound to quote: the
+    // change in dB is Li(1.2) * (factor - 1) and scales with the circuit. The
+    // issue's "about 0.9 dB" is that conflation. Pinning the factor extremes
+    // and the cells they fall in is what makes a later change that widens the
+    // correction fail here rather than quietly reclassify a band on the wall.
+    let max = { factor: -Infinity, lat: NaN, lon: NaN };
+    let min = { factor: Infinity, lat: NaN, lon: NaN };
     for (let lat = -90; lat <= 90; lat += 1) {
       for (let lon = -180; lon <= 180; lon += 2) {
         const fL = longitudinalGyrofrequencyMHz(lat * D2R, lon * D2R);
-        const db =
-          20 * Math.log10((14 + DEFAULT_GYROFREQUENCY_MHZ) / (14 + fL));
-        if (db > max.db) max = { db, lat, lon };
-        if (db < min.db) min = { db, lat, lon };
+        const factor = ((14 + DEFAULT_GYROFREQUENCY_MHZ) / (14 + fL)) ** 2;
+        if (factor > max.factor) max = { factor, lat, lon };
+        if (factor < min.factor) min = { factor, lat, lon };
       }
     }
-    expect(max.db).toBeCloseTo(0.714311, 3);
+    // The maximum cell is where the magnetic dip equator crosses the grid, so
+    // sin(dip) is effectively zero and fL with it; the minimum is high southern
+    // dip, fL = 1.791 MHz.
+    expect(max.factor).toBeCloseTo(1.178775, 5);
     expect(max.lat).toBe(-7);
     expect(max.lon).toBe(-100);
-    expect(min.db).toBeCloseTo(-0.331557, 3);
+    expect(min.factor).toBeCloseTo(0.926498, 5);
     expect(min.lat).toBe(-65);
     expect(min.lon).toBe(144);
-    expect(max.db - min.db).toBeCloseTo(1.045868, 3);
+  });
+
+  it("turns the factor into decibels only against a stated reference loss", () => {
+    // The same two extreme cells at local noon on the equinox, SFI 140,
+    // vertical. These are examples of what the factor costs a real circuit,
+    // never a bound: a deeper circuit pays more decibels for the same factor.
+    const maxCellAt = new Date("2026-03-21T18:40:00Z");
+    const minCellAt = new Date("2026-03-21T02:24:00Z");
+    const maxCell =
+      getAbsorptionAtLocation(-7, -100, maxCellAt, 14, SFI) -
+      standIn(-7, -100, maxCellAt, 14);
+    const minCell =
+      getAbsorptionAtLocation(-65, 144, minCellAt, 14, SFI) -
+      standIn(-65, 144, minCellAt, 14);
+    expect(maxCell).toBeCloseTo(0.407963, 4);
+    expect(minCell).toBeCloseTo(-0.091035, 4);
+    // And the same factor costs more decibels at 7 MHz, where the loss is
+    // larger, which is precisely why the bound is on the factor.
+    expect(
+      getAbsorptionAtLocation(-7, -100, maxCellAt, 7, SFI) -
+        standIn(-7, -100, maxCellAt, 7),
+    ).toBeGreaterThan(maxCell);
   });
 });

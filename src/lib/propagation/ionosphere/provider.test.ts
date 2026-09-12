@@ -1320,6 +1320,15 @@ describe("the longitudinal gyrofrequency at 100 km (#1108)", () => {
           ) - probe.longitudinal_gyrofrequency_300km_mhz,
         ),
       ).toBeLessThan(tolerance);
+      // The factor the corrected fL puts on equation (20)'s loss. A ratio, not
+      // a decibel shift: equation (20) is already a loss in dB.
+      const fL = longitudinalGyrofrequencyMHz(latitudeRad, longitudeRad);
+      expect(
+        Math.abs(((14 + 1.2) / (14 + fL)) ** 2 - probe.absorption_factor_14mhz),
+      ).toBeLessThan(gyrofrequencyCases.tolerance.absorption_factor);
+      expect(
+        Math.abs(((7 + 1.2) / (7 + fL)) ** 2 - probe.absorption_factor_7mhz),
+      ).toBeLessThan(gyrofrequencyCases.tolerance.absorption_factor);
     }
   });
 

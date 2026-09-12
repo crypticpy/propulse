@@ -5,9 +5,9 @@
   "quantity": "Longitudinal gyrofrequency fL = |fH sin(dip)| of ITU-R P.533-14 equation (20), MHz.",
   "tolerance": {
     "longitudinal_gyrofrequency_mhz": 1e-6,
-    "absorption_delta_db": 0.0001
+    "absorption_factor": 1e-6
   },
-  "notes": "absorption_delta_*_db is the change in equation (20) loss when fL replaces the absorption leaf's declared 1.2 MHz scalar. Equation (20) divides by (f + fL)^2, so the numerator cancels and the change is exactly 20 log10((f + 1.2) / (f + fL)) dB. Positive means the corrected fL absorbs more than the stand-in. longitudinal_gyrofrequency_300km_mhz is the same quantity at the height the CCIR map's modip coordinate is defined at, recorded so a later refactor cannot quietly reuse the 300 km field because it is already on the state object.",
+  "notes": "absorption_factor_* is the dimensionless multiplier the corrected fL applies to the equation (20) loss of the same circuit, Li(fL) / Li(1.2) = ((f + 1.2) / (f + fL))^2. It is a ratio, not a decibel shift: equation (20) is already a loss in dB, so the change in that loss is Li(1.2) * (factor - 1) and depends on the numerator (the crossing absorption terms, the SSN factor and cos i_110). A decibel figure for this correction is only meaningful next to a stated reference absorption, which is why none is recorded here; propagationPhysics.test.ts pins two concrete differences on real getAbsorptionAtLocation calls with the date, SFI and elevation named. longitudinal_gyrofrequency_300km_mhz is the same quantity at the height the CCIR map's modip coordinate is defined at, recorded so a later refactor cannot quietly reuse the 300 km field because it is already on the state object.",
   "cases": [
     {
       "case_id": "austin-tx",
@@ -18,8 +18,8 @@
       "gyrofrequency_100km_mhz": 1.381357405,
       "longitudinal_gyrofrequency_100km_mhz": 1.195025576,
       "longitudinal_gyrofrequency_300km_mhz": 1.082633664,
-      "absorption_delta_14mhz_db": 0.002843051,
-      "absorption_delta_7mhz_db": 0.005270782
+      "absorption_factor_14mhz": 1.000654851,
+      "absorption_factor_7mhz": 1.001214379
     },
     {
       "case_id": "kenya-dip-equator",
@@ -30,8 +30,8 @@
       "gyrofrequency_100km_mhz": 0.912255709,
       "longitudinal_gyrofrequency_100km_mhz": 0.353066215,
       "longitudinal_gyrofrequency_300km_mhz": 0.308692612,
-      "absorption_delta_14mhz_db": 0.497977991,
-      "absorption_delta_7mhz_db": 0.946907511
+      "absorption_factor_14mhz": 1.121496181,
+      "absorption_factor_7mhz": 1.243628743
     },
     {
       "case_id": "fairbanks-ak",
@@ -42,8 +42,8 @@
       "gyrofrequency_100km_mhz": 1.524874149,
       "longitudinal_gyrofrequency_100km_mhz": 1.486162773,
       "longitudinal_gyrofrequency_300km_mhz": 1.358608526,
-      "absorption_delta_14mhz_db": -0.162004637,
-      "absorption_delta_7mhz_db": -0.297950107
+      "absorption_factor_14mhz": 0.963384238,
+      "absorption_factor_7mhz": 0.933694906
     },
     {
       "case_id": "sydney-au",
@@ -54,8 +54,8 @@
       "gyrofrequency_100km_mhz": 1.55870071,
       "longitudinal_gyrofrequency_100km_mhz": 1.406473614,
       "longitudinal_gyrofrequency_300km_mhz": 1.274523805,
-      "absorption_delta_14mhz_db": -0.117193131,
-      "absorption_delta_7mhz_db": -0.216000036
+      "absorption_factor_14mhz": 0.973376119,
+      "absorption_factor_7mhz": 0.951480729
     }
   ]
 }

@@ -72,9 +72,15 @@
  *     `(f + fL)^2` divide happens inside the per-crossing mean rather than
  *     outside it. With a uniform `fL` that expression is algebraically the
  *     single-scalar form, which `dRegion.test.ts` pins as an identity. The gap
- *     the stand-in leaves is bounded by the spread of `|fH sin(dip)|` over the
- *     globe: at 14 MHz the correction runs from +0.714 dB at the magnetic dip
- *     equator to -0.332 dB at high southern dip, a spread of 1.046 dB.
+ *     the stand-in leaves is a *multiplier* on this loss, not a decibel
+ *     offset: `Li(fL) / Li(1.2) = ((f + 1.2) / (f + fL))^2`, since the crossing
+ *     terms, the SSN factor and `cos i_110` are common to both. At 14 MHz that
+ *     factor runs from 1.1788 at the magnetic dip equator to 0.9265 at high
+ *     southern dip, measured over the whole globe. What that costs a circuit
+ *     in decibels is `Li(1.2) * (factor - 1)` and therefore depends on the
+ *     circuit: on a lit vertical 14 MHz sample at SFI 140 it is about
+ *     +0.41 dB and -0.09 dB at those two places, which is an example and not
+ *     a bound.
  *  2. The modified magnetic dip that selects `p`, the `foE` that scales `phi`
  *     and the zenith angles all arrive on the caller's crossings. This module
  *     did not choose their source and asserts nothing about it: the

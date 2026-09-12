@@ -33,8 +33,11 @@
  *     geomagnetic latitude rather than a field model at 100 km. This module
  *     chose that source, so this module is the layer that declares it; the
  *     absorption leaf only reports the values it was handed.
- *  3. The longitudinal gyrofrequency is the absorption leaf's declared
- *     1.2 MHz scalar, declared by that leaf.
+ *  3. The longitudinal gyrofrequency fL of equation (20) is computed here,
+ *     per D-region crossing, as |fH sin(dip)| from the six-degree Magfit field
+ *     expansion evaluated at the 100 km the recommendation specifies. This
+ *     module chose that source, so this module declares it; the absorption
+ *     leaf's 1.2 MHz scalar is no longer reached from this entry point.
  */
 
 import { classifyTerrain, getPathTerrainLoss } from "./terrain";
@@ -108,6 +111,12 @@ const DIP_ASSUMPTION =
   "Modified magnetic dip at every D-region crossing is computed here by " +
   "modifiedDipAngle() from the centred-dipole geomagnetic latitude, not by a " +
   "field model evaluated at the 100 km ITU-R P.533-14 specifies.";
+
+const GYROFREQUENCY_ASSUMPTION =
+  "Longitudinal gyrofrequency is |fH sin(dip)| from the six-degree Magfit " +
+  "field expansion evaluated at 100 km at each D-region crossing, computed " +
+  "here and supplied to the absorption leaf, so that leaf's declared 1.2 MHz " +
+  "scalar is not used on this path.";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -531,6 +540,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   const assumptions = [
     mirrorHeightAssumption(mirrorHeightKm, params.mirrorHeightKm !== undefined),
     DIP_ASSUMPTION,
+    GYROFREQUENCY_ASSUMPTION,
   ];
   const route = routeFor({ startLat, startLon, endLat, endLon, pathMode });
   if (!isResolved(route)) {

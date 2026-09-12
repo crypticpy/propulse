@@ -451,7 +451,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
                 />
               </div>
               <span
-                className={`text-[10px] mt-1.5 font-medium transition-colors duration-300 ${
+                className={`text-xs mt-1.5 font-medium transition-colors duration-300 ${
                   isCompleted
                     ? "text-signal-green"
                     : isActive
@@ -678,7 +678,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
             {item.id === "radio-scan" &&
               item.status === "found" &&
               detection.selectedRadio && (
-                <span className="text-[10px] font-medium text-plasma-orange bg-plasma-orange/10 border border-plasma-orange/20 rounded-full px-2 py-0.5">
+                <span className="text-xs font-medium text-plasma-orange bg-plasma-orange/10 border border-plasma-orange/20 rounded-full px-2 py-0.5">
                   {detection.selectedRadio.modelName}
                 </span>
               )}
@@ -710,7 +710,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
               <div className="bg-su-input rounded-lg px-3 py-2 font-mono text-su-muted select-all">
                 {platformInfo.installCmd}
               </div>
-              <p className="text-su-muted text-[11px]">
+              <p className="text-su-muted text-xs">
                 The bridge daemon connects ProPulse to your radio via USB or
                 network.
               </p>
@@ -849,7 +849,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   <h4 className="text-xs font-semibold text-su-text mb-0.5">
                     {b.label}
                   </h4>
-                  <p className="text-[10px] text-su-muted">{b.desc}</p>
+                  <p className="text-xs text-su-muted">{b.desc}</p>
                 </button>
               );
             })}
@@ -1260,7 +1260,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
                   style={{ width: "58%" }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-su-muted">
+              <div className="flex justify-between text-xs text-su-muted">
                 <span>{sMeterLabel(-68)}</span>
                 <span>-68 dBm</span>
               </div>

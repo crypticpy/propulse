@@ -1,0 +1,99 @@
+/**
+ * Onboarding sub-text-xs guard (#808 batch 18)
+ *
+ * Census on `origin/main`: `src/components/onboarding/` holds 8 sub-floor
+ * `text-[Npx]` sites (N<12) across WelcomeOverlay and RadioSetupWizard.
+ * This batch raises user-read copy to `text-xs`.
+ *
+ * Skips phone-only layouts (none present in this folder).
+ *
+ * Sibling to other domain `subTextSizeFloor.*.test.ts` files — does not edit them.
+ */
+
+import { fileURLToPath } from "node:url";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const ONBOARDING_ROOT = resolve(REPO_ROOT, "src/components/onboarding");
+
+/** Files this batch read and fixed — append-only for follow-ups. */
+const FILES = [
+  "src/components/onboarding/WelcomeOverlay.tsx",
+  "src/components/onboarding/RadioSetupWizard.tsx",
+];
+
+const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
+const INLINE_SIZE_RE =
+  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
+
+interface SubFloorSite {
+  file: string;
+  line: number;
+  text: string;
+}
+
+function findSubFloorSites(file: string): SubFloorSite[] {
+  const absPath = resolve(REPO_ROOT, file);
+  const lines = readFileSync(absPath, "utf8").split("\n");
+  const sites: SubFloorSite[] = [];
+  lines.forEach((line, index) => {
+    for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
+      re.lastIndex = 0;
+      for (const match of line.matchAll(re)) {
+        if (Number(match[1]) < 12) {
+          sites.push({ file, line: index + 1, text: line });
+        }
+      }
+    }
+  });
+  return sites;
+}
+
+function walkOnboardingSourceFiles(dir: string, relPrefix = ""): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const abs = join(dir, entry);
+    const rel = relPrefix ? `${relPrefix}/${entry}` : entry;
+    if (statSync(abs).isDirectory()) {
+      results.push(...walkOnboardingSourceFiles(abs, rel));
+    } else if (
+      /\.(tsx|ts)$/.test(entry) &&
+      !entry.endsWith(".test.ts") &&
+      !entry.endsWith(".test.tsx")
+    ) {
+      results.push(abs);
+    }
+  }
+  return results;
+}
+
+describe("sub-text-xs sizing stays at the floor in onboarding (#808 batch 18)", () => {
+  it("has no sub-floor text-[Npx] or inline fontSize in the fixed onboarding files", () => {
+    const violations: string[] = [];
+    for (const file of FILES) {
+      for (const site of findSubFloorSites(file)) {
+        violations.push(`${site.file}:${site.line}: ${site.text.trim()}`);
+      }
+    }
+    expect(
+      violations,
+      `sub-floor sizing in batch-18 files:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("has no sub-floor text-[Npx] anywhere under src/components/onboarding", () => {
+    const violations: string[] = [];
+    for (const abs of walkOnboardingSourceFiles(ONBOARDING_ROOT)) {
+      const rel = abs.slice(REPO_ROOT.length + 1);
+      for (const site of findSubFloorSites(rel)) {
+        violations.push(`${site.file}:${site.line}: ${site.text.trim()}`);
+      }
+    }
+    expect(
+      violations,
+      `sub-floor sizing under onboarding/:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+});

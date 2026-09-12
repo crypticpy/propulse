@@ -181,9 +181,9 @@ function GridCell({
   isWorked,
   bands,
   showBands = false,
-  size: _size = "md",
+  size = "md",
 }: GridCellProps) {
-  const sizeClasses = "w-8 h-7 text-xs";
+  const sizeClasses = size === "sm" ? "w-7 h-6 text-xs" : "w-8 h-7 text-xs";
 
   return (
     <div

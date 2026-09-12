@@ -1271,7 +1271,7 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/sdr/skins/fate/FateBandActivity.tsx",
     what: 'the "NEW" station badge',
-    snippet: `bg-plasma-orange/20 text-su-text text-[7px] px-1 rounded font-bold leading-normal"`,
+    snippet: `bg-plasma-orange/20 text-su-text text-xs px-1 rounded font-bold leading-normal"`,
   },
   {
     file: "src/components/sdr/skins/flexible/FlexSideControls.tsx",

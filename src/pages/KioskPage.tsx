@@ -350,7 +350,7 @@ export function KioskPage() {
               {enabledScenes.length} of {scenes.length} scenes enabled
             </p>
           </div>
-          <span className="text-[10px] uppercase tracking-widest text-su-muted">
+          <span className="text-xs uppercase tracking-widest text-su-muted">
             Rotation order
           </span>
         </div>
@@ -456,7 +456,7 @@ export function KioskPage() {
                     id={`scene-editor-${scene.id}`}
                     className="grid grid-cols-2 gap-3 border-t border-su-line/40 bg-su-input px-3 py-3 lg:grid-cols-4"
                   >
-                    <label className="col-span-2 flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                    <label className="col-span-2 flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                       Scene name
                       <input
                         value={scene.name}
@@ -466,7 +466,7 @@ export function KioskPage() {
                         className={inputClass}
                       />
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                    <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                       Page
                       <select
                         value={scene.route}
@@ -494,7 +494,7 @@ export function KioskPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                    <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                       Duration
                       <input
                         type="number"
@@ -509,7 +509,7 @@ export function KioskPage() {
                         className={inputClass}
                       />
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                    <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                       Transition
                       <select
                         value={scene.transition ?? "fade"}
@@ -528,7 +528,7 @@ export function KioskPage() {
                     {capabilities.mapConfig && scene.map && (
                       <>
                         {capabilities.layoutMode && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Layout
                             <select
                               value={scene.map.layoutMode}
@@ -550,7 +550,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.viewMode && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Projection
                             <select
                               value={scene.map.viewMode ?? ""}
@@ -579,7 +579,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.preset && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Layer preset
                             <select
                               value={scene.map.preset ?? ""}
@@ -604,7 +604,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.quality && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Image quality
                             <select
                               value={scene.map.quality ?? ""}
@@ -630,7 +630,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.mapStyle && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Basemap
                             <select
                               value={scene.map.mapStyle ?? ""}
@@ -654,7 +654,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.theme && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                          <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                             Theme
                             <select
                               value={scene.map.theme ?? ""}
@@ -679,7 +679,7 @@ export function KioskPage() {
                         )}
                         {scene.map.layoutMode === "hamclock" && (
                           <>
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                               Wall page
                               <select
                                 value={scene.map?.hamclock?.leftPage ?? ""}
@@ -715,7 +715,7 @@ export function KioskPage() {
                                 ))}
                               </select>
                             </label>
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                               HamClock theme
                               <select
                                 value={scene.map.hamclock?.theme ?? ""}
@@ -747,7 +747,7 @@ export function KioskPage() {
                         )}
                         {capabilities.autoRotate &&
                           scene.map.viewMode === "globe" && (
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                               Auto-rotate
                               <select
                                 value={
@@ -779,7 +779,7 @@ export function KioskPage() {
                         {capabilities.autoRotateSpeed &&
                           scene.map.viewMode === "globe" &&
                           scene.map.autoRotate && (
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
+                            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider text-su-muted">
                               Seconds per orbit
                               <input
                                 type="number"
@@ -824,7 +824,7 @@ export function KioskPage() {
                           </label>
                         ) : (
                           capabilities.liveClouds && (
-                            <p className="self-end pb-2 text-[10px] text-su-muted">
+                            <p className="self-end pb-2 text-xs text-su-muted">
                               Live clouds require the Globe projection.
                             </p>
                           )

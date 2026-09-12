@@ -77,14 +77,14 @@ export function FateBottomBar({
       {/* Left section: VFO frequency + band pill + connection */}
       <div className="flex items-center gap-2">
         {/* VFO frequency */}
-        <span className="font-mono text-[12px] font-medium text-cosmic-cyan tabular-nums tracking-wide">
+        <span className="font-mono text-xs font-medium text-cosmic-cyan tabular-nums tracking-wide">
           {freqHz ? `${formatFreqDisplay(freqHz)} MHz` : "—.———.——— MHz"}
         </span>
 
         {/* Band pill */}
         {activeBand && (
           <span
-            className="px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide"
+            className="px-1.5 py-0.5 text-xs font-bold rounded tracking-wide"
             style={{
               color: bandColor,
               backgroundColor: `${bandColor}18`,
@@ -105,14 +105,14 @@ export function FateBottomBar({
               daemonConnected ? "bg-signal-green" : "bg-su-line"
             }`}
           />
-          <span className="text-[10px] text-su-muted truncate max-w-[120px]">
+          <span className="text-xs text-su-muted truncate max-w-[120px]">
             {radioName ?? "No Radio"}
           </span>
         </div>
 
         {/* VFO badge */}
         {vfo && (
-          <span className="px-1 py-0.5 text-[9px] font-mono font-semibold rounded bg-su-line/20 text-su-muted border border-su-line/40">
+          <span className="px-1 py-0.5 text-xs font-mono font-semibold rounded bg-su-line/20 text-su-muted border border-su-line/40">
             VFO {vfo}
           </span>
         )}
@@ -121,7 +121,7 @@ export function FateBottomBar({
       {/* Center section: Decode stats */}
       <div className="flex items-center gap-2">
         {ft8DecoderEnabled && (
-          <div className="flex items-center gap-1.5 text-[10px] text-su-muted font-mono">
+          <div className="flex items-center gap-1.5 text-xs text-su-muted font-mono">
             <span className="text-su-text/80">
               {ft8DecoderStats.totalDecodes}
             </span>
@@ -148,19 +148,19 @@ export function FateBottomBar({
       {/* Right section: Keyboard hints + TX badge + UTC clock */}
       <div className="flex items-center gap-3">
         {/* Compact keyboard shortcut legend */}
-        <span className="text-[8px] text-su-muted hidden sm:inline">
+        <span className="text-xs text-su-muted hidden sm:inline">
           F1-F11: Bands &middot; Space: Log &middot; C: CQ &middot; D: Decode
         </span>
 
         {/* TX badge */}
         {ptt && (
-          <span className="rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
+          <span className="rounded bg-alert-red px-1.5 py-0.5 text-xs font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
             TX
           </span>
         )}
 
         {/* UTC clock */}
-        <span className="font-mono text-[11px] text-su-muted tabular-nums">
+        <span className="font-mono text-xs text-su-muted tabular-nums">
           {utc}
         </span>
       </div>

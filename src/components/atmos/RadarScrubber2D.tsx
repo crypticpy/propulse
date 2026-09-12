@@ -135,7 +135,7 @@ export function RadarScrubber2D() {
       </button>
 
       {/* UTC timestamp */}
-      <span className="text-[10px] font-mono text-su-muted tabular-nums min-w-[42px] text-center">
+      <span className="text-xs font-mono text-su-muted tabular-nums min-w-[42px] text-center">
         {getFrameUtc(activeFrame)}
       </span>
 
@@ -159,7 +159,7 @@ export function RadarScrubber2D() {
       </div>
 
       {/* Frame age label */}
-      <span className="text-[10px] font-mono text-su-muted tabular-nums min-w-[48px] text-right">
+      <span className="text-xs font-mono text-su-muted tabular-nums min-w-[48px] text-right">
         {getFrameLabel(activeFrame)}
       </span>
     </div>

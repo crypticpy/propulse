@@ -39,7 +39,7 @@ export function DataFreshnessIndicator({
 
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      <span className="text-[10px] text-su-muted font-mono">{label}</span>
+      <span className="text-xs text-su-muted font-mono">{label}</span>
       {onRefresh && (
         <button
           onClick={onRefresh}

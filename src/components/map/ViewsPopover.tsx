@@ -262,7 +262,7 @@ export function ViewsPopover({
         aria-label="Saved views"
       >
         {/* ── Header ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Saved Views
         </div>
 
@@ -298,7 +298,7 @@ export function ViewsPopover({
 
                 {/* Keyboard shortcut hint */}
                 {shortcutKey && (
-                  <span className="text-[10px] font-mono text-su-text/80 bg-su-line/10 w-4 h-4 flex items-center justify-center rounded shrink-0">
+                  <span className="text-xs font-mono text-su-text/80 bg-su-line/10 w-4 h-4 flex items-center justify-center rounded shrink-0">
                     {shortcutKey}
                   </span>
                 )}

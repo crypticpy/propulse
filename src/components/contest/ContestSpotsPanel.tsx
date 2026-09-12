@@ -189,7 +189,7 @@ function FilterControls({
       {/* Band and Mode filters */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-su-muted uppercase tracking-wide">
+          <span className="text-xs text-su-muted uppercase tracking-wide">
             Band:
           </span>
           <div className="flex gap-0.5">
@@ -197,7 +197,7 @@ function FilterControls({
               <button
                 key={opt}
                 onClick={() => onBandFilterChange(opt)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   bandFilter === opt
                     ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -210,7 +210,7 @@ function FilterControls({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-su-muted uppercase tracking-wide">
+          <span className="text-xs text-su-muted uppercase tracking-wide">
             Mode:
           </span>
           <div className="flex gap-0.5">
@@ -218,7 +218,7 @@ function FilterControls({
               <button
                 key={opt}
                 onClick={() => onModeFilterChange(opt)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   modeFilter === opt
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -235,7 +235,7 @@ function FilterControls({
       <div className="flex items-center gap-3">
         <button
           onClick={() => onNeededOnlyChange(!neededOnly)}
-          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+          className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
             neededOnly
               ? "bg-signal-green/30 text-signal-green border border-signal-green/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -246,7 +246,7 @@ function FilterControls({
 
         <button
           onClick={() => onHideWorkedChange(!hideWorked)}
-          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+          className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
             hideWorked
               ? "bg-alert-red/30 text-alert-red border border-alert-red/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -256,7 +256,7 @@ function FilterControls({
         </button>
 
         <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-[10px] text-su-muted uppercase tracking-wide">
+          <span className="text-xs text-su-muted uppercase tracking-wide">
             Age:
           </span>
           <div className="flex gap-0.5">
@@ -264,7 +264,7 @@ function FilterControls({
               <button
                 key={opt.value}
                 onClick={() => onAgeFilterChange(opt.value)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   ageFilter === opt.value
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -342,7 +342,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
     >
       {/* Age */}
       <div
-        className="text-su-muted text-[11px] font-mono"
+        className="text-su-muted text-xs font-mono"
         title={formatTime(spot.time)}
       >
         {minutesAgo}m
@@ -351,7 +351,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       {/* Band */}
       <div className="flex items-center">
         <span
-          className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+          className="px-1.5 py-0.5 rounded text-xs font-bold"
           style={{
             backgroundColor: bandColor.bgColor,
             color: bandColor.color,
@@ -362,7 +362,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       </div>
 
       {/* Frequency */}
-      <div className="text-[11px] font-mono text-cosmic-cyan/80 tabular-nums">
+      <div className="text-xs font-mono text-cosmic-cyan/80 tabular-nums">
         {formatFrequency(spot.frequency)}
       </div>
 
@@ -374,7 +374,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
           {spot.dx}
         </span>
         {spot.mode && (
-          <span className="px-1 py-0.5 rounded bg-su-line/10 text-[9px] text-su-muted flex-shrink-0">
+          <span className="px-1 py-0.5 rounded bg-su-line/10 text-xs text-su-muted flex-shrink-0">
             {spot.mode}
           </span>
         )}
@@ -384,7 +384,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       <div className="flex items-center justify-end">
         {statusStyles.badge && (
           <span
-            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${statusStyles.badge.bg} ${statusStyles.badge.text} ${statusStyles.badge.border}`}
+            className={`px-1.5 py-0.5 rounded text-xs font-bold border ${statusStyles.badge.bg} ${statusStyles.badge.text} ${statusStyles.badge.border}`}
           >
             {spot.statusLabel}
           </span>
@@ -602,18 +602,18 @@ export function ContestSpotsPanel({
           <h3 className="text-sm font-semibold text-su-text tracking-wide">
             CONTEST SPOTS
           </h3>
-          <span className="text-[10px] text-su-muted">
+          <span className="text-xs text-su-muted">
             {filteredSpots.length}/{stats.total}
           </span>
           {stats.newMultCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-signal-green/20 text-signal-green border border-signal-green/30">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-signal-green border border-signal-green/30">
               {stats.newMultCount} NEW
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
-          <span className="text-[10px] text-su-muted">{filterSummary}</span>
+          <span className="text-xs text-su-muted">{filterSummary}</span>
         </div>
       </div>
 
@@ -633,7 +633,7 @@ export function ContestSpotsPanel({
 
       {/* Column Headers */}
       <div
-        className="grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider"
+        className="grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1 border-b border-su-line/40 text-xs font-semibold text-su-muted uppercase tracking-wider"
         role="row"
       >
         <div>Age</div>
@@ -673,7 +673,7 @@ export function ContestSpotsPanel({
       </div>
 
       {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-[10px] text-su-muted">
+      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-xs text-su-muted">
         <div>
           {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
         </div>

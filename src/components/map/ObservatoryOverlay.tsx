@@ -43,7 +43,7 @@ export function ObservatoryOverlay() {
         {/* UTC clock */}
         <span className="font-mono text-lg text-su-text/90 tracking-wider tabular-nums">
           {utcString}
-          <span className="text-[10px] text-su-text/80 ml-1.5">UTC</span>
+          <span className="text-xs text-su-text/80 ml-1.5">UTC</span>
         </span>
 
         {/* Station info */}
@@ -54,7 +54,7 @@ export function ObservatoryOverlay() {
               <span className="font-mono text-sm font-bold text-su-text/80">
                 {station.callsign}
               </span>
-              <span className="text-[10px] text-su-text/80">
+              <span className="text-xs text-su-text/80">
                 {station.grid ?? "\u2014"}
               </span>
             </div>
@@ -68,7 +68,7 @@ export function ObservatoryOverlay() {
           <div className="w-px h-5 bg-su-line/30" />
         </div>
         <span
-          className={`text-[10px] text-su-text/80 transition-opacity duration-1000 ${showEscHint ? "opacity-100" : "opacity-0"}`}
+          className={`text-xs text-su-text/80 transition-opacity duration-1000 ${showEscHint ? "opacity-100" : "opacity-0"}`}
         >
           <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-su-text/80">
             ESC

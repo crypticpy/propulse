@@ -177,7 +177,6 @@ import {
   LIGHTNING_COLOR_STRONG,
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
-import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import type { WsprSpot } from "@/lib/api/wspr";
 import {
@@ -226,6 +225,7 @@ import { createEquirectangularProjection } from "@/lib/map/projection";
 import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
+import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1080,83 +1080,6 @@ function drawAurora(
   }
 
   // Restore context state
-  ctx.restore();
-}
-
-/**
- * Draw weather alert markers on the 2D map
- * Renders active weather warnings as severity-colored triangles
- */
-function drawWeatherAlerts(
-  ctx: CanvasRenderingContext2D,
-  alerts: WeatherAlert[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const alert of alerts) {
-    const { x, y } = latLonToCanvas(alert.lat, alert.lon, width, height);
-
-    // Color by severity
-    let color: string;
-    switch (alert.severity) {
-      case "Extreme":
-        color = "#ff0040";
-        break;
-      case "Severe":
-        color = "#ff6600";
-        break;
-      case "Moderate":
-        color = "#ffaa00";
-        break;
-      default:
-        color = "#ffdd44";
-        break;
-    }
-
-    // Warning triangle
-    const size = 8 / zoomDamp;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(x, y - size); // top
-    ctx.lineTo(x + size, y + size * 0.6); // bottom right
-    ctx.lineTo(x - size, y + size * 0.6); // bottom left
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 0.5 / zoomDamp;
-    ctx.stroke();
-
-    // Exclamation mark inside triangle
-    ctx.fillStyle = "#000000";
-    const fontSize = Math.max(1, Math.round(8 / zoomDamp));
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", x, y);
-
-    // Event type label (only when zoomed in enough to read)
-    if (zoomScale > 1.5) {
-      const label =
-        alert.event.length > 16
-          ? alert.event.slice(0, 16) + "\u2026"
-          : alert.event;
-      const labelFontSize = Math.max(1, Math.round(9 / zoomDamp));
-      ctx.font = `${labelFontSize}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillStyle = color;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 2;
-      ctx.fillText(label, x, y + size * 0.6 + 2 / zoomDamp);
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-    }
-  }
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -5759,12 +5682,11 @@ export function FlatMapView({
 
     // Draw weather alert markers
     if (layers.weather && weatherAlerts.length > 0) {
-      drawWeatherAlerts(
+      drawWeatherAlertsLayer(
         ctx,
         weatherAlerts,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
+        projection,
+        FLAT_LAYER_PROFILE,
       );
     }
 

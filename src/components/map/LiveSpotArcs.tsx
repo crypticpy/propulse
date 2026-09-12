@@ -23,7 +23,7 @@ import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { projectLiveSpotsForView } from "@/lib/spots/presentation/pipeline";
 import { useMapStore } from "@/stores/mapStore";
 import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
-import { useUIInteractionPrefs } from "@/stores/userStore";
+import { useSpotAgePrefs, useUIInteractionPrefs } from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
@@ -778,6 +778,8 @@ export function LiveSpotArcs({
 
   // Get UI interaction preferences for callsign labels
   const uiPrefs = useUIInteractionPrefs();
+  // Settings > Preferences > Spot Age Display still owns marker decay.
+  const spotAgePrefs = useSpotAgePrefs();
 
   const ownedFeed = useLiveSpots({
     grid,
@@ -837,11 +839,11 @@ export function LiveSpotArcs({
   const contactCallsign = useOpsPostureStore((s) => s.contactCallsign);
   const contactBand = useOpsPostureStore((s) => s.contactBand);
 
-  // Feature union with the 2D maps' new age-fade setting (#1247): the globe
-  // previously always faded via `spotAgePrefs.enabled` (a separate,
-  // pre-existing preference); it now reads the same store switch flat/disc
-  // use, and defaults to off since that's this setting's most-visible
-  // default.
+  // Feature union with the 2D maps' age-fade setting (#1247): arc opacity
+  // reads the same store switch flat/disc use (default off, the most-visible
+  // default). Marker decay stays on the pre-existing Spot Age Display
+  // preference (`spotAgePrefs.enabled`), which also drives the DX list, so
+  // that control keeps doing what its label says (Codex on #1290).
   const spotPathAgeFade = useMapStore((s) => s.labelOptions.spotPathAgeFade);
 
   // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
@@ -976,10 +978,9 @@ export function LiveSpotArcs({
           });
           const filterOpacity = activeBandOpacity * contactOpacity;
 
-          // Gated on the same `spotPathAgeFade` switch as the arc opacity
-          // above, not the separate `spotAgePrefs.enabled` preference, so
-          // the globe's age treatment follows one switch (#1247 review).
-          const endpointScale = spotPathAgeFade ? ageInfo.scale : 1.0;
+          // Marker decay follows Spot Age Display; path fade (below) follows
+          // the map's "Fade Older Spot Paths" switch.
+          const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 
           // The batched visual endpoints follow the exact same visibility
           // decision as their hit targets; aggregates never leave ghost dots.

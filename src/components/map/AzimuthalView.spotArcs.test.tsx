@@ -95,8 +95,29 @@ const FEED = {
   unlocatedCount: 0,
   budgetOmittedCount: 0,
 };
+/** Two spots a few hundred metres apart: at zoom 1 they land in the same
+ * 32 px screen cell and become one multi-member `azimuthalSpotClusters`
+ * entry, so the disc shows a single cluster badge for both. */
+const CLUSTERED_A = liveSpot("cluster-a", 48.85, 2.35);
+const CLUSTERED_B = liveSpot("cluster-b", 48.86, 2.36);
+const CLUSTERED_SPOTS = [CLUSTERED_A, CLUSTERED_B];
+const CLUSTERED_RESOLVED = CLUSTERED_SPOTS.map(resolve);
+const CLUSTERED_FEED = {
+  ...FEED,
+  spots: CLUSTERED_SPOTS,
+  candidateSpots: CLUSTERED_SPOTS,
+  resolvedSpots: CLUSTERED_RESOLVED,
+  resolvedSingles: CLUSTERED_RESOLVED,
+  allResolvedSpots: CLUSTERED_RESOLVED,
+  singles: CLUSTERED_SPOTS,
+  listTotal: CLUSTERED_SPOTS.length,
+  matchingCount: CLUSTERED_SPOTS.length,
+  mappedCount: CLUSTERED_SPOTS.length,
+};
+
+let activeFeed = FEED;
 vi.mock("@/hooks/useViewMapSpots", () => ({
-  useViewMapSpots: () => FEED,
+  useViewMapSpots: () => activeFeed,
 }));
 
 const STUB_RECT = makeStubRect(600, 600);
@@ -229,6 +250,7 @@ describe("AzimuthalView shared spotArcsLayer binding", () => {
   });
 
   afterEach(() => {
+    activeFeed = FEED;
     useUserStore.getState().setStation(null);
     useMapStore.setState({
       layers: originalLayers,
@@ -304,6 +326,25 @@ describe("AzimuthalView shared spotArcsLayer binding", () => {
     // so both get a DOM endpoint button and neither should get a canvas TX
     // circle at its DX point.
     for (const spot of SPOTS) {
+      const { x, y } = dxScreenPoint(spot);
+      const hasTxGlyphAtSpot = ops.some(
+        (op) =>
+          op.name === "arc" &&
+          Math.abs(op.args[0] - x) < 0.5 &&
+          Math.abs(op.args[1] - y) < 0.5,
+      );
+      expect(hasTxGlyphAtSpot).toBe(false);
+    }
+  });
+
+  it("draws no TX arc glyph for members of a screen-space cluster (the cluster badge owns them, Codex on #1290)", async () => {
+    useWatchStore.setState({ enabled: false, matchedSpotIds: new Set() });
+    activeFeed = CLUSTERED_FEED;
+    await mount();
+    // Each member is a distinct resolved spot, so without the cluster
+    // suppression set both would get a canvas TX circle beneath the one
+    // badge (members can sit up to 32 px from the badge centre).
+    for (const spot of CLUSTERED_SPOTS) {
       const { x, y } = dxScreenPoint(spot);
       const hasTxGlyphAtSpot = ops.some(
         (op) =>

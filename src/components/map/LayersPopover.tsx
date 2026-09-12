@@ -885,7 +885,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             key: "spotPathAgeFade",
             label: "Fade Older Spot Paths",
             title:
-              "Fade spot paths as they age instead of keeping them at full strength",
+              "Fade spot paths as they age on every map. Marker decay stays under Settings > Preferences > Spot Age Display.",
             getValue: () => labelOptions.spotPathAgeFade,
             onToggle: () =>
               setLabelOption("spotPathAgeFade", !labelOptions.spotPathAgeFade),

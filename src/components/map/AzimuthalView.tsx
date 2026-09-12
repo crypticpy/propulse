@@ -1634,11 +1634,22 @@ export function AzimuthalView({
     zoom,
   ]);
 
-  // The spots that get a DOM endpoint button from `AzimuthalSpotEndpointButtons`
-  // below -- every single-member cluster, not just `groupedMembers` (#1247
-  // review). Shared with `drawSpotArcs`'s `domEndpointSpots` option so the
-  // canvas layer doesn't paint a duplicate TX circle on top of that button.
+  // Every spot represented by a DOM marker below: single-member clusters get
+  // an `AzimuthalSpotEndpointButtons` dot, multi-member clusters a single
+  // `AzimuthalSpotClusterButtons` badge. Shared with `drawSpotArcs`'s
+  // `domEndpointSpots` option so the canvas layer never paints a TX circle
+  // under either marker (#1247 review; Codex on #1290 for cluster members).
   const domEndpointSpots = useMemo(
+    () =>
+      new Set(
+        azimuthalSpotClusters.flatMap((cluster) =>
+          cluster.members.map((member) => member.originalSpot),
+        ),
+      ),
+    [azimuthalSpotClusters],
+  );
+
+  const singleClusterSpots = useMemo(
     () =>
       new Set(
         azimuthalSpotClusters
@@ -1650,8 +1661,8 @@ export function AzimuthalView({
 
   const unclusteredResolvedSpots = useMemo(
     () =>
-      resolvedSpots.filter((spot) => domEndpointSpots.has(spot.originalSpot)),
-    [domEndpointSpots, resolvedSpots],
+      resolvedSpots.filter((spot) => singleClusterSpots.has(spot.originalSpot)),
+    [singleClusterSpots, resolvedSpots],
   );
 
   const labeledAzimuthalSpots = useMemo(

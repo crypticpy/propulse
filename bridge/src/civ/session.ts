@@ -1,14 +1,14 @@
 /**
  * CI-V Session — half-duplex command queue, frame dispatch, scope assembly,
- * polling.
+ * polling, rig-control.
  *
  * The serial and network backends speak the same CI-V session protocol: one
  * command in flight at a time, a timeout per command, a response matcher that
  * knows the difference between an ACK and a data read, and a dispatcher that
  * routes everything else to the unsolicited-frame handlers. Scope sweeps arrive
  * split across a header frame and a run of pixel frames, and are reassembled
- * here into one spectrum line. Status polling (frequency, mode, meters, the
- * optional-field cycle and its disable-on-timeout set) also lives here.
+ * here into one spectrum line. Status polling and the rig-control setters live
+ * here too.
  *
  * Only the bytes differ — serial writes to a port, network wraps each frame in
  * an RS-BA1 UDP packet — so the transport supplies the bytes and this module
@@ -46,6 +46,23 @@ import {
   readSplit,
   readSwrMeter,
   readXit,
+  setAgc as buildSetAgc,
+  setAntenna as buildSetAntenna,
+  setCwSpeed as buildSetCwSpeed,
+  setFrequency as buildSetFrequency,
+  setFunction as buildSetFunction,
+  setIfShift as buildSetIfShift,
+  setLevel as buildSetLevel,
+  setMode as buildSetMode,
+  setPtt as buildSetPtt,
+  setRit as buildSetRit,
+  setSplit as buildSetSplit,
+  setVfo as buildSetVfo,
+  setXit as buildSetXit,
+  startScope,
+  startScopeDataOutput,
+  stopScope,
+  stopScopeDataOutput,
 } from "./commands.js";
 import {
   CivCmd,
@@ -963,5 +980,175 @@ export class CivSession {
       prev.rit?.offsetHz !== status.rit?.offsetHz ||
       prev.xit?.enabled !== status.xit?.enabled
     );
+  }
+
+  // ── Rig control ───────────────────────────────────────────────────────────
+
+  async setFrequency(hz: number): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetFrequency(this.addr, hz),
+      "Set frequency",
+    );
+  }
+
+  async setMode(mode: string, _passband?: number): Promise<void> {
+    await this.sendAndWaitOk(buildSetMode(this.addr, mode), "Set mode");
+  }
+
+  async setPTT(on: boolean): Promise<void> {
+    await this.sendAndWaitOk(buildSetPtt(this.addr, on), "Set PTT");
+  }
+
+  async setVFO(vfo: "A" | "B"): Promise<void> {
+    await this.sendAndWaitOk(buildSetVfo(this.addr, vfo), "Set VFO");
+  }
+
+  async setSplit(on: boolean): Promise<void> {
+    await this.sendAndWaitOk(buildSetSplit(this.addr, on), "Set split");
+  }
+
+  async setFunc(func: string, on: boolean): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetFunction(this.addr, func, on),
+      `Set function ${func}`,
+    );
+  }
+
+  async setLevel(level: string, value: number): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetLevel(this.addr, level, value),
+      `Set level ${level}`,
+    );
+  }
+
+  async getLevel(level: string): Promise<number> {
+    const frame = await this.sendCommand(readLevel(this.addr, level));
+    if (!frame) return 0;
+    return parseLevelResponse(frame) ?? 0;
+  }
+
+  async getFunc(func: string): Promise<boolean> {
+    const frame = await this.sendCommand(readFunction(this.addr, func));
+    if (!frame) return false;
+    return parseFunctionResponse(frame) ?? false;
+  }
+
+  async setAgc(mode: number): Promise<void> {
+    await this.sendAndWaitOk(buildSetAgc(this.addr, mode), "Set AGC");
+  }
+
+  /**
+   * Map a passband width in Hz to ICOM FIL1–3 and re-send the current mode
+   * with that filter. No-ops until a poll has populated lastStatus.mode.
+   *
+   * Both backends used to carry this; the network copy was a no-op. The
+   * serial mapping is the one that actually changes the radio, so it is
+   * the shared behaviour.
+   */
+  async setPassband(hz: number): Promise<void> {
+    const currentMode = this.lastStatus?.mode;
+    if (!currentMode) return;
+
+    const isCw = currentMode === "CW" || currentMode === "CW-R";
+    const isRtty = currentMode === "RTTY" || currentMode === "RTTY-R";
+    let filter: number;
+
+    if (isCw || isRtty) {
+      filter = hz >= 400 ? 1 : hz >= 150 ? 2 : 3;
+    } else {
+      filter = hz >= 2000 ? 1 : hz >= 1000 ? 2 : 3;
+    }
+
+    await this.sendAndWaitOk(
+      buildSetMode(this.addr, currentMode, filter),
+      "Set passband",
+    );
+  }
+
+  async setAntenna(index: string): Promise<void> {
+    const port = parseInt(index, 10);
+    if (!isNaN(port)) {
+      await this.sendAndWaitOk(
+        buildSetAntenna(this.addr, port),
+        "Set antenna",
+      );
+    }
+  }
+
+  async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
+    await this.sendRaw(buildSetRit(this.addr, enabled, offsetHz));
+  }
+
+  async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
+    await this.sendRaw(buildSetXit(this.addr, enabled, offsetHz));
+  }
+
+  async setAnf(enabled: boolean): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetFunction(this.addr, "ANF", enabled),
+      "Set ANF",
+    );
+  }
+
+  async setQsk(enabled: boolean): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetFunction(this.addr, "BKIN", enabled),
+      "Set QSK",
+    );
+  }
+
+  async setVox(enabled: boolean): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetFunction(this.addr, "VOX", enabled),
+      "Set VOX",
+    );
+  }
+
+  async setCwSpeed(wpm: number): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetCwSpeed(this.addr, wpm),
+      "Set CW speed",
+    );
+  }
+
+  async setIfShift(hz: number): Promise<void> {
+    await this.sendAndWaitOk(
+      buildSetIfShift(this.addr, hz),
+      "Set IF shift",
+    );
+  }
+
+  async startSpectrum(): Promise<void> {
+    this.setSpectrumEnabled(true);
+    console.log(
+      `[${this.transport.logTag}] Starting spectrum for addr 0x${this.addr.radio.toString(16)}`,
+    );
+    try {
+      await this.sendAndWaitOk(startScope(this.addr), "Enable scope display");
+      console.log(
+        `[${this.transport.logTag}] Scope ON (0x27 0x10 0x01) — OK`,
+      );
+      await this.sendAndWaitOk(
+        startScopeDataOutput(this.addr),
+        "Enable scope data output",
+      );
+      console.log(
+        `[${this.transport.logTag}] Scope Data Output ON (0x27 0x11 0x01) — OK, waiting for frames`,
+      );
+    } catch (err: unknown) {
+      console.error(
+        `[${this.transport.logTag}] Scope enable FAILED: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  async stopSpectrum(): Promise<void> {
+    this.setSpectrumEnabled(false);
+    await this.sendAndWaitOk(
+      stopScopeDataOutput(this.addr),
+      "Disable scope data output",
+    );
+    await this.sendAndWaitOk(stopScope(this.addr), "Disable scope display");
   }
 }

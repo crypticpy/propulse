@@ -70,7 +70,7 @@ function trendColor(trend: "up" | "down" | "stable"): string {
 function SubScoreBar({ sub }: { sub: RIMSubScore }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-su-muted w-[5.5rem] shrink-0 break-words font-mono">
+      <span className="text-xs text-su-muted shrink-0 break-words font-mono" style={{ width: "5.5rem" }}>
         {sub.label}
       </span>
       <div className="flex-1 h-1.5 rounded-full bg-su-line/10 overflow-hidden">

@@ -2814,7 +2814,7 @@ export function GlobeView({
         >
           {contactPath && (
             <div
-              className="rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
+              className="rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-xs text-plasma-orange backdrop-blur-sm"
               data-contact-path-chip
             >
               {Math.round(contactPath.shortPath.bearing)
@@ -2831,7 +2831,7 @@ export function GlobeView({
           {justLogged && (
             <div
               key={justLogged.at}
-              className="rounded-full border border-signal-green/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-signal-green backdrop-blur-sm"
+              className="rounded-full border border-signal-green/40 bg-void-black/80 px-3 py-1 font-mono text-xs text-signal-green backdrop-blur-sm"
               data-logged-chip
             >
               Logged {justLogged.callsign}
@@ -2897,7 +2897,7 @@ export function GlobeView({
                 ))}
               </div>
               {/* Timestamp */}
-              <span className="text-[9px] text-su-text/80 font-mono ml-1 min-w-[40px] text-right">
+              <span className="text-xs text-su-text/80 font-mono ml-1 min-w-[40px] text-right">
                 {radarAnimState.activeIndex >= 0 &&
                 radarAnimState.timestamps[radarAnimState.activeIndex]
                   ? new Date(
@@ -2913,7 +2913,7 @@ export function GlobeView({
               {/* Nowcast indicator */}
               {radarAnimState.activeIndex >= 0 &&
                 radarAnimState.isNowcast[radarAnimState.activeIndex] && (
-                  <span className="text-[8px] text-blue-400 font-medium">
+                  <span className="text-xs text-blue-400 font-medium">
                     FCST
                   </span>
                 )}

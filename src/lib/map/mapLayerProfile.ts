@@ -20,6 +20,10 @@ export interface MapLayerProfile {
     /** On-screen px of radius growth per unit of magnitude above the baseline. */
     readonly pxPerMagnitude: number;
   };
+  readonly weatherAlerts: {
+    /** event label drawn when projection.zoomScale is greater than this; 0 means at every zoom */
+    readonly labelMinZoomScale: number;
+  };
 }
 
 export const FLAT_LAYER_PROFILE: MapLayerProfile = {
@@ -34,6 +38,9 @@ export const FLAT_LAYER_PROFILE: MapLayerProfile = {
     maxRadiusPx: 20,
     pxPerMagnitude: 3,
   },
+  weatherAlerts: {
+    labelMinZoomScale: 1.5,
+  },
 };
 
 export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
@@ -47,5 +54,8 @@ export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
   quakes: {
     maxRadiusPx: 15,
     pxPerMagnitude: 2.5,
+  },
+  weatherAlerts: {
+    labelMinZoomScale: 0,
   },
 };

@@ -59,4 +59,24 @@ describe("MapLayerProfile", () => {
       FLAT_LAYER_PROFILE.quakes.pxPerMagnitude,
     );
   });
+
+  it("FLAT_LAYER_PROFILE.weatherAlerts pins the measured flat-map value", () => {
+    expect(FLAT_LAYER_PROFILE.weatherAlerts).toEqual({
+      labelMinZoomScale: 1.5,
+    });
+  });
+
+  it("AZIMUTHAL_LAYER_PROFILE.weatherAlerts pins the measured azimuthal-disc value", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.weatherAlerts).toEqual({
+      labelMinZoomScale: 0,
+    });
+  });
+
+  it("differs from the flat profile in weatherAlerts.labelMinZoomScale; this must fail if the two values were swapped", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.weatherAlerts.labelMinZoomScale).not.toBe(
+      FLAT_LAYER_PROFILE.weatherAlerts.labelMinZoomScale,
+    );
+    expect(FLAT_LAYER_PROFILE.weatherAlerts.labelMinZoomScale).toBe(1.5);
+    expect(AZIMUTHAL_LAYER_PROFILE.weatherAlerts.labelMinZoomScale).toBe(0);
+  });
 });

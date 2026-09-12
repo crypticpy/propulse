@@ -66,7 +66,6 @@ import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
-import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import {
   LIGHTNING_COLOR_FLAT,
@@ -77,6 +76,7 @@ import { createAzimuthalProjection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
+import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1436,77 +1436,6 @@ function drawAzimuthalNightBoostedBorders(
 }
 
 /**
- * Draw weather alert markers on azimuthal projection
- */
-function drawAzWeatherAlerts(
-  ctx: CanvasRenderingContext2D,
-  alerts: WeatherAlert[],
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.save();
-  for (const alert of alerts) {
-    const point = azimuthalProject(alert.lat, alert.lon, centerLat, centerLon);
-    if (!point.visible) continue;
-
-    const sx = CENTER + point.x * RADIUS;
-    const sy = CENTER + point.y * RADIUS;
-
-    let color: string;
-    switch (alert.severity) {
-      case "Extreme":
-        color = "#ff0040";
-        break;
-      case "Severe":
-        color = "#ff6600";
-        break;
-      case "Moderate":
-        color = "#ffaa00";
-        break;
-      default:
-        color = "#ffdd44";
-        break;
-    }
-
-    const size = 8;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - size);
-    ctx.lineTo(sx + size, sy + size * 0.6);
-    ctx.lineTo(sx - size, sy + size * 0.6);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    ctx.fillStyle = "#000000";
-    ctx.font = "bold 8px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", sx, sy);
-
-    // Event type label below triangle
-    const label =
-      alert.event.length > 16
-        ? alert.event.slice(0, 16) + "\u2026"
-        : alert.event;
-    ctx.font = "9px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = color;
-    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-    ctx.shadowBlur = 2;
-    ctx.fillText(label, sx, sy + size * 0.6 + 2);
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
  * Draw lightning strike markers on azimuthal projection
  * Strike size and colour vary by peak current (currentKA)
  */
@@ -2799,7 +2728,12 @@ export function AzimuthalView({
       );
     }
     if (layers.weather && weatherAlerts.length > 0) {
-      drawAzWeatherAlerts(ctx, weatherAlerts, center.lat, center.lon);
+      drawWeatherAlertsLayer(
+        ctx,
+        weatherAlerts,
+        projection,
+        AZIMUTHAL_LAYER_PROFILE,
+      );
     }
     if (layers.lightning && lightningStrikes.length > 0) {
       drawAzLightning(ctx, lightningStrikes, center.lat, center.lon);

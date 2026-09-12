@@ -18,6 +18,7 @@ import {
   type Continent,
 } from "./multipliers";
 import { normalizeMultiplierType, type MultiplierType } from "@/types/contest";
+import { ARRL_RAC_SECTIONS } from "@/lib/data/arrlSections";
 
 // ============================================================================
 // Types
@@ -672,99 +673,10 @@ function extractSection(exchange: string): string | null {
     return null;
   }
 
-  // Common ARRL/RAC sections
-  const sections = [
-    // US Sections
-    "CT",
-    "EMA",
-    "ME",
-    "NH",
-    "RI",
-    "VT",
-    "WMA",
-    "ENY",
-    "NLI",
-    "NNJ",
-    "NNY",
-    "SNJ",
-    "WNY",
-    "DE",
-    "EPA",
-    "MDC",
-    "WPA",
-    "AL",
-    "GA",
-    "KY",
-    "NC",
-    "NFL",
-    "SC",
-    "SFL",
-    "TN",
-    "VA",
-    "WCF",
-    "PR",
-    "VI",
-    "AR",
-    "LA",
-    "MS",
-    "NM",
-    "NTX",
-    "OK",
-    "STX",
-    "WTX",
-    "EB",
-    "LAX",
-    "ORG",
-    "PAC",
-    "SB",
-    "SCV",
-    "SDG",
-    "SF",
-    "SJV",
-    "SV",
-    "AZ",
-    "EWA",
-    "ID",
-    "MT",
-    "NV",
-    "OR",
-    "UT",
-    "WWA",
-    "WY",
-    "AK",
-    "IA",
-    "KS",
-    "MN",
-    "MO",
-    "NE",
-    "ND",
-    "SD",
-    "IL",
-    "IN",
-    "WI",
-    "CO",
-    "MI",
-    "OH",
-    "WV",
-    // Canadian Sections
-    "MAR",
-    "QC",
-    "ONE",
-    "ONN",
-    "ONS",
-    "GTA",
-    "MB",
-    "SK",
-    "AB",
-    "BC",
-    "NT",
-    "YT",
-  ];
-
   const upper = exchange.toUpperCase().trim();
 
   // Check for exact match or embedded section
-  for (const section of sections) {
+  for (const section of ARRL_RAC_SECTIONS) {
     if (
       upper === section ||
       upper.includes(` ${section} `) ||
@@ -778,7 +690,9 @@ function extractSection(exchange: string): string | null {
   // Try to extract from format like "A 123 CT"
   const parts = upper.split(/\s+/);
   for (const part of parts) {
-    if (sections.includes(part)) {
+    if (
+      ARRL_RAC_SECTIONS.includes(part as (typeof ARRL_RAC_SECTIONS)[number])
+    ) {
       return part;
     }
   }

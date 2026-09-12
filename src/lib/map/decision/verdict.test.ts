@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import {
   bandIntersectsWindow,
@@ -10,7 +10,41 @@ import {
   SPOTS_EXCLUDED_TIME_SHIFT,
   stripTimeShiftFromVerdictLine,
 } from "./verdict";
-import type { GreylineSummary, NearbySpotsResult, PathMufSample } from "./types";
+import type {
+  GreylineSummary,
+  NearbySpotsResult,
+  PathMufOutcome,
+  PathMufSample,
+} from "./types";
+
+/**
+ * A circuit with no ionospheric control points is reached here the same way
+ * pathMuf.test.ts reaches it: the ray-trace engine on this branch never
+ * returns an empty hop list, so `calculateReflectionPoints` is stubbed for
+ * the one test that asks for it. Everything else runs against the real
+ * engine.
+ */
+const emptyControlPoints = vi.hoisted(() => ({ value: false }));
+
+vi.mock("@/lib/utils/rayTrace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/rayTrace")>();
+  return {
+    ...actual,
+    calculateReflectionPoints: (
+      ...args: Parameters<typeof actual.calculateReflectionPoints>
+    ) =>
+      emptyControlPoints.value ? [] : actual.calculateReflectionPoints(...args),
+  };
+});
+
+function withoutControlPoints<T>(run: () => T): T {
+  emptyControlPoints.value = true;
+  try {
+    return run();
+  } finally {
+    emptyControlPoints.value = false;
+  }
+}
 
 const NY = { lat: 40.7, lon: -74.0, grid: "FN30" };
 const LONDON = { lat: 51.5, lon: -0.1, grid: "IO91", name: "G4ABC" };
@@ -49,23 +83,26 @@ const emptyNearby: NearbySpotsResult = {
   },
 };
 
-function fakeMuf(overrides: Partial<PathMufSample> = {}): PathMufSample {
+function fakeMuf(overrides: Partial<PathMufSample> = {}): PathMufOutcome {
   return {
-    muf: 14.5,
-    fot: 12.325,
-    luf: 5,
-    hpf: 16.675,
-    hopCount: 2,
-    limitingHop: 0,
-    limitingLat: 45,
-    limitingLon: -40,
-    hops: [],
-    evidence: {
-      basis: "ITU-R P.533 ray-trace test",
-      observedAt: "2026-06-21T15:00:00.000Z",
-      fetchedAt: "2026-06-21T15:02:00.000Z",
+    kind: "sampled",
+    sample: {
+      muf: 14.5,
+      fot: 12.325,
+      luf: 5,
+      hpf: 16.675,
+      hopCount: 2,
+      limitingHop: 0,
+      limitingLat: 45,
+      limitingLon: -40,
+      hops: [],
+      evidence: {
+        basis: "ITU-R P.533 ray-trace test",
+        observedAt: "2026-06-21T15:00:00.000Z",
+        fetchedAt: "2026-06-21T15:02:00.000Z",
+      },
+      ...overrides,
     },
-    ...overrides,
   };
 }
 
@@ -370,6 +407,22 @@ describe("buildDecisionReport", () => {
     expect(report.verdict.tone).toBe("unknown");
     expect(report.verdict.line).toMatch(/Need solar flux/i);
     expect(report.verdict.line).not.toMatch(/Workable now/i);
+  });
+
+  it("says the circuit has no path, not that solar flux is missing", () => {
+    // `null` used to stand for both "no SFI" and "no path", so a circuit with
+    // solar flux in hand and no control points rendered "Need solar flux to
+    // judge this path" and logged "physics unavailable (no SFI)". The SFI is
+    // right there in the input; the missing thing is the path.
+    const report = withoutControlPoints(() =>
+      buildDecisionReport(baseInput({ sfi: 150, nowCast: null, spots: [] })),
+    );
+    expect(report.pathMuf).toBeNull();
+    expect(report.verdict.tone).toBe("unknown");
+    expect(report.verdict.line).toMatch(/No path to judge/i);
+    expect(report.verdict.line).not.toMatch(/solar flux/i);
+    expect(report.verdict.evidence.basis).toMatch(/no path: no control points/);
+    expect(report.verdict.evidence.basis).not.toMatch(/no SFI/);
   });
 
   it("does not throw on an invalid display date", () => {

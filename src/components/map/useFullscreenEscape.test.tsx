@@ -59,9 +59,9 @@ const FAKE_SATELLITE: SatelliteInfoExtended = {
  * The three files this comment used to name as pending #773 work are not
  * pending any more, for two different reasons. `QslSyncPanel.tsx` is live
  * (rendered twice from `Logbook.tsx`) and already renders through
- * `AccessibleDialog`. `PassphrasePrompt.tsx` and `EquipmentDetailModal.tsx`
- * turned out to have zero render sites, so the #773 finale deleted the inert
- * exemption rather than migrating them.
+ * `AccessibleDialog`. `PassphrasePrompt.tsx` (since deleted, #1093) and
+ * `EquipmentDetailModal.tsx` turned out to have zero render sites, so the
+ * #773 finale deleted the inert exemption rather than migrating them.
  */
 function LegacyBubbleModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {

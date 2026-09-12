@@ -32,6 +32,14 @@ import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
 import type { StationInventory } from "@/lib/station/stationChainEngine";
 import { computeInsertPosition } from "@/lib/chainOrdering";
 import { deleteImage } from "@/lib/db/imageStore";
+import {
+  enqueueGearDeletionIntent,
+  enqueueGearDeletionIntents,
+  removeAcknowledgedGearDeletions,
+  type GearDeletionTable,
+  type PendingGearDeletion,
+} from "@/lib/sync/shackDeletionIntent";
+import { useAuthStore } from "@/stores/authStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -82,6 +90,220 @@ function resolveEquipmentById(
   return custom ?? getRadioById(id);
 }
 
+/** Signed-in user id at deletion time, for owner-scoped tombstone intents (#326). */
+function currentOwnerId(): string {
+  return useAuthStore.getState().user?.id ?? "";
+}
+
+interface GearRemovalCascadeInput {
+  table: GearDeletionTable;
+  ids: readonly string[];
+  stationPresets: StationPreset[];
+  stationChains: StationChain[];
+  activeRadioId: string | null;
+  activePresetId: string | null;
+  activeChainId: string | null;
+  /** The gear array for `table`'s owning kind, already stripped of `ids` (used for activeRadioId fallback). */
+  radios: UserRadio[];
+}
+
+interface GearRemovalCascadeResult {
+  stationPresets: StationPreset[];
+  stationChains: StationChain[];
+  activeRadioId: string | null;
+  activePresetId: string | null;
+  activeChainId: string | null;
+  /** Presets hard-removed by this cascade — the caller must also tombstone these. */
+  orphanedPresetIds: string[];
+  /** `radios`, updated when a `custom_radios` removal cascades into dependent instances. */
+  radios: UserRadio[];
+  /** UserRadio instances hard-removed by a `custom_radios` cascade — the caller must also tombstone these. */
+  removedRadioIds: string[];
+}
+
+/**
+ * Referential cleanup shared by every gear-removal path: local `remove*`
+ * actions and the sync pull merge when the server reports a tombstone.
+ * Given the ids just removed from one gear table, strips dangling
+ * references from presets/chains/active-selection state (#326).
+ */
+function applyGearRemovalCascade(
+  input: GearRemovalCascadeInput,
+): GearRemovalCascadeResult {
+  const idSet = new Set(input.ids);
+  let stationPresets = input.stationPresets;
+  let stationChains = input.stationChains;
+  let activeRadioId = input.activeRadioId;
+  let activePresetId = input.activePresetId;
+  let activeChainId = input.activeChainId;
+  let radios = input.radios;
+  const orphanedPresetIds: string[] = [];
+  const removedRadioIds: string[] = [];
+
+  switch (input.table) {
+    case "user_radios": {
+      if (activeRadioId && idSet.has(activeRadioId)) {
+        activeRadioId = input.radios.length > 0 ? input.radios[0].id : null;
+      }
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        nodes: chain.nodes.filter(
+          (n) => !(n.type === "radio" && idSet.has(n.radioId)),
+        ),
+      }));
+      const survivors: StationPreset[] = [];
+      for (const preset of stationPresets) {
+        if (preset.radioId && idSet.has(preset.radioId)) {
+          orphanedPresetIds.push(preset.id);
+          continue;
+        }
+        survivors.push(preset);
+      }
+      stationPresets = survivors;
+      if (activePresetId && orphanedPresetIds.includes(activePresetId)) {
+        activePresetId = null;
+      }
+      break;
+    }
+    case "antennas": {
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        nodes: chain.nodes.filter(
+          (n) => !(n.type === "antenna" && idSet.has(n.antennaId)),
+        ),
+      }));
+      const survivors: StationPreset[] = [];
+      for (const preset of stationPresets) {
+        if (preset.antennaId && idSet.has(preset.antennaId)) {
+          orphanedPresetIds.push(preset.id);
+          continue;
+        }
+        survivors.push(preset);
+      }
+      stationPresets = survivors;
+      if (activePresetId && orphanedPresetIds.includes(activePresetId)) {
+        activePresetId = null;
+      }
+      break;
+    }
+    case "feedlines": {
+      const affectedRunIds = new Set<string>();
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        feedlineRuns: chain.feedlineRuns.filter((run) => {
+          if (idSet.has(run.feedlineId)) {
+            affectedRunIds.add(run.id);
+            return false;
+          }
+          return true;
+        }),
+      }));
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        nodes: chain.nodes.filter(
+          (n) =>
+            !(n.type === "feedline_run" && affectedRunIds.has(n.feedlineRunId)),
+        ),
+      }));
+      stationPresets = stationPresets.map((p) =>
+        p.feedlineId && idSet.has(p.feedlineId)
+          ? { ...p, feedlineId: undefined }
+          : p,
+      );
+      break;
+    }
+    case "accessories": {
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        nodes: chain.nodes.filter(
+          (n) => !(n.type === "accessory" && idSet.has(n.accessoryId)),
+        ),
+        shackAccessoryIds: chain.shackAccessoryIds.filter(
+          (aid) => !idSet.has(aid),
+        ),
+      }));
+      stationPresets = stationPresets.map((p) => ({
+        ...p,
+        accessoryIds: p.accessoryIds.filter((aid) => !idSet.has(aid)),
+      }));
+      break;
+    }
+    case "inline_components": {
+      stationChains = stationChains.map((chain) => ({
+        ...chain,
+        feedlineRuns: chain.feedlineRuns.map((run) => ({
+          ...run,
+          inlineComponentIds: run.inlineComponentIds.filter(
+            (cid) => !idSet.has(cid),
+          ),
+        })),
+      }));
+      stationPresets = stationPresets.map((p) => ({
+        ...p,
+        inlineComponentIds: p.inlineComponentIds?.filter(
+          (cid) => !idSet.has(cid),
+        ),
+      }));
+      break;
+    }
+    case "station_presets": {
+      if (activePresetId && idSet.has(activePresetId)) {
+        activePresetId = null;
+      }
+      break;
+    }
+    case "station_chains": {
+      if (activeChainId && idSet.has(activeChainId)) {
+        activeChainId = null;
+      }
+      break;
+    }
+    case "custom_radios": {
+      // A tombstoned custom radio definition orphans any UserRadio
+      // instance that references it as its equipmentId. Remove those
+      // instances and recurse through the same user_radios cascade a
+      // direct instance removal runs, so presets/chains/active-selection
+      // never keep a dangling reference to unresolvable equipment (#326).
+      const affectedRadioIds = input.radios
+        .filter((r) => idSet.has(r.equipmentId))
+        .map((r) => r.id);
+      if (affectedRadioIds.length > 0) {
+        radios = input.radios.filter((r) => !affectedRadioIds.includes(r.id));
+        const nested = applyGearRemovalCascade({
+          table: "user_radios",
+          ids: affectedRadioIds,
+          stationPresets,
+          stationChains,
+          activeRadioId,
+          activePresetId,
+          activeChainId,
+          radios,
+        });
+        stationPresets = nested.stationPresets;
+        stationChains = nested.stationChains;
+        activeRadioId = nested.activeRadioId;
+        activePresetId = nested.activePresetId;
+        orphanedPresetIds.push(...nested.orphanedPresetIds);
+        removedRadioIds.push(...affectedRadioIds);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return {
+    stationPresets,
+    stationChains,
+    activeRadioId,
+    activePresetId,
+    activeChainId,
+    orphanedPresetIds,
+    radios,
+    removedRadioIds,
+  };
+}
+
 // ─── Store interface ─────────────────────────────────────────────────────────
 
 interface ShackStore {
@@ -97,6 +319,31 @@ interface ShackStore {
   equipmentHistory: EquipmentHistoryEntry[];
   stationChains: StationChain[];
   activeChainId: string | null;
+  /** Server deletion intents that remain until push/pull ack (#326). */
+  pendingGearDeletions: PendingGearDeletion[];
+  acknowledgeGearDeletions: (keys: string[], ownerId: string) => void;
+  /**
+   * Referential cleanup for gear ids already removed from `table`'s array
+   * (e.g. by a sync pull merge) — strips dangling preset/chain references
+   * and cascade-tombstones any preset that becomes orphaned (#326).
+   */
+  applyGearRemoval: (
+    table: GearDeletionTable,
+    ids: string[],
+    ownerId: string,
+  ) => void;
+  /**
+   * Local-removal counterpart to `applyGearRemoval`: the server hasn't
+   * tombstoned `ids` yet, so this also enqueues an owner-scoped intent for
+   * each primary id (in addition to the same referential cascade). Callers
+   * must remove `ids` from `table`'s own array themselves — this only
+   * cleans up dependent presets/chains/active-selection state (#326).
+   */
+  removeGearWithTombstones: (
+    table: GearDeletionTable,
+    ids: string[],
+    ownerId: string,
+  ) => void;
 
   // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
@@ -252,6 +499,94 @@ export const useShackStore = create<ShackStore>()(
       equipmentHistory: [],
       stationChains: [],
       activeChainId: null,
+      pendingGearDeletions: [],
+
+      acknowledgeGearDeletions: (keys, ownerId) =>
+        set((state) => ({
+          pendingGearDeletions: removeAcknowledgedGearDeletions(
+            state.pendingGearDeletions,
+            keys,
+            ownerId,
+          ),
+        })),
+
+      applyGearRemoval: (table, ids, ownerId) =>
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table,
+            ids,
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          const deletionIntents = [
+            ...cascade.removedRadioIds.map((recordId) => ({
+              table: "user_radios" as const,
+              recordId,
+            })),
+            ...cascade.orphanedPresetIds.map((recordId) => ({
+              table: "station_presets" as const,
+              recordId,
+            })),
+          ];
+          return {
+            pendingGearDeletions:
+              deletionIntents.length > 0
+                ? enqueueGearDeletionIntents(
+                    state.pendingGearDeletions,
+                    ownerId,
+                    deletionIntents,
+                  )
+                : state.pendingGearDeletions,
+            radios: cascade.radios,
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+            activeRadioId: cascade.activeRadioId,
+            activePresetId: cascade.activePresetId,
+            activeChainId: cascade.activeChainId,
+          };
+        }),
+
+      removeGearWithTombstones: (table, ids, ownerId) =>
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table,
+            ids,
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          const deletionIntents = [
+            ...ids.map((recordId) => ({ table, recordId })),
+            ...cascade.removedRadioIds.map((recordId) => ({
+              table: "user_radios" as const,
+              recordId,
+            })),
+            ...cascade.orphanedPresetIds.map((recordId) => ({
+              table: "station_presets" as const,
+              recordId,
+            })),
+          ];
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              ownerId,
+              deletionIntents,
+            ),
+            radios: cascade.radios,
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+            activeRadioId: cascade.activeRadioId,
+            activePresetId: cascade.activePresetId,
+            activeChainId: cascade.activeChainId,
+          };
+        }),
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
@@ -393,35 +728,36 @@ export const useShackStore = create<ShackStore>()(
           }
         }
 
+        const ownerId = currentOwnerId();
         set((state) => {
           const updatedRadios = state.radios.filter((r) => r.id !== radioId);
-          const activeRadioId =
-            state.activeRadioId === radioId
-              ? updatedRadios.length > 0
-                ? updatedRadios[0].id
-                : null
-              : state.activeRadioId;
-          // Clean up chains referencing this radio
-          const stationChains = state.stationChains.map((chain) => ({
-            ...chain,
-            nodes: chain.nodes.filter(
-              (n) => !(n.type === "radio" && n.radioId === radioId),
-            ),
-          }));
-          const stationPresets = state.stationPresets.filter(
-            (preset) => preset.radioId !== radioId,
-          );
-          const activePresetId = stationPresets.some(
-            (preset) => preset.id === state.activePresetId,
-          )
-            ? state.activePresetId
-            : null;
-          return {
+          const cascade = applyGearRemovalCascade({
+            table: "user_radios",
+            ids: [radioId],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
             radios: updatedRadios,
-            activeRadioId,
-            stationChains,
-            stationPresets,
-            activePresetId,
+          });
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              ownerId,
+              [
+                { table: "user_radios", recordId: radioId },
+                ...cascade.orphanedPresetIds.map((recordId) => ({
+                  table: "station_presets" as const,
+                  recordId,
+                })),
+              ],
+            ),
+            radios: updatedRadios,
+            activeRadioId: cascade.activeRadioId,
+            stationChains: cascade.stationChains,
+            stationPresets: cascade.stationPresets,
+            activePresetId: cascade.activePresetId,
           };
         });
 
@@ -538,14 +874,11 @@ export const useShackStore = create<ShackStore>()(
         const customRadio = (get().customRadios || []).find((r) => r.id === id);
         const name = customRadio?.displayName ?? "Unknown";
 
-        // Find all user radio IDs that reference this custom radio
-        const affectedRadioIds = get()
-          .radios.filter((r) => r.equipmentId === id)
-          .map((r) => r.id);
-        const affectedRadios = get().radios.filter((r) =>
-          affectedRadioIds.includes(r.id),
-        );
-
+        // Best-effort local image cleanup for radios that reference this
+        // custom radio — the shared cascade below handles referential
+        // cleanup and tombstoning, but image blobs are a local-only
+        // concern the pull path doesn't need to duplicate.
+        const affectedRadios = get().radios.filter((r) => r.equipmentId === id);
         for (const radio of affectedRadios) {
           if (radio.imageId) {
             deleteImage(radio.imageId).catch(() => {
@@ -559,46 +892,47 @@ export const useShackStore = create<ShackStore>()(
           }
         }
 
+        const ownerId = currentOwnerId();
         set((state) => {
           const nextCustom = (state.customRadios || []).filter(
             (r) => r.id !== id,
           );
-          const updatedRadios = state.radios.filter(
-            (r) => r.equipmentId !== id,
-          );
-          const currentActiveId = state.activeRadioId;
-          const activeRadioId =
-            currentActiveId &&
-            updatedRadios.some((r) => r.id === currentActiveId)
-              ? currentActiveId
-              : updatedRadios.length > 0
-                ? updatedRadios[0].id
-                : null;
-
-          // Clean up chains referencing any of these radios
-          const stationChains = state.stationChains.map((chain) => ({
-            ...chain,
-            nodes: chain.nodes.filter(
-              (n) =>
-                !(n.type === "radio" && affectedRadioIds.includes(n.radioId)),
-            ),
-          }));
-          const stationPresets = state.stationPresets.filter(
-            (preset) => !affectedRadioIds.includes(preset.radioId),
-          );
-          const activePresetId = stationPresets.some(
-            (preset) => preset.id === state.activePresetId,
-          )
-            ? state.activePresetId
-            : null;
+          // Shared with the sync pull path (#326): a custom_radios removal
+          // cascades into any dependent UserRadio instances and their
+          // preset/chain references.
+          const cascade = applyGearRemovalCascade({
+            table: "custom_radios",
+            ids: [id],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
 
           return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              ownerId,
+              [
+                { table: "custom_radios", recordId: id },
+                ...cascade.removedRadioIds.map((recordId) => ({
+                  table: "user_radios" as const,
+                  recordId,
+                })),
+                ...cascade.orphanedPresetIds.map((recordId) => ({
+                  table: "station_presets" as const,
+                  recordId,
+                })),
+              ],
+            ),
             customRadios: nextCustom,
-            radios: updatedRadios,
-            activeRadioId,
-            stationChains,
-            stationPresets,
-            activePresetId,
+            radios: cascade.radios,
+            activeRadioId: cascade.activeRadioId,
+            stationChains: cascade.stationChains,
+            stationPresets: cascade.stationPresets,
+            activePresetId: cascade.activePresetId,
           };
         });
 
@@ -681,20 +1015,36 @@ export const useShackStore = create<ShackStore>()(
           }
         }
 
-        set((state) => ({
-          antennas: state.antennas.filter((a) => a.id !== id),
-          // Clean up presets referencing this antenna
-          stationPresets: state.stationPresets.filter(
-            (p) => p.antennaId !== id,
-          ),
-          // Clean up chains referencing this antenna
-          stationChains: state.stationChains.map((chain) => ({
-            ...chain,
-            nodes: chain.nodes.filter(
-              (n) => !(n.type === "antenna" && n.antennaId === id),
+        const ownerId = currentOwnerId();
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table: "antennas",
+            ids: [id],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntents(
+              state.pendingGearDeletions,
+              ownerId,
+              [
+                { table: "antennas", recordId: id },
+                ...cascade.orphanedPresetIds.map((recordId) => ({
+                  table: "station_presets" as const,
+                  recordId,
+                })),
+              ],
             ),
-          })),
-        }));
+            antennas: state.antennas.filter((a) => a.id !== id),
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+            activePresetId: cascade.activePresetId,
+          };
+        });
         get()._addHistoryEntry({
           action: "removed",
           equipmentType: "antenna",
@@ -798,34 +1148,28 @@ export const useShackStore = create<ShackStore>()(
           });
         }
 
+        const ownerId = currentOwnerId();
         set((state) => {
-          // Find FeedlineRun IDs that reference this feedline
-          const affectedRunIds = new Set<string>();
-          for (const chain of state.stationChains) {
-            for (const run of chain.feedlineRuns) {
-              if (run.feedlineId === id) affectedRunIds.add(run.id);
-            }
-          }
+          const cascade = applyGearRemovalCascade({
+            table: "feedlines",
+            ids: [id],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
           return {
-            feedlines: state.feedlines.filter((f) => f.id !== id),
-            // Clean up presets referencing this feedline
-            stationPresets: state.stationPresets.map((p) =>
-              p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
+            pendingGearDeletions: enqueueGearDeletionIntent(
+              state.pendingGearDeletions,
+              ownerId,
+              "feedlines",
+              id,
             ),
-            // Clean up chains: remove affected FeedlineRuns and their nodes
-            stationChains: state.stationChains.map((chain) => ({
-              ...chain,
-              feedlineRuns: chain.feedlineRuns.filter(
-                (r) => r.feedlineId !== id,
-              ),
-              nodes: chain.nodes.filter(
-                (n) =>
-                  !(
-                    n.type === "feedline_run" &&
-                    affectedRunIds.has(n.feedlineRunId)
-                  ),
-              ),
-            })),
+            feedlines: state.feedlines.filter((f) => f.id !== id),
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
           };
         });
         get()._addHistoryEntry({
@@ -936,25 +1280,32 @@ export const useShackStore = create<ShackStore>()(
           });
         }
 
-        set((state) => ({
-          inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
-          stationPresets: state.stationPresets.map((p) => ({
-            ...p,
-            inlineComponentIds: p.inlineComponentIds?.filter(
-              (cid) => cid !== id,
+        const ownerId = currentOwnerId();
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table: "inline_components",
+            ids: [id],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntent(
+              state.pendingGearDeletions,
+              ownerId,
+              "inline_components",
+              id,
             ),
-          })),
-          // Clean up chains: remove from FeedlineRun.inlineComponentIds
-          stationChains: state.stationChains.map((chain) => ({
-            ...chain,
-            feedlineRuns: chain.feedlineRuns.map((run) => ({
-              ...run,
-              inlineComponentIds: run.inlineComponentIds.filter(
-                (cid) => cid !== id,
-              ),
-            })),
-          })),
-        }));
+            inlineComponents: state.inlineComponents.filter(
+              (c) => c.id !== id,
+            ),
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+          };
+        });
         get()._addHistoryEntry({
           action: "removed",
           equipmentType: "inline_component",
@@ -1074,24 +1425,30 @@ export const useShackStore = create<ShackStore>()(
           }
         }
 
-        set((state) => ({
-          accessories: state.accessories.filter((a) => a.id !== id),
-          // Remove this accessory from all presets' accessoryIds
-          stationPresets: state.stationPresets.map((p) => ({
-            ...p,
-            accessoryIds: p.accessoryIds.filter((aid) => aid !== id),
-          })),
-          // Clean up chains: remove from signal-path nodes and shackAccessoryIds
-          stationChains: state.stationChains.map((chain) => ({
-            ...chain,
-            nodes: chain.nodes.filter(
-              (n) => !(n.type === "accessory" && n.accessoryId === id),
+        const ownerId = currentOwnerId();
+        set((state) => {
+          const cascade = applyGearRemovalCascade({
+            table: "accessories",
+            ids: [id],
+            stationPresets: state.stationPresets,
+            stationChains: state.stationChains,
+            activeRadioId: state.activeRadioId,
+            activePresetId: state.activePresetId,
+            activeChainId: state.activeChainId,
+            radios: state.radios,
+          });
+          return {
+            pendingGearDeletions: enqueueGearDeletionIntent(
+              state.pendingGearDeletions,
+              ownerId,
+              "accessories",
+              id,
             ),
-            shackAccessoryIds: chain.shackAccessoryIds.filter(
-              (aid) => aid !== id,
-            ),
-          })),
-        }));
+            accessories: state.accessories.filter((a) => a.id !== id),
+            stationPresets: cascade.stationPresets,
+            stationChains: cascade.stationChains,
+          };
+        });
         get()._addHistoryEntry({
           action: "removed",
           equipmentType: "accessory",
@@ -1188,7 +1545,14 @@ export const useShackStore = create<ShackStore>()(
       removePreset: (id) => {
         const preset = get().stationPresets.find((p) => p.id === id);
         const name = preset?.name ?? "Unknown";
+        const ownerId = currentOwnerId();
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            ownerId,
+            "station_presets",
+            id,
+          ),
           stationPresets: state.stationPresets.filter((p) => p.id !== id),
           // Clear activePresetId if it matches the removed preset
           activePresetId:
@@ -1292,7 +1656,14 @@ export const useShackStore = create<ShackStore>()(
       removeChain: (id) => {
         const chain = get().stationChains.find((c) => c.id === id);
         const name = chain?.name ?? "Unknown";
+        const ownerId = currentOwnerId();
         set((state) => ({
+          pendingGearDeletions: enqueueGearDeletionIntent(
+            state.pendingGearDeletions,
+            ownerId,
+            "station_chains",
+            id,
+          ),
           stationChains: state.stationChains.filter((c) => c.id !== id),
           activeChainId:
             state.activeChainId === id ? null : state.activeChainId,
@@ -1867,7 +2238,7 @@ export const useShackStore = create<ShackStore>()(
     }),
     {
       name: "propulse-shack",
-      version: 5,
+      version: 7,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -1882,6 +2253,7 @@ export const useShackStore = create<ShackStore>()(
         equipmentHistory: state.equipmentHistory,
         stationChains: state.stationChains,
         activeChainId: state.activeChainId,
+        pendingGearDeletions: state.pendingGearDeletions,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -1941,6 +2313,21 @@ export const useShackStore = create<ShackStore>()(
         }
         if (version < 5) {
           // v4→v5: imageId fields are optional — no data migration needed
+        }
+        if (version < 6) {
+          if (!("pendingGearDeletions" in state)) {
+            state.pendingGearDeletions = [];
+          }
+        }
+        if (version < 7) {
+          // v6->v7: pendingGearDeletions gained a required ownerId (#326).
+          // Pre-existing intents predate that field and can't be reliably
+          // attributed to an account here — auth may not have hydrated a
+          // session yet at migrate time, and guessing wrong would repeat the
+          // cross-account push bug this field exists to prevent. Drop them;
+          // any real pending deletion re-queues the next time that gear is
+          // removed.
+          state.pendingGearDeletions = [];
         }
         return state as never;
       },

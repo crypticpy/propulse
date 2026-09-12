@@ -194,7 +194,7 @@ export function DxccGrid({
             >
               {slot.prefix}
             </div>
-            <div className="text-[10px] text-su-muted truncate leading-tight">
+            <div className="text-xs text-su-muted truncate leading-tight">
               {slot.name.length > 12 ? slot.name.slice(0, 11) + "…" : slot.name}
             </div>
           </button>

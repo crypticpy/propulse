@@ -138,7 +138,7 @@ export function WazGrid({
               {slot.zone}
             </div>
             {slot.qsoCount > 0 && (
-              <div className="text-[10px] text-su-muted mt-0.5">
+              <div className="text-xs text-su-muted mt-0.5">
                 {slot.qsoCount} QSO{slot.qsoCount !== 1 ? "s" : ""}
               </div>
             )}

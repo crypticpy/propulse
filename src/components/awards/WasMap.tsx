@@ -139,11 +139,11 @@ export function WasMap({
             >
               {slot.abbr}
             </div>
-            <div className="text-[10px] text-su-muted truncate leading-tight mt-0.5">
+            <div className="text-xs text-su-muted truncate leading-tight mt-0.5">
               {slot.name.length > 8 ? slot.name.slice(0, 7) + "…" : slot.name}
             </div>
             {slot.qsoCount > 0 && (
-              <div className="text-[9px] text-su-muted mt-0.5">
+              <div className="text-xs text-su-muted mt-0.5">
                 {slot.qsoCount} QSO{slot.qsoCount !== 1 ? "s" : ""}
               </div>
             )}

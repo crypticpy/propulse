@@ -17,30 +17,7 @@ import { SerialPort } from "serialport";
 import { CivFrameParser, type CivFrame } from "./civ/codec.js";
 import { AudioCapture } from "./audioCapture.js";
 import { resolveAudioDevice } from "./audioResolver.js";
-import {
-  readFrequency,
-  setFrequency,
-  setMode,
-  setPtt,
-  readLevel,
-  setLevel,
-  readFunction,
-  setFunction,
-  setAgc,
-  setVfo,
-  setSplit,
-  setRit,
-  setXit,
-  setCwSpeed,
-  setIfShift,
-  startScope,
-  stopScope,
-  startScopeDataOutput,
-  stopScopeDataOutput,
-  setAntenna,
-  parseLevelResponse,
-  parseFunctionResponse,
-} from "./civ/commands.js";
+import { readFrequency } from "./civ/commands.js";
 import {
   type CivAddress,
   CivCmd,
@@ -326,179 +303,91 @@ export class IcomSerialBackend {
   // ── Rig Control Commands ──────────────────────────────────────────────────
 
   async setFrequency(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFrequency(this.addr, hz),
-      "Set frequency",
-    );
+    await this.session.setFrequency(hz);
   }
 
   async setMode(mode: string, _passband?: number): Promise<void> {
-    await this.session.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
+    await this.session.setMode(mode, _passband);
   }
 
   async setPTT(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
+    await this.session.setPTT(on);
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    await this.session.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
+    await this.session.setVFO(vfo);
   }
 
   async setSplit(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setSplit(this.addr, on), "Set split");
+    await this.session.setSplit(on);
   }
 
   async setFunc(func: string, on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, func, on),
-      `Set function ${func}`,
-    );
+    await this.session.setFunc(func, on);
   }
 
   async setLevel(level: string, value: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setLevel(this.addr, level, value),
-      `Set level ${level}`,
-    );
+    await this.session.setLevel(level, value);
   }
 
   async getLevel(level: string): Promise<number> {
-    const frame = await this.session.sendCommand(readLevel(this.addr, level));
-    if (!frame) return 0;
-    return parseLevelResponse(frame) ?? 0;
+    return this.session.getLevel(level);
   }
 
   async getFunc(func: string): Promise<boolean> {
-    const frame = await this.session.sendCommand(readFunction(this.addr, func));
-    if (!frame) return false;
-    return parseFunctionResponse(frame) ?? false;
+    return this.session.getFunc(func);
   }
 
   async setAgc(mode: number): Promise<void> {
-    await this.session.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
+    await this.session.setAgc(mode);
   }
 
   async setPassband(hz: number): Promise<void> {
-    // ICOM radios select filter width via the mode command with a filter number
-    // (1=FIL1 widest, 2=FIL2 medium, 3=FIL3 narrowest).
-    // Re-send the current mode with the appropriate filter selection.
-    const currentMode = this.session.getLastStatus()?.mode;
-    if (!currentMode) return;
-
-    const isCw = currentMode === "CW" || currentMode === "CW-R";
-    const isRtty = currentMode === "RTTY" || currentMode === "RTTY-R";
-    let filter: number;
-
-    if (isCw || isRtty) {
-      // CW/RTTY filters: FIL1=500Hz, FIL2=250Hz, FIL3=50-100Hz
-      filter = hz >= 400 ? 1 : hz >= 150 ? 2 : 3;
-    } else {
-      // SSB/AM/FM/DV: FIL1=wide, FIL2=medium, FIL3=narrow
-      filter = hz >= 2000 ? 1 : hz >= 1000 ? 2 : 3;
-    }
-
-    await this.session.sendAndWaitOk(
-      setMode(this.addr, currentMode, filter),
-      "Set passband",
-    );
+    await this.session.setPassband(hz);
   }
 
   async setAntenna(index: string): Promise<void> {
-    const port = parseInt(index, 10);
-    if (!isNaN(port)) {
-      await this.session.sendAndWaitOk(
-        setAntenna(this.addr, port),
-        "Set antenna",
-      );
-    }
+    await this.session.setAntenna(index);
   }
 
   async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setRit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setRit(enabled, offsetHz);
   }
 
   async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setXit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setXit(enabled, offsetHz);
   }
 
   async setAnf(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "ANF", enabled),
-      "Set ANF",
-    );
+    await this.session.setAnf(enabled);
   }
 
   async setQsk(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "BKIN", enabled),
-      "Set QSK",
-    );
+    await this.session.setQsk(enabled);
   }
 
   async setVox(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "VOX", enabled),
-      "Set VOX",
-    );
+    await this.session.setVox(enabled);
   }
 
   async setCwSpeed(wpm: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setCwSpeed(this.addr, wpm),
-      "Set CW speed",
-    );
+    await this.session.setCwSpeed(wpm);
   }
 
   async setIfShift(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
+    await this.session.setIfShift(hz);
   }
 
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(true);
-    console.log(
-      `[icom-serial] Starting spectrum for addr 0x${this.addr.radio.toString(16)}`,
-    );
-    try {
-      // Step 1: Turn scope display ON (0x27 0x10 0x01)
-      await this.session.sendAndWaitOk(
-        startScope(this.addr),
-        "Enable scope display",
-      );
-      console.log("[icom-serial] Scope ON (0x27 0x10 0x01) — OK");
-
-      // Step 2: Enable CI-V scope data output (0x27 0x11 0x01)
-      // Without this, the scope turns on visually but doesn't stream data over CI-V.
-      await this.session.sendAndWaitOk(
-        startScopeDataOutput(this.addr),
-        "Enable scope data output",
-      );
-      console.log(
-        "[icom-serial] Scope Data Output ON (0x27 0x11 0x01) — OK, waiting for frames",
-      );
-    } catch (err: unknown) {
-      console.error(
-        `[icom-serial] Scope enable FAILED: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      throw err;
-    }
+    await this.session.startSpectrum();
   }
 
   async stopSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(false);
-    // Disable data output first, then scope display
-    await this.session.sendAndWaitOk(
-      stopScopeDataOutput(this.addr),
-      "Disable scope data output",
-    );
-    await this.session.sendAndWaitOk(
-      stopScope(this.addr),
-      "Disable scope display",
-    );
+    await this.session.stopSpectrum();
   }
+
 
   /** Open serial port temporarily to probe for a radio (used by probe()) */
   private async openAndQuery(): Promise<CivFrame | null> {

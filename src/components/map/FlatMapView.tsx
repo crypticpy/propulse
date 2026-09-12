@@ -131,7 +131,10 @@ import {
   type AwardEntityStatus,
 } from "@/hooks/useAwardProgress";
 import type { LabelOptions } from "@/stores/mapStore";
-import { getStandardMapCanvas } from "@/lib/utils/standardMap";
+import {
+  addWrappedRingPath,
+  getStandardMapCanvas,
+} from "@/lib/utils/standardMap";
 import {
   createFlatTileLayer,
   type FlatTileLayer,
@@ -169,15 +172,6 @@ import type { GridGlowSpot } from "./GridGlowCanvas";
 import { useWsprSpots } from "@/hooks/useWspr";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { getWsprBandColor } from "@/lib/map/wsprBandColors";
-import {
-  LIGHTNING_COLOR_FLAT,
-  LIGHTNING_COLOR_STRONG,
-  LIGHTNING_STRONG_KA,
-} from "@/lib/map/lightningColors";
-import type { EarthquakeEvent } from "@/lib/api/earthquakes";
-import type { WeatherAlert } from "@/lib/api/weather";
-import type { LightningStrike } from "@/lib/api/lightning";
-import type { FireHotspot } from "@/lib/api/fires";
 import type { WsprSpot } from "@/lib/api/wspr";
 import {
   useContestQsoLocations,
@@ -221,6 +215,12 @@ import {
   subscribeFlatMapDiagnostics,
 } from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
+import { createEquirectangularProjection } from "@/lib/map/projection";
+import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
+import { drawFiresLayer } from "./layers/firesLayer";
+import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
+import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
+import { drawLightningLayer } from "./layers/lightningLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -369,71 +369,6 @@ function latLonToCanvas(
   const x = ((lon + 180) / 360) * width;
   const y = ((90 - lat) / 180) * height;
   return { x, y };
-}
-
-function addWrappedRingPath2D(
-  ctx: CanvasRenderingContext2D,
-  ring: [number, number][],
-  width: number,
-  height: number,
-): void {
-  if (ring.length < 2) return;
-
-  const baseXs: number[] = new Array(ring.length);
-  for (let i = 0; i < ring.length; i++) {
-    const lon = ring[i][1];
-    baseXs[i] = ((lon + 180) / 360) * width;
-  }
-
-  let maxDelta = 0;
-  let rotateStart = 0;
-  for (let i = 0; i < ring.length; i++) {
-    const next = (i + 1) % ring.length;
-    const delta = Math.abs(baseXs[next] - baseXs[i]);
-    if (delta > maxDelta) {
-      maxDelta = delta;
-      rotateStart = i;
-    }
-  }
-
-  const needsRotation = maxDelta > width / 2 && rotateStart !== 0;
-  const points = needsRotation
-    ? [...ring.slice(rotateStart), ...ring.slice(0, rotateStart)]
-    : ring;
-  const pointsBaseXs = needsRotation
-    ? [...baseXs.slice(rotateStart), ...baseXs.slice(0, rotateStart)]
-    : baseXs;
-
-  const xs: number[] = new Array(points.length);
-  let prevX = 0;
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-
-  for (let i = 0; i < points.length; i++) {
-    let x = pointsBaseXs[i];
-    if (i > 0) {
-      const delta = x - prevX;
-      if (delta > width / 2) x -= width;
-      else if (delta < -width / 2) x += width;
-    }
-    xs[i] = x;
-    prevX = x;
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-  }
-
-  const offsets = [-width, 0, width] as const;
-  for (const offset of offsets) {
-    if (maxX + offset < 0 || minX + offset > width) continue;
-    for (let i = 0; i < points.length; i++) {
-      const [lat] = points[i];
-      const y = ((90 - lat) / 180) * height;
-      const x = xs[i] + offset;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-  }
 }
 
 /**
@@ -1140,236 +1075,6 @@ function drawAurora(
   }
 
   // Restore context state
-  ctx.restore();
-}
-
-/**
- * Draw earthquake markers on the 2D map
- * Renders recent earthquakes as magnitude-scaled colored circles with glow
- */
-function drawEarthquakes(
-  ctx: CanvasRenderingContext2D,
-  earthquakes: EarthquakeEvent[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const eq of earthquakes) {
-    const { x, y } = latLonToCanvas(eq.lat, eq.lon, width, height);
-
-    // Size based on magnitude (M2.5-M9 mapped to 3-20px radius)
-    const radius = Math.max(3, Math.min(20, (eq.magnitude - 1) * 3)) / zoomDamp;
-
-    // Color based on magnitude
-    let color: string;
-    if (eq.magnitude >= 7)
-      color = "#ff2020"; // Major: red
-    else if (eq.magnitude >= 5)
-      color = "#ff8800"; // Strong: orange
-    else if (eq.magnitude >= 4)
-      color = "#ffcc00"; // Moderate: yellow
-    else color = "#88cc44"; // Light: green-yellow
-
-    // Outer glow ring
-    ctx.globalAlpha = 0.15;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Inner filled circle
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Outline
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1 / zoomDamp;
-    ctx.stroke();
-
-    // Magnitude label for M5+
-    if (eq.magnitude >= 5) {
-      const fontSize = Math.max(1, Math.round(7 / zoomDamp));
-      ctx.globalAlpha = 1;
-      ctx.font = `bold ${fontSize}px monospace`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.lineWidth = 2 / zoomDamp;
-      ctx.strokeText(
-        `M${eq.magnitude.toFixed(1)}`,
-        x,
-        y - radius - 2 / zoomDamp,
-      );
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2 / zoomDamp);
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw weather alert markers on the 2D map
- * Renders active weather warnings as severity-colored triangles
- */
-function drawWeatherAlerts(
-  ctx: CanvasRenderingContext2D,
-  alerts: WeatherAlert[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const alert of alerts) {
-    const { x, y } = latLonToCanvas(alert.lat, alert.lon, width, height);
-
-    // Color by severity
-    let color: string;
-    switch (alert.severity) {
-      case "Extreme":
-        color = "#ff0040";
-        break;
-      case "Severe":
-        color = "#ff6600";
-        break;
-      case "Moderate":
-        color = "#ffaa00";
-        break;
-      default:
-        color = "#ffdd44";
-        break;
-    }
-
-    // Warning triangle
-    const size = 8 / zoomDamp;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(x, y - size); // top
-    ctx.lineTo(x + size, y + size * 0.6); // bottom right
-    ctx.lineTo(x - size, y + size * 0.6); // bottom left
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 0.5 / zoomDamp;
-    ctx.stroke();
-
-    // Exclamation mark inside triangle
-    ctx.fillStyle = "#000000";
-    const fontSize = Math.max(1, Math.round(8 / zoomDamp));
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", x, y);
-
-    // Event type label (only when zoomed in enough to read)
-    if (zoomScale > 1.5) {
-      const label =
-        alert.event.length > 16
-          ? alert.event.slice(0, 16) + "\u2026"
-          : alert.event;
-      const labelFontSize = Math.max(1, Math.round(9 / zoomDamp));
-      ctx.font = `${labelFontSize}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillStyle = color;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 2;
-      ctx.fillText(label, x, y + size * 0.6 + 2 / zoomDamp);
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw lightning strike markers on the 2D map
- * Renders recent strikes as bright dots scaled by peak current (currentKA)
- */
-function drawLightning(
-  ctx: CanvasRenderingContext2D,
-  strikes: LightningStrike[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  const now = Date.now();
-  for (const strike of strikes) {
-    const { x, y } = latLonToCanvas(strike.lat, strike.lon, width, height);
-
-    // Fade based on age (full opacity for recent, fade over 10 minutes)
-    const age = now - strike.time;
-    const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
-
-    // Intensity based on peak current (200 kA max, 0.3 floor)
-    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
-
-    // Outer glow — scaled by intensity
-    ctx.globalAlpha = alpha * 0.3;
-    ctx.beginPath();
-    ctx.arc(x, y, (6 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-
-    // Inner core — scaled by intensity, brighter white for strong strikes
-    ctx.globalAlpha = alpha * 0.8;
-    ctx.beginPath();
-    ctx.arc(x, y, (3 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle =
-      strike.currentKA > LIGHTNING_STRONG_KA
-        ? LIGHTNING_COLOR_STRONG
-        : LIGHTNING_COLOR_FLAT;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * Draw fire hotspot markers on the 2D map
- * Renders NASA FIRMS fire detections as orange/red dots scaled by FRP
- */
-function drawFires(
-  ctx: CanvasRenderingContext2D,
-  hotspots: FireHotspot[],
-  width: number,
-  height: number,
-  zoomScale = 1.0,
-) {
-  const zoomDamp = Math.max(1, zoomScale);
-  ctx.save();
-  for (const hp of hotspots) {
-    if (hp.confidence === "low") continue;
-
-    const { x, y } = latLonToCanvas(hp.lat, hp.lon, width, height);
-    const radius = Math.max(1.5, Math.min(6, hp.frp / 80)) / zoomDamp;
-
-    // Outer glow
-    ctx.globalAlpha = 0.2;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff6600";
-    ctx.fill();
-
-    // Inner core
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff2200";
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -2702,7 +2407,7 @@ function drawLabels(
     ctx.beginPath();
     for (const country of WORLD_COUNTRIES) {
       for (const ring of country.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();
@@ -2951,7 +2656,7 @@ function drawStateBorders(
   ctx.beginPath();
   for (const state of US_STATES) {
     for (const ring of state.borders) {
-      addWrappedRingPath2D(ctx, ring, width, height);
+      addWrappedRingPath(ctx, ring, width, height);
     }
   }
   ctx.stroke();
@@ -3000,7 +2705,7 @@ function drawWASOverlay(
     ctx.beginPath();
     for (const state of states) {
       for (const ring of state.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
         ctx.closePath();
       }
     }
@@ -3092,7 +2797,7 @@ function drawNightBoostedBorders(
     ctx.beginPath();
     for (const country of WORLD_COUNTRIES) {
       for (const ring of country.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();
@@ -3105,7 +2810,7 @@ function drawNightBoostedBorders(
     ctx.beginPath();
     for (const state of US_STATES) {
       for (const ring of state.borders) {
-        addWrappedRingPath2D(ctx, ring, width, height);
+        addWrappedRingPath(ctx, ring, width, height);
       }
     }
     ctx.stroke();
@@ -5914,42 +5619,35 @@ export function FlatMapView({
     const ctx = beginFlatMapCanvasFrame(canvas, viewportSize, dpr, zoom);
     if (!ctx) return;
 
+    const projection = createEquirectangularProjection({
+      width: renderWidth,
+      height: renderHeight,
+      zoomScale: zoom.scale,
+    });
+
     // Draw earthquake markers
     if (layers.earthquakes && earthquakeData.length > 0) {
-      drawEarthquakes(
-        ctx,
-        earthquakeData,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      drawEarthquakesLayer(ctx, earthquakeData, projection, FLAT_LAYER_PROFILE);
     }
 
     // Draw weather alert markers
     if (layers.weather && weatherAlerts.length > 0) {
-      drawWeatherAlerts(
+      drawWeatherAlertsLayer(
         ctx,
         weatherAlerts,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
+        projection,
+        FLAT_LAYER_PROFILE,
       );
     }
 
     // Draw lightning strikes
     if (layers.lightning && lightningStrikes.length > 0) {
-      drawLightning(
-        ctx,
-        lightningStrikes,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      drawLightningLayer(ctx, lightningStrikes, projection);
     }
 
     // Draw fire hotspots
     if (layers.fires && fireHotspots.length > 0) {
-      drawFires(ctx, fireHotspots, renderWidth, renderHeight, zoom.scale);
+      drawFiresLayer(ctx, fireHotspots, projection, FLAT_LAYER_PROFILE);
     }
 
     // Draw WSPR propagation paths

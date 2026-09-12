@@ -10,8 +10,11 @@ vi.mock("@/lib/supabase", () => ({
 
 import {
   HOURLY_STATS_PAGE_SIZE,
+  PATH_COVERAGE_ROW_CAP,
   queryBandHourlyStats,
+  queryPathCoverageHours,
   queryPathHourlyStats,
+  queryReadableBandHours,
 } from "@/lib/propagation/hourlyStats";
 
 type PageResponse = {
@@ -60,13 +63,18 @@ afterEach(() => {
 describe("queryBandHourlyStats", () => {
   it("filters by band and hour_utc window, ordered oldest-first", async () => {
     const { builder, calls } = makeBuilder([
-      { data: [{ band: "20m", hour_utc: "2026-08-28T12:00:00Z" }], error: null },
+      {
+        data: [{ band: "20m", hour_utc: "2026-08-28T12:00:00Z" }],
+        error: null,
+      },
     ]);
     supabaseMocks.from.mockReturnValue(builder);
 
     const rows = await queryBandHourlyStats("20m", 24);
 
-    expect(supabaseMocks.from).toHaveBeenCalledWith("band_hourly_stats_readable");
+    expect(supabaseMocks.from).toHaveBeenCalledWith(
+      "band_hourly_stats_readable",
+    );
     expect(calls).toContainEqual(["eq", ["band", "20m"]]);
     expect(calls).toContainEqual([
       "gte",
@@ -144,5 +152,141 @@ describe("queryPathHourlyStats", () => {
     await expect(
       queryPathHourlyStats({ band: "20m", modeClass: "digital" }),
     ).rejects.toThrow("path_hourly_stats query failed: permission denied");
+  });
+});
+
+describe("queryPathCoverageHours", () => {
+  it("selects the coverage and pair columns and filters on band + rx field", async () => {
+    const { builder, calls } = makeBuilder([{ data: [], error: null }]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    await queryPathCoverageHours({ band: "20m", rxField: "io", hours: 6 });
+
+    // One request, one snapshot: a second page is a second transaction, and
+    // a recovery commit between them can replace a whole hour.
+    expect(calls.filter(([method]) => method === "range")).toHaveLength(1);
+    expect(calls).toContainEqual(["range", [0, PATH_COVERAGE_ROW_CAP - 1]]);
+
+    expect(supabaseMocks.from).toHaveBeenCalledWith("path_hourly_stats");
+    // A narrow select matters here: the coverage query fans over every
+    // tx_field for the receiving field, so `*` would multiply the page count
+    // and drag the aggregate SNR columns into a surface that must not use
+    // them.
+    // One read answers both questions: the pair rows are the subset of these
+    // rows whose tx_field is ours, so the caller never mixes two snapshots.
+    expect(calls).toContainEqual([
+      "select",
+      [
+        "hour_utc,mode_class,tx_field,spot_count,unique_tx,unique_rx,backfilled_count",
+      ],
+    ]);
+    // Still no aggregate SNR column: no consumer of this reader may use one.
+    const selected = calls.find(([method]) => method === "select")?.[1][0];
+    expect(selected).not.toMatch(/snr/);
+    expect(calls).toContainEqual(["eq", ["band", "20m"]]);
+    expect(calls).toContainEqual(["eq", ["rx_field", "IO"]]);
+    expect(calls).toContainEqual([
+      "gte",
+      ["hour_utc", "2026-08-29T06:00:00.000Z"],
+    ]);
+    expect(calls).toContainEqual(["order", ["hour_utc", { ascending: true }]]);
+    expect(calls).toContainEqual(["order", ["id", { ascending: true }]]);
+    // No tx_field filter: coverage is about the receiver being heard from at
+    // all, whoever was transmitting.
+    const eqColumns = calls
+      .filter(([method]) => method === "eq")
+      .map(([, args]) => args[0]);
+    expect(eqColumns).not.toContain("tx_field");
+  });
+
+  it("pins the window to a supplied instant instead of the clock", async () => {
+    const { builder, calls } = makeBuilder([{ data: [], error: null }]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    await queryPathCoverageHours({
+      band: "20m",
+      rxField: "IO",
+      since: "2026-08-29T00:00:00.000Z",
+    });
+
+    expect(calls).toContainEqual([
+      "gte",
+      ["hour_utc", "2026-08-29T00:00:00.000Z"],
+    ]);
+  });
+
+  it("reports a read that filled the cap as truncated, and stops there", async () => {
+    const { builder, calls } = makeBuilder([
+      { data: rowsOf(PATH_COVERAGE_ROW_CAP), error: null },
+      { data: rowsOf(2), error: null },
+    ]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    const read = await queryPathCoverageHours({ band: "20m", rxField: "IO" });
+
+    // No second page. The rows it did get are still true; what it cannot
+    // claim is that they are all of them, which `truncated` carries.
+    expect(read.rows).toHaveLength(PATH_COVERAGE_ROW_CAP);
+    expect(read.truncated).toBe(true);
+    expect(calls.filter(([method]) => method === "range")).toHaveLength(1);
+  });
+
+  it("reports a short read as complete", async () => {
+    const { builder } = makeBuilder([
+      { data: rowsOf(PATH_COVERAGE_ROW_CAP - 1), error: null },
+    ]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    const read = await queryPathCoverageHours({ band: "20m", rxField: "IO" });
+
+    expect(read.rows).toHaveLength(PATH_COVERAGE_ROW_CAP - 1);
+    expect(read.truncated).toBe(false);
+  });
+
+  it("caps at the PostgREST max_rows setting", () => {
+    // supabase/config.toml sets max_rows = 1000, so a larger cap would be
+    // silently clipped by the server and read as a complete answer.
+    expect(PATH_COVERAGE_ROW_CAP).toBe(1000);
+  });
+});
+
+describe("queryReadableBandHours", () => {
+  it("reads the gap-filtered view, not the base table", async () => {
+    const { builder, calls } = makeBuilder([{ data: [], error: null }]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    await queryReadableBandHours({ band: "40m", hours: 6 });
+
+    // The gap ledger is service_role only, so the readable view's own row
+    // presence is the client's witness that an hour can be spoken for.
+    expect(supabaseMocks.from).toHaveBeenCalledWith(
+      "band_hourly_stats_readable",
+    );
+    expect(calls).toContainEqual(["select", ["hour_utc"]]);
+    expect(calls).toContainEqual(["eq", ["band", "40m"]]);
+    expect(calls).toContainEqual([
+      "gte",
+      ["hour_utc", "2026-08-29T06:00:00.000Z"],
+    ]);
+  });
+
+  it("drains pages the same way and names the view on failure", async () => {
+    const { builder, calls } = makeBuilder([
+      { data: rowsOf(HOURLY_STATS_PAGE_SIZE), error: null },
+      { data: rowsOf(1), error: null },
+    ]);
+    supabaseMocks.from.mockReturnValue(builder);
+
+    const rows = await queryReadableBandHours({ band: "20m" });
+    expect(rows).toHaveLength(HOURLY_STATS_PAGE_SIZE + 1);
+    expect(calls.filter(([method]) => method === "range")).toHaveLength(2);
+
+    const failing = makeBuilder([
+      { data: null, error: { message: "permission denied" } },
+    ]);
+    supabaseMocks.from.mockReturnValue(failing.builder);
+    await expect(queryReadableBandHours({ band: "20m" })).rejects.toThrow(
+      "band_hourly_stats_readable query failed: permission denied",
+    );
   });
 });

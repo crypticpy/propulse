@@ -1,0 +1,210 @@
+{
+  "note": "PROP-05 (#951) time-travel boundary cases. Every case replays one history at one issuedAt and pins the exact record selected and its age, so a boundary that shifts by a millisecond fails loudly. Timestamps are UTC with millisecond precision; the leaf has no local-day concept, which is what these cases prove.",
+  "cases": [
+    {
+      "name": "midnight: the record observed at 23:59:59.999 is current at midnight",
+      "sourceId": "f107",
+      "issuedAt": "2026-09-11T00:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-09-10T23:59:59.999Z",
+          "capturedAt": "2026-09-10T23:59:59.999Z",
+          "revision": "before-midnight"
+        },
+        {
+          "observedIntervalEndAt": "2026-09-11T00:00:00.001Z",
+          "capturedAt": "2026-09-11T00:00:00.001Z",
+          "revision": "after-midnight"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "before-midnight",
+        "ageSeconds": 1
+      }
+    },
+    {
+      "name": "midnight: a record observed exactly at midnight is available at midnight",
+      "sourceId": "f107",
+      "issuedAt": "2026-09-11T00:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-09-11T00:00:00.000Z",
+          "capturedAt": "2026-09-11T00:00:00.000Z",
+          "revision": "at-midnight"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "at-midnight",
+        "ageSeconds": 0
+      }
+    },
+    {
+      "name": "month boundary: the September record takes over exactly at the turn",
+      "sourceId": "f107",
+      "issuedAt": "2026-09-01T00:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-08-31T23:00:00.000Z",
+          "capturedAt": "2026-08-31T23:05:00.000Z",
+          "revision": "august"
+        },
+        {
+          "observedIntervalEndAt": "2026-09-01T00:00:00.000Z",
+          "capturedAt": "2026-09-01T00:00:00.000Z",
+          "revision": "september"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "september",
+        "ageSeconds": 0
+      }
+    },
+    {
+      "name": "month boundary: the August record is still current one millisecond earlier",
+      "sourceId": "f107",
+      "issuedAt": "2026-08-31T23:59:59.999Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-08-31T23:00:00.000Z",
+          "capturedAt": "2026-08-31T23:05:00.000Z",
+          "revision": "august"
+        },
+        {
+          "observedIntervalEndAt": "2026-09-01T00:00:00.000Z",
+          "capturedAt": "2026-09-01T00:00:00.000Z",
+          "revision": "september"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "august",
+        "ageSeconds": 3600
+      }
+    },
+    {
+      "name": "year boundary: the 2025 record is current at 23:59:59.999 on 31 December",
+      "sourceId": "f107",
+      "issuedAt": "2025-12-31T23:59:59.999Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2025-12-31T23:00:00.000Z",
+          "capturedAt": "2025-12-31T23:01:00.000Z",
+          "revision": "y2025"
+        },
+        {
+          "observedIntervalEndAt": "2026-01-01T00:00:00.000Z",
+          "capturedAt": "2026-01-01T00:00:00.000Z",
+          "revision": "y2026"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "y2025",
+        "ageSeconds": 3600
+      }
+    },
+    {
+      "name": "year boundary: the 2026 record takes over exactly at the turn",
+      "sourceId": "f107",
+      "issuedAt": "2026-01-01T00:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2025-12-31T23:00:00.000Z",
+          "capturedAt": "2025-12-31T23:01:00.000Z",
+          "revision": "y2025"
+        },
+        {
+          "observedIntervalEndAt": "2026-01-01T00:00:00.000Z",
+          "capturedAt": "2026-01-01T00:00:00.000Z",
+          "revision": "y2026"
+        }
+      ],
+      "expected": { "state": "selected", "revision": "y2026", "ageSeconds": 0 }
+    },
+    {
+      "name": "leap day: a 29 February observation is selected on 29 February",
+      "sourceId": "f107",
+      "issuedAt": "2028-02-29T12:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2028-02-29T00:00:00.000Z",
+          "capturedAt": "2028-02-29T00:05:00.000Z",
+          "revision": "leap-day"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "leap-day",
+        "ageSeconds": 43200
+      }
+    },
+    {
+      "name": "leap day: the 28 February record is not served past the 29 February one",
+      "sourceId": "f107",
+      "issuedAt": "2028-02-29T12:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2028-02-28T12:00:00.000Z",
+          "capturedAt": "2028-02-28T12:05:00.000Z",
+          "revision": "feb28"
+        },
+        {
+          "observedIntervalEndAt": "2028-02-29T00:00:00.000Z",
+          "capturedAt": "2028-02-29T00:05:00.000Z",
+          "revision": "leap-day"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "leap-day",
+        "ageSeconds": 43200
+      }
+    },
+    {
+      "name": "cadence: a 3 hour Kp bin closing at 12:00 is not an observation at 11:59:59.999",
+      "sourceId": "kp",
+      "issuedAt": "2026-09-11T11:59:59.999Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-09-11T12:00:00.000Z",
+          "capturedAt": "2026-09-11T12:00:00.000Z",
+          "revision": "open-bin"
+        }
+      ],
+      "expected": { "state": "excluded", "reason": "not_yet_observed" }
+    },
+    {
+      "name": "cadence: the same Kp bin is an observation one millisecond later",
+      "sourceId": "kp",
+      "issuedAt": "2026-09-11T12:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2026-09-11T12:00:00.000Z",
+          "capturedAt": "2026-09-11T12:00:00.000Z",
+          "revision": "closed-bin"
+        }
+      ],
+      "expected": {
+        "state": "selected",
+        "revision": "closed-bin",
+        "ageSeconds": 0
+      }
+    },
+    {
+      "name": "year boundary: a Kp bin from the old year is beyond its bound in the new one",
+      "sourceId": "kp",
+      "issuedAt": "2026-01-01T00:00:00.000Z",
+      "records": [
+        {
+          "observedIntervalEndAt": "2025-12-31T23:00:00.000Z",
+          "capturedAt": "2025-12-31T23:01:00.000Z",
+          "revision": "last-bin-of-2025"
+        }
+      ],
+      "expected": { "state": "excluded", "reason": "beyond_age_bound" }
+    }
+  ]
+}

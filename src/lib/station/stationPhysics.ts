@@ -1,14 +1,17 @@
 import { getAntennaGainForPath, type AntennaType } from "@/lib/data/antennas";
+import type { OperatingMode } from "@/types/signal";
 
-export type PhysicsMode = "SSB" | "CW" | "FT8";
+/** Alias to the shared mode set the physics engine (`MODE_PARAMETERS`) accepts. */
+export type PhysicsMode = OperatingMode;
 export type DiscreteStationPower = 5 | 25 | 100 | 500 | 1500;
 
 const HAMCLOCK_POWERS: DiscreteStationPower[] = [5, 25, 100, 500, 1500];
 
-/** Map live CAT/WSJT/manual modes onto the physics engine's three-mode set. */
+/** Map live CAT/WSJT/manual modes onto the physics engine's mode set. */
 export function toPhysicsMode(mode: string | undefined | null): PhysicsMode {
   const upper = (mode ?? "").toUpperCase();
   if (upper === "CW" || upper === "CW-R" || upper === "CWR") return "CW";
+  if (upper === "RTTY" || upper === "RTTY-R") return "RTTY";
   if (
     upper === "SSB" ||
     upper === "USB" ||

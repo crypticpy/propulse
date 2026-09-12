@@ -14,11 +14,12 @@
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
-  calculateDLayerAbsorption,
   calculateZenithAngle,
+  getAbsorptionAtLocation,
 } from "@/lib/utils/ionosphere";
 import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import type { FrequencyLimits } from "@/types/propagation";
+import type { OperatingMode } from "@/types/signal";
 
 export interface MUFData {
   timestamp: string;
@@ -234,11 +235,20 @@ export function getMUFAtLocation(
 /**
  * SNR thresholds for different operating modes (dB)
  * Used for LUF calculation link budget
+ *
+ * This table is on its own scale and does NOT match `MODE_PARAMETERS.minSNR`
+ * in `src/lib/utils/signal.ts` (SSB 3, CW -8, FT8 -21, RTTY -5) — the two
+ * disagree and are to be unified under issue #1088. The three original
+ * entries are left uncalibrated in this PR (RTTY-preservation fix only).
+ * RTTY: 6 — RTTY copy needs about 3 dB more SNR than CW in the 2500 Hz
+ * reference (MODE_PARAMETERS: RTTY -5 vs CW -8), applied as +3 dB to this
+ * table's own CW entry (3 + 3 = 6) rather than importing the other scale.
  */
-const MODE_SNR_THRESHOLDS: Record<"SSB" | "CW" | "FT8", number> = {
+const MODE_SNR_THRESHOLDS: Record<OperatingMode, number> = {
   SSB: 10, // SSB requires ~10 dB SNR for readable speech
   CW: 3, // CW can be copied at lower SNR
   FT8: -20, // FT8 works well below noise floor
+  RTTY: 6,
 };
 
 /**
@@ -279,7 +289,7 @@ export function calculateLUF(
   sfi: number,
   date: Date,
   txPowerWatts: number = 100,
-  mode: "SSB" | "CW" | "FT8" = "SSB",
+  mode: OperatingMode = "SSB",
 ): number {
   // Calculate solar zenith angle at the location
   const zenithAngle = calculateZenithAngle(lat, lon, date);
@@ -310,7 +320,20 @@ export function calculateLUF(
 
   for (let i = 0; i < 20; i++) {
     const mid = (low + high) / 2;
-    const absorption = calculateDLayerAbsorption(mid, zenithAngle, sfi);
+    // The position and the instant are already parameters of this function,
+    // so the absorption is evaluated at the caller's own latitude, month and
+    // magnetic dip rather than at the declared 45 N / March / dip 60 stand-in
+    // a positionless call falls back to.
+    //
+    // The obliquity stays vertical. `getAbsorptionAtLocation` defaults
+    // elevationDeg to 90, which is exactly what the previous positionless call
+    // used. Note the divergence: the sibling `calculateLUF` in
+    // `@/lib/utils/ionosphere` defaults to 15 degrees instead, arguing that an
+    // oblique ray traverses a longer slant path. The two disagree today.
+    // Changing this one to 15 would move every LUF the wall prints, so it is a
+    // separate question with its own fixtures and is deliberately not answered
+    // here.
+    const absorption = getAbsorptionAtLocation(lat, lon, date, mid, sfi);
 
     if (absorption > maxAcceptableAbsorption) {
       // Too much absorption at this frequency, need to go higher
@@ -409,7 +432,7 @@ export function getFrequencyLimits(
   sfi: number,
   date: Date,
   txPowerWatts: number = 100,
-  mode: "SSB" | "CW" | "FT8" = "SSB",
+  mode: OperatingMode = "SSB",
 ): FrequencyLimits {
   // Calculate MUF using existing estimation
   const muf = estimateMUF(lat, lon, sfi, date);

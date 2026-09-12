@@ -11,7 +11,8 @@
  * full SatelliteDetailModal via mapStore.satelliteModalId for comprehensive
  * details, independent of the popup's own open/closed state.
  *
- * Selected satellites show their orbital ground track.
+ * Tracked satellites draw their "Map orbit" line at visual altitude so it
+ * passes through the marker, not as a ground track glued to the globe.
  */
 
 import {
@@ -40,8 +41,10 @@ import {
 } from "@/lib/map/globeRenderOrder";
 import {
   latLonAltToVector3,
-  latLonToSurface,
   MAX_TRACK_DOTS,
+  ORBIT_LINE_OPACITY,
+  ORBIT_LINE_WIDTH,
+  orbitTrackPointToGlobeVector,
   selectTrackDotIndices,
   selectTrackLabelIndices,
 } from "@/lib/map/satelliteGeometry";
@@ -71,10 +74,11 @@ const MARKER_SIZE = 0.012;
  */
 const LABEL_OCCLUSION_THRESHOLD = 0.05;
 
-/** Re-anchor ground tracks on "now" once a minute without re-propagating
+/** Re-anchor globe orbit tracks on "now" once a minute without re-propagating
  * every 5s tick (the satellite position poll cadence). Shared by every
  * `GroundTrack` instance via a single interval owned by `SatelliteOverlay`. */
 const MINUTE_TICK_MS = 60_000;
+
 
 /**
  * Category colors for satellite markers.
@@ -632,7 +636,7 @@ function SatelliteMarker({
 }
 
 // ---------------------------------------------------------------------------
-// Ground Track Line — store-driven per-satellite "Map orbit" track (#994)
+// Orbit Track Line — store-driven per-satellite "Map orbit" at altitude (#994, #1082)
 // ---------------------------------------------------------------------------
 
 interface GroundTrackProps {
@@ -653,14 +657,21 @@ interface TimeMarkerLabel {
 /**
  * One satellite's orbit track, built from the shared `buildOrbitTrack` per
  * that satellite's own `satelliteTracks` config (orbits ahead, whether to
- * show the past 45 minutes). Past/future segments are split the same way
- * `ISSOrbitRing` splits its altitude ring (dim past, bright future), and,
- * like it and `ISSGroundTrack`, split again at antimeridian crossings so a
- * `Line` never draws a spurious wrap-around chord.
+ * show the past 45 minutes). Points are placed with
+ * `orbitTrackPointToGlobeVector` so the line rides at visual altitude through
+ * the marker (#1082), not on the globe surface. Past/future segments are split
+ * the same way `ISSOrbitRing` splits its altitude ring (dim past, bright
+ * future), and, like it and `ISSGroundTrack`, split again at antimeridian
+ * crossings so a `Line` never draws a spurious wrap-around chord.
  */
 function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackProps) {
   const color = CATEGORY_COLORS[satellite.category];
-  const lineWidth = isSelected ? 2.5 : 1.5;
+  const lineWidth = isSelected
+    ? ORBIT_LINE_WIDTH.selected
+    : ORBIT_LINE_WIDTH.unselected;
+  const futureOpacity = isSelected
+    ? ORBIT_LINE_OPACITY.futureSelected
+    : ORBIT_LINE_OPACITY.future;
 
   const { pastSegments, futureSegments, tenMinDots, trackLabels } =
     useMemo(() => {
@@ -691,7 +702,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
 
       for (let i = 0; i < track.length; i++) {
         const point = track[i];
-        const vec = latLonToSurface(point.lat, point.lon);
+        const vec = orbitTrackPointToGlobeVector(point);
 
         if (i > 0) {
           const prevLon = track[i - 1].lon;
@@ -835,7 +846,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
           color={color}
           lineWidth={lineWidth}
           transparent
-          opacity={0.18}
+          opacity={ORBIT_LINE_OPACITY.past}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
@@ -848,7 +859,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
           color={color}
           lineWidth={lineWidth}
           transparent
-          opacity={0.45}
+          opacity={futureOpacity}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}

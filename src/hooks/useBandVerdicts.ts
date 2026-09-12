@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import SunCalc from "suncalc";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useProfileStore } from "@/stores/profileStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { bandPhysicsScores } from "@/lib/verdict/physicsScore";
 import {
   useBandActivity,
@@ -223,10 +224,8 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     return { type: "global" };
   }, [scope, homeField, targetField]);
 
-  const {
-    data: activityByBand,
-    isError: isActivityError,
-  } = useBandActivity(activityScope);
+  const { data: activityByBand, isError: isActivityError } =
+    useBandActivity(activityScope);
 
   // Day/night at the user's QTH (fallback to 0,0 when no station is set).
   // Deliberately NOT memoized: every ingest tick re-renders this hook (the
@@ -240,7 +239,12 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   // Periodic tick so the path-physics date can never freeze: with a steady
   // kp/sfi and unchanged coordinates the memo below would otherwise keep a
   // Date captured hours earlier on a wall display that never reloads.
-  const [physicsRefreshedAt, setPhysicsRefreshedAt] = useState(() => Date.now());
+  const [physicsRefreshedAt, setPhysicsRefreshedAt] = useState(() =>
+    Date.now(),
+  );
+  // The operator's own ITU-R P.372 noise category. Subscribed, not read via
+  // getState(), so changing it in Settings re-runs the physics memo below.
+  const noiseEnvironment = useSettingsStore((state) => state.noiseEnvironment);
   useEffect(() => {
     const interval = setInterval(
       () => setPhysicsRefreshedAt(Date.now()),
@@ -274,8 +278,10 @@ export function useBandVerdicts(): UseBandVerdictsResult {
           ? { lat: targetLatDep, lon: targetLonDep }
           : undefined,
       date: new Date(physicsRefreshedAt),
+      noiseEnvironment,
     });
   }, [
+    noiseEnvironment,
     currentKp,
     currentSfi,
     isDaylight,
@@ -297,11 +303,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   // that the current page load has usable inputs. Treat the ladder as ready
   // only after both solar drivers and the active observation scope arrive, so
   // a reload or failed activity request cannot relabel stored verdicts as live.
-  const ready = bandVerdictInputsAreReady(
-    currentKp,
-    currentSfi,
-    activityReady,
-  );
+  const ready = bandVerdictInputsAreReady(currentKp, currentSfi, activityReady);
 
   // Build the active scope's evaluation batch. Only the active scope is
   // ingested — idle scopes keep their persisted machines until revisited.
@@ -359,10 +361,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   const results = useVerdictStore((s) => s.results);
   const fallingStreaks = useVerdictStore((s) => s.fallingStreaks);
 
-  const bandOrder = useMemo(
-    () => [...physicsScores.keys()],
-    [physicsScores],
-  );
+  const bandOrder = useMemo(() => [...physicsScores.keys()], [physicsScores]);
 
   const bands = useMemo((): BandLadderEntry[] => {
     const entries: BandLadderEntry[] = [];

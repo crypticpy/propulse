@@ -66,7 +66,7 @@
  * takes equation (13) there too, which is the defect; because the geometry is
  * the same, `selectionElevationDeg` and `selectionSlantRangeKm` are exactly its
  * `ele`, `DMele` and `ptick`, and the golden columns are asserted against them.
- * See deviation 2 below and `modeTypes.ts`.
+ * See deviations 2 and 3 below and `modeTypes.ts`.
  *
  * WHERE THE REFERENCE AND THE TEXT DISAGREE, AND WHAT WE DO.
  *
@@ -116,22 +116,43 @@
  *     on three of the fourteen golden circuits (G09 at 2.55 degrees, G13 at
  *     2.23, G11 below the horizon at -0.21), which is a different and much
  *     larger claim than a shifted angle.
- *     AND ONE CASE NEITHER READING ADDRESSES. The two heights being
- *     independent, the section 5.1 height can fail to close a hop that the
- *     selection height reflects: equation (13) then returns an angle at or
- *     below zero and equation (19) returns nothing. P.533-14 does not say what
- *     to do, and the reference never meets the case because it reports the
- *     equation (2) elevation. Such a mode is labelled
- *     `geometrically_unsupported` with the reason
- *     `mirror_height_cannot_close_hop`, its `elevationRad`, `elevationDeg` and
- *     `virtualSlantRangeKm` are null rather than a negative angle, and its
- *     `selection...` fields stay populated so the record still shows why the
- *     mode was selected. It happens on G11 alone in the golden corpus, the one
- *     circuit where the reference's own dominant mode is not supported at its
- *     own section 5.1 height; the fixture declares that in
- *     `reference_divergence.below_horizon_case` and slice C excludes the mode
- *     under contract M07. See `modeTypes.ts`.
- *  3. The 3 degree elevation floor. `MIN_ELEVATION_DEG` is the reference's
+ *     AND ONE CASE NEITHER READING ADDRESSES, which is deviation 3.
+ *  3. A MODE SECTION 5.2.1 SELECTS WHOSE SECTION 5.1 HEIGHT CANNOT CARRY IT.
+ *     The two heights being independent, the section 5.1 height can fail to
+ *     close a hop that the selection height reflects - equation (13) then
+ *     returns an angle at or below zero and equation (19) returns nothing - and
+ *     section 5.1's (a), (b), (c) fits, which the recommendation bounds nowhere
+ *     below, can return a height at or under zero outright. P.533-14 addresses
+ *     neither, and the reference never meets either because it reports the
+ *     equation (2) elevation for every mode.
+ *     THE MODE CONTRIBUTES, AT THE SELECTION GEOMETRY. Section 5.2.1 is the
+ *     text's authority on which modes exist, and it selects this mode: its
+ *     first criterion is met, the hop-length criterion is met, and section 4's
+ *     screening is a question about the same ray. Section 5.1's height is a
+ *     polynomial fit whose domain does not cover every hop the equation (2)
+ *     height admits, so a failure there is a failure of the fit, not evidence
+ *     that the mode is absent. Dropping a mode the text says exists is the
+ *     larger error - it is 10.9 dB of median field strength on G11 - and the
+ *     only closing geometry the text supplies for that mode is equation (2)'s,
+ *     which is also what the pinned reference uses for every mode. So
+ *     `elevationRad`, `elevationDeg` and `virtualSlantRangeKm` are taken at
+ *     `selectionMirrorHeightKm`, `elevationSource` reads `"selection_height"`
+ *     for exactly these modes, and `geometryNote` carries the reason.
+ *     `mirrorHeightKm` still reports whatever section 5.1 gave.
+ *     The mode then continues through section 5.2.1's remaining criteria and
+ *     section 4's screening on that geometry, so a fallback mode can still come
+ *     back `screened` or `below_minimum_elevation` on its merits.
+ *     ONLY IF THE SELECTION HEIGHT CLOSES NOTHING EITHER is there no geometry:
+ *     the mode is `geometrically_unsupported` with the reason `no_reflection`
+ *     and the three fields are null together. That is now the only state in
+ *     which they are null, and the two reasons this leaf used to emit for the
+ *     section 5.1 failures, `mirror_height_cannot_close_hop` and
+ *     `mirror_height_not_positive`, are gone from `ModeUnsupportedReason`
+ *     rather than left in the vocabulary unreachable.
+ *     It happens on G11 in the golden corpus, the one circuit whose dominant
+ *     mode is affected; `fixtures/p533-modes.cases.json` declares the case and
+ *     `parity.modeSet.test.ts` measures it. Ruling recorded for #954 slice E1.
+ *  4. The 3 degree elevation floor. `MIN_ELEVATION_DEG` is the reference's
  *     `MINELEANGLES`, which it applies when choosing n0 and never again. It is
  *     applied here to `selectionElevationDeg`, because section 3.5.1.1 puts it
  *     on the equation (2) geometry: "the lowest-order mode, n0, is determined
@@ -142,7 +163,7 @@
  *     n0 was chosen at the mid-path one. `parity.modeSet.test.ts` records that
  *     it never fires on the golden corpus and `modeSet.test.ts` constructs a
  *     state where it does.
- *  4. The reference's E-mode loop `break`s at the first mode that fails a
+ *  5. The reference's E-mode loop `break`s at the first mode that fails a
  *     criterion instead of continuing. The criteria are monotone in n - a
  *     higher order means a shorter hop, a higher elevation and a larger basic
  *     MUF - so the two are the same set. We continue, because a labelled mode
@@ -242,9 +263,7 @@ export interface ModeSetInputs {
 
 /** Which control point the equation (2) mode-existence height was read at. */
 export type F2MirrorHeightSource =
-  | "mid_path"
-  | "table_1c_lowest_fof2"
-  | "no_f2_mode";
+  "mid_path" | "table_1c_lowest_fof2" | "no_f2_mode";
 
 export interface ResolvedModeSet {
   readonly kind: "resolved";
@@ -509,13 +528,20 @@ function buildEMode({
     selectionMirrorHeightKm: E_LAYER_MIRROR_HEIGHT_KM,
     selectionElevationDeg: elevationDeg,
     selectionSlantRangeKm: closes ? geometry.virtualSlantRangeKm : null,
+    // For an E mode section 5.1 and section 5.2.1 name the same 110 km, so the
+    // reported geometry is the section 5.1 reading whenever there is one, and
+    // deviation 3's fallback has nothing to fall back to.
+    elevationSource: closes ? "section_5_1" : "selection_height",
+    geometryNote: closes
+      ? null
+      : `the 110 km E-layer mirror height of sections 5.1 and 5.2.1 cannot close this mode's ${mode.hopGroundDistanceKm.toFixed(1)} km hop.`,
   };
 
   // First, because it is the one reason that leaves the record with no
   // elevation to report. `lowestOrderHopCount` only admits an E mode whose hop
   // 110 km reaches, so this is unreachable today; the invariant is stated by
   // the type and has to hold here as well as in `buildF2Mode`.
-  if (!closes) return unsupportedMode(base, "mirror_height_cannot_close_hop");
+  if (!closes) return unsupportedMode(base, "no_reflection");
   const reason =
     mode.hopCount === lowestOrderHopCount &&
     mode.hopGroundDistanceKm > E_MODE_MAX_HOP_KM
@@ -575,11 +601,11 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
   // bounds none of them below. Control-point values that are each in range can
   // put the height at or under zero, where there is no mirror for equation (13)
   // to be taken at and `hopGeometry` refuses the input outright. Tested here,
-  // before any geometry is asked for, so that one such mode is labelled instead
+  // before any geometry is asked for, so that one such mode falls back instead
   // of ending the whole circuit with a RangeError.
   const heightIsPositive =
     Number.isFinite(mirrorHeightKm) && mirrorHeightKm > 0;
-  const geometry = heightIsPositive
+  const sectionFiveOne = heightIsPositive
     ? hopGeometry({
         groundDistanceKm,
         hopCount: mode.hopCount,
@@ -587,20 +613,48 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
       })
     : null;
   // The two heights are independent, so a hop equation (2) reflects can be
-  // longer than the section 5.1 height reaches. Equation (13) returns a
-  // negative angle there and equation (19) returns nothing; the recommendation
-  // addresses neither, so the mode is labelled and reports no elevation at all.
-  // See the `modeTypes.ts` header.
-  const closes = geometry !== null && geometry.kind === "supported";
+  // longer than the section 5.1 height reaches: equation (13) returns a
+  // negative angle there and equation (19) returns nothing.
+  const sectionFiveOneCloses =
+    sectionFiveOne !== null && sectionFiveOne.kind === "supported";
+
+  // DEVIATION 3. Section 5.2.1 selects this mode, so it contributes; when
+  // section 5.1's height cannot carry it, the geometry is taken at section
+  // 5.2.1's own selection height instead, and the record says so. Only when
+  // that height closes nothing either is there no geometry at all. See the
+  // module header.
+  const geometry: ProductGeometry = sectionFiveOneCloses
+    ? {
+        elevationRad: sectionFiveOne.elevationAngleRad,
+        virtualSlantRangeKm: sectionFiveOne.virtualSlantRangeKm,
+        elevationSource: "section_5_1",
+        geometryNote: null,
+      }
+    : selectionSupported
+      ? {
+          elevationRad: selection.elevationAngleRad,
+          virtualSlantRangeKm: selection.virtualSlantRangeKm,
+          elevationSource: "selection_height",
+          geometryNote: heightIsPositive
+            ? `the section 5.1 mirror height of ${mirrorHeightKm.toFixed(2)} km cannot close this mode's ${mode.hopGroundDistanceKm.toFixed(1)} km hop, so equation (13) and equation (19) are taken at section 5.2.1's ${selectionMirrorHeightKm.toFixed(2)} km selection height.`
+            : `the section 5.1 mirror height is ${String(mirrorHeightKm)} km, which is not a positive height, so equation (13) and equation (19) are taken at section 5.2.1's ${selectionMirrorHeightKm.toFixed(2)} km selection height.`,
+        }
+      : {
+          elevationRad: null,
+          virtualSlantRangeKm: null,
+          elevationSource: "selection_height",
+          geometryNote: `neither the section 5.1 mirror height (${String(mirrorHeightKm)} km) nor section 5.2.1's ${selectionMirrorHeightKm.toFixed(2)} km selection height can close this mode's ${mode.hopGroundDistanceKm.toFixed(1)} km hop.`,
+        };
 
   // Equations (11) and (12), section 4. Section 4 names "delta_F: elevation
-  // angle for the F2-layer mode (determined from equation (13))", and now that
-  // equation (13) is read as section 5.1 defines it there is exactly one such
-  // angle, so the screening frequency and the reported elevation cannot drift
-  // apart.
+  // angle for the F2-layer mode (determined from equation (13))", so it is
+  // taken at the mode's own reported elevation, which is the section 5.1
+  // reading wherever there is one and deviation 3's fallback where there is
+  // not. The screening frequency and the reported elevation therefore cannot
+  // drift apart.
   const fsMHz =
-    screening.kind === "evaluated" && closes
-      ? screeningFrequencyMHz(screening.foEMHz, geometry.elevationAngleRad)
+    screening.kind === "evaluated" && geometry.elevationRad !== null
+      ? screeningFrequencyMHz(screening.foEMHz, geometry.elevationRad)
       : null;
 
   const base: ModeBase = {
@@ -609,25 +663,26 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
     hopCount: mode.hopCount,
     hopGroundDistanceKm: mode.hopGroundDistanceKm,
     mirrorHeightKm,
-    elevationRad: closes ? geometry.elevationAngleRad : null,
-    elevationDeg: closes ? geometry.elevationAngleRad * RAD_TO_DEG : null,
+    elevationRad: geometry.elevationRad,
+    elevationDeg:
+      geometry.elevationRad === null
+        ? null
+        : geometry.elevationRad * RAD_TO_DEG,
     screeningFrequencyMHz: fsMHz,
     basicMufMHz: mode.basicMufMHz,
-    virtualSlantRangeKm: closes ? geometry.virtualSlantRangeKm : null,
+    virtualSlantRangeKm: geometry.virtualSlantRangeKm,
     selectionMirrorHeightKm,
     selectionElevationDeg: selectionSupported ? selectionElevationDeg : null,
     selectionSlantRangeKm: selectionSupported
       ? selection.virtualSlantRangeKm
       : null,
+    elevationSource: geometry.elevationSource,
+    geometryNote: geometry.geometryNote,
   };
 
-  // Tested before section 5.2.1's own criteria, because these are the two
-  // reasons that leave the record with no elevation to report, and the type's
+  // Tested before section 5.2.1's own criteria, because it is the one reason
+  // that leaves the record with no elevation to report, and the type's
   // invariant is that the three product fields are null exactly here.
-  if (!heightIsPositive) {
-    return unsupportedMode(base, "mirror_height_not_positive");
-  }
-  if (!closes) return unsupportedMode(base, "mirror_height_cannot_close_hop");
   if (!selectionSupported) return unsupportedMode(base, "no_reflection");
 
   // Section 5.2.1's own criterion first, the reference's elevation floor
@@ -647,6 +702,20 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
     status: isScreened(fsMHz, frequencyMHz) ? "screened" : "supported",
     unsupportedReason: null,
   };
+}
+
+/**
+ * The geometry a consumer reads off a mode, and which height it came from.
+ *
+ * Deviation 3's three outcomes in one shape, so that the record's invariant -
+ * elevation, elevation in degrees and slant range null together - is decided
+ * once instead of at four field initialisers.
+ */
+interface ProductGeometry {
+  readonly elevationRad: number | null;
+  readonly virtualSlantRangeKm: number | null;
+  readonly elevationSource: PropagationMode["elevationSource"];
+  readonly geometryNote: string | null;
 }
 
 interface SectionFiveOneInputs {

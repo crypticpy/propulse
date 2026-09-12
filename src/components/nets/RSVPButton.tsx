@@ -42,7 +42,7 @@ export function RSVPButton({
       }
       className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
         hasRsvpd
-          ? "bg-signal-green/15 text-signal-green border-signal-green/30 hover:bg-signal-green/25"
+          ? "bg-signal-green/15 text-su-text border-signal-green/30 hover:bg-signal-green/20"
           : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
       }`}
     >
@@ -67,7 +67,7 @@ export function RSVPButton({
       <span
         className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold ${
           hasRsvpd
-            ? "bg-signal-green/20 text-signal-green"
+            ? "bg-signal-green/20 text-su-text"
             : "bg-su-line/20 text-su-muted"
         }`}
       >

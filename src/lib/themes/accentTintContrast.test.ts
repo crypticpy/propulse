@@ -1742,3 +1742,583 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Status-token same-hue tints (#844)
+ *
+ * #803 measured `--su-text` on a user-chosen `plasma-orange` tint. The same
+ * pairing exists on the four *fixed* status tokens (`signal-green` /
+ * `caution-amber` / `alert-red` / `nebula-blue`): the ink is the token's
+ * own channels composited over the surface at `N/100`. Light/green on
+ * canvas is the cell that fails AA (issue #844: 4.46:1 at /20). The
+ * treatment is the same as #803: keep the tint (cap `/20`), draw the
+ * label in `--su-text`. Status is never colour-alone -- the wash plus the
+ * word on the chip remain.
+ *
+ * `STATUS_FIXED_SITES` is the #803 `FIXED_SITES` table for these tokens.
+ * Batch 1 lands the named same-row siblings (ActivationPanel POTA vs SOTA,
+ * SubscribeButton / TuneToNetButton subscribed/tuned vs idle) plus the
+ * other same-line `src/components/nets/` green sites that fit the 15-file
+ * cap. The census ledgers below budget every remaining same-line pairing
+ * at alpha >= 0.15 so a new site fails; a file that joins this table is
+ * simply omitted (budget 0).
+ */
+type StatusToken =
+  | "signal-green"
+  | "caution-amber"
+  | "alert-red"
+  | "nebula-blue";
+
+interface StatusTintedSite extends TintedSite {
+  token: StatusToken;
+}
+
+function statusTintHex(
+  palette: StationPalette,
+  token: StatusToken,
+): string {
+  switch (token) {
+    case "signal-green":
+      return palette.success;
+    case "caution-amber":
+      return palette.warning;
+    case "alert-red":
+      return palette.danger;
+    case "nebula-blue":
+      return palette.panel;
+  }
+}
+
+function deriveStatusAlpha(text: string, token: StatusToken): number {
+  const re = new RegExp(`bg-${token}/(\\d+)`, "g");
+  const alphas = [...text.matchAll(re)].map((m) => Number(m[1]));
+  return Math.max(...alphas) / 100;
+}
+
+function measuredStatusAlpha(source: string, site: StatusTintedSite): number {
+  return deriveStatusAlpha(locatedClassText(source, site), site.token);
+}
+
+function assertStatusInkOnTintedBranches(
+  text: string,
+  what: string,
+  token: StatusToken,
+): void {
+  const tintRe = new RegExp(`bg-${token}/`);
+  const sameHueInk = `text-${token}`;
+  for (const branch of tintedBranches(text)) {
+    if (!tintRe.test(branch)) {
+      continue;
+    }
+    expect(
+      branch.includes("text-su-text"),
+      `${what}: a bg-${token} branch does not carry text-su-text:\n${branch}`,
+    ).toBe(true);
+    expect(
+      branch.includes(sameHueInk),
+      `${what}: a bg-${token} branch draws same-hue ink on its own tint again:\n${branch}`,
+    ).toBe(false);
+  }
+}
+
+const STATUS_FIXED_SITES: StatusTintedSite[] = [
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the POTA type-selector button, selected state",
+    snippet: `? "bg-signal-green/20 text-su-text border-2 border-signal-green/40"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the active-activation type badge (POTA)",
+    snippet: `? "bg-signal-green/20 text-su-text"`,
+    classSource: `const typeBadgeClasses =`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the threshold-met chip",
+    snippet: `rounded-full bg-signal-green/10 text-su-text text-xs font-medium"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the Export ADIF button",
+    snippet: `bg-nebula-blue/20 text-su-text border border-nebula-blue/20
+                       hover:bg-nebula-blue/20 active:scale-[0.98]`,
+    token: "nebula-blue",
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the End Activation button",
+    snippet: `bg-alert-red/10 text-su-text border border-alert-red/20
+                         hover:bg-alert-red/20 active:scale-[0.98]`,
+    token: "alert-red",
+  },
+  {
+    file: "src/components/nets/SubscribeButton.tsx",
+    what: "the Subscribed state",
+    snippet: `? "bg-signal-green/15 text-su-text border-signal-green/30"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/TuneToNetButton.tsx",
+    what: "the copied clipboard-fallback button",
+    snippet: `const copyColors = copied
+      ? "bg-signal-green/20 text-su-text border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"`,
+    classSource: `const copyColors =`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/TuneToNetButton.tsx",
+    what: "the Tuned state",
+    snippet: `phase === "tuned"
+      ? "bg-signal-green/20 text-su-text border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"`,
+    classSource: `const colors =`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/RSVPButton.tsx",
+    what: "the RSVP'd button",
+    snippet: `"bg-signal-green/15 text-su-text border-signal-green/30 hover:bg-signal-green/20"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/RSVPButton.tsx",
+    what: "the RSVP count badge, RSVP'd state",
+    snippet: `? "bg-signal-green/20 text-su-text"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/CheckinList.tsx",
+    what: "the checked-in status badge",
+    snippet: `className: "bg-signal-green/15 text-su-text border-signal-green/50",`,
+    classSource: `checked_in: {`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/CheckinPhase.tsx",
+    what: "the check-in count badge, populated state",
+    snippet: `"bg-signal-green/20 text-su-text border border-signal-green/30"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/SmartNetFinder.tsx",
+    what: 'the "Newcomer OK" badge',
+    snippet: `shrink-0 bg-signal-green/15 text-su-text text-[10px] rounded-full px-2 py-0.5"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/PropagationNetSuggestions.tsx",
+    what: "an open-band pill",
+    snippet: `bg-signal-green/20 text-su-text text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/PropagationNetSuggestions.tsx",
+    what: 'the "Newcomer OK" badge',
+    snippet: `shrink-0 bg-signal-green/15 text-su-text text-[10px] rounded-full px-2 py-0.5"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/ProtocolCheatSheet.tsx",
+    what: 'the "Newcomer Friendly" badge',
+    snippet: `inline-flex items-center gap-1.5 bg-signal-green/15 text-su-text border border-signal-green/30 rounded-full`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: "the Newcomer Friendly pill, selected state",
+    snippet: `? "bg-signal-green/20 text-su-text border-signal-green/40"`,
+    token: "signal-green",
+  },
+  {
+    file: "src/components/nets/PhaseIndicator.tsx",
+    what: "a completed (not current) phase pill",
+    snippet: `? "text-su-text font-medium bg-signal-green/15 hover:bg-su-line/10 cursor-pointer"`,
+    token: "signal-green",
+  },
+];
+
+describe("same-hue status ink fails AA on Light canvas (#844)", () => {
+  it("signal-green on its own /20 tint misses 4.5 on Light canvas", () => {
+    const light = stationPalettes.light;
+    const ratio = stationContrast(
+      light.success,
+      compositeOnSurface(light.success, 0.2, light.canvas),
+    );
+    expect(ratio).toBeLessThan(AA);
+    expect(ratio).toBeCloseTo(4.46, 2);
+  });
+
+  it("--su-text on that same /20 tint clears the floor", () => {
+    const light = stationPalettes.light;
+    const ratio = stationContrast(
+      light.text,
+      compositeOnSurface(light.success, 0.2, light.canvas),
+    );
+    expect(ratio).toBeGreaterThanOrEqual(AA);
+  });
+});
+
+describe("the fixed status-tint sites ship the --su-text treatment (#844)", () => {
+  it.each(STATUS_FIXED_SITES.map((site) => [site.what, site] as const))(
+    "%s still ships the class pair this table measures",
+    (_what, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      expect(
+        source.includes(site.snippet),
+        `${site.file} no longer contains the measured snippet:\n${site.snippet}`,
+      ).toBe(true);
+      assertStatusInkOnTintedBranches(
+        locatedClassText(source, site),
+        site.what,
+        site.token,
+      );
+      expect(
+        measuredStatusAlpha(source, site),
+        `${site.what} ships a tint above the measured cap`,
+      ).toBeLessThanOrEqual(TINT_CAP);
+    },
+  );
+
+  it.each(
+    STATUS_FIXED_SITES.flatMap((site) =>
+      THEMES_IDS.map((theme) => [site.what, theme, site] as const),
+    ),
+  )(
+    "%s clears the floor in %s for --su-text on the status tint",
+    (_what, theme, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      const palette = stationPalettes[theme];
+      const alpha = measuredStatusAlpha(source, site);
+      const tintHex = statusTintHex(palette, site.token);
+      for (const surface of SURFACES) {
+        const ratio = stationContrast(
+          palette.text,
+          compositeOnSurface(tintHex, alpha, surface.backdrop(palette)),
+        );
+        expect(
+          ratio,
+          `${site.file} on ${surface.name} at alpha ${alpha}`,
+        ).toBeGreaterThanOrEqual(AA);
+      }
+    },
+  );
+});
+
+describe("census guard: no new same-hue status ink on a status tint (#844)", () => {
+  /**
+   * Per-line regex, same contract as the #803 plasma-orange ledger: a tint
+   * and same-hue ink on the SAME source line, alpha >= 15. Files in
+   * `STATUS_FIXED_SITES` are omitted (budget 0). A file that is not listed
+   * is also budgeted at zero, so a brand new site fails. Sequenced
+   * follow-up batches never have to raise these maps -- they only shrink.
+   */
+  const SIGNAL_GREEN_LEDGER = new Map<string, number>([
+    ["src/App.tsx", 1],
+    ["src/components/activation/ParkSearch.tsx", 1],
+    ["src/components/alerts/StormImpactPanel.tsx", 1],
+    ["src/components/alerts/SwpcAlertDetailModal.tsx", 1],
+    ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
+    ["src/components/atmos/emcomm/SitRepForm.tsx", 1],
+    ["src/components/contest/ContestCalendar.tsx", 3],
+    ["src/components/contest/ContestExplorerCard.tsx", 1],
+    ["src/components/contest/ContestOneLineEntry.tsx", 1],
+    ["src/components/contest/ContestScoreShare.tsx", 1],
+    ["src/components/contest/ContestScoreboard.tsx", 1],
+    ["src/components/contest/ContestSpotsPanel.tsx", 2],
+    ["src/components/contest/MobileContestEntry.tsx", 1],
+    ["src/components/contest/MultiplierMatrix.tsx", 2],
+    ["src/components/contest/MultiplierTracker.tsx", 4],
+    ["src/components/contest/NeededMultsPanel.tsx", 1],
+    ["src/components/contest/QuietBandNav.tsx", 1],
+    ["src/components/contest/StationEstimate.tsx", 1],
+    ["src/components/dx/BandVerdictPanel.tsx", 1],
+    ["src/components/dx/DXConsole.tsx", 2],
+    ["src/components/dx/LogStatsCard.tsx", 1],
+    ["src/components/dx/SkedScheduler.tsx", 1],
+    ["src/components/dx/WSJTXStatusPanel.tsx", 1],
+    ["src/components/export/ExportModal.tsx", 1],
+    ["src/components/guest/CreateGuestSessionModal.tsx", 1],
+    ["src/components/location/QuickLocationDialog.tsx", 1],
+    ["src/components/logbook/AwardsTracker.tsx", 2],
+    ["src/components/logbook/CallsignLookup.tsx", 1],
+    ["src/components/map/ActivationDetailPanel.tsx", 1],
+    ["src/components/map/BandConditionsHeader.tsx", 1],
+    ["src/components/map/BandConditionsPanel.tsx", 2],
+    ["src/components/map/DateTimePicker.tsx", 1],
+    ["src/components/map/OptimalBandsPanel.tsx", 1],
+    ["src/components/map/RecommendationsPanel.tsx", 1],
+    ["src/components/map/ViewsPopover.tsx", 1],
+    ["src/components/map/WatchPopover.tsx", 2],
+    ["src/components/map/modals/PropagationForecastModal.tsx", 1],
+    ["src/components/mobile/MobileLogbook.tsx", 1],
+    ["src/components/onboarding/RadioSetupWizard.tsx", 1],
+    ["src/components/operating/BandSuggestToast.tsx", 1],
+    ["src/components/ops/OpsConsole.tsx", 1],
+    ["src/components/ops/OpsLoggerStrip.tsx", 1],
+    ["src/components/profile/ActivityFeed.tsx", 1],
+    ["src/components/profile/CallsignLookupSuggestions.tsx", 1],
+    ["src/components/profile/LicenseCard.tsx", 1],
+    ["src/components/profile/LicenseHistory.tsx", 1],
+    ["src/components/profile/PrivilegeMatrix.tsx", 1],
+    ["src/components/profile/VisitorProfileCard.tsx", 1],
+    ["src/components/qso/ConflictResolutionModal.tsx", 1],
+    ["src/components/qso/QSOSyncStatusIndicator.tsx", 1],
+    ["src/components/qso/QslStatusIcons.tsx", 1],
+    ["src/components/satellites/SatelliteCard.tsx", 1],
+    ["src/components/satellites/SatelliteDetailModal.tsx", 3],
+    ["src/components/satellites/SatelliteFilterControls.tsx", 1],
+    ["src/components/sdr/EqBandPanel.tsx", 1],
+    ["src/components/sdr/Ft8BandPresetBar.tsx", 1],
+    ["src/components/sdr/Ft8DecoderPanel.tsx", 1],
+    ["src/components/sdr/MemoryPanel.tsx", 1],
+    ["src/components/sdr/SdrSettingsModal.tsx", 1],
+    ["src/components/sdr/Waterfall.tsx", 1],
+    ["src/components/sdr/primitives/DspBadge.tsx", 1],
+    ["src/components/sdr/primitives/GainSlider.tsx", 1],
+    ["src/components/sdr/shared/RadioControlsCard.tsx", 1],
+    ["src/components/sdr/skins/fate/FateBandActivity.tsx", 1],
+    ["src/components/sdr/skins/fate/FateTopBar.tsx", 3],
+    ["src/components/sdr/skins/flexible/FlexSideControls.tsx", 2],
+    ["src/components/sdr/skins/flexible/SlicePanelAud.tsx", 1],
+    ["src/components/sdr/skins/flexible/SlicePanelDsp.tsx", 1],
+    ["src/components/settings/CATSettings.tsx", 1],
+    ["src/components/settings/sections/CredentialsSection.tsx", 1],
+    ["src/components/shack/BandCapabilityStrip.tsx", 1],
+    ["src/components/shack/EquipmentDetailModal.tsx", 2],
+    ["src/components/shack/EquipmentHeroCard.tsx", 1],
+    ["src/components/shack/builder/NodeConfigPanel.tsx", 1],
+    ["src/components/shack/equipmentCardTypes.ts", 1],
+    ["src/components/ui/PanelCard.tsx", 1],
+    ["src/components/ui/ShareModal.tsx", 1],
+    ["src/hooks/useQsoBadge.ts", 1],
+    ["src/pages/Contest.tsx", 1],
+    ["src/pages/FeaturesPage.tsx", 1],
+    ["src/pages/SetupGuidePage.tsx", 1],
+  ]);
+
+  const CAUTION_AMBER_LEDGER = new Map<string, number>([
+    ["src/components/alerts/AlertDetailModal.tsx", 1],
+    ["src/components/alerts/StormImpactPanel.tsx", 1],
+    ["src/components/alerts/SwpcAlertDetailModal.tsx", 1],
+    ["src/components/atmos/AtmosHeader.tsx", 1],
+    ["src/components/atmos/emcomm/ActivationBanner.tsx", 1],
+    ["src/components/atmos/emcomm/ActivationModal.tsx", 1],
+    ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
+    ["src/components/atmos/emcomm/SkywarnBadge.tsx", 1],
+    ["src/components/contest/AuditQueuePanel.tsx", 1],
+    ["src/components/contest/ContestCalendar.tsx", 2],
+    ["src/components/contest/ContestExplorerCard.tsx", 1],
+    ["src/components/contest/StationEstimate.tsx", 1],
+    ["src/components/dx/DXSpotList/DXSpotList.tsx", 1],
+    ["src/components/location/QuickLocationControl.tsx", 2],
+    ["src/components/map/BandConditionsHeader.tsx", 1],
+    ["src/components/map/BandConditionsPanel.tsx", 1],
+    ["src/components/map/OptimalBandsPanel.tsx", 1],
+    ["src/components/map/ProToolbarRibbon.tsx", 1],
+    ["src/components/map/WatchPopover.tsx", 2],
+    ["src/components/map/modals/PropagationForecastModal.tsx", 1],
+    ["src/components/ops/OpsConsole.tsx", 1],
+    ["src/components/profile/ActivityFeed.tsx", 1],
+    ["src/components/profile/LicenseCard.tsx", 1],
+    ["src/components/profile/PrivilegeMatrix.tsx", 1],
+    ["src/components/qso/BandMapControls.tsx", 1],
+    ["src/components/qso/ConflictBadge.tsx", 1],
+    ["src/components/qso/ContestQslBatch.tsx", 1],
+    ["src/components/qso/DxccStatusBadge.tsx", 1],
+    ["src/components/satellites/SatelliteCard.tsx", 1],
+    ["src/components/satellites/SatelliteDetailModal.tsx", 3],
+    ["src/components/sdr/MemoryPanel.tsx", 1],
+    ["src/components/sdr/primitives/DspBadge.tsx", 1],
+    ["src/components/sdr/primitives/RadioBadge.tsx", 1],
+    ["src/components/sdr/skins/fate/FateBandActivity.tsx", 1],
+    ["src/components/sdr/skins/fate/FateBandAdvisor.tsx", 1],
+    ["src/components/sdr/skins/flexible/SlicePanelTabs.tsx", 1],
+    ["src/components/settings/sections/SubscriptionSection.tsx", 1],
+    ["src/components/settings/spots/LibraryConfirmDialog.tsx", 1],
+    ["src/components/shack/builder/NodeConfigPanel.tsx", 1],
+    ["src/components/shack/equipmentCardTypes.ts", 1],
+  ]);
+
+  const ALERT_RED_LEDGER = new Map<string, number>([
+    ["src/components/alerts/AlertDetailModal.tsx", 1],
+    ["src/components/alerts/AlertHistoryModal.tsx", 1],
+    ["src/components/alerts/SpotAlertToast.tsx", 1],
+    ["src/components/alerts/StormImpactPanel.tsx", 1],
+    ["src/components/alerts/SwpcAlertDetailModal.tsx", 1],
+    ["src/components/atmos/AtmosHeader.tsx", 1],
+    ["src/components/atmos/WeatherAlertToast.tsx", 1],
+    ["src/components/atmos/emcomm/ActivationBanner.tsx", 1],
+    ["src/components/atmos/emcomm/ActivationModal.tsx", 1],
+    ["src/components/atmos/emcomm/EmCommQuickActions.tsx", 1],
+    ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
+    ["src/components/cluster/ClusterConnectionForm.tsx", 1],
+    ["src/components/contest/AuditQueuePanel.tsx", 1],
+    ["src/components/contest/BandAdvisor.tsx", 1],
+    ["src/components/contest/ContestCalendar.tsx", 1],
+    ["src/components/contest/ContestEntryForm.tsx", 1],
+    ["src/components/contest/ContestLiteHudPill.tsx", 1],
+    ["src/components/contest/ContestOneLineEntry.tsx", 1],
+    ["src/components/contest/ContestQSOTable.tsx", 1],
+    ["src/components/contest/ContestRunControls.tsx", 1],
+    ["src/components/contest/ContestSpotsPanel.tsx", 1],
+    ["src/components/contest/ContestTimer.tsx", 1],
+    ["src/components/contest/ContestVoiceControls.tsx", 1],
+    ["src/components/contest/EndContestModal.tsx", 1],
+    ["src/components/contest/RigStatusBar.tsx", 1],
+    ["src/components/dx/DXConsole.tsx", 1],
+    ["src/components/dx/DXSpotList/DXSpotList.tsx", 1],
+    ["src/components/dx/SkedScheduler.tsx", 1],
+    ["src/components/dx/WSJTXStatusPanel.tsx", 1],
+    ["src/components/guest/CreateGuestSessionModal.tsx", 1],
+    ["src/components/guest/GuestModeToggle.tsx", 1],
+    ["src/components/map/ProToolbarRibbon.tsx", 1],
+    ["src/components/map/WatchPopover.tsx", 1],
+    ["src/components/nets/CloseoutPhase.tsx", 1],
+    ["src/components/qso/QSOBulkActions.tsx", 1],
+    ["src/components/qso/QSODetailModal.tsx", 1],
+    ["src/components/qso/QSOSyncStatusIndicator.tsx", 1],
+    ["src/components/satellites/SatelliteCard.tsx", 1],
+    ["src/components/satellites/SatelliteDetailModal.tsx", 3],
+    ["src/components/sdr/EqBandPanel.tsx", 1],
+    ["src/components/sdr/MemoryPanel.tsx", 1],
+    ["src/components/sdr/SdrConsoleHeader.tsx", 1],
+    ["src/components/sdr/Waterfall.tsx", 1],
+    ["src/components/sdr/primitives/DspBadge.tsx", 1],
+    ["src/components/sdr/primitives/RadioBadge.tsx", 1],
+    ["src/components/sdr/shared/RadioControlsCard.tsx", 1],
+    ["src/components/sdr/shared/RadioDeviceCard.tsx", 1],
+    ["src/components/sdr/skins/flexible/FlexSideControls.tsx", 2],
+    ["src/components/settings/CATSettings.tsx", 1],
+    ["src/components/settings/LocationManager.tsx", 1],
+    ["src/components/settings/ResearchParticipationSettings.tsx", 1],
+    ["src/components/settings/sections/DataAccountSection.tsx", 1],
+    ["src/components/settings/spots/LibraryConfirmDialog.tsx", 1],
+    ["src/components/shack/BandCapabilityStrip.tsx", 1],
+    ["src/components/shack/PresetBuilder.tsx", 1],
+    ["src/components/shack/builder/NodeConfigPanel.tsx", 1],
+    ["src/components/shack/equipmentCardTypes.ts", 1],
+    ["src/hooks/useQsoBadge.ts", 1],
+    ["src/pages/Contest.tsx", 2],
+    ["src/pages/DisplaysPage.tsx", 1],
+  ]);
+
+  const NEBULA_BLUE_LEDGER = new Map<string, number>([
+    ["src/components/atmos/AtmosHeader.tsx", 1],
+    ["src/components/atmos/emcomm/ActivationModal.tsx", 1],
+    ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
+    ["src/components/contest/ContestCalendar.tsx", 2],
+    ["src/components/contest/ContestExplorerCard.tsx", 1],
+    ["src/components/contest/StationEstimate.tsx", 1],
+    ["src/components/map/ProToolbarRibbon.tsx", 1],
+    ["src/components/map/layers/SatMatchPanel.tsx", 1],
+    ["src/components/nets/NetSessionHistory.tsx", 1],
+    ["src/components/profile/ActivityFeed.tsx", 1],
+    ["src/components/profile/CallsignLookupSuggestions.tsx", 1],
+    ["src/components/profile/LicenseCard.tsx", 1],
+    ["src/components/qso/BandMapControls.tsx", 1],
+    ["src/components/qso/QSOSyncStatusIndicator.tsx", 1],
+    ["src/components/sdr/MemoryPanel.tsx", 1],
+    ["src/components/settings/sections/DataAccountSection.tsx", 1],
+    ["src/components/shack/builder/NodeConfigPanel.tsx", 4],
+  ]);
+
+  const SIGNAL_GREEN_TINT_RE = /bg-signal-green\/(?:1[5-9]|[2-9]\d|100)\b/;
+  const SIGNAL_GREEN_INK_RE = /text-signal-green\b/;
+  const CAUTION_AMBER_TINT_RE = /bg-caution-amber\/(?:1[5-9]|[2-9]\d|100)\b/;
+  const CAUTION_AMBER_INK_RE = /text-caution-amber\b/;
+  const ALERT_RED_TINT_RE = /bg-alert-red\/(?:1[5-9]|[2-9]\d|100)\b/;
+  const ALERT_RED_INK_RE = /text-alert-red\b/;
+  const NEBULA_BLUE_TINT_RE = /bg-nebula-blue\/(?:1[5-9]|[2-9]\d|100)\b/;
+  const NEBULA_BLUE_INK_RE = /text-nebula-blue\b/;
+
+  function walk(dir: string, files: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full, files);
+      } else if (
+        [".ts", ".tsx"].includes(extname(entry)) &&
+        !entry.includes(".test.")
+      ) {
+        files.push(full);
+      }
+    }
+    return files;
+  }
+
+  function census(tint: RegExp, ink: RegExp): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const file of walk(resolve(REPO_ROOT, "src"))) {
+      const relPath = relative(REPO_ROOT, file);
+      for (const line of readFileSync(file, "utf8").split("\n")) {
+        if (tint.test(line) && ink.test(line)) {
+          counts.set(relPath, (counts.get(relPath) ?? 0) + 1);
+        }
+      }
+    }
+    return counts;
+  }
+
+  function overBudget(
+    counts: Map<string, number>,
+    ledger: Map<string, number>,
+  ): string[] {
+    const over: string[] = [];
+    for (const [file, count] of counts) {
+      const budget = ledger.get(file) ?? 0;
+      if (count > budget) over.push(`${file}: ${count} > ${budget} budgeted`);
+    }
+    return over;
+  }
+
+  it("has no file over its signal-green ink budget", () => {
+    const counts = census(SIGNAL_GREEN_TINT_RE, SIGNAL_GREEN_INK_RE);
+    const over = overBudget(counts, SIGNAL_GREEN_LEDGER);
+    expect(
+      over,
+      `new same-line text-signal-green on a >=15 signal-green tint:\n${over.join("\n")}`,
+    ).toEqual([]);
+    expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
+      98,
+    );
+  });
+
+  it("has no file over its caution-amber ink budget", () => {
+    const counts = census(CAUTION_AMBER_TINT_RE, CAUTION_AMBER_INK_RE);
+    const over = overBudget(counts, CAUTION_AMBER_LEDGER);
+    expect(
+      over,
+      `new same-line text-caution-amber on a >=15 caution-amber tint:\n${over.join("\n")}`,
+    ).toEqual([]);
+    expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
+      45,
+    );
+  });
+
+  it("has no file over its alert-red ink budget", () => {
+    const counts = census(ALERT_RED_TINT_RE, ALERT_RED_INK_RE);
+    const over = overBudget(counts, ALERT_RED_LEDGER);
+    expect(
+      over,
+      `new same-line text-alert-red on a >=15 alert-red tint:\n${over.join("\n")}`,
+    ).toEqual([]);
+    expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
+      64,
+    );
+  });
+
+  it("has no file over its nebula-blue ink budget", () => {
+    const counts = census(NEBULA_BLUE_TINT_RE, NEBULA_BLUE_INK_RE);
+    const over = overBudget(counts, NEBULA_BLUE_LEDGER);
+    expect(
+      over,
+      `new same-line text-nebula-blue on a >=15 nebula-blue tint:\n${over.join("\n")}`,
+    ).toEqual([]);
+    expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
+      21,
+    );
+  });
+});

@@ -310,8 +310,8 @@ export function OpsConsole({
       className={`flex flex-col h-full bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden ${className}`}
     >
       {/* Header Bar */}
-      <div className="flex items-center justify-between h-12 px-4 border-b border-su-line/40 flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 min-h-12 px-4 py-2 border-b border-su-line/40 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span className="text-xs text-su-muted uppercase tracking-wide shrink-0">
             Ops Console
           </span>
@@ -324,10 +324,8 @@ export function OpsConsole({
           {/* Glance density, #661: reads the shared `useDXStore` feed
               directly (no own fetch) so it stays visible across every tab,
               not just Observe — mount only, whichever tab last drove the DX
-              cluster feed keeps this current. Wrapped `min-w-0` so its own
-              text can truncate instead of overflowing the fixed `h-12`
-              header and getting silently clipped by the panel's own
-              `overflow-hidden` (#686 review item 6). */}
+              cluster feed keeps this current. Wrapped `min-w-0` so its own text can truncate while the
+              header rows wrap at enlarged text sizes (#686 review item 6). */}
           <div className="min-w-0 flex-1">
             <HeatMapStrip />
           </div>

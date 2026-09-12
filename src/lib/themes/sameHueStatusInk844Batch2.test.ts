@@ -47,6 +47,16 @@ function compositeOnSurface(
 }
 
 const SURFACES = [
+  {
+    name: "hover glass over panel",
+    backdrop: (palette: StationPalette) =>
+      compositeOnSurface(palette.line, 0.2, palette.panel),
+  },
+  {
+    name: "hover glass over canvas",
+    backdrop: (palette: StationPalette) =>
+      compositeOnSurface(palette.line, 0.2, palette.canvas),
+  },
   { name: "panel", backdrop: (palette: StationPalette) => palette.panel },
   { name: "canvas", backdrop: (palette: StationPalette) => palette.canvas },
   {
@@ -103,6 +113,12 @@ function assertNoSameHueInkOnTint(text: string, what: string, token: StatusToken
 
 const BATCH2_SITES: Batch2Site[] = [
   {
+    file: "src/components/nets/OfflineBanner.tsx",
+    what: "the offline banner warning wash",
+    snippet: `bg-caution-amber/20 px-4 py-2`,
+    token: "caution-amber",
+  },
+  {
     file: "src/components/activation/ParkSearch.tsx",
     what: "the POTA Active badge in search results",
     snippet: `? "bg-signal-green/20 text-su-text"`,
@@ -141,6 +157,7 @@ const BATCH2_SITES: Batch2Site[] = [
 ];
 
 function assertOfflineBanner(source: string): void {
+  expect(source.includes(`z-50 bg-su-panel border-b`)).toBe(true);
   expect(source.includes(`bg-caution-amber/20`)).toBe(true);
   expect(source.includes(`text-sm text-su-text"`)).toBe(true);
   expect(source.includes("text-caution-amber")).toBe(false);

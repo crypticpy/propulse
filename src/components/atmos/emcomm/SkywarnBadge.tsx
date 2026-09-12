@@ -41,7 +41,7 @@ export function SkywarnBadge() {
 
   return (
     <div
-      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-mono ${config.color}`}
+      className={`flex flex-wrap items-center gap-2 px-2 py-1.5 rounded-md text-xs font-mono ${config.color}`}
     >
       {config.pulse && (
         <span className="relative flex h-2 w-2">
@@ -51,7 +51,7 @@ export function SkywarnBadge() {
       )}
       <span>{config.label}</span>
       {activatingAlerts.length > 0 && (
-        <span className="text-xs opacity-70 truncate max-w-[120px]">
+        <span className="text-xs opacity-70 break-words">
           ({activatingAlerts[0]})
         </span>
       )}

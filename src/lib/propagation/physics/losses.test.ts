@@ -322,4 +322,22 @@ describe("basicTransmissionLossDb", () => {
       }),
     ).not.toThrow();
   });
+
+  it("rejects a negative term, because none of this codebase's producers emit one", () => {
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, absorptionDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, aboveMufDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, groundReflectionDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, auroralDb: -0.01 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      basicTransmissionLossDb({ ...terms, otherLossesDb: -0.01 }),
+    ).toThrow(RangeError);
+  });
 });

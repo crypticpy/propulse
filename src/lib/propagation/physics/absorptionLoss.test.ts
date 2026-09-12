@@ -423,4 +423,115 @@ describe("absorptionLoss", () => {
     expect(() => absorptionLoss({ ...base, ssn: -1 })).toThrow(RangeError);
     expect(() => absorptionLoss({ ...base, ssn: 0 })).not.toThrow();
   });
+
+  it("rejects a non-finite or non-positive foEMHz from the sampler", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, foEMHz: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({ ...base, sample: () => ({ ...UNIFORM, foEMHz: 0 }) }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, foEMHz: 0.1 }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a zenith angle from the sampler outside 0..180", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: -1 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithAngleDeg: 181 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, zenithNoonAngleDeg: 181 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          ...UNIFORM,
+          zenithAngleDeg: 0,
+          zenithNoonAngleDeg: 180,
+        }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a modified dip from the sampler outside -90..90, when supplied", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: Number.NaN }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: 91 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, modifiedDipDeg: -90 }),
+      }),
+    ).not.toThrow();
+    // Omitting it entirely still works: `modifiedDipDegAt` supplies one.
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          foEMHz: 3.4,
+          zenithAngleDeg: 30,
+          zenithNoonAngleDeg: 20,
+        }),
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a non-finite or non-positive gyrofrequency from the sampler, when supplied", () => {
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({
+          ...UNIFORM,
+          longitudinalGyrofrequencyMHz: Number.NaN,
+        }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0 }),
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      absorptionLoss({
+        ...base,
+        sample: () => ({ ...UNIFORM, longitudinalGyrofrequencyMHz: 0.1 }),
+      }),
+    ).not.toThrow();
+  });
 });

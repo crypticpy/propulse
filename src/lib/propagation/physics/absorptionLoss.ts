@@ -341,6 +341,71 @@ export type AbsorptionLossResult =
   AbsorptionLoss | Extract<PenetrationPointsResult, { kind: "unsupported" }>;
 
 /**
+ * Validates one penetration point's sampled state before it becomes a
+ * `DRegionCrossing`.
+ *
+ * `sample` is the caller's, not P.533-14's: a climatology provider or a
+ * ray-trace engine supplies it, and `dRegion.ts`'s own arithmetic has no
+ * floor on these fields. In particular equation (21)'s `cos(0.881 chi)^p` is
+ * `NaN` for a `chi` outside the range where the base stays non-negative, so a
+ * bad zenith angle here would otherwise surface as a silent `NaN` several
+ * calls downstream instead of naming which point and which field produced it.
+ */
+function validateSampledState(
+  point: PenetrationPoint,
+  state: PenetrationPointState,
+): void {
+  const where = `absorption sample at penetration point ${String(point.index)}`;
+  if (!Number.isFinite(state.foEMHz) || state.foEMHz <= 0) {
+    throw new RangeError(
+      `${where}: foEMHz must be positive and finite, received ` +
+        `${String(state.foEMHz)}.`,
+    );
+  }
+  if (
+    !Number.isFinite(state.zenithAngleDeg) ||
+    state.zenithAngleDeg < 0 ||
+    state.zenithAngleDeg > 180
+  ) {
+    throw new RangeError(
+      `${where}: zenithAngleDeg must be finite and within 0..180, received ` +
+        `${String(state.zenithAngleDeg)}.`,
+    );
+  }
+  if (
+    !Number.isFinite(state.zenithNoonAngleDeg) ||
+    state.zenithNoonAngleDeg < 0 ||
+    state.zenithNoonAngleDeg > 180
+  ) {
+    throw new RangeError(
+      `${where}: zenithNoonAngleDeg must be finite and within 0..180, ` +
+        `received ${String(state.zenithNoonAngleDeg)}.`,
+    );
+  }
+  if (
+    state.modifiedDipDeg !== undefined &&
+    (!Number.isFinite(state.modifiedDipDeg) ||
+      state.modifiedDipDeg < -90 ||
+      state.modifiedDipDeg > 90)
+  ) {
+    throw new RangeError(
+      `${where}: modifiedDipDeg must be finite and within -90..90, ` +
+        `received ${String(state.modifiedDipDeg)}.`,
+    );
+  }
+  if (
+    state.longitudinalGyrofrequencyMHz !== undefined &&
+    (!Number.isFinite(state.longitudinalGyrofrequencyMHz) ||
+      state.longitudinalGyrofrequencyMHz <= 0)
+  ) {
+    throw new RangeError(
+      `${where}: longitudinalGyrofrequencyMHz must be positive and finite, ` +
+        `received ${String(state.longitudinalGyrofrequencyMHz)}.`,
+    );
+  }
+}
+
+/**
  * Li for one mode, dB.
  *
  * The angle of incidence at 110 km comes from the mode's own elevation, and
@@ -401,6 +466,7 @@ export function absorptionLoss(
 
   const crossings: DRegionCrossing[] = located.points.map((point) => {
     const state = sample(point);
+    validateSampledState(point, state);
     return {
       latitudeDeg: point.point.latitudeDeg,
       monthIndex,

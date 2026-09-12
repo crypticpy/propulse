@@ -17,6 +17,8 @@
  */
 
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { collectReferencedImageIds } from "@/lib/db/imageReferences";
+import { getLiveImageReferenceSnapshot } from "@/lib/db/imageReferenceSnapshot";
 import type {
   SyncModule,
   SyncableTable,
@@ -50,6 +52,8 @@ export class SyncManager {
   private generation = 0;
   private flushing = false;
   private flushingTables = new Set<SyncableTable>();
+  /** Image IDs already queued or uploaded in this session; cleared on stop. */
+  private scheduledImageIds = new Set<string>();
 
   // Timers
   private eagerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -122,7 +126,9 @@ export class SyncManager {
       await this.initialPull(generation);
       if (!this.isActive(generation)) return;
 
-      // Phase 2: Flush any pending write queue entries from previous session
+      // Phase 2: Queue referenced local images, then flush pending writes
+      this.scheduleReferencedImageUploads({ flush: false });
+      if (!this.isActive(generation)) return;
       await this.flushWriteQueue(generation);
       if (!this.isActive(generation)) return;
 
@@ -132,10 +138,7 @@ export class SyncManager {
       // Phase 4: Set up event listeners
       this.setupEventListeners(generation);
 
-      this.updateStatus({
-        state: this.isOnline() ? "idle" : "offline",
-        lastSyncAt: new Date().toISOString(),
-      });
+      this.applyIdleStatus();
     } catch (error) {
       if (!this.isActive(generation)) return;
       const message =
@@ -159,6 +162,7 @@ export class SyncManager {
     this.stopPeriodicFlush();
     this.clearEagerDebounce();
     this.clearRetryTimers();
+    this.scheduledImageIds.clear();
 
     if (!preserveMetadata) syncMeta.clear();
     // Retain owner queues; only the same owner can replay its unsynced entries.
@@ -217,6 +221,46 @@ export class SyncManager {
     }
   }
 
+  /**
+   * Enqueue referenced local image blobs for lazy upload.
+   * Store subscriptions pass `{ flush: true }` so a photo save uploads immediately
+   * when online. `syncNow` / start / reconnect enqueue then flush the write queue.
+   */
+  scheduleReferencedImageUploads(options?: { flush?: boolean }): void {
+    if (!this.running || !this.userId) return;
+
+    const referencedIds = collectReferencedImageIds(
+      getLiveImageReferenceSnapshot(),
+    );
+    let added = 0;
+    for (const imageId of referencedIds) {
+      if (this.scheduledImageIds.has(imageId)) continue;
+      if (
+        this.writeQueue
+          .getAll()
+          .some(
+            (entry) =>
+              entry.table === "user_images" &&
+              (entry.data.id as string) === imageId,
+          )
+      ) {
+        this.scheduledImageIds.add(imageId);
+        continue;
+      }
+      this.writeQueue.enqueue("user_images", "upsert", { id: imageId });
+      this.scheduledImageIds.add(imageId);
+      added++;
+    }
+
+    if (added > 0) {
+      this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
+    }
+
+    if (options?.flush !== false && added > 0 && this.isOnline()) {
+      void this.flushForTables(["user_images"]);
+    }
+  }
+
   /** Manual "Sync Now" — pull + push everything */
   async syncNow(): Promise<void> {
     if (!this.running || !this.userId) return;
@@ -226,19 +270,21 @@ export class SyncManager {
     try {
       await this.pushEager(generation);
       if (!this.isActive(generation)) return;
+      this.scheduleReferencedImageUploads({ flush: false });
+      if (!this.isActive(generation)) return;
       await this.flushWriteQueue(generation);
       if (!this.isActive(generation)) return;
       await this.pullAll(generation);
       if (!this.isActive(generation)) return;
-      this.updateStatus({
-        state: this.isOnline() ? "idle" : "offline",
-        lastSyncAt: new Date().toISOString(),
-        error: null,
-      });
+      this.applyIdleStatus();
     } catch (error) {
       if (!this.isActive(generation)) return;
       const message = error instanceof Error ? error.message : "Sync failed";
-      this.updateStatus({ state: "error", error: message });
+      this.updateStatus({
+        state: "error",
+        error: message,
+        pendingCount: this.writeQueue.pendingCount,
+      });
     }
   }
 
@@ -514,6 +560,7 @@ export class SyncManager {
       this.updateStatus({ state: "idle" });
       this.writeQueue.retryAll();
       this.startPeriodicFlush();
+      this.scheduleReferencedImageUploads({ flush: false });
       void this.flushWriteQueue();
     };
 
@@ -577,6 +624,26 @@ export class SyncManager {
   private getTierForTable(table: SyncableTable): SyncTier | null {
     const module = this.getModuleForTable(table);
     return module?.tier ?? null;
+  }
+
+  /** Idle when the queue is empty; leftover writes stay visible as pending. */
+  private applyIdleStatus(): void {
+    const pendingCount = this.writeQueue.pendingCount;
+    const remaining = pendingCount + this.writeQueue.getFailed().length;
+    this.updateStatus({
+      state: this.isOnline() ? "idle" : "offline",
+      lastSyncAt:
+        remaining === 0
+          ? new Date().toISOString()
+          : useSyncStore.getState().status.lastSyncAt,
+      pendingCount,
+      error:
+        remaining > 0 && this.isOnline()
+          ? "Some items are still pending"
+          : remaining > 0
+            ? useSyncStore.getState().status.error
+            : null,
+    });
   }
 
   private updateStatus(update: Partial<SyncStatus>): void {

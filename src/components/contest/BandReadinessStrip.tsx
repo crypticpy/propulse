@@ -269,7 +269,7 @@ function getStatusColors(status: BandStatus): {
     case "open":
       return {
         bg: "bg-signal-green/20",
-        text: "text-signal-green",
+        text: "text-su-text",
         border: "border-signal-green/50",
         glow: "shadow-[0_0_8px_rgba(0,255,136,0.3)]",
       };

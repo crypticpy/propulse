@@ -680,8 +680,8 @@ export function ContestScoreboard({
                 px-2 py-0.5 text-xs font-bold uppercase rounded transition-colors
                 ${
                   runMode === "run"
-                    ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
-                    : "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/50"
+                    ? "bg-signal-green/20 text-su-text border border-signal-green/50"
+                    : "bg-cosmic-cyan/20 text-su-text border border-cosmic-cyan/50"
                 }
               `}
               title={

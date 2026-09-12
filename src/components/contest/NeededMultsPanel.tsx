@@ -95,11 +95,11 @@ function getTypeBadgeColor(type: MultiplierType): string {
     case "ITU_ZONE":
       return "bg-plasma-orange/20 border-plasma-orange/40 text-su-text";
     case "DXCC":
-      return "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan";
+      return "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-su-text";
     case "STATE":
     case "SECTION":
     case "PROVINCE":
-      return "bg-signal-green/20 border-signal-green/40 text-signal-green";
+      return "bg-signal-green/20 border-signal-green/40 text-su-text";
     default:
       return "bg-su-line/20 border-su-line/50 text-su-muted";
   }
@@ -127,7 +127,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
     rank <= 3
       ? "bg-plasma-orange/20 text-su-text"
       : rank <= 6
-        ? "bg-cosmic-cyan/20 text-cosmic-cyan"
+        ? "bg-cosmic-cyan/20 text-su-text"
         : "bg-su-line/20 text-su-muted";
 
   return (

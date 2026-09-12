@@ -40,14 +40,14 @@ function getStatusColors(state: BridgeConnectionState): {
     case "connected":
       return {
         dot: "bg-signal-green",
-        text: "text-signal-green",
+        text: "text-su-text",
         bg: "bg-signal-green/10",
         border: "border-signal-green/30",
       };
     case "connecting":
       return {
         dot: "bg-plasma-orange",
-        text: "text-plasma-orange",
+        text: "text-su-text",
         bg: "bg-plasma-orange/10",
         border: "border-plasma-orange/30",
       };
@@ -61,7 +61,7 @@ function getStatusColors(state: BridgeConnectionState): {
     case "error":
       return {
         dot: "bg-alert-red",
-        text: "text-alert-red",
+        text: "text-su-text",
         bg: "bg-alert-red/10",
         border: "border-alert-red/30",
       };
@@ -241,7 +241,7 @@ export function BridgeStatusIndicator({
 
             {error && (
               <div className="mt-2 p-2 rounded bg-alert-red/10 border border-alert-red/30">
-                <span className="text-alert-red text-xs line-clamp-3">
+                <span className="text-su-text text-xs line-clamp-3">
                   {error}
                 </span>
               </div>

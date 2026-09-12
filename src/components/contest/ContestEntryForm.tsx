@@ -292,7 +292,7 @@ export function ContestEntryForm({
               disabled:opacity-50 disabled:cursor-not-allowed
               ${
                 isDupe
-                  ? "bg-alert-red/20 text-alert-red border border-alert-red/50"
+                  ? "bg-alert-red/20 text-su-text border border-alert-red/50"
                   : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
               }
             `}

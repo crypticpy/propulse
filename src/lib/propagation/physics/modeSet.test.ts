@@ -357,6 +357,32 @@ describe("equation (13): the elevation of each mode", () => {
     }
   });
 
+  it.each([1490 / 176, 9])(
+    "returns an explicit domain rejection when a Table 1c height is non-positive (M=%s)",
+    (m3000F2) => {
+      const { sample } = samplerByLabel({
+        "T + d0/2": { foF2MHz: 10 },
+        M: { foF2MHz: 9 },
+        "R - d0/2": { foF2MHz: 7, m3000F2 },
+      });
+      // Equation (2): 1490/M - 176 is zero at the boundary, negative above.
+      // Midpoint geometry still admits the circuit; one selection point must
+      // not abort it with hopGeometry's positive-height RangeError.
+      const set = modeSet({
+        route: routeOfLength(5000),
+        frequencyMHz: 20,
+        sample,
+      });
+      expect(set.kind).toBe("unsupported");
+      if (set.kind !== "unsupported")
+        throw new Error("expected domain rejection");
+      expect(set.reason).toBe("out_of_domain");
+      expect(set.detail).toContain("R - d0/2");
+      expect(set.detail).toContain("non-positive equation (2) mirror height");
+      expect(set.groundDistanceKm).toBe(5000);
+    },
+  );
+
   it("takes them from the Table 1c point with the lower foF2 beyond dmax", () => {
     // D = 5000 km, dmax restricted to 4000, so section 5.2.1's second clause
     // applies. Table 1c names T + d0/2, M and R - d0/2; foF2 is 10, 9 and 7, so

@@ -203,10 +203,13 @@ export function overlayStationLookupCoords(
         loc.id === homeId ? { ...loc, lat, lon } : loc,
       )
     : station.savedLocations;
+  const active = savedLocations.find(
+    (loc) => loc.id === station.activeLocationId,
+  );
   return {
     ...station,
-    lat,
-    lon,
+    lat: active?.lat ?? lat,
+    lon: active?.lon ?? lon,
     savedLocations,
   };
 }
@@ -281,7 +284,27 @@ export function useStationIdentityDraft() {
   }, [station, isDirty]);
 
   const handleSave = useCallback((): boolean => {
-    const trimmedCallsign = callsign.toUpperCase().trim();
+    // Merge only edited fields into the latest station; a pending import must
+    // not turn untouched identity inputs into writes of stale snapshot values.
+    const latest = identityFieldsFromStation(station);
+    const resolved = {
+      callsign: callsign !== baseline.callsign ? callsign : latest.callsign,
+      operatorName:
+        operatorName !== baseline.operatorName
+          ? operatorName
+          : latest.operatorName,
+      grid: grid !== baseline.grid ? grid : latest.grid,
+    };
+    const trimmedCallsign = resolved.callsign.toUpperCase().trim();
+    if (
+      importDraft.lastIngestedCallsign &&
+      importDraft.lastIngestedCallsign !== trimmedCallsign
+    ) {
+      setCallsignError(
+        "Lookup suggestions belong to a different callsign. Restore that callsign or Cancel and look up the new callsign.",
+      );
+      return false;
+    }
     if (trimmedCallsign && !isValidCallsign(trimmedCallsign)) {
       setCallsignError(
         "Please enter a valid callsign (e.g., W5XXX, VE3XXX, or GMRS like WSLK349)",
@@ -290,7 +313,7 @@ export function useStationIdentityDraft() {
     }
     setCallsignError(null);
 
-    if (grid && !isValidGrid(grid)) {
+    if (resolved.grid && !isValidGrid(resolved.grid)) {
       setGridError("Please enter a valid Maidenhead grid square");
       return false;
     }
@@ -300,8 +323,8 @@ export function useStationIdentityDraft() {
       station,
       {
         callsign: trimmedCallsign,
-        operatorName,
-        grid,
+        operatorName: resolved.operatorName,
+        grid: resolved.grid,
       },
       importDraft,
     );
@@ -309,18 +332,22 @@ export function useStationIdentityDraft() {
       setStation(nextStation);
     }
     commitIdentityImportRecords(importDraft, useProfileStore.getState());
-    const resolved = {
-      callsign: trimmedCallsign,
-      operatorName,
-      grid,
-    };
+    resolved.callsign = trimmedCallsign;
     setCallsign(resolved.callsign);
     setOperatorName(resolved.operatorName);
     setGrid(resolved.grid);
     setImportDraft({});
     setBaseline(resolved);
     return true;
-  }, [callsign, operatorName, grid, station, setStation, importDraft]);
+  }, [
+    callsign,
+    operatorName,
+    grid,
+    station,
+    setStation,
+    importDraft,
+    baseline,
+  ]);
 
   const handleCancelEdit = useCallback(() => {
     const next = identityFieldsFromStation(station);

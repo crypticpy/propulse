@@ -298,6 +298,44 @@ describe("identity lookup draft (#353)", () => {
     expect(committed()).toEqual(before);
   });
 
+  it("preserves external unselected identity updates when saving a photo import", () => {
+    render(<IdentityDraftHost />);
+    setBox(/Name/, false);
+    setBox(/Bio/, false);
+    setBox(/Photo/, true);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Apply selected fields/i }),
+    );
+    act(() =>
+      useProfileStore.getState().setStation({
+        ...useProfileStore.getState().station!,
+        operatorName: "External Name",
+        grid: "FN31",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+    expect(committed().operatorName).toBe("External Name");
+    expect(committed().grid).toBe("FN31");
+    expect(committed().profileImageUrl).toBe(LOOKUP.imageUrl);
+  });
+
+  it("rejects saving lookup data under a different callsign", () => {
+    render(<IdentityDraftHost />);
+    setBox(/Photo/, true);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Apply selected fields/i }),
+    );
+    const before = committed();
+    fireEvent.change(screen.getByLabelText("Callsign"), {
+      target: { value: "N0NEW" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+    expect(
+      screen.getByText(/Lookup suggestions belong to a different callsign/),
+    ).toBeTruthy();
+    expect(committed()).toEqual(before);
+  });
+
   it("syncs identity fields from an external station update when the draft is clean", () => {
     render(<IdentityDraftHost />);
     act(() => {
@@ -366,6 +404,28 @@ describe("lookup draft helpers (#353)", () => {
       lat: 39.1,
       lon: -94.2,
     });
+  });
+
+  it("keeps portable active mirrors when importing Home coordinates", () => {
+    const station = seedStation();
+    const portable = station.savedLocations[1];
+    const next = overlayStationLookupCoords(
+      {
+        ...station,
+        activeLocationId: portable.id,
+        grid: portable.grid,
+        lat: portable.lat,
+        lon: portable.lon,
+      },
+      41,
+      -72,
+    );
+    expect(next).toMatchObject({
+      grid: portable.grid,
+      lat: portable.lat,
+      lon: portable.lon,
+    });
+    expect(next.savedLocations[0]).toMatchObject({ lat: 41, lon: -72 });
   });
 
   it("does not replace the station when only license records are pending", () => {

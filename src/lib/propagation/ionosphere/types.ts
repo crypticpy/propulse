@@ -203,7 +203,8 @@ export type IonosphereQuantity =
   | "hmF2"
   | "foEs"
   | "dRegionElectronDensity"
-  | "collisionFrequency";
+  | "collisionFrequency"
+  | "longitudinalGyrofrequency";
 
 /**
  * `reference` reproduces ITU-R P.533-14 exactly: integer month, integer UTC
@@ -271,6 +272,22 @@ export interface IonosphereState {
   readonly magneticDip300kmDeg: number;
   /** Electron gyrofrequency at 300 km, MHz. */
   readonly gyrofrequency300kmMHz: number;
+
+  /**
+   * Magnetic dip at 100 km, degrees.
+   *
+   * A different quantity from the 300 km pair above, not a re-siting of it.
+   * ITU-R P.533-14 evaluates the D-region absorption field at 100 km; the CCIR
+   * map's modip coordinate is defined at 300 km and stays there.
+   */
+  readonly magneticDip100kmDeg: number;
+  /** Electron gyrofrequency at 100 km, MHz. */
+  readonly gyrofrequency100kmMHz: number;
+  /**
+   * Longitudinal gyrofrequency `|fH sin(dip)|` at 100 km, MHz: the `fL` of
+   * P.533-14 equation (20).
+   */
+  readonly longitudinalGyrofrequency100kmMHz: number;
 
   /**
    * Every in-model derivation, substitution and clip applied to reach this

@@ -26,6 +26,7 @@ export interface ViewScopedCommands {
   applyPreset: (preset: PresetRecipe) => void;
   selectSpot: (reportId: string, location: { lat: number; lon: number } | null) => void;
   clearSelection: () => void;
+  setManualTarget: (location: { lat: number; lon: number } | null) => void;
   selectPathPoint: (pointId: string | null) => void;
   setExpandedGroups: (groupIds: readonly string[]) => void;
 }
@@ -87,6 +88,7 @@ function commandsFor(runtime: ScopedViewRuntime): ViewScopedCommands {
     applyPreset: (preset) => runtime.applyPreset(preset),
     selectSpot: (reportId, location) => runtime.selectSpot(reportId, location),
     clearSelection: () => runtime.clearSelection(),
+    setManualTarget: (location) => runtime.setManualTarget(location),
     selectPathPoint: (pointId) => runtime.selectPathPoint(pointId),
     setExpandedGroups: (groupIds) => runtime.setExpandedGroups(groupIds),
   };

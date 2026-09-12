@@ -55,6 +55,22 @@ export interface ScopedViewRuntime extends ViewRuntime {
   followStatus(radio: RadioObservation | null): FollowStatus;
   effectiveSpots(radio: RadioObservation | null): SpotPresentationPreferences;
   persistWorkingSlot(): void;
+  /**
+   * Map-click / typed-grid target. Not a saved preference and not a radio
+   * command. Invalid coordinates leave the snapshot unchanged.
+   */
+  setManualTarget(location: { lat: number; lon: number } | null): void;
+}
+
+export function isValidManualTargetLocation(location: { lat: number; lon: number }): boolean {
+  return (
+    Number.isFinite(location.lat) &&
+    Number.isFinite(location.lon) &&
+    location.lat >= -90 &&
+    location.lat <= 90 &&
+    location.lon >= -180 &&
+    location.lon <= 180
+  );
 }
 
 function cloneConfig(config: ViewConfiguration): ViewConfiguration {
@@ -225,6 +241,20 @@ export function createViewRuntime(options: CreateViewRuntimeOptions): ScopedView
     clearSelection() {
       assertActive();
       commitInteraction(EMPTY_INTERACTION);
+    },
+    setManualTarget(location) {
+      assertActive();
+      if (location === null) {
+        runtime.clearSelection();
+        return;
+      }
+      if (!isValidManualTargetLocation(location)) return;
+      commitInteraction({
+        selectedReportId: null,
+        selectedPathPointId: null,
+        target: { lat: location.lat, lon: location.lon, origin: "manual", reportId: null },
+        expandedGroupIds: snapshot.interaction.expandedGroupIds,
+      });
     },
     selectPathPoint(pointId) {
       assertActive();

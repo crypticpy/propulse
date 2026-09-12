@@ -468,4 +468,86 @@ describe("createViewRuntime", () => {
     });
     runtime.dispose();
   });
+
+  describe("setManualTarget", () => {
+    it("replaces a spot selection with a manual target and keeps expanded groups", () => {
+      const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+      runtime.selectSpot("spot-1", { lat: 10, lon: 20 });
+      runtime.selectPathPoint("point-1");
+      runtime.setExpandedGroups(["g1"]);
+      const revision = runtime.getSnapshot().workingRevision;
+      const followRadio = runtime.getSnapshot().config.context.followRadio;
+      runtime.setManualTarget({ lat: 41.7, lon: -72.7 });
+      expect(runtime.getSnapshot().interaction).toEqual({
+        selectedReportId: null,
+        selectedPathPointId: null,
+        target: { lat: 41.7, lon: -72.7, origin: "manual", reportId: null },
+        expandedGroupIds: ["g1"],
+      });
+      expect(runtime.getSnapshot().workingRevision).toBe(revision);
+      expect(runtime.getSnapshot().config.context.followRadio).toBe(followRadio);
+      runtime.dispose();
+    });
+
+    it("null clears selection with the same snapshot as clearSelection", () => {
+      const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+      runtime.selectSpot("spot-1", { lat: 10, lon: 20 });
+      runtime.setExpandedGroups(["g1"]);
+      runtime.setManualTarget(null);
+      expect(runtime.getSnapshot().interaction).toEqual({
+        selectedReportId: null,
+        selectedPathPointId: null,
+        target: null,
+        expandedGroupIds: [],
+      });
+      runtime.dispose();
+    });
+
+    it("rejects non-finite or out-of-range coordinates without changing the snapshot", () => {
+      const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+      runtime.selectSpot("spot-1", { lat: 10, lon: 20 });
+      const before = runtime.getSnapshot();
+      runtime.setManualTarget({ lat: Number.NaN, lon: 0 });
+      runtime.setManualTarget({ lat: 91, lon: 0 });
+      runtime.setManualTarget({ lat: 0, lon: 181 });
+      runtime.setManualTarget({ lat: Number.POSITIVE_INFINITY, lon: 0 });
+      expect(runtime.getSnapshot()).toBe(before);
+      runtime.dispose();
+    });
+
+    it("keeps two runtimes isolated", () => {
+      const a = createViewRuntime({ binding: binding("normal"), persistWorking: false });
+      const b = createViewRuntime({ binding: binding("hamclock"), persistWorking: false });
+      a.setManualTarget({ lat: 1, lon: 2 });
+      expect(b.getSnapshot().interaction.target).toBeNull();
+      expect(a.getSnapshot().interaction.target).toEqual({
+        lat: 1, lon: 2, origin: "manual", reportId: null,
+      });
+      a.dispose();
+      b.dispose();
+    });
+
+    it("does not persist a transient manual target across recovery", () => {
+      const storage = createMemoryWorkingStorage();
+      const first = createViewRuntime({
+        binding: binding("normal"),
+        storage,
+        storageNamespace: "acct:owner-a",
+      });
+      first.updateWorkingView({
+        presentation: { ...presentation(first.getSnapshot().config), projection: "azimuthal" },
+      });
+      first.setManualTarget({ lat: 12, lon: 24 });
+      first.dispose();
+      const recovered = createViewRuntime({
+        binding: binding("normal"),
+        storage,
+        storageNamespace: "acct:owner-a",
+      });
+      expect(recovered.getSnapshot().config.presentation.projection).toBe("azimuthal");
+      expect(recovered.getSnapshot().interaction.target).toBeNull();
+      expect(recovered.getSnapshot().interaction.selectedReportId).toBeNull();
+      recovered.dispose();
+    });
+  });
 });

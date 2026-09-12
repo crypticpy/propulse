@@ -22,13 +22,7 @@ export const SATURATION_MAX = 1.4;
 export const SATURATION_STEP = 0.05;
 export const SATURATION_DEFAULT = 1;
 
-const TONE_ROLES = [
-  "accent",
-  "info",
-  "success",
-  "warning",
-  "danger",
-] as const;
+const TONE_ROLES = ["accent", "info", "success", "warning", "danger"] as const;
 
 /** Snap a stored or slider value onto the allowed 0.05 grid. Missing/invalid → 1. */
 export function clampSaturation(value: unknown): number {
@@ -182,7 +176,8 @@ export function compositeOnSurface(
 
 /**
  * Surfaces `toneOnPanel` and `--su-accent-text` / `--su-accent-edge` guarantee
- * legibility on: bare panel, Card glass over panel, Card glass over canvas.
+ * legibility on: bare panel, Card glass over panel/canvas, and the nested
+ * line/10 hover surface in InsightsBar over each of those glass surfaces.
  */
 export function guaranteedTextSurfaces(
   palette: StationPaletteValues,
@@ -191,6 +186,17 @@ export function guaranteedTextSurfaces(
     palette.panel,
     compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.panel),
     compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.canvas),
+    // Two identical line/10 layers compose to 19%; round only the final color.
+    compositeOnSurface(
+      palette.line,
+      1 - (1 - CARD_GLASS_ALPHA) ** 2,
+      palette.panel,
+    ),
+    compositeOnSurface(
+      palette.line,
+      1 - (1 - CARD_GLASS_ALPHA) ** 2,
+      palette.canvas,
+    ),
   ];
 }
 

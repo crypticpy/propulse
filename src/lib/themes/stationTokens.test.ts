@@ -363,10 +363,10 @@ describe("colour-blind tone tokens", () => {
   it("swaps the same tones in the scoped token set StationProvider injects", () => {
     const scoped = stationTokens("dark", "#ff6b35", "protanopia");
     // Warning already clears every guaranteed surface; success is blended
-    // lighter because raw #009988 misses glass-over-canvas on the dark palette.
+    // lighter because raw #009988 misses the nested hover glass on the dark palette.
     expect(scoped["--su-warning"]).toBe("#EE7733");
-    expect(scoped["--su-success"]).toBe("#1aa394");
-    expect(scoped["--su-success-rgb"]).toBe("26 163 148");
+    expect(scoped["--su-success"]).toBe("#33ada0");
+    expect(scoped["--su-success-rgb"]).toBe("51 173 160");
     expect(stationTokens("dark", "#ff6b35")["--su-success"]).toBe(
       stationPalettes.dark.success,
     );
@@ -433,13 +433,7 @@ describe("hexToChannels", () => {
   });
 });
 
-const TONE_ROLES = [
-  "accent",
-  "info",
-  "success",
-  "warning",
-  "danger",
-] as const;
+const TONE_ROLES = ["accent", "info", "success", "warning", "danger"] as const;
 
 const SURFACE_ROLES = [
   "canvas",
@@ -542,7 +536,12 @@ describe("station token saturation", () => {
   });
 
   it("swaps colour-blind tones before scaling their chroma", () => {
-    const swapped = stationTokens("dark", DEFAULT_ACCENT_HEX, "deuteranopia", 1);
+    const swapped = stationTokens(
+      "dark",
+      DEFAULT_ACCENT_HEX,
+      "deuteranopia",
+      1,
+    );
     const scaled = stationTokens(
       "dark",
       DEFAULT_ACCENT_HEX,
@@ -563,9 +562,9 @@ describe("station token saturation", () => {
     const surfaces = guaranteedTextSurfaces(stationPalettes.dark);
     for (const role of ["info", "success", "warning", "danger"] as const) {
       for (const surface of surfaces) {
-        expect(stationContrast(vivid[`--su-${role}`], surface)).toBeGreaterThanOrEqual(
-          4.5,
-        );
+        expect(
+          stationContrast(vivid[`--su-${role}`], surface),
+        ).toBeGreaterThanOrEqual(4.5);
       }
     }
   });
@@ -601,7 +600,7 @@ function accentGrid(): string[] {
     for (let g = 0; g < 16; g++) {
       for (let b = 0; b < 16; b++) {
         accents.push(
-          `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`,
+          `#${(r * 17).toString(16).padStart(2, "0")}${(g * 17).toString(16).padStart(2, "0")}${(b * 17).toString(16).padStart(2, "0")}`,
         );
       }
     }
@@ -620,8 +619,23 @@ describe("guaranteed text surfaces (#811)", () => {
       palette.panel,
       compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.panel),
       compositeOnSurface(palette.line, CARD_GLASS_ALPHA, palette.canvas),
+      compositeOnSurface(palette.line, 0.19, palette.panel),
+      compositeOnSurface(palette.line, 0.19, palette.canvas),
     ]);
   });
+
+  it.each(["dark", "high-contrast"] as const)(
+    "%s: status ink clears the actual nested InsightsBar hover background",
+    (theme) => {
+      const palette = stationPalettes[theme];
+      // Two line/10 layers: 0.1 + (1 - 0.1) * 0.1 = 0.19.
+      const background = compositeOnSurface(palette.line, 0.19, palette.panel);
+      const ink = stationTokens(theme, DEFAULT_ACCENT_HEX, "protanopia")[
+        "--su-success"
+      ];
+      expect(stationContrast(ink, background)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 
   it("red-on-revert: panel-only gate kept #dd0055 as accent-text on Light; glass-over-canvas gate falls back to info", () => {
     const palette = stationPalettes.light;
@@ -630,7 +644,9 @@ describe("guaranteed text surfaces (#811)", () => {
     expect(stationContrast(accent, palette.panel)).toBeGreaterThanOrEqual(
       STATUS_TEXT_CONTRAST,
     );
-    expect(worstOnSurfaces(accent, surfaces)).toBeLessThan(STATUS_TEXT_CONTRAST);
+    expect(worstOnSurfaces(accent, surfaces)).toBeLessThan(
+      STATUS_TEXT_CONTRAST,
+    );
     const tokens = stationTokens("light", accent);
     expect(tokens["--su-accent-text"]).toBe(palette.info);
     expect(tokens["--su-accent-text"]).not.toBe(accent);

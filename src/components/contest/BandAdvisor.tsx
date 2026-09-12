@@ -326,7 +326,7 @@ export function BandAdvisor({
       <RateIndicator rate={currentRate} trend={trend} />
 
       {/* Advice message */}
-      <span className="text-xs text-su-muted flex-1 min-w-[10rem]">
+      <span className="text-xs text-su-muted flex-1" style={{ minWidth: "10rem" }}>
         {advice.message}
       </span>
 

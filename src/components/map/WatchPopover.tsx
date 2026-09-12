@@ -377,7 +377,7 @@ export function WatchPopover() {
               )}
             </span>
             {matchCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-signal-green/20 text-signal-green text-xs leading-none font-medium">
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-signal-green/20 text-su-text text-xs leading-none font-medium">
                 {matchCount}
               </span>
             )}
@@ -443,7 +443,7 @@ export function WatchPopover() {
             <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5 flex items-center gap-1.5">
               <span>Contest</span>
               {!featureFlags.contestWatch && (
-                <span className="px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-xs font-bold leading-none">
+                <span className="px-1 py-0.5 rounded bg-caution-amber/20 text-su-text text-xs font-bold leading-none">
                   PRO
                 </span>
               )}
@@ -455,7 +455,7 @@ export function WatchPopover() {
                 type="button"
                 onClick={() => setContestWatch(activeContestDef.id)}
                 disabled={!featureFlags.contestWatch}
-                className="w-full px-3 py-1.5 rounded-lg bg-caution-amber/10 hover:bg-caution-amber/20 text-sm text-caution-amber/90 hover:text-caution-amber transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed mb-1.5"
+                className="w-full px-3 py-1.5 rounded-lg bg-caution-amber/10 hover:bg-caution-amber/20 text-sm text-su-text hover:text-su-text transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed mb-1.5"
                 title={
                   featureFlags.contestWatch
                     ? `Watch for ${activeContestDef.name} spots`
@@ -487,7 +487,7 @@ export function WatchPopover() {
                     type="button"
                     onClick={() => setContestWatch(preset.id)}
                     disabled={!featureFlags.contestWatch}
-                    className="px-2.5 py-1 rounded-lg bg-su-line/10 hover:bg-caution-amber/10 text-xs text-su-text/80 hover:text-caution-amber transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-2.5 py-1 rounded-lg bg-su-line/10 hover:bg-caution-amber/10 text-xs text-su-text/80 hover:text-su-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     title={
                       featureFlags.contestWatch
                         ? `Watch for ${preset.label} spots`
@@ -799,7 +799,7 @@ export function WatchPopover() {
                   type="button"
                   onClick={handleSave}
                   disabled={!saveName.trim()}
-                  className="px-2 py-1 rounded-lg bg-signal-green/20 text-signal-green text-xs font-medium hover:bg-signal-green/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="px-2 py-1 rounded-lg bg-signal-green/15 text-su-text text-xs font-medium hover:bg-signal-green/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Save
                 </button>
@@ -844,7 +844,7 @@ export function WatchPopover() {
             <button
               type="button"
               onClick={handleClear}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-alert-red/10 text-alert-red text-xs font-medium hover:bg-alert-red/20 transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-alert-red/10 text-su-text text-xs font-medium hover:bg-alert-red/20 transition-colors"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-alert-red" />
               Clear Watch

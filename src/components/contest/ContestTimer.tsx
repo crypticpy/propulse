@@ -138,7 +138,7 @@ const CountdownClock = memo(function CountdownClock({
             isContestOver
               ? "text-su-muted"
               : hasEnd && remainingSeconds < 3600
-                ? "text-alert-red animate-pulse"
+                ? "text-alert-red"
                 : "text-cosmic-cyan"
           }`}
         >
@@ -161,7 +161,7 @@ const CountdownClock = memo(function CountdownClock({
           isContestOver
             ? "text-su-muted"
             : hasEnd && remainingSeconds < 3600
-              ? "text-alert-red animate-pulse"
+              ? "text-alert-red"
               : "text-cosmic-cyan"
         }`}
       >
@@ -254,7 +254,7 @@ const OffTimeWarningBanner = memo(function OffTimeWarningBanner({
     <div
       className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
         isCritical
-          ? "bg-alert-red/20 border border-alert-red/50 text-alert-red animate-pulse"
+          ? "bg-alert-red/20 border border-alert-red/50 text-alert-red"
           : "bg-yellow-500/15 border border-yellow-500/40 text-yellow-400"
       }`}
     >

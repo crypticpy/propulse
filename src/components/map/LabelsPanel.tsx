@@ -9,6 +9,7 @@ const LABEL_OPTIONS: { key: keyof LabelOptions; label: string }[] = [
   { key: "cities", label: "Cities" },
   { key: "maidenheadGrid", label: "Maidenhead Grid" },
   { key: "wasOverlay", label: "WAS Progress (flat)" },
+  { key: "terminatorDashed", label: "Dashed Terminator Line" },
 ];
 
 const COLLAPSE_DELAY_MS = 2000;

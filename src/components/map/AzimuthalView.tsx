@@ -75,6 +75,7 @@ import {
   drawStateBordersLayer,
   drawNightBoostedBordersLayer,
 } from "./layers/bordersLayer";
+import { drawTerminatorLayer } from "./layers/terminatorLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -157,7 +158,6 @@ const COLORS = {
   ringLabel: "rgba(255, 255, 255, 0.5)",
   bearingLabel: "rgba(255, 255, 255, 0.7)",
   bearingTick: "rgba(255, 255, 255, 0.3)",
-  terminator: "#ff6b35",
   homeMarker: "#4488FF", // Blue for home station
   targetMarker: "#ff6b35", // Default fallback - usually overridden by difficulty
   path: "#ff6b35",
@@ -299,87 +299,6 @@ function drawBearingLabels(ctx: CanvasRenderingContext2D) {
     ctx.fillText(label, x, y);
   }
   ctx.restore();
-}
-
-/**
- * Draw terminator line
- */
-function drawTerminator(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  centerLat: number,
-  centerLon: number,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  // Generate terminator points (circle at 90 degrees from subsolar)
-  const terminatorPoints: Array<{ x: number; y: number }> = [];
-  const numPoints = 180;
-
-  const phi0 = subsolar.lat * (Math.PI / 180);
-  const lambda0 = subsolar.lon * (Math.PI / 180);
-  const angularDist = Math.PI / 2; // 90 degrees
-
-  for (let i = 0; i < numPoints; i++) {
-    const bearing = (i / numPoints) * 2 * Math.PI;
-
-    // Calculate point at 90 degrees from subsolar
-    const sinPhi0 = Math.sin(phi0);
-    const cosPhi0 = Math.cos(phi0);
-    const sinDist = Math.sin(angularDist);
-    const cosDist = Math.cos(angularDist);
-
-    const phi = Math.asin(
-      sinPhi0 * cosDist + cosPhi0 * sinDist * Math.cos(bearing),
-    );
-    const lambda =
-      lambda0 +
-      Math.atan2(
-        Math.sin(bearing) * sinDist * cosPhi0,
-        cosDist - sinPhi0 * Math.sin(phi),
-      );
-
-    const lat = phi * (180 / Math.PI);
-    let lon = lambda * (180 / Math.PI);
-    while (lon > 180) {
-      lon -= 360;
-    }
-    while (lon < -180) {
-      lon += 360;
-    }
-
-    const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-    const canvas = projToCanvas(projected);
-    terminatorPoints.push(canvas);
-  }
-
-  // Draw the terminator
-  ctx.strokeStyle = COLORS.terminator;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = 6;
-
-  ctx.beginPath();
-  for (let i = 0; i < terminatorPoints.length; i++) {
-    const point = terminatorPoints[i];
-    if (i === 0) {
-      ctx.moveTo(point.x, point.y);
-    } else {
-      // Check for wrap-around
-      const prev = terminatorPoints[i - 1];
-      const dx = point.x - prev.x;
-      const dy = point.y - prev.y;
-      if (dx * dx + dy * dy > RADIUS * RADIUS) {
-        ctx.moveTo(point.x, point.y);
-      } else {
-        ctx.lineTo(point.x, point.y);
-      }
-    }
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.shadowBlur = 0;
 }
 
 /**
@@ -2257,9 +2176,27 @@ export function AzimuthalView({
       zoomDamp: 1,
     });
 
-    // Draw terminator line (if terminator layer is enabled)
+    // Draw terminator line (if terminator layer is enabled). The shared
+    // layer's screenPx damping is meant to counteract the ctx.scale(zoom,
+    // zoom) transform above so the terminator's width stays visually
+    // constant across zoom levels -- unlike every other azimuthal layer
+    // here (zoomDamp: 1), which scales with that canvas transform instead.
+    // Dedicated projection instance so this one divergence doesn't change
+    // `projection`'s damping for the borders passes below (#1091 PR 8).
     if (layers.terminator) {
-      drawTerminator(ctx, displayTime, center.lat, center.lon);
+      const terminatorProjection = createAzimuthalProjection({
+        centerLat: center.lat,
+        centerLon: center.lon,
+        centerX: CENTER,
+        centerY: CENTER,
+        radius: RADIUS,
+        zoomScale: zoom,
+        zoomDamp: zoom,
+      });
+      drawTerminatorLayer(ctx, displayTime, terminatorProjection, {
+        highViz: highVizSpots,
+        dashed: labelOptions.terminatorDashed,
+      });
     }
 
     // Draw night lights (city lights on dark side)

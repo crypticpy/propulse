@@ -6,7 +6,14 @@ import {
   p372Payload,
   type P372ArrayName,
 } from "./p372Coefficients";
-import { atmosphericNoiseP372 } from "./p372Noise";
+import {
+  atmosphericNoiseP372,
+  galacticNoiseP372,
+  manMadeNoiseP372,
+  powerSumMediansP372,
+  P372_MAN_MADE_ENVIRONMENTS,
+  type P372ManMadeEnvironment,
+} from "./p372Noise";
 import {
   getExternalNoise,
   getExternalNoiseFigure,
@@ -443,4 +450,89 @@ describe("ITU-R P.372 atmospheric noise contract", () => {
     )!.fa;
     expect(Math.abs(east - west)).toBeGreaterThan(1);
   });
+});
+
+describe("ITU-R P.372 man-made and galactic noise", () => {
+  it("is equation (17) with the constants of Table 1", () => {
+    // Fam = c - d log f, read straight off P.372-17 Table 1. At 1 MHz the
+    // logarithm vanishes and each curve must return its own c exactly, which
+    // is the one frequency at which a transposed constant cannot hide.
+    for (const [name, row] of Object.entries(P372_MAN_MADE_ENVIRONMENTS)) {
+      const atOneMHz = manMadeNoiseP372(name as P372ManMadeEnvironment, 1);
+      expect(atOneMHz?.fa).toBeCloseTo(row.c, 12);
+      // And a decade up it must fall by exactly d.
+      const atTenMHz = manMadeNoiseP372(name as P372ManMadeEnvironment, 10);
+      expect(
+        (atOneMHz as { fa: number }).fa - (atTenMHz as { fa: number }).fa,
+      ).toBeCloseTo(row.d, 12);
+    }
+  });
+
+  it("is equation (15) with the 2 dB deciles for galactic noise", () => {
+    expect(galacticNoiseP372(1)?.fa).toBeCloseTo(52, 12);
+    expect(galacticNoiseP372(10)?.fa).toBeCloseTo(29, 12);
+    expect(galacticNoiseP372(14.1)?.fa).toBeCloseTo(
+      52 - 23 * Math.log10(14.1),
+      12,
+    );
+    expect(galacticNoiseP372(14.1)?.du).toBe(2);
+    expect(galacticNoiseP372(14.1)?.dl).toBe(2);
+  });
+
+  it("reports the quiet rural deciles as absent rather than borrowed", () => {
+    // P.372-17 Table 2 has three rows, not four. The nearest neighbour is
+    // rural at 9.2/4.6, and returning that would be an invention at exactly
+    // the place a reader is entitled to a citation.
+    expect(manMadeNoiseP372("quiet_rural", 14.1)?.deciles).toBeNull();
+    expect(manMadeNoiseP372("rural", 14.1)?.deciles).toEqual({
+      du: 9.2,
+      dl: 4.6,
+    });
+    expect(manMadeNoiseP372("city", 14.1)?.deciles).toEqual({
+      du: 11.0,
+      dl: 6.7,
+    });
+    expect(manMadeNoiseP372("residential", 14.1)?.deciles).toEqual({
+      du: 10.6,
+      dl: 5.3,
+    });
+  });
+
+  it("returns null rather than NaN for a frequency it cannot take a log of", () => {
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(manMadeNoiseP372("rural", bad)).toBeNull();
+      expect(galacticNoiseP372(bad)).toBeNull();
+    }
+  });
+});
+
+describe("ITU-R P.372 three-component power sum matches the reference", () => {
+  /**
+   * The check that ties the two new curves to the oracle.
+   *
+   * `faMedianSum` above is the reference build's own
+   * 10 log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10)), which is the noise
+   * figure equation (45) of P.533-14 divides the signal by. Feeding it the
+   * reference's own FaA isolates the two components this module adds: if
+   * either curve had a transposed constant or the wrong category, the sum
+   * would miss by more than the 0.05 dB porting budget on at least one of the
+   * four environments.
+   */
+  for (const c of GOLDEN) {
+    it(`${c.name}`, () => {
+      const manMade = manMadeNoiseP372(
+        c.environment as P372ManMadeEnvironment,
+        c.frequencyMHz,
+      );
+      const galactic = galacticNoiseP372(c.frequencyMHz);
+      expect(manMade).not.toBeNull();
+      expect(galactic).not.toBeNull();
+      const sum = powerSumMediansP372([
+        { fa: c.faA, du: 0, dl: 0 },
+        { fa: (manMade as { fa: number }).fa, du: 0, dl: 0 },
+        galactic as { fa: number; du: number; dl: number },
+      ]);
+      expect(Math.abs(sum - c.faMedianSum)).toBeLessThan(TOLERANCE_DB);
+    });
+  }
 });

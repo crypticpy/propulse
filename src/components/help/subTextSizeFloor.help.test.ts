@@ -6,8 +6,8 @@
  * help (?) icon, and inline kbd chips. This batch raises user-read copy to
  * `text-xs`.
  *
- * Skips Home (DashboardSection), Solar (SolarPulseSection), and phone-only
- * mobile tier labels in HelpFeatureCompare.
+ * Skips Home (DashboardSection) and Solar (SolarPulseSection).
+ * HelpFeatureCompare tier labels are now covered by the follow-up slice.
  *
  * Sibling to `../map/subTextSizeFloor.test.ts` — does not edit that file.
  */
@@ -23,6 +23,7 @@ const HELP_ROOT = resolve(REPO_ROOT, "src/components/help");
 /** Files this batch read and fixed — append-only for follow-ups. */
 const FILES = [
   "src/components/help/HelpCallout.tsx",
+  "src/components/help/HelpFeatureCompare.tsx",
   "src/components/help/HelpTooltip.tsx",
   "src/components/help/sections/GettingStartedSection.tsx",
 ];
@@ -39,18 +40,7 @@ interface AllowlistEntry {
   reason: string;
 }
 
-const ALLOWLIST: AllowlistEntry[] = [
-  {
-    file: "src/components/help/HelpFeatureCompare.tsx",
-    match: "text-[10px] font-semibold text-su-muted uppercase",
-    reason: "phone-only Free tier label — mobile layout deferred",
-  },
-  {
-    file: "src/components/help/HelpFeatureCompare.tsx",
-    match: "text-[10px] font-semibold text-aurora-purple uppercase",
-    reason: "phone-only Pro tier label — mobile layout deferred",
-  },
-];
+const ALLOWLIST: AllowlistEntry[] = [];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 const INLINE_SIZE_RE =
@@ -121,7 +111,7 @@ describe("sub-text-xs sizing stays at the floor in help (#808 batch 15)", () => 
     ).toEqual([]);
   });
 
-  it("has no un-allowlisted sub-floor text-[Npx] anywhere under src/components/help (except deferred Home/Solar/phone)", () => {
+  it("has no un-allowlisted sub-floor text-[Npx] anywhere under src/components/help (except deferred Home/Solar)", () => {
     const violations: string[] = [];
     for (const abs of walkHelpSourceFiles(HELP_ROOT)) {
       const rel = abs.slice(REPO_ROOT.length + 1);

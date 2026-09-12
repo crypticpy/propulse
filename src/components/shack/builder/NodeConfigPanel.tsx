@@ -80,7 +80,7 @@ function Badge({
 }) {
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${color}`}
+      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}
     >
       {children}
     </span>
@@ -196,7 +196,7 @@ function RadioSection({
             `${equipment?.manufacturer ?? ""} ${equipment?.model ?? ""}`.trim() ||
             "Unknown Radio"}
           {equipment && (
-            <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
+            <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
               Your Inventory
             </span>
           )}
@@ -272,7 +272,7 @@ function AccessorySection({
       <div>
         <div className="text-lg font-bold text-su-text">
           {acc.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>
@@ -477,7 +477,7 @@ function FeedlineRunSection({
       <div>
         <div className="text-lg font-bold text-su-text">
           {feedline.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>
@@ -539,7 +539,7 @@ function FeedlineRunSection({
               >
                 <div>
                   <div className="text-xs text-su-text">{comp.name}</div>
-                  <div className="text-[10px] text-su-muted">
+                  <div className="text-xs text-su-muted">
                     {INLINE_COMPONENT_LABELS[comp.componentType]}
                   </div>
                 </div>
@@ -612,7 +612,7 @@ function FeedlineRunSection({
                 >
                   <div>
                     <div className="text-xs text-su-text">{comp.name}</div>
-                    <div className="text-[10px] text-su-muted">
+                    <div className="text-xs text-su-muted">
                       {INLINE_COMPONENT_LABELS[comp.componentType]}
                     </div>
                   </div>
@@ -666,7 +666,7 @@ function AntennaSection({
       <div>
         <div className="text-lg font-bold text-su-text">
           {antenna.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>

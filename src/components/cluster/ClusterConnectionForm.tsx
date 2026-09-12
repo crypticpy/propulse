@@ -321,7 +321,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
             </span>
             Spot filters
             {prefs.filterBands.length + prefs.filterModes.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-su-text text-[10px] leading-none normal-case tracking-normal">
+              <span className="px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-su-text text-xs leading-none normal-case tracking-normal">
                 {prefs.filterBands.length + prefs.filterModes.length}
               </span>
             )}

@@ -97,7 +97,7 @@ export function BandConditionsBar({
             {/* SNR value */}
             <span
               className={[
-                "w-10 text-right font-mono text-xs flex-shrink-0",
+                "w-14 text-right font-mono text-xs flex-shrink-0 whitespace-nowrap",
                 c.status === "closed" ? "text-su-muted" : "text-su-muted",
               ].join(" ")}
             >

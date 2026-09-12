@@ -3,9 +3,8 @@
  *
  * Census on `origin/main` at `a3f38e58`: `src/components/shack/builder/` holds
  * 14 sub-floor `text-[Npx]` sites (N<12) across four files after batch 6 and
- * #1169. This batch raises 10 user-read labels to `text-xs` in
- * `NodeConfigPanel.tsx` and `BuilderCanvas.tsx`. Four decorative zoom/readout
- * and chain-strip sites stay sub-floor and are allowlisted by content.
+ * #1169. This batch raises 12 user-read labels to `text-xs` in
+ * `NodeConfigPanel.tsx` and `BuilderCanvas.tsx`. The functional zoom/readout labels follow the same floor.
  *
  * Skips `subTextSizeFloor.shack.test.ts` (batch 6 guard) — sibling only.
  * ChainStripPreview chips and ChainSelector Active badge remain on batch 6
@@ -34,21 +33,7 @@ interface AllowlistEntry {
   reason: string;
 }
 
-const ALLOWLIST: AllowlistEntry[] = [
-  {
-    file: "src/components/shack/builder/BuilderCanvas.tsx",
-    match: "text-[10px] text-su-muted font-mono w-10 text-center",
-    reason:
-      "decorative zoom percentage readout beside +/- controls — compact canvas chrome, not body copy",
-  },
-  {
-    file: "src/components/shack/builder/BuilderCanvas.tsx",
-    match:
-      "px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium",
-    reason:
-      "decorative zoom-to-fit control chip in the canvas toolbar — compact chrome beside zoom steppers",
-  },
-];
+const ALLOWLIST: AllowlistEntry[] = [];
 
 interface SubFloorSite {
   file: string;
@@ -61,6 +46,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
+    if (hasAlternateFloorSize(line)) sites.push({ file, line: index + 1, text: line });
     for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
       re.lastIndex = 0;
       for (const match of line.matchAll(re)) {
@@ -103,4 +89,38 @@ describe("sub-text-xs sizing stays at the floor in shack builder (#808 batch 48)
       ).toBe(true);
     }
   });
+});
+
+function hasAlternateFloorSize(line: string): boolean {
+  const values = [
+    ...line.matchAll(
+      /text-\[(?:length:)?([^\]]+)\]|fontSize:\s*["']([^"']+)["']/g,
+    ),
+  ];
+  return values.some((match) => {
+    const value = match[1] ?? match[2];
+    if (/[a-z][a-z0-9-]*\s*\(/i.test(value)) return true;
+    const size = /^(\d*\.?\d+)(px|rem|em|pt)$/.exec(value);
+    if (!size) return false;
+    const factor = { px: 1, rem: 16, em: 16, pt: 4 / 3 }[size[2]]!;
+    return Number(size[1]) * factor <= 12;
+  });
+}
+it("detects equivalent alternate and fixed-floor font sizes", () => {
+  for (const token of [
+    "text-[12px]",
+    "text-[.6rem]",
+    "text-[9pt]",
+    "text-[length:0.7em]",
+    "text-[calc(0.75rem-2px)]",
+    'fontSize: "0.6rem"',
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(true);
+  for (const token of [
+    "text-xs",
+    "text-[1rem]",
+    "text-[#abcdef]",
+    "text-[14px]",
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(false);
 });

@@ -72,18 +72,6 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "held at 10px so this batch does not edit accentTintContrast.test.ts (#803 / measured Active badge site)",
   },
-  {
-    file: "src/components/shack/builder/BuilderCanvas.tsx",
-    match: "text-[10px] text-su-muted font-mono w-10 text-center",
-    reason:
-      "deferred — stay off BuilderCanvas (#1169); zoom percentage readout",
-  },
-  {
-    file: "src/components/shack/builder/BuilderCanvas.tsx",
-    match:
-      "px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium",
-    reason: "deferred — stay off BuilderCanvas (#1169); zoom-to-fit control",
-  },
 ];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;

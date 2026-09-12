@@ -643,7 +643,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Radio
                 </span>
               </div>
@@ -674,7 +674,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Cable
                 </span>
               </div>
@@ -705,7 +705,7 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-su-muted font-medium">
+                <span className="text-xs text-su-muted font-medium">
                   Antenna
                 </span>
               </div>

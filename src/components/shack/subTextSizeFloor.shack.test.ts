@@ -73,28 +73,6 @@ const ALLOWLIST: AllowlistEntry[] = [
       "held at 10px so this batch does not edit accentTintContrast.test.ts (#803 / measured Active badge site)",
   },
   {
-    file: "src/components/shack/builder/NodeConfigPanel.tsx",
-    match: "text-[11px] font-medium ${color}",
-    reason: "deferred — stay off NodeConfigPanel (#1169); not in this batch",
-  },
-  {
-    file: "src/components/shack/builder/NodeConfigPanel.tsx",
-    match:
-      "inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle",
-    reason: "deferred — stay off NodeConfigPanel (#1169); section count badges",
-  },
-  {
-    file: "src/components/shack/builder/NodeConfigPanel.tsx",
-    match: 'className="text-[10px] text-su-muted"',
-    reason:
-      "deferred — stay off NodeConfigPanel (#1169); helper copy under fields",
-  },
-  {
-    file: "src/components/shack/builder/BuilderCanvas.tsx",
-    match: "text-[10px] text-su-muted font-medium",
-    reason: "deferred — stay off BuilderCanvas (#1169); lane column headers",
-  },
-  {
     file: "src/components/shack/builder/BuilderCanvas.tsx",
     match: "text-[10px] text-su-muted font-mono w-10 text-center",
     reason:

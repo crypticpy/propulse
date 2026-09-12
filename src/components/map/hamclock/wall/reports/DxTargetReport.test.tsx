@@ -183,6 +183,28 @@ describe("DxTargetReport", () => {
     expect(footSpans[1].textContent).not.toContain("CLEAR");
   });
 
+  it("keeps the SKY condition as a weather detail row alongside the timestamp footer (#1085 review)", () => {
+    mocks.weather = {
+      weather: {
+        temperature: 22,
+        windSpeed: 12,
+        windDirection: 90,
+        humidity: 55,
+        weatherCode: 61,
+        isDay: true,
+        observedAt: new Date("2026-09-05T12:45:00Z"),
+      },
+      isLoading: false,
+      error: null,
+      hasLocation: true,
+    };
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("SKY")).toBeTruthy();
+    expect(screen.getByText("RAIN")).toBeTruthy();
+  });
+
   it("shows WAITING in the footer only while weather is still loading", () => {
     mocks.weather = {
       weather: null,

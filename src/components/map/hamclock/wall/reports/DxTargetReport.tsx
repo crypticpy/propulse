@@ -6,6 +6,7 @@ import {
   formatTemperature,
   resolveUnits,
 } from "@/lib/hamclock/units";
+import { weatherCodeToDescription } from "@/lib/api/openMeteo";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -161,6 +162,8 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
                 kind={glyphKind(weather.weatherCode, weather.isDay)}
               />
               <dl className="hcr-kv">
+                <dt>SKY</dt>
+                <dd>{weatherCodeToDescription(weather.weatherCode).toUpperCase()}</dd>
                 <dt>TEMPERATURE</dt>
                 <dd>{formatTemperature(weather.temperature, resolved)}</dd>
                 <dt>WIND</dt>

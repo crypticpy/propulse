@@ -215,20 +215,44 @@ function assertInputs(inputs: F2ReflectionHeightInputs): void {
  * dmax, km, unrestricted. P.533-14 equations (5) and (6) with the section
  * 3.5.1.1 floor of 2 on foF2/foE.
  */
-export function maximumHopLengthKm(
+export function dmaxRatioX(foF2MHz: number, foEMHz: number): number {
+  assertPositiveFinite("foF2MHz", foF2MHz);
+  assertPositiveFinite("foEMHz", foEMHz);
+  return Math.max(foF2MHz / foEMHz, DMAX_RATIO_FLOOR);
+}
+
+/**
+ * The intermediate value B, P.533-14 equation (6).
+ *
+ * `B = M(3000)F2 - 0.124 + (M(3000)F2^2 - 4)(0.0215 + 0.005 sin(7.854/x - 1.9635))`
+ * with `x = max(foF2/foE, 2)`.
+ *
+ * Extracted and exported because equation (3), the F2-layer basic MUF, needs
+ * the same B that equation (5) needs, and the one place a formula is written
+ * is the only place it can be wrong. `physics/basicMuf.ts` is the other
+ * caller; it does not re-derive this.
+ */
+export function mufFactorB(
   m3000F2: number,
   foF2MHz: number,
   foEMHz: number,
 ): number {
   assertPositiveFinite("m3000F2", m3000F2);
-  assertPositiveFinite("foF2MHz", foF2MHz);
-  assertPositiveFinite("foEMHz", foEMHz);
-  const x = Math.max(foF2MHz / foEMHz, DMAX_RATIO_FLOOR);
-  // Equation (6).
-  const B =
+  const x = dmaxRatioX(foF2MHz, foEMHz);
+  return (
     m3000F2 -
     0.124 +
-    (m3000F2 * m3000F2 - 4) * (0.0215 + 0.005 * Math.sin(7.854 / x - 1.9635));
+    (m3000F2 * m3000F2 - 4) * (0.0215 + 0.005 * Math.sin(7.854 / x - 1.9635))
+  );
+}
+
+export function maximumHopLengthKm(
+  m3000F2: number,
+  foF2MHz: number,
+  foEMHz: number,
+): number {
+  const x = dmaxRatioX(foF2MHz, foEMHz);
+  const B = mufFactorB(m3000F2, foF2MHz, foEMHz);
   // Equation (5).
   return (
     4780 +

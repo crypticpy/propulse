@@ -261,6 +261,18 @@ function siteAt(
   };
 }
 
+/**
+ * The mid-path control point M.
+ *
+ * Every part of Table 1 names M on its first row, and dmax is by definition
+ * "calculated at the mid-path control point", so a caller that has not yet got
+ * a dmax still needs this one site. Exported so it is the same `siteAt` every
+ * other row uses.
+ */
+export function midPointSite(route: ResolvedRoute): ControlPointSite {
+  return siteAt(route, "M", route.groundDistanceKm / 2);
+}
+
 function requireDmax(query: ControlPointQuery): number {
   const { dmaxKm } = query;
   if (dmaxKm === undefined || !Number.isFinite(dmaxKm) || dmaxKm <= 0) {

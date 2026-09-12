@@ -72,12 +72,12 @@ const SIZE_CONFIG = {
   },
   normal: {
     barHeight: "h-[7px]",
-    readoutText: "text-[9px]",
+    readoutText: "text-xs",
     readoutW: "w-[52px]",
   },
   large: {
     barHeight: "h-[12px]",
-    readoutText: "text-[11px]",
+    readoutText: "text-xs",
     readoutW: "w-[60px]",
   },
 } as const;

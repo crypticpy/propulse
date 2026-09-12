@@ -105,7 +105,7 @@ export function SlicePanelFilter({
                 type="button"
                 onClick={() => onModeChange(entry.raw)}
                 disabled={!canControl}
-                className={`px-1 py-1 text-[10px] font-bold rounded border transition-colors
+                className={`px-1 py-1 text-xs font-bold rounded border transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? colors
@@ -122,7 +122,7 @@ export function SlicePanelFilter({
       {/* Filter width presets */}
       {supportsFilter && (
         <div>
-          <div className="text-[9px] text-su-muted uppercase tracking-wider mb-1">
+          <div className="text-xs text-su-muted uppercase tracking-wider mb-1">
             Filter width
           </div>
           <div className="grid grid-cols-4 gap-1">
@@ -136,7 +136,7 @@ export function SlicePanelFilter({
                   type="button"
                   onClick={() => onFilterChange(preset.low, preset.high)}
                   disabled={!canControl}
-                  className={`px-1 py-1 text-[10px] font-mono font-semibold rounded border transition-colors
+                  className={`px-1 py-1 text-xs font-mono font-semibold rounded border transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"

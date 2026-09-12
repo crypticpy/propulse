@@ -147,7 +147,7 @@ export function SmartNetFinder() {
 
               {/* Newcomer-friendly badge */}
               {net.newcomerFriendly && (
-                <span className="shrink-0 bg-signal-green/15 text-signal-green text-[10px] rounded-full px-2 py-0.5">
+                <span className="shrink-0 bg-signal-green/15 text-su-text text-[10px] rounded-full px-2 py-0.5">
                   Newcomer OK
                 </span>
               )}

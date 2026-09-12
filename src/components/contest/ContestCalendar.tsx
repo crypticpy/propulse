@@ -46,10 +46,10 @@ const DIFFICULTY_ORDER: Record<string, number> = {
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   beginner:
-    "bg-signal-green/20 text-signal-green border border-signal-green/30",
+    "bg-signal-green/20 text-su-text border border-signal-green/30",
   intermediate:
-    "bg-caution-amber/20 text-caution-amber border border-caution-amber/30",
-  advanced: "bg-alert-red/20 text-alert-red border border-alert-red/30",
+    "bg-caution-amber/20 text-su-text border border-caution-amber/30",
+  advanced: "bg-alert-red/20 text-su-text border border-alert-red/30",
 };
 
 const DIFFICULTY_LABELS: Record<string, string> = {
@@ -165,7 +165,7 @@ const BandPills = memo(function BandPills({ bands }: { bands: string[] }) {
             key={band}
             className={`px-1.5 py-0.5 rounded text-xs font-mono ${
               isWarc
-                ? "bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/30"
+                ? "bg-nebula-blue/20 text-su-text border border-nebula-blue/30"
                 : "bg-void/60 text-su-muted border border-su-line/40"
             }`}
           >
@@ -194,7 +194,7 @@ const ModePills = memo(function ModePills({ modes }: { modes: string[] }) {
 
 const ActiveBadge = memo(function ActiveBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-signal-green border border-signal-green/40">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-su-text border border-signal-green/40">
       <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
       LIVE
     </span>
@@ -391,7 +391,7 @@ const WeekTimeline = memo(function WeekTimeline({
                 <div
                   className={`absolute top-0 h-full rounded-sm flex items-center px-1 overflow-hidden ${
                     active
-                      ? "bg-signal-green/30 border border-signal-green/50"
+                      ? "bg-signal-green/20 border border-signal-green/50"
                       : "bg-plasma-orange/20 border border-plasma-orange/30"
                   }`}
                   style={{
@@ -539,7 +539,7 @@ export function ContestCalendar({
               onClick={() => setModeFilter(m)}
               className={`px-2 py-1 rounded transition-colors ${
                 modeFilter === m
-                  ? "bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/30"
+                  ? "bg-nebula-blue/20 text-su-text border border-nebula-blue/30"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
@@ -567,7 +567,7 @@ export function ContestCalendar({
               onClick={() => setDifficultyFilter(d)}
               className={`px-2 py-1 rounded transition-colors ${
                 difficultyFilter === d
-                  ? "bg-caution-amber/20 text-caution-amber border border-caution-amber/30"
+                  ? "bg-caution-amber/20 text-su-text border border-caution-amber/30"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
@@ -584,7 +584,7 @@ export function ContestCalendar({
           onClick={() => setWeekendOnly((prev) => !prev)}
           className={`px-2 py-1 rounded transition-colors ${
             weekendOnly
-              ? "bg-signal-green/20 text-signal-green border border-signal-green/30"
+              ? "bg-signal-green/20 text-su-text border border-signal-green/30"
               : "text-su-muted hover:text-su-text hover:bg-su-line/10"
           }`}
         >

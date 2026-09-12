@@ -48,19 +48,19 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }) {
     error: {
       bg: "bg-alert-red/20",
       border: "border-alert-red/30",
-      text: "text-alert-red",
+      text: "text-su-text",
       label: "Error",
     },
     warning: {
       bg: "bg-caution-amber/20",
       border: "border-caution-amber/30",
-      text: "text-caution-amber",
+      text: "text-su-text",
       label: "Warning",
     },
     info: {
       bg: "bg-cosmic-cyan/20",
       border: "border-cosmic-cyan/30",
-      text: "text-cosmic-cyan",
+      text: "text-su-text",
       label: "Info",
     },
   };
@@ -160,17 +160,17 @@ function FlaggedQSORow({
         {/* Summary badges */}
         <div className="flex items-center gap-1">
           {severityCounts.error > 0 && (
-            <span className="px-1.5 py-0.5 text-xs font-bold bg-alert-red/20 text-alert-red rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-alert-red/20 text-su-text rounded">
               {severityCounts.error}
             </span>
           )}
           {severityCounts.warning > 0 && (
-            <span className="px-1.5 py-0.5 text-xs font-bold bg-caution-amber/20 text-caution-amber rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-caution-amber/20 text-su-text rounded">
               {severityCounts.warning}
             </span>
           )}
           {severityCounts.info > 0 && (
-            <span className="px-1.5 py-0.5 text-xs font-bold bg-cosmic-cyan/20 text-cosmic-cyan rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-cosmic-cyan/20 text-su-text rounded">
               {severityCounts.info}
             </span>
           )}

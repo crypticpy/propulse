@@ -43,7 +43,7 @@ export function EndContestModal({
               type="button"
               onClick={onConfirm}
               className="flex-1 px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
-                         text-alert-red hover:bg-alert-red/30
+                         text-su-text hover:bg-alert-red/20
                          transition-colors font-bold"
             >
               End Contest

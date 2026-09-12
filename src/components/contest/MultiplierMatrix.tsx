@@ -192,7 +192,7 @@ function GridCell({
         transition-all duration-150
         ${
           isWorked
-            ? "bg-signal-green/25 border border-signal-green/60 text-signal-green"
+            ? "bg-signal-green/20 border border-signal-green/60 text-su-text"
             : "bg-su-line/10 border border-su-line/40 text-su-muted"
         }
       `}
@@ -416,7 +416,7 @@ function MultiplierSection({
               <div
                 key={value}
                 className="px-2 py-0.5 rounded text-xs font-mono font-bold
-                  bg-signal-green/25 border border-signal-green/60 text-signal-green"
+                  bg-signal-green/20 border border-signal-green/60 text-su-text"
               >
                 {value}
               </div>
@@ -514,7 +514,7 @@ function BandTabs({
               flex items-center gap-1
               ${
                 isSelected
-                  ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/50"
+                  ? "bg-cosmic-cyan/20 text-su-text border border-cosmic-cyan/50"
                   : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
               }
             `}
@@ -524,7 +524,7 @@ function BandTabs({
               <span
                 className={`
                   text-xs px-1 rounded-full
-                  ${isSelected ? "bg-cosmic-cyan/30" : "bg-su-line/20"}
+                  ${isSelected ? "bg-cosmic-cyan/20" : "bg-su-line/20"}
                 `}
               >
                 {count}
@@ -670,7 +670,7 @@ export function MultiplierMatrix({
       {/* Legend */}
       <div className="flex items-center gap-4 mt-4 pt-3 border-t border-su-line/40">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-signal-green/25 border border-signal-green/60" />
+          <div className="w-3 h-3 rounded bg-signal-green/20 border border-signal-green/60" />
           <span className="text-xs text-su-muted">Worked</span>
         </div>
         <div className="flex items-center gap-1.5">

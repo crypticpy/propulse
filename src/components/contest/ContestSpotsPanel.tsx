@@ -220,7 +220,7 @@ function FilterControls({
                 onClick={() => onModeFilterChange(opt)}
                 className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   modeFilter === opt
-                    ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
+                    ? "bg-cosmic-cyan/20 text-su-text border border-cosmic-cyan/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
@@ -237,7 +237,7 @@ function FilterControls({
           onClick={() => onNeededOnlyChange(!neededOnly)}
           className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
             neededOnly
-              ? "bg-signal-green/30 text-signal-green border border-signal-green/50"
+              ? "bg-signal-green/20 text-su-text border border-signal-green/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }`}
         >
@@ -248,7 +248,7 @@ function FilterControls({
           onClick={() => onHideWorkedChange(!hideWorked)}
           className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
             hideWorked
-              ? "bg-alert-red/30 text-alert-red border border-alert-red/50"
+              ? "bg-alert-red/20 text-su-text border border-alert-red/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }`}
         >
@@ -266,7 +266,7 @@ function FilterControls({
                 onClick={() => onAgeFilterChange(opt.value)}
                 className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   ageFilter === opt.value
-                    ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
+                    ? "bg-cosmic-cyan/20 text-su-text border border-cosmic-cyan/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
@@ -301,7 +301,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
           textColor: "text-su-muted",
           badge: {
             bg: "bg-alert-red/20",
-            text: "text-alert-red",
+            text: "text-su-text",
             border: "border-alert-red/40",
           },
         };
@@ -310,8 +310,8 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
           rowBg: "bg-signal-green/10",
           textColor: "text-su-text",
           badge: {
-            bg: "bg-signal-green/25",
-            text: "text-signal-green",
+            bg: "bg-signal-green/20",
+            text: "text-su-text",
             border: "border-signal-green/50",
           },
         };
@@ -320,8 +320,8 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
           rowBg: "bg-cosmic-cyan/10",
           textColor: "text-su-text",
           badge: {
-            bg: "bg-cosmic-cyan/25",
-            text: "text-cosmic-cyan",
+            bg: "bg-cosmic-cyan/20",
+            text: "text-su-text",
             border: "border-cosmic-cyan/50",
           },
         };
@@ -606,7 +606,7 @@ export function ContestSpotsPanel({
             {filteredSpots.length}/{stats.total}
           </span>
           {stats.newMultCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-signal-green border border-signal-green/30">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-signal-green/20 text-su-text border border-signal-green/30">
               {stats.newMultCount} NEW
             </span>
           )}

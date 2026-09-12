@@ -70,8 +70,8 @@ export function ContestVoiceControls({
               isUnavailable
                 ? "bg-su-line/10 text-su-muted border-su-line/40 cursor-not-allowed"
                 : isRecording
-                  ? "bg-alert-red/20 text-alert-red border-alert-red/50 hover:bg-alert-red/30"
-                  : "bg-cosmic-cyan/15 text-cosmic-cyan border-cosmic-cyan/40 hover:bg-cosmic-cyan/20"
+                  ? "bg-alert-red/20 text-su-text border-alert-red/50 hover:bg-alert-red/20"
+                  : "bg-cosmic-cyan/15 text-su-text border-cosmic-cyan/40 hover:bg-cosmic-cyan/20"
             }
           `}
           title="Voice toggle"

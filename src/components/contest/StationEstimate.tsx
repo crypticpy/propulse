@@ -26,10 +26,10 @@ interface StationEstimateProps {
 // ---------------------------------------------------------------------------
 
 const TIER_COLORS: Record<string, string> = {
-  Adventurous: "text-caution-amber bg-caution-amber/15 border-caution-amber/30",
+  Adventurous: "text-su-text bg-caution-amber/15 border-caution-amber/30",
   "Bold Explorer": "text-su-text bg-plasma-orange/15 border-plasma-orange/30",
-  Capable: "text-nebula-blue bg-nebula-blue/15 border-nebula-blue/30",
-  Competitive: "text-signal-green bg-signal-green/15 border-signal-green/30",
+  Capable: "text-su-text bg-nebula-blue/15 border-nebula-blue/30",
+  Competitive: "text-su-text bg-signal-green/15 border-signal-green/30",
   "Serious Contester": "text-purple-400 bg-purple-400/15 border-purple-400/30",
   "Top Gun": "text-yellow-400 bg-yellow-400/15 border-yellow-400/30",
 };

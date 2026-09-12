@@ -27,7 +27,7 @@ export function ContestScoreShare() {
           onClick={handleCopy}
           className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
             copied
-              ? "bg-signal-green/20 text-signal-green"
+              ? "bg-signal-green/20 text-su-text"
               : "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20"
           }`}
         >

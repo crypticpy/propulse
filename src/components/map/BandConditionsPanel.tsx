@@ -218,10 +218,10 @@ const LADDER_GRID_COLORS: Record<
 };
 
 const LADDER_BADGE_CLASSES: Record<LadderState, string> = {
-  hot: "text-plasma-orange bg-plasma-orange/15",
-  verified: "text-signal-green bg-signal-green/15",
-  stirring: "text-caution-amber bg-caution-amber/15",
-  forecast: "text-signal-green/70 bg-signal-green/10",
+  hot: "text-su-text bg-plasma-orange/15",
+  verified: "text-su-text bg-signal-green/15",
+  stirring: "text-su-text bg-caution-amber/15",
+  forecast: "text-su-text bg-signal-green/10",
   closed: "text-su-muted bg-su-line/10",
 };
 
@@ -872,17 +872,17 @@ export function BandConditionsPanel({
   const statusColors = {
     good: {
       dot: "bg-signal-green",
-      text: "text-signal-green",
+      text: "text-su-text",
       bg: "bg-signal-green/10",
     },
     fair: {
       dot: "bg-caution-amber",
-      text: "text-caution-amber",
+      text: "text-su-text",
       bg: "bg-caution-amber/10",
     },
     poor: {
       dot: "bg-alert-red",
-      text: "text-alert-red",
+      text: "text-su-text",
       bg: "bg-alert-red/10",
     },
   };
@@ -1281,7 +1281,7 @@ const BandConditionRow = memo(function BandConditionRow({
   const statusLabel = verdict ? bandHealthLabel(verdict) : pathStatusLabel;
   const statusClasses = verdict
     ? LADDER_BADGE_CLASSES[verdict.stable]
-    : `${getPathStatusColor(condition.status)} ${getPathStatusBgColor(condition.status)}`;
+    : `text-su-text ${getPathStatusBgColor(condition.status)}`;
 
   // An "above_basic_muf" circuit carries no power at all: its S-unit is S0 at
   // -Infinity dBm and its SNR bounds are display floors, not predictions. Say

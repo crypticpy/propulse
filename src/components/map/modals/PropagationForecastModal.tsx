@@ -13,6 +13,7 @@ import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import {
   getForecastStatusColor,
+  getPathStatusBgColor,
   type HourlyForecast,
   type BestWindow,
 } from "@/lib/utils/bands";
@@ -698,11 +699,7 @@ export function PropagationForecastModal({
                     </div>
                     <div className="flex items-center gap-2">
                       <span
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{
-                          color: getForecastStatusColor(window.peakStatus),
-                          backgroundColor: `${getForecastStatusColor(window.peakStatus)}20`,
-                        }}
+                        className={`text-xs px-2 py-0.5 rounded-full text-su-text ${getPathStatusBgColor(window.peakStatus)}`}
                       >
                         {getStatusLabel(window.peakStatus)}
                       </span>
@@ -744,7 +741,7 @@ export function PropagationForecastModal({
                     {windowsByQuality.excellent.map((w) => (
                       <span
                         key={w.band}
-                        className="text-xs px-2 py-1 bg-signal-green/20 text-signal-green rounded"
+                        className="text-xs px-2 py-1 bg-signal-green/20 text-su-text rounded"
                       >
                         {w.band}
                       </span>
@@ -763,7 +760,7 @@ export function PropagationForecastModal({
                     {windowsByQuality.good.map((w) => (
                       <span
                         key={w.band}
-                        className="text-xs px-2 py-1 bg-good/20 text-good rounded"
+                        className="text-xs px-2 py-1 bg-good/20 text-su-text rounded"
                       >
                         {w.band}
                       </span>
@@ -782,7 +779,7 @@ export function PropagationForecastModal({
                     {windowsByQuality.fair.map((w) => (
                       <span
                         key={w.band}
-                        className="text-xs px-2 py-1 bg-caution-amber/20 text-caution-amber rounded"
+                        className="text-xs px-2 py-1 bg-caution-amber/20 text-su-text rounded"
                       >
                         {w.band}
                       </span>

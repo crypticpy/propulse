@@ -21,10 +21,7 @@ import {
   getPathMetrics,
 } from "@/lib/utils/path";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
-import {
-  getPathStatusBgColor,
-  getPathStatusColor,
-} from "@/lib/utils/bands";
+import { getPathStatusBgColor } from "@/lib/utils/bands";
 import {
   formatSpotCopyText,
   getSpotPresentationSource,
@@ -116,7 +113,7 @@ function ActionButton({
       title={title}
       className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 disabled:cursor-default disabled:opacity-70 ${
         active
-          ? "border-signal-green/35 bg-signal-green/10 text-signal-green"
+          ? "border-signal-green/35 bg-signal-green/10 text-su-text"
           : "border-su-line/40 bg-su-line/10 text-su-muted hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-su-text"
       }`}
     >
@@ -348,7 +345,7 @@ export function SelectedSpotCard({
               {spot.dx}
             </h3>
             {spot.dxLocApprox && (
-              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-caution-amber">
+              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-su-text">
                 Approx
               </span>
             )}
@@ -445,7 +442,7 @@ export function SelectedSpotCard({
                       {optimalSignal.band}
                     </span>
                     <span
-                      className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase ${getPathStatusBgColor(optimalSignal.status)} ${getPathStatusColor(optimalSignal.status)}`}
+                      className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase text-su-text ${getPathStatusBgColor(optimalSignal.status)}`}
                     >
                       {optimalSignal.status}
                     </span>

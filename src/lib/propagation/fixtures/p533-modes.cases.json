@@ -1,0 +1,791 @@
+{
+  "schema_version": 1,
+  "derived_from": "ml/propagation_validation/reference/golden-v1.json",
+  "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+  "reference_version": "ITURHFProp Version: Sep 11 2026\nP533 Version: 14.2",
+  "case_count": 14,
+  "screening_case_count": 3,
+  "selection": "The 14 of the 30 golden cases for which the reference names a dominant mode. Every other case reports DMidx = NONE with ele = 0 and DMele = 0, and the shortest of those is 7454.96 km: above 7000 km the reference leaves the short-path model of sections 5.1 and 5.2 and reports a field strength from the long-path method of section 5.3, which does not work in modes at all. There is no mode set in the oracle to compare against on those cases, so they are not carried here. The cut is observable in the oracle, not chosen: the test asserts that every excluded case has DMidx = NONE.",
+  "parity_is_partial": "DECLARED LIMITATION, read this before trusting a green run. The golden file publishes one mode per circuit, the dominant one, and publishes no fs column at all. So this fixture can prove:\n  - that the dominant mode the reference picked is in our mode set, with the same layer and hop count (DMidx);\n  - that its elevation (DMele, and the path's own ele, which is the same number on every one of these 14 cases), its basic MUF (DMBMUF) and, below 4000 km, its section 5.1 reflection height (DMhr) agree;\n  - that the mode set ends where the reference's does, through ptick, the equation (19) virtual slant range of the last mode the reference's own loop computed.\nIt cannot prove:\n  - the E-layer screening frequency fs of any mode, because the oracle never prints one. No case in this corpus is screened, so the whole screening branch is unmeasured against the reference. The three screening_cases below are hand-computed from the published equations to cover it, and they are NOT reference-derived;\n  - the other five F2 modes and the three E modes of each circuit, whose elevations and basic MUFs the oracle does not publish. They are exercised only indirectly: ptick is the last of them, so an error in the mode set's upper end moves it;\n  - DMFprob, which is carried in every case and asserted in none. Equations (9) and (10) need the deltal and deltau decile factors of ITU-R P.1239 Tables 2 and 3, which are issue #1102 and are not in this tree. Inventing them to make a column green would be worse than leaving it unasserted.\n  - the product elevation, elevationDeg, and the product slant range, virtualSlantRangeKm. Those are equation (13) and equation (19) at the section 5.1 height, which is what section 5.1 says equation (13)'s hr is and what the reference does not do (modeSet.ts deviation 2). The oracle cannot measure them, only disagree with them, so their per-case difference from ele/DMele and ptick is recorded in reference_divergence as a DIVERGENCE with a wide bound, never as parity.",
+  "columns": "distance and dmax come from the route and section 3.5.1.1 and are slice A's again, kept so a mode-set regression that is really a geometry regression is visible here. DMidx is the reference's own report spelling and matches PropagationMode.label directly. DMele is equation (13) at the equation (2) mirror height, which is section 5.2.1's selection height, so it is asserted against PropagationMode.selectionElevationDeg and NOT against elevationDeg; ele is the path elevation, which for these short paths the reference sets from the dominant mode, so the two are equal on all 14 cases and the test asserts that equality rather than assuming it. ptick is the equation (19) virtual slant range of the last mode the reference's field-strength loop computed, which is the highest-order selected F2 mode (the F2 loop runs after the E loop and overwrites it), and it is asserted against selectionSlantRangeKm for the same reason. DMhr is the section 5.1 mirror height, which is PropagationMode.mirrorHeightKm; the reference computes it only inside ELayerScreeningFrequency() and therefore leaves it at its initialised 0.0 on every path over 4000 km, so the eight such cases here carry 0.0 and the test reads that as \"no screening height\", not as a height of zero. We compute the section 5.1 height on every path, because equation (13) needs it, so on those eight cases our mirrorHeightKm is a real number the oracle simply does not publish. The product elevation, elevationDeg, has no parity column at all: see reference_divergence.",
+  "conventions": {
+    "sunspot_number": "Written straight into the reference's Path.SSN, which both the recommendation and the reference treat as R12, and passed to the provider as r12 unchanged. The section 5.1 mirror height's dM term needs it, which is why ModeControlPointState widens slice A's state by exactly this one field.",
+    "time": "hour_utc is an integer UTC hour 0-23. The reference's SolarParameters() fixes the day of the month at 15, which is the provider's own monthly anchor, so validAt is YYYY-MM-15THH:00:00Z.",
+    "provider_mode": "reference, not enhanced: integer month, integer hour, bilinear interpolation of the 1.5-degree grid, which is the convention the oracle was run at.",
+    "dominant_mode": "The reference's DominantMode() picks the mode with the largest median field strength, which is a slice C quantity. This fixture does not reproduce that choice; it asserts that the mode the reference chose is present in our set. It is supported except for G11 2F2, explicitly geometrically_unsupported because its section 5.1 mirror cannot close the hop (see reference_divergence.below_horizon_case). A mode set that is missing the reference's dominant mode is wrong; a mode set that contains more modes than the reference's choice is not.",
+    "elevation_band": "Section 5.2.1 takes the equation (2) height from \"the control point given in Table 1c) for which foF2 has the lower value\" on a path longer than dmax. We search Table 1c's three points, as the text says. The reference searches all five control points and has a defect in the search (see modeSet.ts deviation 1). On 12 of these 14 cases the two readings land on the same control point and the elevation agrees to 0.005 degrees; on G07 and G10 they do not, and the elevation and slant-range budgets for those two cases are the measured divergence rather than a provider residual. Which case is which is recorded per case in reading.elevation_band, so the wide budget cannot silently spread to a case that does not need it."
+  },
+  "tolerances": {
+    "distance_km": 0.1,
+    "dmax_km": 1.0,
+    "basic_muf_mhz": 0.05,
+    "reflection_height_km": 1.0,
+    "reference_branch_a_height_km": 0.05,
+    "elevation_deg": {
+      "table_1c_agrees": 0.006,
+      "table_1c_differs": 0.25
+    },
+    "slant_range_km": {
+      "table_1c_agrees": 1.0,
+      "table_1c_differs": 40.0
+    }
+  },
+  "tolerance_derivation": "Not chosen to pass. Every budget below is derived from the CCIR provider's measured residuals, pinned in src/lib/propagation/ionosphere/fixtures/reference-parity.json and asserted in provider.test.ts (foF2 within 2e-3 MHz, M(3000)F2 within 1e-3, foE within 1e-3 MHz), or from a named and measured structural difference.\n\ndistance_km 0.1: the reference's Earth radius is 6371.009 km and ours is the declared 6371 km (contract M06), a relative difference of 1.4e-6, so at most 9e-3 km over a 6500 km path; with the column's +-5e-2 km printing, 1e-1 km. Slice A's own budget, unchanged.\n\ndmax_km 1.0: slice A's, unchanged. Every case here reports the section 3.5.1.1 restriction value 4000.0 exactly.\n\nbasic_muf_mhz 0.05: slice A's derived budget for equation (3), unchanged. The dominant mode's BMUF is the same quantity slice A already measures, and modeSet does not recompute it, it carries slice A's.\n\nelevation_deg, table_1c_agrees band, 0.006: equation (13) at the equation (2) height, so the only input residual is M(3000)F2's 1e-3. d(hr)/d(M(3000)F2) = -1490/M^2, which on this corpus (M from 2.4 to 3.4) is at most 259 km per unit M, so the height residual is at most 0.26 km. d(delta)/d(hr) is largest on the shallowest ray here (G11, 3.71 degrees, hop 3161 km), where it is about 0.017 deg/km; 0.26 x 0.017 = 0.0045 degrees. The golden column is printed to two decimals, so +-0.005 degrees. The sum is 0.0095; the budget is set at 0.006, BELOW the sum, because the printing half-digit and the residual cannot both be at their maximum in the same direction on a two-decimal column whose measured spread is 0.0042. This is the tight band and it is meant to be tight: it is what catches a wrong control point, a wrong height or a wrong equation (13).\n\nelevation_deg, table_1c_differs band, 0.25: G07 and G10 read the equation (2) height at a different Table 1c control point than the reference's five-point search does, which is a deliberate deviation documented in modeSet.ts, not an error term. The measured divergence is 0.0149 degrees on G07 and 0.2055 degrees on G10. The budget is that 0.2055 plus the 0.0045 provider term and the 0.005 printing term, rounded up to 0.25. It applies to exactly two named cases.\n\nslant_range_km, table_1c_agrees band, 1.0: ptick is equation (19) summed over the hops, so it moves with the same 0.26 km height residual, amplified by d(p')/d(hr), which is 2n/cos(i) and reaches about 2.7 km per km of height on the six-hop modes this column reports; 0.26 x 2.7 = 0.7 km. Plus the route's own 0.011 km and the column's +-0.005 km printing, so 1 km.\n\nslant_range_km, table_1c_differs band, 40.0: the same two cases. The measured divergence is 3.78 km on G07 and 36.68 km on G10, and 40 rounds the larger up.\n\nreflection_height_km 1.0: DMhr is the section 5.1 height, whose dominant input residual is again M(3000)F2's 1e-3 through H = 1490/(M + dM) - 316, so 259 km per unit M again, 0.26 km, amplified by the branch coefficient (J in branch 5.1c reaches about 3 on this corpus, and branch 5.1b's B2 b term is of the same order), giving 0.8 km. With the two-decimal printing, 1 km. It is asserted only on the branch 5.1b and 5.1c cases; see the next paragraph.\n\nreference_branch_a_height_km 0.05: DMhr is NOT a parity column on the three branch 5.1a cases (G04, G08, G28), because the reference's own section 5.1(a) is defective: its skip-distance polynomial G omits the published +90.47 xr term, which makes ds tens of thousands of kilometres negative, makes the exponent a large and positive, and collapses h to A1 = 140 + (H - 47) E1 for every hop. Following it would mean shipping the defect. Instead the test recomputes A1 from the same H and xr our own leaf produces, and asserts that the golden DMhr equals THAT, which proves the collapse rather than asserting around it: 219.931 against a published DMhr of 219.93 on G04 and G28, 404.817 against 404.82 on G08. The budget is the two-decimal printing half-digit doubled. Our published-formula heights on those cases are 273.962 km and 454.516 km, 54.03 km and 49.70 km away from the reference, and they are recorded in the case so the size of the deviation is on the record rather than in a comment.\n\nreference_divergence is NOT in this list and its bounds are not derived from anything here. It measures a difference in reading between the recommendation and the reference, so it has no residual to budget for; its bounds are the measured maxima rounded up, and their only job is to report drift.",
+  "observed_max_delta": {
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 14 cases",
+    "distance_km": 0.0109,
+    "dmax_km": 0.0,
+    "basic_muf_mhz": 0.005,
+    "reflection_height_km": 0.0035,
+    "reference_branch_a_height_km": 0.0034,
+    "elevation_deg_table_1c_agrees": 0.0042,
+    "elevation_deg_table_1c_differs": 0.2055,
+    "slant_range_km_table_1c_agrees": 0.0121,
+    "slant_range_km_table_1c_differs": 36.6794,
+    "note": "On the 12 cases where our Table 1c control point is the reference's, every column agrees to the last digit the oracle publishes: the largest elevation delta is 0.0042 degrees and the largest slant-range delta is 0.0121 km, both inside a two-decimal column's own half-digit. The derived budgets above are deliberately not narrowed to that, because the provider residual they cover is real and these control points do not exercise its worst case. No case is out of tolerance. Every dominant mode except G11 2F2 comes back supported; G11 2F2 is geometrically_unsupported under the declared section 5.1 reading. No mode in the corpus is screened, which is why the hand-computed screening cases below exist. Those deltas are all against selectionElevationDeg and selectionSlantRangeKm, the equation (2) geometry the reference reports; the product elevation's own difference from the oracle is in reference_divergence and is not a tolerance."
+  },
+  "reference_divergence": {
+    "what_this_is": "NOT A PARITY COLUMN, and a green run here is not agreement with the oracle. modeSet.ts deviation 2 follows the recommendation and takes equation (13)'s hr from section 5.1, which is headed \"Elevation angle\" and defines that height in the same breath; the pinned reference takes it from equation (2) instead. So elevationDeg and virtualSlantRangeKm are DIFFERENT QUANTITIES from the oracle's ele/DMele and ptick, not worse measurements of them. This block records the per-case difference so that it is on the record and so that a future change to either height is noticed, and gives it a bound wide enough that it can never be mistaken for a tolerance.",
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 14 cases",
+    "bounds": {
+      "elevation_deg": 8.0,
+      "slant_range_km": 1500.0,
+      "derivation": "The measured maxima are 6.78 degrees (G03) and 1277.70 km (G04 and G28); the bounds are those rounded up with about a fifth of headroom. They are drift detectors, not tolerances: the quantity they bound is a documented difference in reading, so a narrower bound would only encode today's provider, and a wider one would stop reporting a change in either height."
+    },
+    "observed_max": {
+      "elevation_deg": 6.7813,
+      "slant_range_km": 1277.7
+    },
+    "sign": "The difference has no sign: the section 5.1 height is above the equation (2) height on six of the fourteen circuits and below it on eight, so the product elevation is sometimes steeper and sometimes shallower than the oracle's.",
+    "below_horizon_case": "G11 (6322.24 km, 2F2), and the recommendation does not address it. The two heights are independent, so a hop that the equation (2) height reflects at 3.71 degrees can be longer than the 195.22 km section 5.1 height reaches: equation (13) returns an angle at or below zero and equation (19) returns nothing. The pinned reference never meets this case, because it reports the equation (2) elevation, so there is no reference reading to follow. The mode is kept and labelled: status geometrically_unsupported with unsupportedReason mirror_height_cannot_close_hop, elevationRad, elevationDeg and virtualSlantRangeKm null rather than a negative angle, and selectionMirrorHeightKm, selectionElevationDeg and selectionSlantRangeKm still populated so the record still shows why section 5.2.1 selected it. G11 is the one circuit in this corpus where the reference's dominant mode is therefore not supported at its own section 5.1 height. That is declared here and is not a parity failure; slice C excludes unsupported modes under the M07 rule it already has. Every case carries reading.section_5_1_closes_hop, false on G11 alone, so the per-case test reads the label out of the fixture instead of hard-coding a case id.",
+    "cases": [
+      {
+        "case_id": "G01",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 348.297,
+        "selection_height_km": 317.067,
+        "product_elevation_deg": 65.9634,
+        "golden_elevation_deg": 63.99,
+        "elevation_delta_deg": 1.9734,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 4451.97,
+        "golden_slant_range_km": 3816.64,
+        "slant_range_delta_km": 635.33
+      },
+      {
+        "case_id": "G02",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 389.102,
+        "selection_height_km": 372.384,
+        "product_elevation_deg": 68.1274,
+        "golden_elevation_deg": 67.29,
+        "elevation_delta_deg": 0.8374,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 4560.55,
+        "golden_slant_range_km": 4478.77,
+        "slant_range_delta_km": 81.78
+      },
+      {
+        "case_id": "G03",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 191.62,
+        "selection_height_km": 297.679,
+        "product_elevation_deg": 9.9087,
+        "golden_elevation_deg": 16.69,
+        "elevation_delta_deg": -6.7813,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 4284.65,
+        "golden_slant_range_km": 3919.34,
+        "slant_range_delta_km": 365.31
+      },
+      {
+        "case_id": "G04",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 273.962,
+        "selection_height_km": 358.529,
+        "product_elevation_deg": 20.5509,
+        "golden_elevation_deg": 26.51,
+        "elevation_delta_deg": -5.9591,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 5765.39,
+        "golden_slant_range_km": 4487.69,
+        "slant_range_delta_km": 1277.7
+      },
+      {
+        "case_id": "G05",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 390.277,
+        "selection_height_km": 370.129,
+        "product_elevation_deg": 29.1669,
+        "golden_elevation_deg": 27.86,
+        "elevation_delta_deg": 1.3069,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 5057.85,
+        "golden_slant_range_km": 5097.36,
+        "slant_range_delta_km": -39.51
+      },
+      {
+        "case_id": "G06",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 241.169,
+        "selection_height_km": 355.194,
+        "product_elevation_deg": 8.2831,
+        "golden_elevation_deg": 13.88,
+        "elevation_delta_deg": -5.5969,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 6783.14,
+        "golden_slant_range_km": 6006.94,
+        "slant_range_delta_km": 776.2
+      },
+      {
+        "case_id": "G07",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 395.768,
+        "selection_height_km": 355.465,
+        "product_elevation_deg": 11.3435,
+        "golden_elevation_deg": 9.76,
+        "elevation_delta_deg": 1.5835,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 6672.65,
+        "golden_slant_range_km": 6690.58,
+        "slant_range_delta_km": -17.93
+      },
+      {
+        "case_id": "G08",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 454.516,
+        "selection_height_km": 335.768,
+        "product_elevation_deg": 13.6623,
+        "golden_elevation_deg": 9,
+        "elevation_delta_deg": 4.6623,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 6037.08,
+        "golden_slant_range_km": 4776.64,
+        "slant_range_delta_km": 1260.44
+      },
+      {
+        "case_id": "G09",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 235.44,
+        "selection_height_km": 306.117,
+        "product_elevation_deg": 2.5514,
+        "golden_elevation_deg": 5.14,
+        "elevation_delta_deg": -2.5886,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 7330.28,
+        "golden_slant_range_km": 6964.1,
+        "slant_range_delta_km": 366.18
+      },
+      {
+        "case_id": "G10",
+        "dominant_mode": "3F2",
+        "section_5_1_height_km": 353.553,
+        "selection_height_km": 430.434,
+        "product_elevation_deg": 13.5058,
+        "golden_elevation_deg": 16.8,
+        "elevation_delta_deg": -3.2942,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 9375.23,
+        "golden_slant_range_km": 8242.29,
+        "slant_range_delta_km": 1132.94
+      },
+      {
+        "case_id": "G11",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 195.221,
+        "selection_height_km": 311.003,
+        "product_elevation_deg": null,
+        "golden_elevation_deg": 3.71,
+        "elevation_delta_deg": null,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 7100.85,
+        "golden_slant_range_km": 7471.7,
+        "slant_range_delta_km": -370.85
+      },
+      {
+        "case_id": "G12",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 570.555,
+        "selection_height_km": 404.404,
+        "product_elevation_deg": 11.3893,
+        "golden_elevation_deg": 6.36,
+        "elevation_delta_deg": 5.0293,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 8706.31,
+        "golden_slant_range_km": 8226.99,
+        "slant_range_delta_km": 479.32
+      },
+      {
+        "case_id": "G13",
+        "dominant_mode": "2F2",
+        "section_5_1_height_km": 257.22,
+        "selection_height_km": 351.685,
+        "product_elevation_deg": 2.2295,
+        "golden_elevation_deg": 5.43,
+        "elevation_delta_deg": -3.2005,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 7849.46,
+        "golden_slant_range_km": 7637.06,
+        "slant_range_delta_km": 212.4
+      },
+      {
+        "case_id": "G28",
+        "dominant_mode": "1F2",
+        "section_5_1_height_km": 273.962,
+        "selection_height_km": 358.529,
+        "product_elevation_deg": 20.5509,
+        "golden_elevation_deg": 26.51,
+        "elevation_delta_deg": -5.9591,
+        "last_selected_mode": "6F2",
+        "product_slant_range_km": 5765.39,
+        "golden_slant_range_km": 4487.69,
+        "slant_range_delta_km": 1277.7
+      }
+    ]
+  },
+  "screening_cases": {
+    "provenance": "HAND-COMPUTED FROM THE PUBLISHED EQUATIONS, NOT FROM THE REFERENCE. The golden file has no fs column, so there is no oracle for E-layer screening. These three were worked out from P.533-14 section 4 equations (11) and (12) and section 5.1 equation (13) by an independent transcription, with every intermediate written down in `derivation`, before this module was run. They are exact to the digits shown, so they are asserted to 1e-9 rather than to a tolerance: there is no provider in them and therefore no residual.\n\nShared geometry, on purpose: all three use a hop of d = 1500 km at a section 5.1 mirror height of hr = 300 km, so the elevation angle and the incidence angle are the same number in all three and the only thing that changes between them is which foE section 4 selects and whether it selects one at all.\n  psi   = d / (2 R0) = 1500 / 12742 = 0.117720922932 rad\n  cos psi = 0.993078890546, sin psi = 0.117449210949\n  R0 / (R0 + hr) = 6371 / 6671 = 0.955029231000\n  delta = atan2(0.038049659546, 0.117449210949) = 0.313297233215 rad\n        = 17.950609196361 deg                                      (13)\n  i     = asin(6371 cos delta / 6481) = 1.208755779250 rad\n        = 69.256604613088 deg, cos i = 0.354183240510              (12)\n  sec i = 2.823393..., so fs = 1.05 foE sec i = 2.964567 foE       (11)",
+    "cases": [
+      {
+        "case_id": "S1",
+        "label": "mid-point foE, one hop, mode survives",
+        "path_ground_distance_km": 1500.0,
+        "hop_count": 1,
+        "hop_ground_distance_km": 1500.0,
+        "section_5_1_height_km": 300.0,
+        "foe_by_control_point": {
+          "M": 2.0
+        },
+        "frequency_mhz": 7.0,
+        "expected": {
+          "selected_foe_mhz": 2.0,
+          "elevation_deg": 17.950609196361,
+          "incidence_deg": 69.256604613088,
+          "fs_mhz": 5.929134300587,
+          "screened": false
+        },
+        "derivation": "Table 1b's first row, 0 < D <= 2000 km, names the path mid-point M and nothing else, so foE = 2.0 MHz. fs = 1.05 x 2.0 / 0.354183240510 = 5.929134300587 MHz. Section 5.2.1 keeps an F2 mode whose fs is less than the operating frequency, and 5.929 < 7.0, so the mode is kept."
+      },
+      {
+        "case_id": "S2",
+        "label": "higher of the two 1000 km foE values screens the mode",
+        "path_ground_distance_km": 3000.0,
+        "hop_count": 2,
+        "hop_ground_distance_km": 1500.0,
+        "section_5_1_height_km": 300.0,
+        "foe_by_control_point": {
+          "T + 1000": 1.8,
+          "R - 1000": 2.6
+        },
+        "frequency_mhz": 7.0,
+        "expected": {
+          "selected_foe_mhz": 2.6,
+          "elevation_deg": 17.950609196361,
+          "incidence_deg": 69.256604613088,
+          "fs_mhz": 7.707874590763,
+          "screened": true
+        },
+        "derivation": "The same 1500 km hop, now the two hops of a 3000 km path, so Table 1b's second row applies and section 4 takes \"the higher one of the foE values at the two control points 1 000 km from each end\": 2.6, not 1.8. fs = 1.05 x 2.6 / 0.354183240510 = 7.707874590763 MHz, and 7.0 <= 7.707, so the mode is screened. THIS IS THE CASE THAT PROVES THE RULE IS THE HIGHER AND NOT THE LOWER: the lower foE of 1.8 gives fs = 1.05 x 1.8 / 0.354183240510 = 5.336220870528 MHz, which is below 7.0 and would have kept the mode. Section 3.3's basic-MUF rule is the lower of the two, so getting these two the same way round is a live mistake, and it is the difference between a band being open and closed."
+      },
+      {
+        "case_id": "S3",
+        "label": "beyond 4000 km nothing is screened at all",
+        "path_ground_distance_km": 4500.0,
+        "hop_count": 3,
+        "hop_ground_distance_km": 1500.0,
+        "section_5_1_height_km": 300.0,
+        "foe_by_control_point": {
+          "T + 1000": 1.8,
+          "R - 1000": 2.6
+        },
+        "frequency_mhz": 7.0,
+        "expected": {
+          "selected_foe_mhz": null,
+          "elevation_deg": 17.950609196361,
+          "incidence_deg": 69.256604613088,
+          "fs_mhz": null,
+          "screened": false
+        },
+        "derivation": "The same 1500 km hop again, now three hops of a 4500 km path. Section 4's first sentence limits screening to \"paths up to 4 000 km\", so there is no fs and the mode is not screened. The contrast with S2 is the whole point: the geometry, the foE values and the frequency are identical, and if section 4 were applied here it would give the same 7.707874590763 MHz and screen the mode. It is the path length alone that decides. The reference reaches the same outcome by leaving fs at the 0.0 InitializePath() wrote, which compares below every operating frequency; we return null, which is the same decision and an honest report."
+      }
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "G01",
+      "label": "Austin-Dallas NVIS 80m night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 6,
+        "sunspot_number": 100,
+        "frequency_mhz": 3.6
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 63.99,
+        "path_elevation_deg": 63.99,
+        "dominant_mode_reflection_height_km": 348.3,
+        "dominant_mode_basic_muf_mhz": 4.55,
+        "dominant_mode_probability": 0.92,
+        "slant_range_km": 3816.64
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1b",
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G02",
+      "label": "Austin-Dallas NVIS 40m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 67.29,
+        "path_elevation_deg": 67.29,
+        "dominant_mode_reflection_height_km": 389.1,
+        "dominant_mode_basic_muf_mhz": 8.83,
+        "dominant_mode_probability": 0.86,
+        "slant_range_km": 4478.77
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1c",
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G03",
+      "label": "Austin-Chicago 80m regional night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 41.8781,
+        "rx_lon": -87.6298,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 8,
+        "sunspot_number": 50,
+        "frequency_mhz": 3.6
+      },
+      "expected": {
+        "distance_km": 1576.37,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 16.69,
+        "path_elevation_deg": 16.69,
+        "dominant_mode_reflection_height_km": 191.62,
+        "dominant_mode_basic_muf_mhz": 9.03,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 3919.34
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1b",
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G04",
+      "label": "Austin-Denver 40m one-hop",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 26.51,
+        "path_elevation_deg": 26.51,
+        "dominant_mode_reflection_height_km": 219.93,
+        "dominant_mode_basic_muf_mhz": 11.6,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 4487.69
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1a",
+        "reference_branch_a_height_km": 219.931,
+        "published_branch_a_height_km": 273.962,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G05",
+      "label": "Austin-New York 20m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 40.7128,
+        "rx_lon": -74.006,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1
+      },
+      "expected": {
+        "distance_km": 2431.61,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 27.86,
+        "path_elevation_deg": 27.86,
+        "dominant_mode_reflection_height_km": 390.28,
+        "dominant_mode_basic_muf_mhz": 17.43,
+        "dominant_mode_probability": 0.85,
+        "slant_range_km": 5097.36
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1c",
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G06",
+      "label": "Honolulu-Los Angeles 17m",
+      "inputs": {
+        "tx_lat": 21.3069,
+        "tx_lon": -157.8583,
+        "rx_lat": 34.0522,
+        "rx_lon": -118.2437,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 22,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1
+      },
+      "expected": {
+        "distance_km": 4119.94,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 13.88,
+        "path_elevation_deg": 13.88,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 31.39,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 6006.94
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G07",
+      "label": "Reykjavik-Fairbanks auroral 30m",
+      "inputs": {
+        "tx_lat": 64.1466,
+        "tx_lon": -21.9426,
+        "rx_lat": 64.8378,
+        "rx_lon": -147.7164,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 15,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1
+      },
+      "expected": {
+        "distance_km": 5012.57,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 9.76,
+        "path_elevation_deg": 9.76,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 12.16,
+        "dominant_mode_probability": 0.82,
+        "slant_range_km": 6690.58
+      },
+      "reading": {
+        "elevation_band": "table_1c_differs",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G08",
+      "label": "London-Moscow 40m winter night",
+      "inputs": {
+        "tx_lat": 51.5074,
+        "tx_lon": -0.1278,
+        "rx_lat": 55.7558,
+        "rx_lon": 37.6173,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 2,
+        "sunspot_number": 50,
+        "frequency_mhz": 7.1
+      },
+      "expected": {
+        "distance_km": 2500.54,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 9,
+        "path_elevation_deg": 9,
+        "dominant_mode_reflection_height_km": 404.82,
+        "dominant_mode_basic_muf_mhz": 6.63,
+        "dominant_mode_probability": 0.33,
+        "slant_range_km": 4776.64
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1a",
+        "reference_branch_a_height_km": 404.817,
+        "published_branch_a_height_km": 454.516,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G09",
+      "label": "Delhi-Berlin 20m mid-latitude",
+      "inputs": {
+        "tx_lat": 28.6139,
+        "tx_lon": 77.209,
+        "rx_lat": 52.52,
+        "rx_lon": 13.405,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 14,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1
+      },
+      "expected": {
+        "distance_km": 5780.64,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 5.14,
+        "path_elevation_deg": 5.14,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 21.85,
+        "dominant_mode_probability": 0.98,
+        "slant_range_km": 6964.1
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G10",
+      "label": "Cairo-Johannesburg 15m trans-equatorial",
+      "inputs": {
+        "tx_lat": 30.0444,
+        "tx_lon": 31.2357,
+        "rx_lat": -26.2041,
+        "rx_lon": 28.0473,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 12,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2
+      },
+      "expected": {
+        "distance_km": 6263.76,
+        "dmax_km": 4000,
+        "dominant_mode": "3F2",
+        "dominant_mode_elevation_deg": 16.8,
+        "path_elevation_deg": 16.8,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 27.84,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 8242.29
+      },
+      "reading": {
+        "elevation_band": "table_1c_differs",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G11",
+      "label": "Helsinki-Beijing 30m polar-ish",
+      "inputs": {
+        "tx_lat": 60.1699,
+        "tx_lon": 24.9384,
+        "rx_lat": 39.9042,
+        "rx_lon": 116.4074,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 5,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1
+      },
+      "expected": {
+        "distance_km": 6322.25,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 3.71,
+        "path_elevation_deg": 3.71,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 19.92,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 7471.7
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": false
+      }
+    },
+    {
+      "case_id": "G12",
+      "label": "Anchorage-Oslo polar 20m",
+      "inputs": {
+        "tx_lat": 61.2181,
+        "tx_lon": -149.9003,
+        "rx_lat": 59.9139,
+        "rx_lon": 10.7522,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 20,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1
+      },
+      "expected": {
+        "distance_km": 6443.88,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 6.36,
+        "path_elevation_deg": 6.36,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 13.36,
+        "dominant_mode_probability": 0.34,
+        "slant_range_km": 8226.99
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G13",
+      "label": "Toronto-Lima 20m north-south",
+      "inputs": {
+        "tx_lat": 43.6532,
+        "tx_lon": -79.3832,
+        "rx_lat": -12.0464,
+        "rx_lon": -77.0428,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 1,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1
+      },
+      "expected": {
+        "distance_km": 6198.07,
+        "dmax_km": 4000,
+        "dominant_mode": "2F2",
+        "dominant_mode_elevation_deg": 5.43,
+        "path_elevation_deg": 5.43,
+        "dominant_mode_reflection_height_km": 0,
+        "dominant_mode_basic_muf_mhz": 19.96,
+        "dominant_mode_probability": 0.95,
+        "slant_range_km": 7637.06
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": null,
+        "reference_branch_a_height_km": null,
+        "published_branch_a_height_km": null,
+        "screening_evaluated": false,
+        "section_5_1_closes_hop": true
+      }
+    },
+    {
+      "case_id": "G28",
+      "label": "Austin-Denver 40m 1 kW digital",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "dmax_km": 4000,
+        "dominant_mode": "1F2",
+        "dominant_mode_elevation_deg": 26.51,
+        "path_elevation_deg": 26.51,
+        "dominant_mode_reflection_height_km": 219.93,
+        "dominant_mode_basic_muf_mhz": 11.6,
+        "dominant_mode_probability": 1,
+        "slant_range_km": 4487.69
+      },
+      "reading": {
+        "elevation_band": "table_1c_agrees",
+        "section_5_1_branch": "5.1a",
+        "reference_branch_a_height_km": 219.931,
+        "published_branch_a_height_km": 273.962,
+        "screening_evaluated": true,
+        "section_5_1_closes_hop": true
+      }
+    }
+  ]
+}

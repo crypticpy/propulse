@@ -105,7 +105,7 @@ export function Header({
             </Link>
 
             {/* Navigation */}
-            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:overflow-visible xl:order-none xl:col-span-1">
+            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:flex-wrap md:overflow-visible xl:order-none xl:col-span-1">
               {/* Main nav items */}
               {mainNavItems.map((item) => {
                 const isActive = location.pathname === item.path;

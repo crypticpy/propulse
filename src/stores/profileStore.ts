@@ -69,6 +69,8 @@ export interface ServiceCredentials {
 const MAX_SAVED_TARGETS = 10;
 /** Stable slot used by the quick travel-location control. */
 export const CURRENT_LOCATION_ID = "current-location";
+export { applyIdentitySave } from "./applyIdentitySave";
+export type { IdentitySaveInput } from "./applyIdentitySave";
 
 // ─── Store interface ─────────────────────────────────────────────────────────
 

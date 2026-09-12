@@ -59,6 +59,9 @@ import type {
   SatelliteCategory,
   PassPrediction,
 } from "@/types/satellite";
+import { OrbitTrackToggleButton } from "./OrbitTrackControls";
+
+export { OrbitTrackToggleButton };
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -416,55 +419,6 @@ function SatelliteInfoPopup({
         </button>
       </div>
     </Html>
-  );
-}
-
-/**
- * "Map orbit" / "Clear orbit" toggle for the inline marker popup (#994 PR B).
- * Mirrors `SatelliteDetailModal.tsx`'s `OrbitTrackControls` toggle exactly —
- * same store calls, same semantics — so mapping a satellite's orbit track
- * doesn't require opening the full details modal first.
- */
-export function OrbitTrackToggleButton({
-  noradId,
-  name,
-}: {
-  noradId: number;
-  // Carried into the track config so a later eviction can name the right
-  // bird instead of re-deriving a name from `POPULAR_SATS`, which isn't a
-  // 1:1 NORAD-id map (#994 PR B round 3 Codex thread 3).
-  name: string;
-}) {
-  const id = String(noradId);
-  const isTracked = useMapStore((s) => s.satelliteTracks[id] !== undefined);
-  const setSatelliteTrack = useMapStore((s) => s.setSatelliteTrack);
-  const clearSatelliteTrack = useMapStore((s) => s.clearSatelliteTrack);
-
-  const handleToggleTrack = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (isTracked) {
-        clearSatelliteTrack(noradId);
-      } else {
-        setSatelliteTrack(noradId, { name });
-      }
-    },
-    [isTracked, noradId, name, clearSatelliteTrack, setSatelliteTrack],
-  );
-
-  return (
-    <button
-      type="button"
-      onClick={handleToggleTrack}
-      aria-pressed={isTracked}
-      className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
-        isTracked
-          ? "bg-su-accent/15 text-su-accent border border-su-accent/40 hover:bg-su-accent/25"
-          : "bg-su-line/15 text-su-text border border-su-line/40 hover:bg-su-line/25"
-      }`}
-    >
-      {isTracked ? "Clear orbit" : "Map orbit"}
-    </button>
   );
 }
 

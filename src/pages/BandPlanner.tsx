@@ -812,7 +812,7 @@ export function BandPlanner() {
                                 ) {
                                   return (
                                     <div className="mt-1.5 flex items-center gap-2">
-                                      <span className="text-[10px] text-su-muted font-mono">
+                                      <span className="text-xs text-su-muted font-mono">
                                         Model SNR range {peakBand.snrLow} to{" "}
                                         {peakBand.snrHigh} dB
                                       </span>

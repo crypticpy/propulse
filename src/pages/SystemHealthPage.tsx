@@ -752,7 +752,7 @@ function ArchitectureDiagram({
           x="80"
           y="126"
           textAnchor="middle"
-          className="fill-su-text text-[11px] font-semibold"
+          className="fill-su-text text-xs font-semibold"
           fontFamily="Orbitron, sans-serif"
         >
           Propulse
@@ -761,7 +761,7 @@ function ArchitectureDiagram({
           x="80"
           y="144"
           textAnchor="middle"
-          className="fill-su-muted text-[9px]"
+          className="fill-su-muted text-xs"
         >
           (Browser)
         </text>
@@ -781,7 +781,7 @@ function ArchitectureDiagram({
           x="315"
           y="126"
           textAnchor="middle"
-          className="fill-su-text text-[11px] font-semibold"
+          className="fill-su-text text-xs font-semibold"
           fontFamily="Orbitron, sans-serif"
         >
           Edge Functions
@@ -790,7 +790,7 @@ function ArchitectureDiagram({
           x="315"
           y="144"
           textAnchor="middle"
-          className="fill-su-muted text-[9px]"
+          className="fill-su-muted text-xs"
         >
           (Vercel /api/*)
         </text>
@@ -844,7 +844,7 @@ function ArchitectureDiagram({
               x="572"
               y={g.y + 18}
               textAnchor="middle"
-              className="fill-su-text text-[10px] font-semibold"
+              className="fill-su-text text-xs font-semibold"
             >
               {g.label}
             </text>
@@ -852,7 +852,7 @@ function ArchitectureDiagram({
               x="572"
               y={g.y + 33}
               textAnchor="middle"
-              className="fill-su-muted text-[8px]"
+              className="fill-su-muted text-xs"
             >
               {g.sublabel}
             </text>
@@ -904,13 +904,13 @@ function ServiceDetail({
       {expanded && (
         <div className="pb-3 px-1 space-y-2 animate-in fade-in text-xs leading-relaxed">
           <div>
-            <span className="text-su-muted font-semibold uppercase tracking-wider text-[10px]">
+            <span className="text-su-muted font-semibold uppercase tracking-wider text-xs">
               What is it?
             </span>
             <p className="text-su-muted mt-0.5">{info.whatIsIt}</p>
           </div>
           <div>
-            <span className="text-su-muted font-semibold uppercase tracking-wider text-[10px]">
+            <span className="text-su-muted font-semibold uppercase tracking-wider text-xs">
               How Propulse uses it
             </span>
             <p className="text-su-muted mt-0.5">{info.howUsed}</p>
@@ -1098,7 +1098,7 @@ export function SystemHealthPage() {
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-su-muted font-mono">
+            <p className="text-xs text-su-muted font-mono">
               Updated {secondsSinceRefresh}s ago
               {" \u00b7 "}
               Next refresh in {Math.max(0, 30 - secondsSinceRefresh)}s
@@ -1135,7 +1135,7 @@ export function SystemHealthPage() {
                     {cat.title}
                   </span>
                   <span
-                    className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
+                    className="text-xs font-mono px-2 py-0.5 rounded-full border"
                     style={{
                       borderColor: allHealthy
                         ? "rgb(var(--su-success-rgb) / 0.3)"
@@ -1166,7 +1166,7 @@ export function SystemHealthPage() {
                         {svc.name}
                       </span>
                       {/* Freshness */}
-                      <span className="text-[10px] text-su-muted whitespace-nowrap">
+                      <span className="text-xs text-su-muted whitespace-nowrap">
                         {svc.status === "idle"
                           ? "Idle"
                           : svc.status === "loading"
@@ -1179,7 +1179,7 @@ export function SystemHealthPage() {
                       </span>
                       {/* Stale threshold badge */}
                       <span
-                        className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-su-line/10 text-su-muted hidden sm:inline"
+                        className="text-xs font-mono px-1.5 py-0.5 rounded bg-su-line/10 text-su-muted hidden sm:inline"
                         title={`Data considered stale after ${formatStaleThreshold(svc.staleThreshold)}`}
                       >
                         {formatStaleThreshold(svc.staleThreshold)}
@@ -1274,7 +1274,7 @@ export function SystemHealthPage() {
           avoid CORS issues and cache responses.
         </p>
         <ArchitectureDiagram overallColor={overallColor} />
-        <div className="flex items-center gap-4 text-[10px] text-su-muted pt-1">
+        <div className="flex items-center gap-4 text-xs text-su-muted pt-1">
           <span className="flex items-center gap-1">
             <span className="w-2 h-1.5 rounded-sm bg-signal-green/50 inline-block" />
             Healthy

@@ -264,7 +264,7 @@ export function SatellitesPage() {
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-su-text">Satellite Database</h1>
           {!isLoading && satellites.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-su-line/20 text-su-muted border border-su-line/40">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-su-line/20 text-su-muted border border-su-line/40">
               {satellites.length}
             </span>
           )}
@@ -286,7 +286,7 @@ export function SatellitesPage() {
           </span>
           <button
             onClick={hasCustomized ? trackAll : undefined}
-            className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               hasCustomized
                 ? "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 cursor-pointer"
                 : "bg-su-line/10 text-su-muted border border-su-line/20 cursor-default"
@@ -359,28 +359,28 @@ export function SatellitesPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${meta?.color ?? "text-su-muted"} ${meta?.bg ?? "bg-su-line/20"}`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${meta?.color ?? "text-su-muted"} ${meta?.bg ?? "bg-su-line/20"}`}
                   >
                     {meta?.label ?? category.toUpperCase()}
                   </span>
                   <h2 className="text-sm font-semibold text-su-text">
                     {CATEGORY_DISPLAY_NAMES[category] ?? category}
                   </h2>
-                  <span className="text-[11px] text-su-muted">
+                  <span className="text-xs text-su-muted">
                     ({sats.length})
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleCategorySelectAll(sats)}
-                    className="text-[11px] text-su-muted hover:text-signal-green transition-colors"
+                    className="text-xs text-su-muted hover:text-signal-green transition-colors"
                   >
                     Select All
                   </button>
                   <span className="text-su-muted">&middot;</span>
                   <button
                     onClick={() => handleCategoryDeselectAll(sats)}
-                    className="text-[11px] text-su-muted hover:text-alert-red transition-colors"
+                    className="text-xs text-su-muted hover:text-alert-red transition-colors"
                   >
                     Deselect All
                   </button>

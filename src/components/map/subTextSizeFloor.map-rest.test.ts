@@ -157,7 +157,7 @@ it("keeps a pin flyout inside a resized viewport with stale pointer coordinates"
   const view = render(createElement(PinFlyout, {
     visible: true, position: { x: 370, y: 880 }, spots: [],
     pin: { id: "fixture", grid: "FN31", lat: 41, lon: -73, createdAt: "2026-09-12T00:00:00Z" },
-    onSetTarget: () => {}, onClose: () => {},
+    onSetTarget: () => {}, onClose: () => {}, onEditPin: () => {},
   }));
   try {
     const flyout = view.getByRole("dialog");

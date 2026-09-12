@@ -61,7 +61,13 @@ export function useMirrorHeight(
         at: new Date(hour),
       }),
     enabled: hasPosition,
-    staleTime: 60 * MINUTE,
+    // A modelled height is a monthly median at an hour, good for the hour. A
+    // stand-in is a failure to load, and the leaf drops its memo on failure
+    // so the next call retries; caching the stand-in for the hour would turn
+    // one bad fetch into an hour of 300 km. It goes stale at once, so the next
+    // mount of a report asks again.
+    staleTime: (query) =>
+      query.state.data?.kind === "modelled" ? 60 * MINUTE : 0,
     gcTime: 120 * MINUTE,
     refetchOnWindowFocus: false,
     retry: false,

@@ -24,19 +24,28 @@ import {
  * The provider module is spied on, not replaced: test 24 counts how many times
  * the leaf builds a provider, and a fake provider would count nothing real.
  */
-const providerMocks = vi.hoisted(() => ({ create: vi.fn() }));
+const providerMocks = vi.hoisted(() => ({ create: vi.fn(), state: vi.fn() }));
 vi.mock("./provider", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./provider")>();
   return {
     ...actual,
-    createCcirIonosphereProvider: (
+    createCcirIonosphereProvider: async (
       ...args: Parameters<typeof actual.createCcirIonosphereProvider>
     ) => {
       providerMocks.create();
-      return actual.createCcirIonosphereProvider(...args);
+      const provider = await actual.createCcirIonosphereProvider(...args);
+      // Record every query the leaf makes, then answer it for real.
+      return {
+        ...provider,
+        state: (...stateArgs: Parameters<typeof provider.state>) => {
+          providerMocks.state(...stateArgs);
+          return provider.state(...stateArgs);
+        },
+      };
     },
   };
 });
+const stateSpy = providerMocks.state;
 
 async function assetBytes(): Promise<ArrayBuffer> {
   const file = path.join(process.cwd(), manifest.asset.path);
@@ -57,6 +66,7 @@ function servesTheAsset(): ReturnType<typeof vi.fn> {
 
 beforeEach(() => {
   providerMocks.create.mockClear();
+  providerMocks.state.mockClear();
   resetNumericalMapAssetCache();
   resetMirrorHeightProviderCache();
 });
@@ -73,6 +83,11 @@ describe("resolveMirrorHeight", () => {
 
     expect(provenance.kind).toBe("modelled");
     if (provenance.kind !== "modelled") return;
+    // A live report evaluates the map at the point, not through the mirrored
+    // parity grid that `reference` mode exists to reproduce.
+    expect(stateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "enhanced" }),
+    );
     expect(provenance.providerId).toBe(PROVIDER_ID);
     expect(provenance.providerVersion).toBe(PROVIDER_VERSION);
     expect(provenance.artifactHash).toBe(manifest.asset.sha256);

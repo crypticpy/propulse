@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useMirrorHeight } from "./useMirrorHeight";
+import { declaredMirrorHeightStandin } from "@/lib/utils/rayTrace";
 
 const resolveMocks = vi.hoisted(() => ({ resolve: vi.fn() }));
 vi.mock("@/lib/propagation/ionosphere/mirrorHeight", () => ({
@@ -89,14 +90,66 @@ describe("useMirrorHeight", () => {
 
     renderHook(
       () =>
-        useMirrorHeight(
-          30.269,
-          -97.742,
-          new Date("2026-09-05T18:59:00.000Z"),
-        ),
+        useMirrorHeight(30.269, -97.742, new Date("2026-09-05T18:59:00.000Z")),
       { wrapper: sharedWrapper },
     );
 
     await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
+  });
+
+  it("asks again on the next mount when the last answer was a stand-in, so a transient load failure is not cached for the hour", async () => {
+    resolveMocks.resolve.mockClear();
+    const standin = declaredMirrorHeightStandin("provider_asset_unavailable");
+    resolveMocks.resolve
+      .mockResolvedValueOnce(standin)
+      .mockResolvedValueOnce(MODELLED);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const sharedWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
+      wrapper: sharedWrapper,
+    });
+    await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      const value = first.result.current;
+      expect(
+        value.kind === "declared_standin" &&
+          value.reason === "provider_asset_unavailable",
+      ).toBe(true);
+    });
+    first.unmount();
+
+    const second = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
+      wrapper: sharedWrapper,
+    });
+    await waitFor(() => expect(resolveMocks.resolve).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(second.result.current.kind).toBe("modelled"));
+  });
+
+  it("keeps a modelled height for the hour across mounts", async () => {
+    resolveMocks.resolve.mockClear();
+    resolveMocks.resolve.mockResolvedValue(MODELLED);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const sharedWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
+      wrapper: sharedWrapper,
+    });
+    await waitFor(() => expect(first.result.current.kind).toBe("modelled"));
+    first.unmount();
+
+    const second = renderHook(() => useMirrorHeight(30.27, -97.74, AT), {
+      wrapper: sharedWrapper,
+    });
+    await waitFor(() => expect(second.result.current.kind).toBe("modelled"));
+    expect(resolveMocks.resolve).toHaveBeenCalledTimes(1);
   });
 });

@@ -133,7 +133,10 @@ export async function resolveMirrorHeight({
       coordinates,
       validAt: at.toISOString(),
       r12: unknown<number>(R12_REASON),
-      mode: "reference",
+      // The provider's own rule: `enhanced` unless reproducing an ITU golden.
+      // `reference` reaches the coefficients through the mirrored 1.5-degree
+      // grid, which is a parity oracle, not a live evaluation.
+      mode: "enhanced",
     });
     const heightKm = mirrorHeightFromM3000F2(state.m3000F2);
     return {

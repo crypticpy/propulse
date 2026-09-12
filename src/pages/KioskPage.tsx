@@ -69,7 +69,7 @@ function withWallPin(
 }
 
 const inputClass =
-  "bg-deep-space border border-su-line/50 rounded-lg px-3 py-2 text-sm text-su-text focus:outline-none focus:border-plasma-orange/60";
+  "min-w-0 w-full bg-deep-space border border-su-line/50 rounded-lg px-3 py-2 text-sm text-su-text focus:outline-none focus:border-plasma-orange/60";
 
 interface SceneTemplate {
   id: string;

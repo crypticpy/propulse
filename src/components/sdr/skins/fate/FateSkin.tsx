@@ -316,7 +316,7 @@ export function FateSkin(props: SdrSkinProps) {
       {/* Audio level meter strip — between top bar and main content */}
       {ft8DecoderEnabled && (
         <div className="flex items-center gap-2 px-3 py-0.5 bg-[#0a0a14] border-b border-su-line/20 shrink-0">
-          <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold">
+          <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
             Audio
           </span>
           <FateAudioMeter analyserNode={audioAnalyser} />

@@ -45,6 +45,7 @@ function toActivitySpot(resolved: ResolvedSpot) {
   const spot = resolved.originalSpot;
   return {
     id: spot.id,
+    source: resolved.source,
     spotter: resolved.spotter ?? spot.spotter,
     dx: resolved.callsign,
     frequency: resolved.frequency,
@@ -80,4 +81,20 @@ describe("getActivityStats", () => {
     expect(stats.total).toBe(1);
     expect(stats.recentCallsigns).toEqual(["K0TEST"]);
   });
+  it("deduplicates stable IDs within a source without collapsing separate sources", () => {
+    const location = gridToLatLon("DM79");
+    const { activitySpot } = coordinateOnlySpot("same-id", location.lat, location.lon);
+    const stats = getActivityStats([activitySpot, activitySpot, { ...activitySpot, source: "PSKReporter" }], "DM79", { now: NOW });
+    expect(stats.total).toBe(2);
+    expect(stats.byBand).toEqual({ "20m": 2 });
+    expect(stats.byMode).toEqual({ FT8: 2 });
+  });
+
+  it("ignores out-of-window copies before selecting the canonical report", () => {
+    const location = gridToLatLon("DM79");
+    const { activitySpot } = coordinateOnlySpot("same-id", location.lat, location.lon);
+    const stats = getActivityStats([activitySpot, { ...activitySpot, time: new Date(NOW + 120_000) }], "DM79", { now: NOW });
+    expect(stats.total).toBe(1);
+  });
+
 });

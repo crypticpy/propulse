@@ -5,9 +5,11 @@
  * and best contact time predictions for Maidenhead grid squares.
  */
 
+import type { SpotSource } from "@/types/livespot";
 import type { DXSpot } from "@/types/dxcluster";
 import {
   gridActivityGridForCoordinate,
+  gridActivityReportIdentity,
   type GridActivityEndpoint,
   type GridActivityResolution,
 } from "@/lib/map/gridActivityModel";
@@ -812,7 +814,7 @@ function spotMatchesGridPrefix(
  * @returns Activity statistics
  */
 export function getActivityStats(
-  spots: DXSpot[],
+  spots: (DXSpot & { source?: SpotSource })[],
   gridPrefix: string,
   options: GetActivityStatsOptions = {},
 ): ActivityStats {
@@ -824,7 +826,17 @@ export function getActivityStats(
   const windowMs = options.windowMs ?? GRID_ACTIVITY_WINDOW_MS;
   const cutoff = now - Math.max(0, windowMs);
 
-  const matchingSpots = spots.filter((spot) => {
+  const reports = new Map<string, (typeof spots)[number]>();
+  for (const spot of spots) {
+    const timestamp = activitySpotTimestamp(spot);
+    if (timestamp <= cutoff || timestamp > now + 60_000) continue;
+    const identity = gridActivityReportIdentity({ ...spot, source: spot.source ?? "Cluster" });
+    const previous = reports.get(identity);
+    if (!previous || activitySpotTimestamp(previous) < activitySpotTimestamp(spot)) {
+      reports.set(identity, spot);
+    }
+  }
+  const matchingSpots = [...reports.values()].filter((spot) => {
     const timestamp = activitySpotTimestamp(spot);
     if (timestamp <= cutoff || timestamp > now + 60_000) {
       return false;

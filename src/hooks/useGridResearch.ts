@@ -23,6 +23,7 @@ import {
 } from "@/lib/utils/gridUtils";
 import { isValidGrid } from "@/lib/utils/grid";
 import { useMapStore } from "@/stores/mapStore";
+import type { SpotSource } from "@/types/livespot";
 import type { DXSpot } from "@/types/dxcluster";
 
 const EMPTY_ACTIVITY: ActivityStats = {
@@ -32,10 +33,11 @@ const EMPTY_ACTIVITY: ActivityStats = {
   recentCallsigns: [],
 };
 
-function resolvedSpotToActivitySpot(resolved: ResolvedSpot): DXSpot {
+function resolvedSpotToActivitySpot(resolved: ResolvedSpot): DXSpot & { source: SpotSource } {
   const spot = resolved.originalSpot;
   return {
     id: spot.id,
+    source: resolved.source,
     spotter: resolved.spotter ?? spot.spotter,
     spotterGrid: spot.spotterGrid,
     dx: resolved.callsign,
@@ -114,6 +116,7 @@ export interface GridResearchData {
 export function useGridResearch(
   grid: string,
   overrideHomeGrid?: string,
+  enabled = true,
 ): GridResearchData {
   // Get user's active location for home grid
   const activeLocation = useActiveLocation();
@@ -125,10 +128,10 @@ export function useGridResearch(
     spotPrefs.filters.sources.length > 0
       ? [...spotPrefs.filters.sources]
       : undefined;
-  const { allResolvedSpots } = useResolvedMapSpots({
+  const { allResolvedSpots, isLoading: isSpotLoading } = useResolvedMapSpots({
     grid: homeGrid ?? undefined,
-    enabled: true,
-    resolveEnabled: true,
+    enabled,
+    resolveEnabled: enabled,
     sources: spotSources,
   });
   const activitySpots = useMemo(
@@ -227,7 +230,7 @@ export function useGridResearch(
     bearing,
     activity,
     bestTime,
-    isLoading: isSolarLoading,
+    isLoading: isSolarLoading || isSpotLoading,
     isValidGrid: validGrid,
     homeGrid,
   };

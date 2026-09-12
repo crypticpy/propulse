@@ -1081,4 +1081,39 @@ describe("the finite-result invariant on the assembled fM record", () => {
       }
     }
   });
+
+  it("reads each sampled field once, so a getter cannot pass the bounds check and then answer out of envelope", () => {
+    // Codex P2, round 3 (`fM.ts` snapshot site, #954 slice D): a
+    // getter-backed state that alternates answers could pass the bounds
+    // check on its first read (8 MHz) and then hand the stored snapshot a
+    // finite out-of-envelope value (0.001 MHz) on the second read, yielding
+    // a resolved but physically invalid record. The three fields are now
+    // read exactly once into the literal that is then validated and stored,
+    // so the first out-of-envelope answer the getter gives (here on the
+    // second hour) is the value the bounds check judges, and the call is
+    // refused instead of resolving on a value nobody validated.
+    let reads = 0;
+    const hostileState = {
+      get foF2MHz() {
+        reads += 1;
+        return reads % 2 === 1 ? 8 : 0.001;
+      },
+      m3000F2: 3,
+      gyrofrequency300kmMHz: 1.2,
+    };
+
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => hostileState as unknown as LongPathMufState,
+    });
+
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") throw new Error("unreachable");
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("foF2MHz = 0.001");
+    // Hour 0 read once (8, admitted), hour 1 read once (0.001, refused):
+    // exactly two reads, never a second read of the same hour.
+    expect(reads).toBe(2);
+  });
 });

@@ -73,7 +73,7 @@ export function NetSessionHistory({
 
         return (
           <div key={session.id} className="space-y-0">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-su-line/10 hover:bg-su-line/20 transition-colors">
+            <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 rounded-xl bg-su-line/10 hover:bg-su-line/20 transition-colors">
               {/* Date */}
               <div className="min-w-[90px]">
                 <span className="text-xs text-su-muted">

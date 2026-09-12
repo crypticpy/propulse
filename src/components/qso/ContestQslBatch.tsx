@@ -233,7 +233,7 @@ export function ContestQslBatch() {
                       {service.label}
                     </span>
                     {!service.available && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-caution-amber/20 text-caution-amber">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-caution-amber/20 text-caution-amber">
                         Coming Soon
                       </span>
                     )}
@@ -386,7 +386,7 @@ function ProgressIndicator({ progress }: { progress: BatchUploadProgress }) {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[10px] text-su-muted">{pct}%</span>
+          <span className="text-xs text-su-muted">{pct}%</span>
         </div>
       )}
     </div>
@@ -412,7 +412,7 @@ function ConfirmationStat({
       <div className="text-xs text-su-muted">
         {confirmed}/{total}
       </div>
-      <div className="text-[10px] text-su-muted uppercase tracking-wider">
+      <div className="text-xs text-su-muted uppercase tracking-wider">
         {label}
       </div>
     </div>

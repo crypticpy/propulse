@@ -68,7 +68,7 @@ export function FateWaterfallStrip({
         className="rounded-none border-0"
       />
       {/* Label overlay */}
-      <span className="absolute top-1 left-2 text-[9px] text-su-text/80 uppercase tracking-wider pointer-events-none select-none">
+      <span className="absolute top-1 left-2 text-xs text-su-text/80 uppercase tracking-wider pointer-events-none select-none">
         Audio Waterfall
       </span>
     </div>

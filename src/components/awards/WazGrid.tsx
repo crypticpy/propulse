@@ -120,7 +120,7 @@ export function WazGrid({
       </div>
 
       {/* 40-Zone Grid: 8 columns x 5 rows */}
-      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2">
         {filteredSlots.map((slot) => (
           <button
             key={slot.zone}
@@ -138,7 +138,7 @@ export function WazGrid({
               {slot.zone}
             </div>
             {slot.qsoCount > 0 && (
-              <div className="text-[10px] text-su-muted mt-0.5">
+              <div className="text-xs text-su-muted mt-0.5">
                 {slot.qsoCount} QSO{slot.qsoCount !== 1 ? "s" : ""}
               </div>
             )}

@@ -181,7 +181,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/alerts/SpotAlertToast.tsx",
     what: "NEW DXCC badge",
-    anchor: "bg-alert-red/20 text-alert-red",
+    anchor: "bg-alert-red/20 text-su-text",
   },
   {
     file: "src/components/alerts/AlertToast.tsx",

@@ -35,6 +35,7 @@ import {
   useUserAccessories,
   useInlineComponents,
 } from "@/stores/shackStore";
+import { addPathEquipment } from "./addPathEquipment";
 
 // ---- Props -----------------------------------------------------------------
 
@@ -416,6 +417,7 @@ function FeedlineRunSection({
   inlineComponents: InlineComponent[];
 }) {
   const [showInlinePicker, setShowInlinePicker] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const updateFeedlineRun = useShackStore((s) => s.updateFeedlineRun);
 
   const run: FeedlineRun | undefined = chain.feedlineRuns.find(
@@ -447,9 +449,18 @@ function FeedlineRunSection({
   );
 
   function handleAddInline(componentId: string) {
-    updateFeedlineRun(chain.id, run!.id, {
-      inlineComponentIds: [...run!.inlineComponentIds, componentId],
-    });
+    const result = addPathEquipment(
+      chain.id,
+      "inline",
+      componentId,
+      undefined,
+      feedlineRunId,
+    );
+    if (!result.ok) {
+      setInlineError("error" in result ? result.error : "Could not add component.");
+      return;
+    }
+    setInlineError(null);
     setShowInlinePicker(false);
   }
 
@@ -568,16 +579,24 @@ function FeedlineRunSection({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs text-su-muted font-medium">
-              Select component:
+              Select component for {feedline.name}:
             </span>
             <button
               type="button"
-              onClick={() => setShowInlinePicker(false)}
+              onClick={() => {
+                setShowInlinePicker(false);
+                setInlineError(null);
+              }}
               className="text-xs text-su-muted hover:text-su-text transition-colors"
             >
               Cancel
             </button>
           </div>
+          {inlineError && (
+            <p className="text-xs text-alert-red" role="alert">
+              {inlineError}
+            </p>
+          )}
           {availableInlines.length === 0 ? (
             <div className="text-xs text-su-muted italic py-2 text-center">
               No available inline components
@@ -608,7 +627,10 @@ function FeedlineRunSection({
       ) : (
         <button
           type="button"
-          onClick={() => setShowInlinePicker(true)}
+          onClick={() => {
+            setInlineError(null);
+            setShowInlinePicker(true);
+          }}
           className="w-full text-xs text-center py-1.5 rounded-lg border border-dashed border-su-line/50 text-su-muted hover:text-su-text hover:border-su-line/60 transition-colors"
         >
           + Add Inline Component

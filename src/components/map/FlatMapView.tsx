@@ -5401,10 +5401,12 @@ export function FlatMapView({
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
-    // Built once at the top so the border passes below share one instance
-    // with identical inputs to the live-interaction surface's own
-    // `createEquirectangularProjection` call (same renderWidth/renderHeight,
-    // same zoom.scale) -- not a second, differently-configured projection.
+    // This is a second `createEquirectangularProjection` instance -- the
+    // live-interaction surface below builds its own in a different effect --
+    // but from the same inputs (renderWidth/renderHeight, zoom.scale) that
+    // this "science" effect already has in scope, so the two agree.
+    // `project` is pure, so a shared instance isn't needed for correctness,
+    // only to avoid the (harmless) duplicate allocation.
     const bordersProjection = createEquirectangularProjection({
       width: renderWidth,
       height: renderHeight,

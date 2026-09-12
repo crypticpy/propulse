@@ -299,6 +299,20 @@ describe("colour/width tables", () => {
       strokeStyle: "rgba(15, 23, 42, 0.5)",
       lineWidth: 0.7,
     },
+    {
+      label: "country non-standard, light theme",
+      draw: drawCountryBordersLayer,
+      style: style(false, true),
+      strokeStyle: "rgba(255, 255, 255, 0.3)",
+      lineWidth: 0.8,
+    },
+    {
+      label: "state non-standard, light theme",
+      draw: drawStateBordersLayer,
+      style: style(false, true),
+      strokeStyle: "rgba(255, 255, 255, 0.2)",
+      lineWidth: 0.5,
+    },
   ])(
     "$label: $strokeStyle width $lineWidth",
     ({ draw, style, strokeStyle, lineWidth }) => {
@@ -325,20 +339,6 @@ describe("colour/width tables", () => {
     drawBoostedStateBordersLayer(ctx, fakeFlatProjection(), FLAT_LAYER_PROFILE);
     expect(strokeStyles).toEqual(["rgba(255, 255, 255, 0.4)"]);
     expect(lineWidths).toEqual([0.7]);
-  });
-
-  it("the disc's template colour matches the flat literals bit for bit", () => {
-    const cases: [number, string][] = [
-      [0.65, "rgba(255, 255, 255, 0.65)"],
-      [0.3, "rgba(255, 255, 255, 0.3)"],
-      [0.45, "rgba(255, 255, 255, 0.45)"],
-      [0.2, "rgba(255, 255, 255, 0.2)"],
-      [0.55, "rgba(255, 255, 255, 0.55)"],
-      [0.4, "rgba(255, 255, 255, 0.4)"],
-    ];
-    for (const [opacity, expected] of cases) {
-      expect(`rgba(255, 255, 255, ${opacity})`).toBe(expected);
-    }
   });
 });
 

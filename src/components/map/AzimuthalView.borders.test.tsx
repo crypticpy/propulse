@@ -94,8 +94,8 @@ class StubResizeObserver {
 }
 
 // Property sets whose values distinguish one stroked border pass from
-// another. The base-pass and night-boosted passes both reuse
-// `drawAzimuthalBorders`/`drawAzimuthalStateBorders`, so only the
+// another. The base-pass and night-boosted passes both reuse the shared
+// `drawCountryBordersLayer`/`drawStateBordersLayer` passes, so only the
 // lineWidth/strokeStyle set immediately before each call tells them apart.
 const TRACKED_PROPS = new Set(["lineWidth", "strokeStyle", "globalAlpha"]);
 
@@ -220,8 +220,9 @@ function strokeSegments(): StrokeSegment[] {
 /**
  * Expected stroked border passes with the terminator at its store default
  * (on) and both border layers on, keyed by the `lineWidth`/`strokeStyle`
- * `drawAzimuthalBorders`/`drawAzimuthalStateBorders` set right before each
- * call (see `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
+ * the shared `drawCountryBordersLayer`/`drawStateBordersLayer` passes
+ * (`bordersLayer.ts`, #1091 PR 6) set right before each call (see
+ * `AzimuthalView.tsx`). `mapStyle` resolves to "satellite" here
  * (`loadMapStyle()`'s fallback -- no `propulse-map-style` key is present in
  * this test's fresh localStorage), which is why the base-pass
  * lineWidths are the satellite branch's 0.8/0.5 rather than standard's

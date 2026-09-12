@@ -401,15 +401,15 @@ export function CredentialsSection() {
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center ${
               vaultUnlocked
-                ? "bg-signal-green/20"
+                ? "bg-signal-green/20 text-su-text"
                 : vaultSetup
-                  ? "bg-caution-amber/20"
+                  ? "bg-caution-amber/20 text-su-text"
                   : "bg-su-line/20"
             }`}
           >
             {vaultUnlocked ? (
               <svg
-                className="w-4 h-4 text-signal-green"
+                className="w-4 h-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -423,7 +423,7 @@ export function CredentialsSection() {
               </svg>
             ) : (
               <svg
-                className={`w-4 h-4 ${vaultSetup ? "text-caution-amber" : "text-su-muted"}`}
+                className={`w-4 h-4 ${vaultSetup ? "" : "text-su-muted"}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -483,9 +483,9 @@ export function CredentialsSection() {
 
       {/* Migration notice */}
       {hasPlaintextCredentials && !vaultSetup && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-caution-amber/10 border border-caution-amber/20">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-caution-amber/10 border border-caution-amber/20 text-su-text">
           <svg
-            className="w-5 h-5 text-caution-amber flex-shrink-0 mt-0.5"
+            className="w-5 h-5 flex-shrink-0 mt-0.5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -498,7 +498,7 @@ export function CredentialsSection() {
             />
           </svg>
           <div>
-            <p className="text-sm font-medium text-caution-amber">
+            <p className="text-sm font-medium">
               Unencrypted credentials detected
             </p>
             <p className="text-xs text-su-muted mt-1">
@@ -531,7 +531,7 @@ export function CredentialsSection() {
                         {service.label}
                       </h4>
                       {isStored && (
-                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-signal-green/20 text-signal-green border border-signal-green/30">
+                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-signal-green/20 text-su-text border border-signal-green/30">
                           Stored
                         </span>
                       )}

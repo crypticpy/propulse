@@ -773,11 +773,9 @@ const FIXED_SITES: TintedSite[] = [
     what: "the selected band chip",
     snippet: `? "bg-plasma-orange/20 border-plasma-orange/60 text-su-text"`,
   },
-  {
-    file: "src/components/ui/ShareModal.tsx",
-    what: "the copy-link button",
-    snippet: `: "bg-plasma-orange/15 text-su-text border border-plasma-orange/50 hover:bg-plasma-orange/20"`,
-  },
+  // Share Copy now consumes the shared treatment recipe (#1259).
+  // Its rendered binding is covered by ShareModal.test.tsx; recipe contrast
+  // is covered by the station treatment tests rather than this inline table.
   {
     file: "src/components/ui/ShortcutsHelpModal.tsx",
     what: "the selected shortcuts tab",

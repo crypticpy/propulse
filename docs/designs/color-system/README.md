@@ -182,3 +182,37 @@ continue accepting legacy customSecondary; preference sync and saved-view theme
 payloads do not gain saturation incidentally. Existing limited backup/LAN
 allowlists, capture order and account/epoch protections remain transfer-adapter
 responsibilities. W22 participant evidence remains a separate final-cutover gate.
+
+## Batch 19 replacement coverage (COLOR-03)
+
+The four consumers now use `stationTreatmentClasses` instead of local tint,
+foreground, hover and focus combinations. This maps all eight entries from
+paused #1239; its source-string guard is not introduced into main.
+
+| Original guarded state | Central treatment | Maintained replacement coverage |
+| --- | --- | --- |
+| Detail active | success subtle, pressed | Equipment integration: Active label, indicator, callback and pressed state. |
+| Detail inactive | success subtle, unpressed | Equipment integration: Set Active callback and distinct inactive tone. |
+| Hero active | success subtle, pressed | Equipment integration: Active label, indicator, callback and pressed state. |
+| Chain warning | warning subtle | Banner integration: severity icon and full message. |
+| Chain information | neutral subtle | Banner integration: information icon and full message; the former nebula-blue was a panel alias. |
+| Share selected navigation | accent subtle, pressed | Share integration: label, underline, pressed state and content transitions. |
+| Share copied action | success subtle | Share integration: success/check feedback and two-second reset, without toggle semantics. |
+| Share idle Copy | accent subtle | Share integration: copy callback and failure feedback, without toggle semantics. |
+
+The neighboring Hero inactive action remains neutral; inactive Share navigation
+uses neutral subtle treatment. Shared recipe tests own the numerical ink and
+state-fill contract; consumer tests own behavior and portal wiring.
+
+Equipment Detail and Hero reading bodies are registered intentional fixed-dark
+surfaces. Their existing raw dark shells, artwork and rank effects remain under
+decorative ownership. Optional scoped tokens are forwarded to an outer portal
+element, with `su-fixed-dark` on the inner reading body, so inline Light tokens
+cannot override the boundary. Share forwards optional scoped tokens normally.
+Without a provider, all three portals inherit document tokens instead of
+injecting the context's default theme.
+
+This slice does not certify adjacent Edit/Delete actions, rank artwork, export
+QR graphics or the whole equipment card. Those keep their existing ownership
+under the broader UI/domain migration. Preserved hue PR branches remain intact
+until final epic reconciliation records their verified supersession.

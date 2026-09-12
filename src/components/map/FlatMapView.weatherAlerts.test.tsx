@@ -70,6 +70,13 @@ vi.mock("@/hooks/useWeatherAlerts", () => ({
   useWeatherAlerts: () => ({ alerts: [ALERT], isLoading: false, error: null }),
 }));
 
+// This layer-binding fixture does not exercise logbook persistence. Resolve
+// its unrelated shell read before the jsdom environment is torn down.
+vi.mock("@/lib/db/logStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/logStore")>()),
+  getAllLogEntries: vi.fn(async () => []),
+}));
+
 interface CanvasOp {
   name: string;
   args: number[];

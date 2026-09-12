@@ -346,7 +346,7 @@ export default function MapExplorerPage() {
               type="button"
               title={option.description}
               onClick={() => setDisplayQuality(option.id)}
-              className={`rounded px-2 py-1.5 text-[10px] ${
+              className={`rounded px-2 py-1.5 text-xs ${
                 displayQuality === option.id
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan"
                   : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
@@ -400,7 +400,7 @@ export default function MapExplorerPage() {
           <button
             type="button"
             onClick={retryProviders}
-            className="rounded border border-amber-300/30 px-2 py-1 text-[10px] hover:bg-amber-300/10"
+            className="rounded border border-amber-300/30 px-2 py-1 text-xs hover:bg-amber-300/10"
           >
             Retry HD
           </button>
@@ -417,7 +417,7 @@ export default function MapExplorerPage() {
           <button
             type="button"
             onClick={retryProviders}
-            className="rounded border border-red-200/30 px-2 py-1 text-[10px] hover:bg-red-200/10"
+            className="rounded border border-red-200/30 px-2 py-1 text-xs hover:bg-red-200/10"
           >
             Try again
           </button>

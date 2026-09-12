@@ -55,7 +55,16 @@
  * says. Because the selection geometry is that same geometry,
  * `selectionElevationDeg` and `selectionSlantRangeKm` are exactly the oracle's
  * `ele`, `DMele` and `ptick`, and `parity.modeSet.test.ts` asserts those columns
- * against them. NO FIELD STRENGTH, ANTENNA GAIN OR LOSS MAY BE COMPUTED FROM
+ * against them. That is the whole mechanism: this leaf carries no model-identity
+ * switch and never will, because mathematical contract M03 defines the
+ * `itu-reference-cd172be` identity as the pinned P533.c sequence itself, run
+ * through the PROP-06 harness, and says no transcription substitutes for it.
+ * The TypeScript leaves are `propulse-physics-v1`, which is why the G
+ * polynomial's `+ 90.47 xr` term (#1133) and the Rop table (#1154) follow the
+ * published text too. Selecting the elevation geometry by model id would make
+ * one leaf a partial re-implementation of an identity it cannot satisfy; the
+ * `selection...` fields make the reference's reading visible without
+ * recomputing it. NO FIELD STRENGTH, ANTENNA GAIN OR LOSS MAY BE COMPUTED FROM
  * THEM. Slice C takes `elevationRad` and `virtualSlantRangeKm`, which means its
  * own golden Ew and Pr parity inherits this declared divergence rather than
  * hiding it.
@@ -136,6 +145,18 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
  *    reach it while section 5.2.1 selects it, because selection happens at the
  *    other height; an E mode can only reach it if 110 km cannot close its hop,
  *    which is the same statement as `no_reflection` would have made.
+ *  - `mirror_height_not_positive`: the section 5.1 formula returned a height at
+ *    or below zero, or one that is not finite, so there is no mirror for
+ *    equation (13) to be taken at. Section 5.1's (a), (b) and (c) are
+ *    polynomial fits and the recommendation bounds none of them below: a state
+ *    whose values are each in range can still produce one, and a 500 km path at
+ *    10 MHz with M(3000)F2 = 6, foF2 = 10 MHz and foE = 5 MHz puts branch (c)
+ *    at -33.64 km. The height the formula gave is kept on `mirrorHeightKm` so
+ *    that the record shows what happened, the three geometry fields are `null`,
+ *    and the mode is labelled instead of being allowed to throw out of
+ *    `hopGeometry` and take the whole circuit with it. Only F2 modes can reach
+ *    it: section 5.2.1 fixes the E-mode mirror at 110 km, which is a constant
+ *    and cannot come out negative.
  *  - `no_reflection`: the take-off elevation of equation (13) at
  *    `selectionMirrorHeightKm` is at or below the horizon, so a mirror at
  *    section 5.2.1's selection height cannot close a hop this long. The mode
@@ -154,6 +175,7 @@ export type ModeStatus = "supported" | "geometrically_unsupported" | "screened";
  */
 export type ModeUnsupportedReason =
   | "mirror_height_cannot_close_hop"
+  | "mirror_height_not_positive"
   | "no_reflection"
   | "below_minimum_elevation"
   | "hop_exceeds_dmax"
@@ -178,6 +200,10 @@ export interface PropagationMode {
    * which is what section 5.1 says hr is. This is the height every product
    * number on the record is computed from. Section 5.2.1's own selection height
    * is `selectionMirrorHeightKm`.
+   *
+   * Always the number section 5.1 produced, including the rare case where that
+   * is not positive and no geometry could be taken at it. The status says so;
+   * see `mirror_height_not_positive`.
    */
   readonly mirrorHeightKm: number;
   /**
@@ -185,9 +211,10 @@ export interface PropagationMode {
    * does not reach this mode's hop.
    *
    * INVARIANT, shared with `elevationDeg` and `virtualSlantRangeKm`: the three
-   * are `null` together and only when `status` is `geometrically_unsupported`
-   * with `unsupportedReason` `mirror_height_cannot_close_hop`. A mode with any
-   * other status, or any other reason, reports all three.
+   * are `null` together, and only when `status` is `geometrically_unsupported`
+   * with `unsupportedReason` `mirror_height_cannot_close_hop` or
+   * `mirror_height_not_positive`. A mode with any other status, or any other
+   * reason, reports all three.
    */
   readonly elevationRad: number | null;
   /**

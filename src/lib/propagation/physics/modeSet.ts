@@ -525,17 +525,27 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
     frequencyMHz,
     table1cPoints,
   });
-  const geometry = hopGeometry({
-    groundDistanceKm,
-    hopCount: mode.hopCount,
-    mirrorHeightKm,
-  });
+  // Section 5.1's (a), (b) and (c) are polynomial fits, and the recommendation
+  // bounds none of them below. Control-point values that are each in range can
+  // put the height at or under zero, where there is no mirror for equation (13)
+  // to be taken at and `hopGeometry` refuses the input outright. Tested here,
+  // before any geometry is asked for, so that one such mode is labelled instead
+  // of ending the whole circuit with a RangeError.
+  const heightIsPositive =
+    Number.isFinite(mirrorHeightKm) && mirrorHeightKm > 0;
+  const geometry = heightIsPositive
+    ? hopGeometry({
+        groundDistanceKm,
+        hopCount: mode.hopCount,
+        mirrorHeightKm,
+      })
+    : null;
   // The two heights are independent, so a hop equation (2) reflects can be
   // longer than the section 5.1 height reaches. Equation (13) returns a
   // negative angle there and equation (19) returns nothing; the recommendation
   // addresses neither, so the mode is labelled and reports no elevation at all.
   // See the `modeTypes.ts` header.
-  const closes = geometry.kind === "supported";
+  const closes = geometry !== null && geometry.kind === "supported";
 
   // Equations (11) and (12), section 4. Section 4 names "delta_F: elevation
   // angle for the F2-layer mode (determined from equation (13))", and now that
@@ -565,9 +575,12 @@ function buildF2Mode(inputs: F2ModeInputs): PropagationMode {
       : null,
   };
 
-  // Tested before section 5.2.1's own criteria, because it is the one reason
-  // that leaves the record with no elevation to report, and the type's
+  // Tested before section 5.2.1's own criteria, because these are the two
+  // reasons that leave the record with no elevation to report, and the type's
   // invariant is that the three product fields are null exactly here.
+  if (!heightIsPositive) {
+    return unsupportedMode(base, "mirror_height_not_positive");
+  }
   if (!closes) return unsupportedMode(base, "mirror_height_cannot_close_hop");
   if (!selectionSupported) return unsupportedMode(base, "no_reflection");
 

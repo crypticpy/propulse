@@ -85,6 +85,7 @@ interface StateOverrides {
   readonly foF2MHz?: number;
   readonly m3000F2?: number;
   readonly foEMHz?: number;
+  readonly r12?: number;
 }
 
 const BASE_STATE: ModeControlPointState = {
@@ -121,6 +122,22 @@ const LOW_SECTION_5_1_STATE: StateOverrides = {
   foF2MHz: 12,
   foEMHz: 3,
   m3000F2: 2.5,
+};
+
+/**
+ * A state whose section 5.1 height is not a height at all.
+ *
+ * Every value is in range on its own and equation (2) is happy with it
+ * (1490/6 - 176 = 72.33 km), but foF2/foE = 2 is at or under 3.33 and xr = 1,
+ * so section 5.1 takes case (c), whose H = 1490/(M + dM) - 316 is -78.89 km
+ * here and whose A3 + B3 b comes out negative. The formulas of section 5.1 are
+ * fits, not physics, and nothing in the recommendation bounds them below.
+ */
+const NON_POSITIVE_SECTION_5_1_STATE: StateOverrides = {
+  foF2MHz: 10,
+  foEMHz: 5,
+  m3000F2: 6,
+  r12: 0,
 };
 
 /** A sampler that answers a different state per control-point label. */
@@ -607,15 +624,18 @@ describe("when the section 5.1 height cannot close a selected hop", () => {
     // exactly on a `geometrically_unsupported` mode with this reason. Checked
     // over every case this file builds, so a future branch that returns a null
     // for some other reason is caught here.
-    const routes: readonly [number, number][] = [
-      [1500, 20],
-      [3000, 6],
-      [5000, 20],
-      [5400, 20],
-      [6600, 5],
+    const routes: readonly [number, number, StateOverrides][] = [
+      [1500, 20, LOW_SECTION_5_1_STATE],
+      [3000, 6, LOW_SECTION_5_1_STATE],
+      [5000, 20, LOW_SECTION_5_1_STATE],
+      [5400, 20, LOW_SECTION_5_1_STATE],
+      [6600, 5, LOW_SECTION_5_1_STATE],
+      [500, 10, NON_POSITIVE_SECTION_5_1_STATE],
+      [2500, 10, NON_POSITIVE_SECTION_5_1_STATE],
     ];
-    for (const [groundDistanceKm, frequencyMHz] of routes) {
-      const { sample } = samplerByLabel(uniform(LOW_SECTION_5_1_STATE));
+    const reasonsSeen = new Set<string>();
+    for (const [groundDistanceKm, frequencyMHz, state] of routes) {
+      const { sample } = samplerByLabel(uniform(state));
       const set = resolved(
         modeSet({
           route: routeOfLength(groundDistanceKm),
@@ -633,10 +653,86 @@ describe("when the section 5.1 height cannot close a selected hop", () => {
         expect(mode.virtualSlantRangeKm === null).toBe(nulled);
         if (nulled) {
           expect(mode.status).toBe("geometrically_unsupported");
-          expect(mode.unsupportedReason).toBe("mirror_height_cannot_close_hop");
+          expect([
+            "mirror_height_cannot_close_hop",
+            "mirror_height_not_positive",
+          ]).toContain(mode.unsupportedReason);
+          reasonsSeen.add(mode.unsupportedReason as string);
         }
       }
     }
+    // Both halves of the invariant are exercised rather than asserted over a
+    // set that only ever meets one of them.
+    expect([...reasonsSeen].sort()).toEqual([
+      "mirror_height_cannot_close_hop",
+      "mirror_height_not_positive",
+    ]);
+  });
+});
+
+describe("when the section 5.1 formula returns no height at all", () => {
+  it("labels the mode rather than throwing out of the geometry", () => {
+    // Section 5.1's (a), (b) and (c) are polynomial fits and the
+    // recommendation bounds none of them below, so a state whose values are
+    // each perfectly ordinary can put the height at or under zero. Here
+    // M(3000)F2 = 6 makes H = 1490/(6 + dM) - 316 negative and foF2/foE = 2
+    // takes branch (c), which returns -33.637 km on this hop. There is no
+    // mirror to reflect from, equation (13) has no argument, and `hopGeometry`
+    // rejects the height outright, so the mode has to be labelled before it is
+    // asked for geometry or the whole circuit dies with it.
+    const height = f2ReflectionHeight({
+      m3000F2: 6,
+      foF2MHz: 10,
+      foEMHz: 5,
+      r12: 0,
+      frequencyMHz: 10,
+      groundDistanceKm: 500,
+      hopCount: 1,
+    });
+    expect(height.branch).toBe("5.1c");
+    expect(height.heightKm).toBeCloseTo(-33.637451687433625, PRECISION);
+
+    const { sample } = samplerByLabel(uniform(NON_POSITIVE_SECTION_5_1_STATE));
+    const set = resolved(
+      modeSet({ route: routeOfLength(500), frequencyMHz: 10, sample }),
+    );
+    const oneF2 = modeNamed(set, "1F2");
+
+    expect(oneF2.status).toBe("geometrically_unsupported");
+    expect(oneF2.unsupportedReason).toBe("mirror_height_not_positive");
+    // The height the formula gave is kept, because a reader of the record has
+    // to be able to see what happened without rerunning the leaf.
+    expect(oneF2.mirrorHeightKm).toBeCloseTo(-33.637451687433625, PRECISION);
+    expect(oneF2.elevationRad).toBeNull();
+    expect(oneF2.elevationDeg).toBeNull();
+    expect(oneF2.virtualSlantRangeKm).toBeNull();
+    // Section 4 needs equation (13)'s angle, which does not exist here.
+    expect(oneF2.screeningFrequencyMHz).toBeNull();
+    // And section 5.2.1's own geometry is untouched: equation (2) gives
+    // 1490/6 - 176 = 72.33 km, which reflects this 500 km hop perfectly well,
+    // so the record still shows why the mode was selected.
+    expect(oneF2.selectionMirrorHeightKm).toBeCloseTo(
+      1490 / 6 - 176,
+      PRECISION,
+    );
+    expect(oneF2.selectionElevationDeg).not.toBeNull();
+    expect(oneF2.selectionSlantRangeKm).not.toBeNull();
+
+    // Every F2 mode on this path is in the same state, and every E mode is
+    // unaffected: section 5.2.1 fixes their mirror at 110 km, so an E mode has
+    // no formula that can fail this way.
+    for (const mode of set.modes) {
+      if (mode.layer !== "F2") continue;
+      expect(mode.unsupportedReason).toBe("mirror_height_not_positive");
+      expect(mode.mirrorHeightKm).toBeLessThan(0);
+    }
+    for (const mode of set.modes) {
+      if (mode.layer !== "E") continue;
+      expect(mode.mirrorHeightKm).toBe(110);
+      expect(mode.status).toBe("supported");
+      expect(mode.elevationDeg).not.toBeNull();
+    }
+    expect(set.supportedModes.every((mode) => mode.layer === "E")).toBe(true);
   });
 });
 

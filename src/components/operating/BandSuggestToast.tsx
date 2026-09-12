@@ -118,11 +118,12 @@ export function BandSuggestToast() {
 
   return (
     <div
+      style={{ width: "calc(100vw - 2rem)", maxWidth: "32rem" }}
       className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       }`}
     >
-      <div className="flex items-center gap-3 px-4 py-3 bg-void-black/95 border border-su-line/40 rounded-xl shadow-2xl backdrop-blur-md max-w-sm">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-void-black/95 border border-su-line/40 rounded-xl shadow-2xl backdrop-blur-md">
         {/* Band color indicator bar */}
         <div
           className="w-2 h-8 rounded-full flex-shrink-0"
@@ -130,7 +131,7 @@ export function BandSuggestToast() {
         />
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" style={{ flexBasis: "12rem" }}>
           <div className="text-sm font-medium text-su-text">
             {/* Band identity is carried by the indicator bar; the raw band
                 hex fails AA as text against bg-void-black on the light
@@ -141,7 +142,7 @@ export function BandSuggestToast() {
             </span>{" "}
             just opened
           </div>
-          <div className="text-xs text-su-muted truncate">
+          <div className="text-xs text-su-muted break-words">
             {toast.message}
           </div>
         </div>

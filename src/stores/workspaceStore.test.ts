@@ -392,5 +392,54 @@ describe("workspaceStore", () => {
       };
       expect(migrateWorkspaceState(state, 3)).toEqual(state);
     });
+
+    it("appends a default top rail (#916) to a version-3 workspace whose rails predate it", () => {
+      const state = {
+        workspaces: [
+          {
+            id: DEFAULT_WORKSPACE_ID,
+            canvasType: "workstation",
+            rails: [
+              { side: "left", collapsed: false, width: "normal" },
+              { side: "right", collapsed: false, width: "normal" },
+              { side: "bottom", collapsed: true, width: "wide" },
+            ],
+          },
+        ],
+        activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+        phoneVisibleBands: ["20m"],
+      };
+      const migrated = migrateWorkspaceState(state, 3) as unknown as {
+        workspaces: Array<{ rails: Array<{ side: string; collapsed: boolean; width: string }> }>;
+      };
+      expect(migrated.workspaces[0].rails).toEqual([
+        { side: "left", collapsed: false, width: "normal" },
+        { side: "right", collapsed: false, width: "normal" },
+        { side: "bottom", collapsed: true, width: "wide" },
+        { side: "top", collapsed: false, width: "normal" },
+      ]);
+    });
+
+    it("leaves a workspace that already has a top rail untouched", () => {
+      const rails = defaultRailStates(canvasRulesFor("workstation"));
+      const state = {
+        workspaces: [{ id: DEFAULT_WORKSPACE_ID, canvasType: "workstation", rails }],
+        activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+        phoneVisibleBands: ["20m"],
+      };
+      const migrated = migrateWorkspaceState(state, 3) as unknown as {
+        workspaces: Array<{ rails: unknown }>;
+      };
+      expect(migrated.workspaces[0].rails).toEqual(rails);
+    });
+
+    it("passes a version-4 state through unchanged", () => {
+      const state = {
+        workspaces: [{ id: "x", rails: [{ side: "top", collapsed: false, width: "normal" }] }],
+        activeWorkspaceId: "x",
+        phoneVisibleBands: ["20m"],
+      };
+      expect(migrateWorkspaceState(state, 4)).toEqual(state);
+    });
   });
 });

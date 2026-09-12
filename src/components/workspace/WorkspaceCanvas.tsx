@@ -15,17 +15,17 @@ import { SpaceSlot } from "./SpaceSlot";
 const RAIL_WIDTH_PX: Record<RailWidth, number> = { narrow: 200, normal: 280, wide: 380 };
 /** A collapsed rail still shows its "SHOW ... RAIL" handle at this width/height. */
 const RAIL_COLLAPSED_PX = 56;
-/** Bottom rail row height per width step — same three steps as the side rails, so the width control has a visible effect there too. */
-const BOTTOM_RAIL_HEIGHT_PX: Record<RailWidth, number> = { narrow: 120, normal: 180, wide: 260 };
+/** Top/bottom rail row height per width step — same three steps as the side rails, so the width control has a visible effect there too. */
+const HORIZONTAL_RAIL_HEIGHT_PX: Record<RailWidth, number> = { narrow: 120, normal: 180, wide: 260 };
 
 function railPx(state: RailState | undefined): number {
   if (!state) return 0;
   return state.collapsed ? RAIL_COLLAPSED_PX : RAIL_WIDTH_PX[state.width];
 }
 
-function bottomRailPx(state: RailState | undefined): number {
+function horizontalRailPx(state: RailState | undefined): number {
   if (!state) return 0;
-  return state.collapsed ? RAIL_COLLAPSED_PX : BOTTOM_RAIL_HEIGHT_PX[state.width];
+  return state.collapsed ? RAIL_COLLAPSED_PX : HORIZONTAL_RAIL_HEIGHT_PX[state.width];
 }
 
 /**
@@ -63,10 +63,12 @@ export function WorkspaceCanvas() {
 
   const leftRail = rules.rails.find((r) => r.side === "left");
   const rightRail = rules.rails.find((r) => r.side === "right");
+  const topRail = rules.rails.find((r) => r.side === "top");
   const bottomRail = rules.rails.find((r) => r.side === "bottom");
 
   const leftState = workspace.rails.find((r) => r.side === "left");
   const rightState = workspace.rails.find((r) => r.side === "right");
+  const topState = workspace.rails.find((r) => r.side === "top");
   const bottomState = workspace.rails.find((r) => r.side === "bottom");
 
   return (
@@ -82,11 +84,23 @@ export function WorkspaceCanvas() {
         // dead 280px left gutter on tablet. Mirrors the row template's own
         // `bottomRail ? ... : 0` guard below.
         gridTemplateColumns: `${leftRail ? railPx(leftState) : 0}px 1fr ${rightRail ? railPx(rightState) : 0}px`,
-        gridTemplateRows: `1fr ${bottomRail ? bottomRailPx(bottomState) : 0}px`,
+        gridTemplateRows: `${topRail ? horizontalRailPx(topState) : 0}px 1fr ${bottomRail ? horizontalRailPx(bottomState) : 0}px`,
       }}
     >
+      {topRail && topState && (
+        <div style={{ gridColumn: "1 / span 3", gridRow: 1 }}>
+          <RailSlot
+            rail={topRail}
+            state={topState}
+            widgetIds={widgetIdsFor("top")}
+            pageId={page.id}
+            onToggleCollapsed={() => setRailCollapsed("top", !topState.collapsed)}
+            onSetWidth={(width) => setRailWidth("top", width)}
+          />
+        </div>
+      )}
       {leftRail && leftState && (
-        <div style={{ gridColumn: 1, gridRow: 1 }}>
+        <div style={{ gridColumn: 1, gridRow: 2 }}>
           <RailSlot
             rail={leftRail}
             state={leftState}
@@ -97,11 +111,11 @@ export function WorkspaceCanvas() {
           />
         </div>
       )}
-      <div style={{ gridColumn: 2, gridRow: 1 }}>
+      <div style={{ gridColumn: 2, gridRow: 2 }}>
         <SpaceSlot widgetId={spaceWidgetId} pageId={page.id} />
       </div>
       {rightRail && rightState && (
-        <div style={{ gridColumn: 3, gridRow: 1 }}>
+        <div style={{ gridColumn: 3, gridRow: 2 }}>
           <RailSlot
             rail={rightRail}
             state={rightState}
@@ -113,7 +127,7 @@ export function WorkspaceCanvas() {
         </div>
       )}
       {bottomRail && bottomState && (
-        <div style={{ gridColumn: "1 / span 3", gridRow: 2 }}>
+        <div style={{ gridColumn: "1 / span 3", gridRow: 3 }}>
           <RailSlot
             rail={bottomRail}
             state={bottomState}

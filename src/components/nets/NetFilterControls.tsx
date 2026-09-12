@@ -215,7 +215,7 @@ export function NetFilterControls({
           </svg>
           More Filters
           {activeCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-plasma-orange/20 text-su-text min-w-[18px] text-center">
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-plasma-orange/20 text-su-text min-w-[18px] text-center">
               {activeCount}
             </span>
           )}

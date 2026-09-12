@@ -45,13 +45,16 @@ function shortPathBasicMuf(): ResolvedBasicMuf {
 describe("the P.1240 Table 1 asset", () => {
   it("carries its recommendation, table, edition and the limits of its provenance", () => {
     expect(ropTable.provenance.recommendation).toBe("ITU-R P.1240");
-    expect(ropTable.provenance.edition).toBe("P.1240-1");
+    expect(ropTable.provenance.edition).toContain("P.1240-2");
     expect(ropTable.provenance.table).toBe("Table 1");
-    // The high-EIRP band is second-hand and unconfirmed. If that ever stops
-    // being true the caveat has to be rewritten, and this fails until it is.
+    // The band above 30 dBW is where the reference binary and the published
+    // table disagree (the reference exchanges winter and summer there). The
+    // asset must keep saying so, and must carry the published values.
     expect(ropTable.provenance.transcription_caveat).toContain(
-      "NOT confirmed by any evidence we hold",
+      "winter and summer exchanged",
     );
+    expect(ropFactor("gt_30_dbw", "winter", "night")).toBe(1.35);
+    expect(ropFactor("gt_30_dbw", "summer", "day")).toBe(1.15);
   });
 
   it("is indexed band, season, day/night and not transposed", () => {

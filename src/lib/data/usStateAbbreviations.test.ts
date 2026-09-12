@@ -31,6 +31,17 @@ describe("US_STATES", () => {
       expect(US_STATE_SET.has(state)).toBe(true);
     }
   });
+
+  // Order is load-bearing, not incidental: `extractSection` in
+  // src/lib/utils/scoring.ts returns the first match found while scanning
+  // this array, and the multiplier grids render states in array order. A
+  // reorder here silently changes which section wins a first-match tie and
+  // reshuffles the rendered grid, so pin the full order.
+  it("preserves the full canonical order", () => {
+    expect(US_STATES.join(",")).toBe(
+      "AL,AK,AZ,AR,CA,CO,CT,DE,FL,GA,HI,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY",
+    );
+  });
 });
 
 describe("US_STATES_WITH_DC", () => {

@@ -20,7 +20,10 @@ import type {
 } from "./types";
 import { isValidCallsign } from "./parsing";
 import { isValidCounty } from "@/lib/data/counties";
-import { ARRL_RAC_SECTIONS } from "@/lib/data/arrlSections";
+import {
+  ARRL_RAC_SECTIONS,
+  ARRL_RAC_SECTION_SET,
+} from "@/lib/data/arrlSections";
 import { US_STATES_WITH_DC } from "@/lib/data/usStateAbbreviations";
 
 // ============================================================================
@@ -190,7 +193,7 @@ export function validateSection(section: string): ValidationIssue | null {
   const normalizedSection = section.toUpperCase().trim();
 
   if (
-    !ARRL_RAC_SECTIONS.includes(
+    !ARRL_RAC_SECTION_SET.has(
       normalizedSection as (typeof ARRL_RAC_SECTIONS)[number],
     )
   ) {

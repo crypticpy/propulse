@@ -11,10 +11,10 @@
 import type { ContestSession } from "@/stores/contestStore";
 import type { DXCCEntity } from "@/lib/data/dxccEntities";
 import { lookupEntity } from "@/lib/data/dxccEntities";
+import { US_STATE_SET as US_STATE_ABBRS } from "@/lib/data/usStateAbbreviations";
 import { getAllLogEntries, addLogEntries } from "@/lib/db/logStore";
 import type { LogEntry } from "@/lib/db/types";
 import { getDeviceId } from "@/lib/sync/deviceId";
-import { US_STATE_SET as US_STATE_ABBRS } from "@/lib/data/usStateAbbreviations";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,6 @@ export interface ContestAwardContributions {
  * Extract US state from a contest QSO's exchange.
  * Looks for 2-letter state abbreviations in the received exchange.
  */
-
 function extractStateFromExchange(exchange: string): string | null {
   if (!exchange) return null;
   const tokens = exchange.toUpperCase().trim().split(/\s+/);

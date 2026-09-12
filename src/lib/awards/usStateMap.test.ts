@@ -8,6 +8,6 @@ describe("usStateMap", () => {
   it("carries display data for exactly the canonical 50 states", () => {
     const abbrs = US_STATES_DATA.map((s) => s.abbr).sort();
     expect(abbrs).toEqual([...US_STATES].sort());
-    expect(TOTAL_US_STATES).toBe(US_STATES.length);
+    expect(TOTAL_US_STATES).toBe(US_STATES_DATA.length);
   });
 });

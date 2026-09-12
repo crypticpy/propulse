@@ -93,6 +93,9 @@ export function createAzimuthalProjection(opts: {
       return {
         x: centerX + p.x * radius,
         y: centerY + p.y * radius,
+        // Differs from the old always-true flag only for non-finite
+        // coordinates (NaN/Infinity fail every comparison, including this
+        // one) -- do not simplify this back to a constant `true`.
         visible: Math.hypot(p.x, p.y) <= 1 + 1e-9,
       }; // == the azimuthal view's projToCanvas helper; antipode sits exactly on 1
     },

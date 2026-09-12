@@ -1,34 +1,37 @@
-/** Per-view style and density. Every field is a measured flat-vs-azimuthal difference or a knob a reviewer sets per view (#1091). Constants equal on both maps stay in the layer module. */
+/** Per-view style and density, nested by layer so this stays a readable
+ * table as more layers move onto shared draw code (#1091). Every field is a
+ * measured flat-vs-azimuthal difference or a knob a reviewer sets per view.
+ * A constant equal on both maps stays in the layer module instead (e.g.
+ * firesLayer.ts's glow-radius-scale and core-alpha constants), not here. */
 export interface MapLayerProfile {
   readonly id: "flat" | "azimuthal";
-  /** Floor for a fire dot's core radius, on-screen px. */
-  fireMinRadiusPx: number;
-  /** Cap for the same. */
-  fireMaxRadiusPx: number;
-  /** MW of fire radiative power per px of core radius. */
-  fireFrpPerRadiusPx: number;
-  /** Outer glow radius as a multiple of the core radius. */
-  fireGlowRadiusScale: number;
-  fireGlowAlpha: number;
-  fireCoreAlpha: number;
+  fires: {
+    /** Floor for a fire dot's core radius, on-screen px. */
+    minRadiusPx: number;
+    /** Cap for the same. */
+    maxRadiusPx: number;
+    /** MW of fire radiative power per px of core radius. */
+    frpPerRadiusPx: number;
+    glowAlpha: number;
+  };
 }
 
 export const FLAT_LAYER_PROFILE: MapLayerProfile = {
   id: "flat",
-  fireMinRadiusPx: 1.5,
-  fireMaxRadiusPx: 6,
-  fireFrpPerRadiusPx: 80,
-  fireGlowRadiusScale: 2,
-  fireGlowAlpha: 0.2,
-  fireCoreAlpha: 0.7,
+  fires: {
+    minRadiusPx: 1.5,
+    maxRadiusPx: 6,
+    frpPerRadiusPx: 80,
+    glowAlpha: 0.2,
+  },
 };
 
 export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
   id: "azimuthal",
-  fireMinRadiusPx: 1.5,
-  fireMaxRadiusPx: 5,
-  fireFrpPerRadiusPx: 100,
-  fireGlowRadiusScale: 2,
-  fireGlowAlpha: 0.25,
-  fireCoreAlpha: 0.7,
+  fires: {
+    minRadiusPx: 1.5,
+    maxRadiusPx: 5,
+    frpPerRadiusPx: 100,
+    glowAlpha: 0.25,
+  },
 };

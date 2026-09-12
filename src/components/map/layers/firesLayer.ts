@@ -13,6 +13,8 @@ import type { MapLayerProfile } from "@/lib/map/mapLayerProfile";
 
 const FIRE_GLOW_COLOR = "#ff6600"; // same on both maps, so not a profile field; do NOT import from FireOverlay3D (pulls Three.js into the 2D bundle)
 const FIRE_CORE_COLOR = "#ff2200";
+const FIRE_GLOW_RADIUS_SCALE = 2; // outer glow radius as a multiple of the core radius; equal on both maps
+const FIRE_CORE_ALPHA = 0.7; // equal on both maps
 
 export function drawFiresLayer(
   ctx: CanvasRenderingContext2D,
@@ -29,26 +31,23 @@ export function drawFiresLayer(
 
     const radius = projection.screenPx(
       Math.max(
-        profile.fireMinRadiusPx,
-        Math.min(profile.fireMaxRadiusPx, hp.frp / profile.fireFrpPerRadiusPx),
+        profile.fires.minRadiusPx,
+        Math.min(
+          profile.fires.maxRadiusPx,
+          hp.frp / profile.fires.frpPerRadiusPx,
+        ),
       ),
     );
 
     // Outer glow
-    ctx.globalAlpha = profile.fireGlowAlpha;
+    ctx.globalAlpha = profile.fires.glowAlpha;
     ctx.beginPath();
-    ctx.arc(
-      point.x,
-      point.y,
-      radius * profile.fireGlowRadiusScale,
-      0,
-      Math.PI * 2,
-    );
+    ctx.arc(point.x, point.y, radius * FIRE_GLOW_RADIUS_SCALE, 0, Math.PI * 2);
     ctx.fillStyle = FIRE_GLOW_COLOR;
     ctx.fill();
 
     // Inner core
-    ctx.globalAlpha = profile.fireCoreAlpha;
+    ctx.globalAlpha = FIRE_CORE_ALPHA;
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = FIRE_CORE_COLOR;

@@ -87,7 +87,7 @@ describe("drawFiresLayer", () => {
 
   it("draws a glow pass then a core pass at the projected point", () => {
     const { ctx, fills } = createMockCtx();
-    // frp 240 / fireFrpPerRadiusPx 80 = 3, within [1.5, 6]
+    // frp 240 / fires.frpPerRadiusPx 80 = 3, within [1.5, 6]
     drawFiresLayer(
       ctx,
       [hotspot({ frp: 240 })],

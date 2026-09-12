@@ -11,7 +11,7 @@ describe("createEquirectangularProjection", () => {
     zoomScale: 1,
   });
 
-  it("projects the four corners and the center like FlatMapView's latLonToCanvas", () => {
+  it("projects the four corners and the center like the flat map's latLonToCanvas", () => {
     expect(projection.project(0, 0)).toEqual({
       x: 512,
       y: 256,
@@ -99,7 +99,7 @@ describe("createAzimuthalProjection", () => {
     });
   });
 
-  it("projects a quarter-turn point like AzimuthalView's projToCanvas", () => {
+  it("projects a quarter-turn point like the azimuthal disc's projToCanvas", () => {
     const point = projection.project(0, 90);
     expect(point.x).toBeCloseTo(430, 9);
     expect(point.y).toBeCloseTo(300, 9);

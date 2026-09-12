@@ -14,6 +14,10 @@ import {
   unlock as unlockStore,
   deleteAllCredentials,
 } from "@/lib/db/credentialStore";
+import {
+  evaluatePasswordStrength,
+  PASSWORD_STRENGTH_PRESENTATION,
+} from "@/lib/auth/passwordStrength";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,74 +30,6 @@ export interface PassphrasePromptProps {
   /** "setup" = first-time creation, "unlock" = returning user */
   mode: "unlock" | "setup";
 }
-
-// ---------------------------------------------------------------------------
-// Strength helpers
-// ---------------------------------------------------------------------------
-
-type Strength = "weak" | "fair" | "strong" | "very strong";
-
-interface StrengthResult {
-  level: Strength;
-  score: number; // 0-4
-  label: string;
-}
-
-function evaluateStrength(passphrase: string): StrengthResult {
-  if (passphrase.length === 0) {
-    return { level: "weak", score: 0, label: "Weak" };
-  }
-
-  let score = 0;
-
-  // Length contributions
-  if (passphrase.length >= 8) score += 1;
-  if (passphrase.length >= 12) score += 1;
-  if (passphrase.length >= 20) score += 1;
-
-  // Character diversity
-  const hasLower = /[a-z]/.test(passphrase);
-  const hasUpper = /[A-Z]/.test(passphrase);
-  const hasDigit = /\d/.test(passphrase);
-  const hasSpecial = /[^a-zA-Z0-9]/.test(passphrase);
-  const diversity = [hasLower, hasUpper, hasDigit, hasSpecial].filter(
-    Boolean,
-  ).length;
-  if (diversity >= 3) score += 1;
-  if (diversity === 4) score += 1;
-
-  // Cap at 4
-  score = Math.min(score, 4);
-
-  const levels: Strength[] = [
-    "weak",
-    "fair",
-    "strong",
-    "very strong",
-    "very strong",
-  ];
-  const labels = ["Weak", "Fair", "Strong", "Very strong", "Very strong"];
-
-  return {
-    level: levels[score],
-    score,
-    label: labels[score],
-  };
-}
-
-const strengthColors: Record<Strength, string> = {
-  weak: "bg-red-500",
-  fair: "bg-yellow-500",
-  strong: "bg-green-500",
-  "very strong": "bg-emerald-400",
-};
-
-const strengthTextColors: Record<Strength, string> = {
-  weak: "text-red-400",
-  fair: "text-yellow-400",
-  strong: "text-green-400",
-  "very strong": "text-emerald-300",
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -122,7 +58,7 @@ export function PassphrasePrompt({
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Derived
-  const strength = evaluateStrength(passphrase);
+  const strength = evaluatePasswordStrength(passphrase);
   const passwordsMatch =
     mode === "setup" ? passphrase === confirmPassphrase : true;
   const meetsMinStrength = strength.score >= 1; // >= fair
@@ -397,14 +333,15 @@ export function PassphrasePrompt({
                     key={i}
                     className={`flex-1 rounded-full transition-colors duration-300 ${
                       i < strength.score
-                        ? strengthColors[strength.level]
+                        ? PASSWORD_STRENGTH_PRESENTATION[strength.level]
+                            .barClass
                         : "bg-su-line/20"
                     }`}
                   />
                 ))}
               </div>
               <p
-                className={`text-xs ${strengthTextColors[strength.level]} transition-colors`}
+                className={`text-xs ${PASSWORD_STRENGTH_PRESENTATION[strength.level].textClass} transition-colors`}
               >
                 {strength.label}
               </p>

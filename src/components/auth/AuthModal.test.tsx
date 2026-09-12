@@ -1,13 +1,26 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { supabaseConfigured, signInWithPasswordMock, getSupabaseMock } =
-  vi.hoisted(() => ({
-    supabaseConfigured: { value: true },
-    signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
-    getSupabaseMock: vi.fn(),
-  }));
+const {
+  supabaseConfigured,
+  signInWithPasswordMock,
+  signUpMock,
+  updateUserMock,
+  getSupabaseMock,
+} = vi.hoisted(() => ({
+  supabaseConfigured: { value: true },
+  signInWithPasswordMock: vi.fn().mockResolvedValue({ error: null }),
+  signUpMock: vi.fn().mockResolvedValue({ error: null }),
+  updateUserMock: vi.fn().mockResolvedValue({ error: null }),
+  getSupabaseMock: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase", () => ({
   get isSupabaseConfigured() {
@@ -43,8 +56,14 @@ beforeEach(() => {
   // assertion in that test can never leak `false` into every test after it.
   supabaseConfigured.value = true;
   signInWithPasswordMock.mockClear().mockResolvedValue({ error: null });
+  signUpMock.mockClear().mockResolvedValue({ error: null });
+  updateUserMock.mockClear().mockResolvedValue({ error: null });
   getSupabaseMock.mockReset().mockReturnValue({
-    auth: { signInWithPassword: signInWithPasswordMock },
+    auth: {
+      signInWithPassword: signInWithPasswordMock,
+      signUp: signUpMock,
+      updateUser: updateUserMock,
+    },
   });
 });
 afterEach(resetAuthState);
@@ -190,5 +209,137 @@ describe("AuthModal", () => {
       ).toHaveLength(1);
     });
     expect(useAuthUIStore.getState().isOpen).toBe(true);
+  });
+
+  describe("sign-up: account password policy gate", () => {
+    async function openSignUpView(user: ReturnType<typeof userEvent.setup>) {
+      useAuthUIStore.getState().openAuthModal();
+      render(<AuthModal />);
+      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Create Account" }),
+        ).toBeTruthy();
+      });
+    }
+
+    it("disables Create Account for a password missing a special character, and enables it once the policy is met", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      await user.type(screen.getByLabelText("Password"), "password1");
+      await user.type(screen.getByLabelText("Confirm password"), "password1");
+
+      const submit = screen.getByRole("button", {
+        name: "Create Account",
+      }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      await user.clear(screen.getByLabelText("Password"));
+      await user.type(screen.getByLabelText("Password"), "Password1!");
+      await user.clear(screen.getByLabelText("Confirm password"));
+      await user.type(screen.getByLabelText("Confirm password"), "Password1!");
+
+      expect(submit.disabled).toBe(false);
+    });
+
+    it("renders the strength meter once a password is typed", async () => {
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Password"), "password1");
+
+      await waitFor(() => {
+        expect(screen.getByText("Fair")).toBeTruthy();
+      });
+    });
+
+    it("rejects a too-weak password on submit even when the disabled button is bypassed, and never calls Supabase sign-up", async () => {
+      // The Create Account button has no <form> to submit — Enter in the
+      // password field calls handleSignUp() directly via handleKeyDown,
+      // regardless of the button's disabled state. That's the bypass path.
+      const user = userEvent.setup();
+      await openSignUpView(user);
+
+      await user.type(screen.getByLabelText("Email address"), "op@example.com");
+      const passwordInput = screen.getByLabelText("Password");
+      await user.type(passwordInput, "password1");
+      await user.type(screen.getByLabelText("Confirm password"), "password1");
+
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            "Password is too weak. Add numbers and special characters.",
+          ),
+        ).toBeTruthy();
+      });
+      expect(signUpMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reset_password view: account password policy gate", () => {
+    async function openResetView() {
+      render(<AuthModal />);
+      act(() => {
+        useAuthStore.setState({ isRecoveryMode: true });
+      });
+      await waitFor(() => {
+        expect(
+          screen.getAllByRole("heading", { name: "Set New Password" }),
+        ).toHaveLength(1);
+      });
+    }
+
+    it("disables Update Password for a password missing a special character, and enables it once the policy is met", async () => {
+      await openResetView();
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText("New password"), "password1");
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "password1",
+      );
+
+      const submit = screen.getByRole("button", {
+        name: "Update Password",
+      }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      await user.clear(screen.getByLabelText("New password"));
+      await user.type(screen.getByLabelText("New password"), "Password1!");
+      await user.clear(screen.getByLabelText("Confirm new password"));
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "Password1!",
+      );
+
+      expect(submit.disabled).toBe(false);
+    });
+
+    it("rejects a too-weak password on submit even when the disabled button is bypassed, and never calls Supabase updateUser", async () => {
+      await openResetView();
+      const user = userEvent.setup();
+
+      const passwordInput = screen.getByLabelText("New password");
+      await user.type(passwordInput, "password1");
+      await user.type(
+        screen.getByLabelText("Confirm new password"),
+        "password1",
+      );
+
+      fireEvent.keyDown(passwordInput, { key: "Enter" });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            "Password is too weak. Add numbers and special characters.",
+          ),
+        ).toBeTruthy();
+      });
+      expect(updateUserMock).not.toHaveBeenCalled();
+    });
   });
 });

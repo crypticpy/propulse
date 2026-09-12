@@ -10,7 +10,7 @@ The [station design system](../design-system/README.md) remains the color author
 
 The [visual comfort contract](../station-ui/VISUAL-COMFORT.md) applies: primary text reaches 7:1 on canvas/panel/input, secondary and status text reaches 4.5:1, status retains words and notices retain icons. Selection and focus remain visible without relying on hue. Preserve live text, scale propagation into portals, reduced-motion behavior and comfortable targets. No text glow or whole-element fading that compromises readable content.
 
-The owner authorized Codex to lead this epic with sub-agents and to perform the design review against the checked-in Claude Design system. Review records identify Codex accurately. This task-specific reviewer override does not remove technical checks or rendered verification. An automated check that cannot represent that authorization must be reconciled explicitly; never manufacture a Fable identity or approval.
+The owner authorized Codex to lead this epic with sub-agents and to perform the design review against the checked-in Claude Design system. Review records identify Codex accurately. This task-specific reviewer override does not remove technical checks or rendered verification. The trusted-base review gate recognizes the explicit `Delegation: color-system-1256` marker for this epic and its implementation tasks; never manufacture a Fable identity or approval.
 
 ## Homes and interfaces
 
@@ -120,6 +120,8 @@ Batch 19 remains the vertical slice. Retain meaningful behavioral fixes found du
 | COLOR-06 settings | #1262 | One definition per setting, accurate UI, persisted preferences and reset behavior verified. |
 | COLOR-07 enforcement | #1263 | New ad hoc combinations caught; batch tests retired only after tracing replacement coverage. |
 | COLOR-08 closure | #1264 | Gallery/docs, technical gates, rendered review, real-operator gate disposition, final ledger counts and deployment evidence. |
+
+The owner authorized the Codex lead to land reviewed PRs after their checks pass. Vercel automatic deployments remain off. Individual tasks record merged and local verification evidence; after the complete epic is integrated, trigger the production build and test on Vercel before epic closure. Local testing remains required where applicable.
 
 The lead owns shared tokens, CSS, settingsStore, exports and integration. Sub-agents receive disjoint file ownership and the agreed API; helpers read/edit/test but do not commit, push, write to GitHub or deploy. A review helper evaluates concrete changes independently. Dependency tasks wait for merged prerequisites; unmerged partial work is never reported Done.
 

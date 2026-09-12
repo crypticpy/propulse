@@ -72,7 +72,7 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
         className="flex items-center gap-1.5 text-su-muted font-medium"
       >
         <span>LEGEND</span>
-        <span className="text-su-muted text-[10px]">
+        <span className="text-su-muted text-xs">
           {specs.length} layer{specs.length === 1 ? "" : "s"}
         </span>
         {collapsed ? (
@@ -95,13 +95,13 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="text-[10px] text-su-muted">
+                  <span className="text-xs text-su-muted">
                     {entry.label}
                   </span>
                 </div>
               ))}
               {spec.note && (
-                <span className="text-[10px] italic text-su-muted">
+                <span className="text-xs italic text-su-muted">
                   {spec.note}
                 </span>
               )}

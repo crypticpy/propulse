@@ -20,19 +20,19 @@ function getClassBadgeColor(licenseClass: LicenseClass): string {
   const upper = licenseClass.toUpperCase();
   switch (upper) {
     case "EXTRA":
-      return "bg-signal-green/20 text-signal-green border-signal-green/30";
+      return "bg-signal-green/20 text-su-text border-signal-green/30";
     case "GENERAL":
     case "ADVANCED":
     case "ADVANCED_CA":
-      return "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30";
+      return "bg-plasma-orange/20 text-su-text border-plasma-orange/30";
     case "TECHNICIAN":
     case "INTERMEDIATE":
     case "BASIC":
     case "BASIC_HONOURS":
-      return "bg-caution-amber/20 text-caution-amber border-caution-amber/30";
+      return "bg-caution-amber/20 text-su-text border-caution-amber/30";
     case "NOVICE":
     case "FOUNDATION":
-      return "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30";
+      return "bg-nebula-blue/20 text-su-text border-nebula-blue/30";
     default:
       return "bg-su-line/20 text-su-muted border-su-line/50";
   }

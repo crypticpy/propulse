@@ -69,8 +69,8 @@ function buildDiscreteSteps(stage: GainStage): Array<{ label: string; value: num
 // ─── Size mapping ────────────────────────────────────────────────────────────
 
 const SIZE_CONFIG = {
-  compact: { labelText: "text-[9px]", sliderH: "h-1" },
-  normal: { labelText: "text-[10px]", sliderH: "h-1.5" },
+  compact: { labelText: "text-xs", sliderH: "h-1" },
+  normal: { labelText: "text-xs", sliderH: "h-1.5" },
 } as const;
 
 // ─── Accent color mapping ────────────────────────────────────────────────────

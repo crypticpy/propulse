@@ -78,7 +78,7 @@ export function NetRecommendations({ netId }: NetRecommendationsProps) {
 
   return (
     <div>
-      <h4 className="mb-2 text-[10px] uppercase tracking-widest text-su-muted">
+      <h4 className="mb-2 text-xs uppercase tracking-widest text-su-muted">
         Also Popular With These Operators
       </h4>
 
@@ -94,10 +94,10 @@ export function NetRecommendations({ netId }: NetRecommendationsProps) {
                 {rec.name}
               </p>
               {rec.frequency && (
-                <p className="text-[11px] text-su-muted">{rec.frequency}</p>
+                <p className="text-xs text-su-muted">{rec.frequency}</p>
               )}
             </div>
-            <span className="shrink-0 rounded-full bg-su-line/20 px-1.5 text-[10px] text-su-muted">
+            <span className="shrink-0 rounded-full bg-su-line/20 px-1.5 text-xs text-su-muted">
               {rec.overlapCount} in common
             </span>
           </Link>

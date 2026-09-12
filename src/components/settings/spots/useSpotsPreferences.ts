@@ -25,7 +25,7 @@ import type { RadioObservation, ViewScopedStoreHandle } from "@/lib/views/runtim
 import { defaultFilters } from "./modeSelection";
 import type {
   GroupingPreferences,
-  PathPreferences,
+  PathPreferencesPatch,
   PresetCustomization,
   SpotFilterPreferences,
   SpotsPreferencesController,
@@ -112,25 +112,57 @@ export function useSpotsPreferences(
     [view],
   );
 
+  const currentSpots = useCallback(
+    () => view.store.getState().config.spots,
+    [view],
+  );
+
   const patchFilters = useCallback(
     (patch: Partial<SpotFilterPreferences>) => {
-      writeSpots({ ...config.spots, filters: { ...config.spots.filters, ...patch } });
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      writeSpots({ ...spots, filters: { ...spots.filters, ...patch } });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const patchGrouping = useCallback(
     (patch: Partial<GroupingPreferences>) => {
-      writeSpots({ ...config.spots, grouping: { ...config.spots.grouping, ...patch } });
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      writeSpots({ ...spots, grouping: { ...spots.grouping, ...patch } });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const patchPaths = useCallback(
-    (patch: Partial<PathPreferences>) => {
-      writeSpots({ ...config.spots, paths: { ...config.spots.paths, ...patch } });
+    (patch: PathPreferencesPatch) => {
+      if (view.isDisposed()) return;
+      const spots = currentSpots();
+      const paths = spots.paths;
+      const { background: backgroundPatch, selected: selectedPatch, ...rest } =
+        patch;
+      writeSpots({
+        ...spots,
+        paths: {
+          ...paths,
+          ...rest,
+          background: backgroundPatch
+            ? { ...paths.background, ...backgroundPatch }
+            : paths.background,
+          selected:
+            selectedPatch === undefined
+              ? paths.selected
+              : selectedPatch === null
+                ? null
+                : {
+                    ...(paths.selected ?? paths.background),
+                    ...selectedPatch,
+                  },
+        },
+      });
     },
-    [config.spots, writeSpots],
+    [currentSpots, view, writeSpots],
   );
 
   const setFollowRadio = useCallback(
@@ -142,8 +174,10 @@ export function useSpotsPreferences(
   );
 
   const clearFilters = useCallback(() => {
-    writeSpots({ ...config.spots, filters: defaultFilters() });
-  }, [config.spots, writeSpots]);
+    if (view.isDisposed()) return;
+    const spots = currentSpots();
+    writeSpots({ ...spots, filters: defaultFilters() });
+  }, [currentSpots, view, writeSpots]);
 
   const previewPreset = useCallback(
     (recipe: PresetRecipe): ApplyPresetResult =>

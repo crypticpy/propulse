@@ -1,5 +1,12 @@
 import type { MouseEvent } from "react";
-import { ArrowDown, ArrowUp, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button, EmptyState, IconButton } from "@/components/station-ui";
 import {
   useShackStore,
@@ -14,11 +21,13 @@ import type { StationChain } from "@/types/stationChain";
 export function SignalPathList({
   chain,
   onSelect,
+  onInsert,
   onSwap,
   onRemove,
 }: {
   chain: StationChain;
   onSelect: (index: number) => void;
+  onInsert: (position: number) => void;
   onSwap: (index: number) => void;
   onRemove: (index: number, name: string) => void;
 }) {
@@ -119,6 +128,18 @@ export function SignalPathList({
                 aria-label={`Configure ${name}`}
               >
                 <Pencil size={16} aria-hidden="true" /> Configure
+              </Button>
+              <Button
+                onClick={() => onInsert(index)}
+                aria-label={`Insert before ${name}`}
+              >
+                <Plus size={16} aria-hidden="true" /> Insert before
+              </Button>
+              <Button
+                onClick={() => onInsert(index + 1)}
+                aria-label={`Insert after ${name}`}
+              >
+                <Plus size={16} aria-hidden="true" /> Insert after
               </Button>
               <IconButton label={`Swap ${name}`} onClick={() => onSwap(index)}>
                 <RefreshCw size={17} aria-hidden="true" />

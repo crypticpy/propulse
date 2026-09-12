@@ -2825,7 +2825,7 @@ export function GlobeView({
           {justLogged && (
             <div
               key={justLogged.at}
-              className="animate-pulse rounded-full border border-signal-green/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-signal-green backdrop-blur-sm"
+              className="rounded-full border border-signal-green/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-signal-green backdrop-blur-sm"
               data-logged-chip
             >
               Logged {justLogged.callsign}

@@ -110,6 +110,17 @@ function implode(
   });
 }
 
+/**
+ * Display helper for the All-modes control. `implode()` collapses every
+ * category selected (and no leftover members) to `all: true`; a working copy
+ * that still stores `all: false` plus those three categories must read the
+ * same way on the panel and the quick popover.
+ */
+export function isAllModesSelected(selection: ModeSelection): boolean {
+  const exploded = explode(selection);
+  return implode(exploded.modes, exploded.includeUnknown, exploded.includeInferred).all;
+}
+
 /** Selecting All discards every specific choice and re-includes unknown modes. */
 export function selectAllModes(selection: ModeSelection): ModeSelection {
   return normalizeModeSelection({

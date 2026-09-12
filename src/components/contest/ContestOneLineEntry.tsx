@@ -567,7 +567,6 @@ export function ContestOneLineEntry({
               className="
                 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
                 bg-alert-red/20 text-alert-red border-2 border-alert-red/50
-                animate-pulse
               "
               role="alert"
               aria-live="assertive"

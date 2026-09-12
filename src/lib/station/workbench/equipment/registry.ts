@@ -93,7 +93,7 @@ export const EQUIPMENT_FIELD_REGISTRY: Readonly<Record<string, EquipmentFieldDef
   "inline.impedance": numeric(inline, "ohm", "impedance", nonnegative),
   "inline.turns": numeric(inline, "count", "count", count),
   "inline.bands": value(inline, "text-list"),
-  "inline.ratio": value(inline, "text", ["1:1", "4:1", "6:1", "9:1", "1:1_current", "4:1_current"]),
+  "inline.ratio": value(inline, "text", ["1:1", "4:1", "6:1", "9:1", "1:1_current", "4:1_current", "6:1_current"]),
   "inline.maxPowerWatts": numeric(inline, "W", "power", { ...nonnegative, measurementKind: "rf-power", frequencyDependent: true }),
   "inline.ferriteType": value(inline, "text", ["snap_on", "toroid", "bead"]),
   "inline.material": value(inline, "text", ["43", "31", "61", "77", "unknown"]),

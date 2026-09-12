@@ -154,7 +154,7 @@ export function FateBottomBar({
 
         {/* TX badge */}
         {ptt && (
-          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
+          <span className="rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
             TX
           </span>
         )}

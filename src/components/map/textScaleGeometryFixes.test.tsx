@@ -802,7 +802,7 @@ function placeVertical(
  * OperatorProfile's secondary VFO row, BandConditionsPanel's table-view band
  * cell) plus two more of the same shape found while auditing the rest of the
  * PR's diff (BasemapCategory's "Image quality" header row and
- * SatelliteFilters' tracking-status footer, both in the same fixed 232px
+ * SatelliteFilters' tracking-status footer, both in the same rem-sized
  * LayersPopover submenu column as the already-fixed quality-button grid).
  * All five are local, unexported components rendered deep in store-backed
  * trees, so -- matching this file's established pattern for such cases
@@ -875,7 +875,7 @@ describe("BandConditionsPanel (round-10 fix: table-view band cell wraps instead 
   });
 });
 
-describe("BasemapCategory (round-10 fix: Image quality header row wraps in the fixed 232px submenu column)", () => {
+describe("BasemapCategory (round-10 fix: Image quality header row wraps in the rem-sized submenu column)", () => {
   it("wraps the 'Image quality' / 'Effective: <label>' row instead of overflowing", () => {
     const source = readFileSync(
       resolve(REPO_ROOT, "src/components/map/layers/BasemapCategory.tsx"),
@@ -884,7 +884,7 @@ describe("BasemapCategory (round-10 fix: Image quality header row wraps in the f
     const lines = source.split("\n");
     const markerIndex = lines.findIndex((line) =>
       line.includes(
-        "Same fixed-pixel submenu column as the quality-button grid below",
+        "Same rem-sized submenu column as the quality-button grid below",
       ),
     );
     expect(markerIndex).toBeGreaterThanOrEqual(0);

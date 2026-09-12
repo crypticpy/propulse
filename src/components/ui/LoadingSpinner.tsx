@@ -67,7 +67,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
       {/* Optional loading text */}
       {text && (
-        <p className={`${textSize} text-su-muted font-sans animate-pulse`}>
+        <p className={`${textSize} text-su-muted font-sans`}>
           {text}
         </p>
       )}

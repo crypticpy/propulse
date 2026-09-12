@@ -3,7 +3,7 @@
  *
  * Displays all DXCC entities as compact cells with status coloring:
  * - confirmed = signal-green
- * - worked_unconfirmed = caution-yellow
+ * - worked_unconfirmed = caution-amber
  * - needed = gray
  *
  * Filterable by band, mode, continent, and search query.
@@ -16,6 +16,9 @@ import {
   statusText,
   statusLabel,
   STATUS_OPTIONS,
+  legendSwatchConfirmed,
+  legendSwatchWorked,
+  legendSwatchNeeded,
   SlotDetailPanel,
 } from "@/components/awards/shared";
 
@@ -97,14 +100,14 @@ export function DxccGrid({
       {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-signal-green/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchConfirmed}`} />
           <span className="text-su-muted">
             Confirmed:{" "}
             <span className="text-su-text font-medium">{confirmedCount}</span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-caution-yellow/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchWorked}`} />
           <span className="text-su-muted">
             Worked:{" "}
             <span className="text-su-text font-medium">
@@ -113,7 +116,7 @@ export function DxccGrid({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-su-input" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchNeeded}`} />
           <span className="text-su-muted">
             Needed:{" "}
             <span className="text-su-text font-medium">{neededCount}</span>

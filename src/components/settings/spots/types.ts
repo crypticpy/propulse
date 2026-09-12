@@ -23,6 +23,15 @@ import type {
 export type SpotFilterPreferences = SpotPresentationPreferences["filters"];
 export type GroupingPreferences = SpotPresentationPreferences["grouping"];
 export type PathPreferences = SpotPresentationPreferences["paths"];
+export type PathAppearance = PathPreferences["background"];
+/** Nested appearance fields are partial so two slider flushes can merge. */
+export type PathPreferencesPatch = Omit<
+  Partial<PathPreferences>,
+  "background" | "selected"
+> & {
+  background?: Partial<PathAppearance>;
+  selected?: Partial<PathAppearance> | null;
+};
 
 /** One stored library row with the revision the next write must expect. */
 export interface SpotsLibraryEntry<T> {
@@ -86,7 +95,7 @@ export interface SpotsPreferencesController {
 
   patchFilters: (patch: Partial<SpotFilterPreferences>) => void;
   patchGrouping: (patch: Partial<GroupingPreferences>) => void;
-  patchPaths: (patch: Partial<PathPreferences>) => void;
+  patchPaths: (patch: PathPreferencesPatch) => void;
   setFollowRadio: (followRadio: boolean) => void;
   /** FILTER-04: restores filter defaults only. Grouping, motion and preset stay. */
   clearFilters: () => void;

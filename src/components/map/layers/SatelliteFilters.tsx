@@ -12,7 +12,10 @@ import { Link } from "react-router-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { useSatellites } from "@/hooks/useSatellites";
-import { CATEGORY_META } from "@/lib/utils/satellite";
+import {
+  CATEGORY_META,
+  filterGlobeVisibleSatellites,
+} from "@/lib/utils/satellite";
 import type { SatelliteCategory } from "@/types/satellite";
 
 const CATEGORY_ORDER: SatelliteCategory[] = [
@@ -42,23 +45,36 @@ export default function SatelliteFilters({
   const setSatelliteCategoryFilter = useMapStore(
     (s) => s.setSatelliteCategoryFilter,
   );
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
   const { satellites } = useSatellites();
 
+  const globeVisibleSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
+
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<SatelliteCategory, number>> = {};
-    for (const sat of satellites) {
+    for (const sat of globeVisibleSatellites) {
       counts[sat.category] = (counts[sat.category] ?? 0) + 1;
     }
     return counts;
-  }, [satellites]);
+  }, [globeVisibleSatellites]);
 
   const chips = useMemo(() => {
     const result: Array<{
       key: SatelliteCategory | "all";
       label: string;
       count: number;
-    }> = [{ key: "all", label: "All", count: satellites.length }];
+    }> = [
+      { key: "all", label: "All", count: globeVisibleSatellites.length },
+    ];
 
     for (const cat of CATEGORY_ORDER) {
       const count = categoryCounts[cat] ?? 0;
@@ -67,7 +83,7 @@ export default function SatelliteFilters({
       }
     }
     return result;
-  }, [satellites.length, categoryCounts]);
+  }, [globeVisibleSatellites.length, categoryCounts]);
 
   return (
     <div className="space-y-2">
@@ -113,7 +129,7 @@ export default function SatelliteFilters({
         </Link>
       </div>
 
-      <TrackingStatusFooter totalCount={satellites.length} />
+      <TrackingStatusFooter totalCount={globeVisibleSatellites.length} />
     </div>
   );
 }

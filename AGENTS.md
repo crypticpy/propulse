@@ -58,6 +58,16 @@
 
 Work is tracked on [Project #4](https://github.com/users/crypticpy/projects/4). Read its README first: it names the delivery phases, the epic each item belongs to and the lead model per epic. Claim only items shown in the **Ready to work** view, inside the epic you were handed, P1 before P2 before P3, oldest first. Owner-gated items sit in **Owner decisions**; anything in **Future initiatives** is parked and not claimable. Keep `ready`/`blocked`/`needs-owner` and `size:*`/`difficulty:*` labels current, and record blockers as native blocked-by links; the board fields are synced from them at each sweep.
 
+## GitHub API budget
+
+Every session, sub-agent and bot on this machine shares ONE owner-token GraphQL budget (5,000 points/hour). Board sweeps and per-PR polling have drained it to zero and stalled everyone, so:
+
+- Run every `gh` call that reads or writes PRs, issues, checks, review threads, comments or merges through the bot wrapper `~/.config/propulse-bot/ghb` (same CLI, its own 12,500/hour budget). Write `ghb` into every sub-agent brief; a brief that says `gh` is wrong.
+- The owner token (`gh`) is reserved for what the bot cannot see: user Project #4 queries and owner-only actions. Do not use it for status checks.
+- One census per sweep: fetch the PR or board state once with the minimal fields, cache it under `docs/plans.local/`, and work from the cache. Never re-query per PR, per thread or per poll.
+- Poll a check at most once per 60 seconds, and prefer REST (`ghb api repos/{owner}/{repo}/commits/{sha}/check-runs`, the separate core budget) over `gh pr checks` in loops.
+- Before any bulk loop, read `ghb api rate_limit` and stop when GraphQL remaining is under 1,000. Never `gh run rerun` to refresh a status.
+
 ## Configuration & API Notes
 
 - Local dev proxies some `/api/*` paths to NOAA in `vite.config.ts` (keeps frontend calls consistent).

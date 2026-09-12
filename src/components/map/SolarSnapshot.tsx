@@ -344,7 +344,7 @@ export function SolarSnapshot({
       <div
         className={`${className} h-full flex items-center justify-center text-su-muted text-xs`}
       >
-        <div className="animate-pulse">Loading...</div>
+        <div>Loading...</div>
       </div>
     );
   }
@@ -421,7 +421,7 @@ export function SolarSnapshot({
 
       {/* Storm warning if applicable - with pulse animation */}
       {hasStormRisk && (
-        <div className="flex items-center gap-1 text-xs text-alert-red mb-1 animate-pulse">
+        <div className="flex items-center gap-1 text-xs text-alert-red mb-1">
           <span>⚠</span>
           <span>Storm risk - HF may be degraded</span>
         </div>
@@ -432,9 +432,7 @@ export function SolarSnapshot({
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-su-muted uppercase">Greyline</span>
           <span
-            className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-              greylineStatus.isActive ? "animate-pulse" : ""
-            }`}
+            className="text-xs font-semibold px-1.5 py-0.5 rounded"
             style={{
               color: getGreylineIntensityColor(greylineStatus.intensity),
               backgroundColor: `${getGreylineIntensityColor(greylineStatus.intensity)}20`,

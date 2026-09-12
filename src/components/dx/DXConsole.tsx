@@ -32,33 +32,73 @@ export interface DXConsoleProps {
 /**
  * Get K-index severity color based on value
  */
-function getKIndexColor(kp: number): { bg: string; text: string } {
+function getKIndexColor(kp: number): {
+  bg: string;
+  text: string;
+  sparkline: string;
+} {
   if (kp >= 7) {
-    return { bg: "bg-alert-red/30", text: "text-alert-red" };
+    return {
+      bg: "bg-alert-red/20",
+      text: "text-su-text",
+      sparkline: "#ef4444",
+    };
   }
   if (kp >= 5) {
-    return { bg: "bg-orange-500/30", text: "text-orange-400" };
+    return {
+      bg: "bg-orange-500/30",
+      text: "text-orange-400",
+      sparkline: "#fb923c",
+    };
   }
   if (kp >= 4) {
-    return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+    return {
+      bg: "bg-yellow-500/30",
+      text: "text-yellow-400",
+      sparkline: "#eab308",
+    };
   }
-  return { bg: "bg-signal-green/30", text: "text-signal-green" };
+  return {
+    bg: "bg-signal-green/20",
+    text: "text-su-text",
+    sparkline: "#22c55e",
+  };
 }
 
 /**
  * Get SFI color based on value (higher is better for HF propagation)
  */
-function getSFIColor(sfi: number): { bg: string; text: string } {
+function getSFIColor(sfi: number): {
+  bg: string;
+  text: string;
+  sparkline: string;
+} {
   if (sfi >= 150) {
-    return { bg: "bg-signal-green/30", text: "text-signal-green" };
+    return {
+      bg: "bg-signal-green/20",
+      text: "text-su-text",
+      sparkline: "#22c55e",
+    };
   }
   if (sfi >= 100) {
-    return { bg: "bg-plasma-orange/30", text: "text-plasma-orange" };
+    return {
+      bg: "bg-plasma-orange/20",
+      text: "text-su-text",
+      sparkline: "#ff6b35",
+    };
   }
   if (sfi >= 70) {
-    return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+    return {
+      bg: "bg-yellow-500/30",
+      text: "text-yellow-400",
+      sparkline: "#eab308",
+    };
   }
-  return { bg: "bg-su-line/30", text: "text-su-muted" };
+  return {
+    bg: "bg-su-line/30",
+    text: "text-su-muted",
+    sparkline: "#9ca3af",
+  };
 }
 
 /**
@@ -186,15 +226,7 @@ export function DXConsole({
                     </span>
                     <TrendSparkline
                       data={kIndexTrend}
-                      color={
-                        kIndexColors.text.includes("red")
-                          ? "#ef4444"
-                          : kIndexColors.text.includes("orange")
-                            ? "#fb923c"
-                            : kIndexColors.text.includes("yellow")
-                              ? "#eab308"
-                              : "#22c55e"
-                      }
+                      color={kIndexColors.sparkline}
                     />
                   </div>
                 )}
@@ -213,15 +245,7 @@ export function DXConsole({
                     </span>
                     <TrendSparkline
                       data={sfiTrend}
-                      color={
-                        sfiColors.text.includes("green")
-                          ? "#22c55e"
-                          : sfiColors.text.includes("orange")
-                            ? "#ff6b35"
-                            : sfiColors.text.includes("yellow")
-                              ? "#eab308"
-                              : "#9ca3af"
-                      }
+                      color={sfiColors.sparkline}
                     />
                   </div>
                 )}

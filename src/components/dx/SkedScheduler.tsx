@@ -108,7 +108,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
                 onClick={() => setMode(m)}
                 className={`px-2 py-1 text-xs rounded font-bold transition-colors ${
                   mode === m
-                    ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
+                    ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
@@ -229,13 +229,13 @@ function SkedCard({
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => onStatusChange(sked.id, "worked")}
-            className="px-2 py-1 text-xs font-medium bg-signal-green/20 text-signal-green border border-signal-green/30 rounded hover:bg-signal-green/30 transition-colors"
+            className="px-2 py-1 text-xs font-medium bg-signal-green/20 text-su-text border border-signal-green/30 rounded hover:bg-signal-green/30 transition-colors"
           >
             Worked
           </button>
           <button
             onClick={() => onStatusChange(sked.id, "missed")}
-            className="px-2 py-1 text-xs font-medium bg-alert-red/20 text-alert-red border border-alert-red/30 rounded hover:bg-alert-red/30 transition-colors"
+            className="px-2 py-1 text-xs font-medium bg-alert-red/20 text-su-text border border-alert-red/30 rounded hover:bg-alert-red/30 transition-colors"
           >
             Missed
           </button>

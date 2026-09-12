@@ -216,8 +216,8 @@ export const WSJTXStatusPanel = memo(function WSJTXStatusPanel({
                     className={`px-1.5 py-0.5 rounded text-xs font-bold
                       ${
                         status.txEnabled
-                          ? "bg-alert-red/20 text-alert-red"
-                          : "bg-signal-green/20 text-signal-green"
+                          ? "bg-alert-red/20 text-su-text"
+                          : "bg-signal-green/20 text-su-text"
                       }`}
                   >
                     {status.txEnabled ? "TX" : "RX"}
@@ -252,7 +252,7 @@ export const WSJTXStatusPanel = memo(function WSJTXStatusPanel({
                   className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
                     ${
                       cqOnly
-                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                         : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
                     }`}
                 >

@@ -10,14 +10,16 @@ import type {
   VHFCondition,
 } from "../../types/solar";
 import { getIonosphericParameters } from "./ionosphere";
-import { predictSignalStrength } from "./signal";
+import { getSignalClass, predictSignalStrength } from "./signal";
 import type { NoiseEnvironment } from "./signal";
-import type { SignalPrediction, SUnit } from "@/types/signal";
+import type { AtmosphericNoiseOptions } from "./noiseModel";
+import type { OperatingMode, SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
 import { getEsSeasonalProbability } from "./sporadicE";
 import { getGeomagneticCondition } from "./solarConversions";
 import { getSubsolarPoint } from "./sun";
+import { resolveRoute, routeMidpoint } from "@/lib/propagation/geometry/route";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -295,7 +297,9 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
   if (sfi >= 120) {
     summaryParts.push("Higher bands (10-17m) favored.");
   } else if (sfi >= 90) {
-    summaryParts.push("Mid-bands (15–20 m) may be supported on suitable paths.");
+    summaryParts.push(
+      "Mid-bands (15–20 m) may be supported on suitable paths.",
+    );
   } else {
     summaryParts.push("Lower bands (20-40m) recommended.");
   }
@@ -751,6 +755,34 @@ export function getBandConditionsForPath(
 }
 
 /**
+ * Path status from the mode-specific decode/copy margin (PROP-02 #948).
+ *
+ * One ladder for the whole engine: `getSignalClass` measures
+ * `snr - MODE_PARAMETERS[mode].minSNR` (all in the 2500 Hz reference) and this
+ * maps its five classes onto the five path statuses. The former fixed
+ * -8/-12/-18/-24 dB cutoffs ignored the selected mode, so an SSB path 11 dB
+ * below its +3 dB copy threshold was "excellent" (#945 audit). The margin is a
+ * threshold margin, not a QSO probability (contract M10).
+ */
+export function classifyPathStatus(
+  snrDb: number,
+  mode: OperatingMode,
+): PathBandCondition["status"] {
+  switch (getSignalClass(snrDb, mode)) {
+    case "strong":
+      return "excellent";
+    case "moderate":
+      return "good";
+    case "weak":
+      return "fair";
+    case "marginal":
+      return "poor";
+    case "none":
+      return "closed";
+  }
+}
+
+/**
  * Get default note based on status
  */
 function getDefaultNote(status: PathBandCondition["status"]): string {
@@ -827,7 +859,7 @@ export function getEnhancedBandConditions(
   sfi: number,
   date: Date,
   txPowerWatts: number = 100,
-  mode: "SSB" | "CW" | "FT8" = "FT8",
+  mode: OperatingMode = "FT8",
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
   farEndGainDbi: number | ((band: string) => number) = 0,
@@ -840,12 +872,38 @@ export function getEnhancedBandConditions(
     targetLon,
   );
 
-  // Calculate path midpoint for ionospheric calculations
-  const midLat = (homeLat + targetLat) / 2;
-  const midLon = (homeLon + targetLon) / 2;
+  // Path midpoint for the ionospheric sample. This is the *spherical*
+  // midpoint of the great circle, not the arithmetic mean of the two
+  // coordinate pairs. The mean is not a midpoint: for Tokyo to Honolulu it
+  // lands in the Atlantic off Morocco, 13 347 km from the real midpoint, and
+  // every ionospheric parameter read there describes the wrong hemisphere
+  // (PROP-03 #949, contract M06).
+  const midpointRoute = resolveRoute(
+    { latitudeDeg: homeLat, longitudeDeg: homeLon },
+    { latitudeDeg: targetLat, longitudeDeg: targetLon },
+  );
+  const midpoint =
+    midpointRoute.kind === "resolved"
+      ? routeMidpoint(midpointRoute)
+      : { latitudeDeg: homeLat, longitudeDeg: homeLon };
+  const midLat = midpoint.latitudeDeg;
+  const midLon = midpoint.longitudeDeg;
 
   // Get ionospheric parameters at path midpoint
   const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
+
+  // Receiver context for the ITU-R P.372 atmospheric noise term. That term is a
+  // property of the *receiving* station, not of the path midpoint: the CCIR 322
+  // world map is read at the home station's own position, in the four-hour
+  // block of its local mean time (derived from the UTC hour and its longitude)
+  // and for the calendar month. Omitting any of it leaves the engine with no
+  // atmospheric term at all (PROP-02 #948, #955).
+  const receiverNoiseContext: AtmosphericNoiseOptions = {
+    latitude: homeLat,
+    longitude: homeLon,
+    month: date.getUTCMonth() + 1,
+    utcHour: date.getUTCHours(),
+  };
 
   // Compute geomagnetic-based polar path assessment
   const crossesAuroral = pathCrossesAuroralZone(
@@ -886,10 +944,35 @@ export function getEnhancedBandConditions(
         : farEndGainDbi;
 
     // Get full signal prediction using the signal.ts model
-    // Pass kp, sfi, and muf so confidence intervals are computed
+    // Pass kp, sfi, and muf so confidence intervals are computed.
+    // Circuit support comes from the ray solver: a hop above its median basic
+    // MUF is not reflected by this engine (no above-MUF loss model exists), so
+    // the mode contributes no power (contract M07, PROP-02 #948).
+    // Kp and low-SFI penalties are excess propagation loss. They go into
+    // the engine's budget rather than being subtracted from its SNR after
+    // the fact, so SNR, S-meter, class, confidence and both bounds are all
+    // derived from the penalised signal (Codex rounds 2 and 5, PR #1081).
+    let excessLossDb = 0;
+    if (kp >= 3) {
+      excessLossDb += (kp - 2) * 2;
+    }
+    if (sfi < band.minSfi) {
+      const deficit = band.minSfi - sfi;
+      excessLossDb += Math.min(deficit * 0.3, 15);
+    }
+
+    // Free-space spreading is taken over the virtual slant range of ITU-R
+    // P.533-14 equation (19), the distance the wave actually travels, not the
+    // ground range under it. On a short circuit the two differ by more than
+    // 15 dB (PROP-03 #949, contract M15).
+    const spreadingDistanceKm =
+      rayResult.virtualSlantRangeKm > 0
+        ? rayResult.virtualSlantRangeKm
+        : distance;
+
     const signalPred = predictSignalStrength(
       frequencyMHz,
-      distance,
+      spreadingDistanceKm,
       hops,
       absorptionDb,
       txPowerWatts,
@@ -900,6 +983,9 @@ export function getEnhancedBandConditions(
       kp,
       sfi,
       pathMuf,
+      rayResult.isPathViable ? "supported" : "above_basic_muf",
+      receiverNoiseContext,
+      excessLossDb,
     );
 
     // Build notes array
@@ -956,60 +1042,15 @@ export function getEnhancedBandConditions(
       notes.push(`High absorption (${Math.round(absorptionDb)} dB)`);
     }
 
-    // Use signal prediction SNR but apply Kp penalty
     let adjustedSNR = signalPred.expectedSNR;
-    if (kp >= 3) {
-      const kpPenalty = (kp - 2) * 2;
-      adjustedSNR -= kpPenalty;
-    }
 
-    // Also check SFI requirements for high bands
-    if (sfi < band.minSfi) {
-      const deficit = band.minSfi - sfi;
-      const penalty = Math.min(deficit * 0.3, 15);
-      adjustedSNR -= penalty;
-    }
-
-    // Remember the total penalty so the uncertainty interval can be shifted
-    // by the same amount — the displayed center must sit inside its range.
-    const snrShift = adjustedSNR - signalPred.expectedSNR;
-
-    // Clamp SNR to the same range as the uncertainty interval (signal.ts
-    // clamps snrLow/snrHigh to [-30, +30])
-    adjustedSNR = Math.max(-30, Math.min(30, Math.round(adjustedSNR)));
-
-    // Determine status based on adjusted SNR
-    let status: PathBandCondition["status"];
-    if (adjustedSNR >= -8) {
-      status = "excellent";
-    } else if (adjustedSNR >= -12) {
-      status = "good";
-    } else if (adjustedSNR >= -18) {
-      status = "fair";
-    } else if (adjustedSNR >= -24) {
-      status = "poor";
-    } else {
-      status = "closed";
-    }
-
-    // Check if band is completely closed
-    const isBandClosed =
-      sfi < band.minSfi - 30 ||
-      (band.prefersDaylight &&
-        !ionoParams.isDaytime &&
-        ionoParams.zenithAngle > 100) ||
-      (!band.prefersDaylight &&
-        ionoParams.isDaytime &&
-        ionoParams.zenithAngle < 30 &&
-        band.name === "160m");
-
-    if (isBandClosed) {
-      status = "closed";
-      adjustedSNR = -30;
-      if (notes.length === 0) {
-        notes.push("Band closed");
-      }
-    }
+    // Status and signal class are derived from the number that is actually
+    // returned and rendered, not from the pre-rounding value (Codex round 1:
+    // 22.6 dB was classed "good" while "23" — excellent — was displayed).
+    // There is no separate blanket SFI/day-night closure any more, because
+    // those rules could contradict the circuit the ray solver just returned.
+    adjustedSNR = toDisplaySNR(adjustedSNR);
+    const status = classifyPathStatus(adjustedSNR, mode);
 
     // Sporadic E annotation for 6m and 10m
     if (
@@ -1026,29 +1067,19 @@ export function getEnhancedBandConditions(
       }
     }
 
+    // `signalPrediction` on the row is the raw engine prediction, untouched:
+    // `expectedSNR`, `snrLow`, `snrHigh` and `signalClass` all come straight
+    // from `signalPred`, so `sUnit`/`noise`/`confidence` on the same object
+    // stay consistent with them and no link-budget information is lost. Only
+    // the row's own display fields (`snrEstimate`, `status`) go through
+    // `toDisplaySNR` above (Codex round 7, PR #1081).
+    //
+    // The S-meter reading shown next to the SNR must come from the same
+    // prediction object the UI renders (finding 3, PROP-02 #948). For an
+    // unsupported mode it is S0 at -Infinity dBm: no power arrives. Renderers
+    // must branch on `support` and print the unsupported state rather than a
+    // number -- see BandConditionsPanel.
     const { sUnit } = signalPred;
-
-    // Shift the uncertainty interval by the same Kp/SFI penalties applied to
-    // the center estimate (and pin it to -30 when the band is closed) so the
-    // displayed center, range, and status all come from one number.
-    const displayPred: SignalPrediction = { ...signalPred };
-    if (isBandClosed) {
-      displayPred.snrLow = -30;
-      displayPred.snrHigh = -30;
-    } else {
-      if (displayPred.snrLow !== undefined) {
-        displayPred.snrLow = Math.max(
-          -30,
-          Math.min(30, Math.round((displayPred.snrLow + snrShift) * 10) / 10),
-        );
-      }
-      if (displayPred.snrHigh !== undefined) {
-        displayPred.snrHigh = Math.max(
-          -30,
-          Math.min(30, Math.round((displayPred.snrHigh + snrShift) * 10) / 10),
-        );
-      }
-    }
 
     return {
       band: band.name,
@@ -1059,7 +1090,7 @@ export function getEnhancedBandConditions(
       sUnit,
       pathLoss: signalPred.pathLoss,
       absorptionLoss: absorptionDb,
-      signalPrediction: displayPred,
+      signalPrediction: signalPred,
       antennaGainDbi,
     };
   });
@@ -1241,11 +1272,65 @@ function getPathIlluminationAtTime(
  */
 export interface ForecastStationParams {
   txPowerWatts: number;
-  mode: "SSB" | "CW" | "FT8";
+  /**
+   * Any operating mode, RTTY included. Narrowing this to SSB/CW/FT8 made
+   * callers translate RTTY to SSB, which classified every RTTY circuit against
+   * the SSB threshold (Codex round 2, PR #1081).
+   */
+  mode: OperatingMode;
   antennaGainDbi: number;
   noiseEnvironment?: NoiseEnvironment;
   /** Extra dBi folded from far-end public ERP (0 = our envelope only). */
   farEndGainDbi?: number;
+}
+
+/**
+ * Display transform for forecast SNR bounds: the same whole-dB round and
+ * [-30, +30] clamp as `toDisplaySNR`, since `signalPrediction.snrLow`/
+ * `snrHigh` are now the raw engine values (one decimal place) rather than an
+ * already-rounded display copy (Codex round 7, PR #1081). BandPlanner prints
+ * these bounds directly with no further rounding.
+ */
+function toForecastSNR(snr: number | undefined): number | undefined {
+  return snr === undefined ? undefined : toDisplaySNR(snr);
+}
+
+/**
+ * The one display transform for an SNR number: whole-dB rounding then the
+ * [-30, +30] display clamp. Both steps are monotone non-decreasing, so
+ * low <= centre <= high survives them when applied uniformly to a range.
+ * -Infinity (an unsupported mode) pins to the -30 floor.
+ *
+ * This must never be baked into a `SignalPrediction` itself -- that object
+ * is the raw engine prediction, and `sUnit`/`noise`/`confidence` on it stay
+ * consistent with the raw `expectedSNR`/`snrLow`/`snrHigh`/`signalClass`
+ * only if those are never overwritten with a display-rounded value (Codex
+ * round 7, PR #1081). Apply this only at render/display time, e.g. for a
+ * row's `snrEstimate` or a panel's printed SNR range.
+ */
+export function toDisplaySNR(snr: number): number {
+  return Math.max(-30, Math.min(30, Math.round(snr)));
+}
+
+/**
+ * The displayed SNR range for a prediction: `snrLow`/`snrHigh` put through
+ * `toDisplaySNR`, so the printed range is rounded/clamped exactly like
+ * `snrEstimate` and still brackets the displayed centre. Returns `undefined`
+ * for either bound the prediction doesn't carry (Codex round 7, PR #1081).
+ */
+export function displaySnrRange(
+  prediction: Pick<SignalPrediction, "snrLow" | "snrHigh"> | undefined,
+): { low: number | undefined; high: number | undefined } {
+  return {
+    low:
+      prediction?.snrLow === undefined
+        ? undefined
+        : toDisplaySNR(prediction.snrLow),
+    high:
+      prediction?.snrHigh === undefined
+        ? undefined
+        : toDisplaySNR(prediction.snrHigh),
+  };
 }
 
 export function getForecastForPath(
@@ -1313,8 +1398,10 @@ export function getForecastForPath(
         confidence: c.signalPrediction?.confidence,
         confidenceLow: c.signalPrediction?.confidenceLow,
         confidenceHigh: c.signalPrediction?.confidenceHigh,
-        snrLow: c.signalPrediction?.snrLow,
-        snrHigh: c.signalPrediction?.snrHigh,
+        // Forecast rows are display summaries like `snrEstimate`, so an
+        // unsupported mode's -Infinity bounds take the same -30 floor here.
+        snrLow: toForecastSNR(c.signalPrediction?.snrLow),
+        snrHigh: toForecastSNR(c.signalPrediction?.snrHigh),
       }));
 
     forecasts.push({

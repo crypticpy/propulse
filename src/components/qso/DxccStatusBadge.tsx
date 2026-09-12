@@ -136,7 +136,6 @@ export function DxccStatusBadge({
             transition-all duration-200
             cursor-default select-none
             ${config.bg} ${config.text} ${config.border}
-            ${config.pulse ? "animate-pulse" : ""}
           `}
         >
           {/* Status dot */}
@@ -148,6 +147,7 @@ export function DxccStatusBadge({
               ${status === "new_mode" ? "bg-nebula-blue" : ""}
               ${status === "worked" ? "bg-plasma-orange" : ""}
               ${status === "dupe" ? "bg-su-line" : ""}
+              ${config.pulse ? "animate-pulse" : ""}
             `}
           />
           {config.label}

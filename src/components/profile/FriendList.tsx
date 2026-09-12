@@ -7,11 +7,19 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useSocialStore } from "@/stores/socialStore";
+import {
+  followLoadFailedForViewer,
+  followSetBelongsToViewer,
+  useSocialStore,
+} from "@/stores/socialStore";
+import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
+import type { PublicProfile } from "@/types/social";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthRequiredPlaceholder } from "@/components/auth";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/station-ui";
+import { useViewerFollowing } from "@/hooks/useViewerFollowing";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -39,6 +47,11 @@ export function FriendList() {
 
 function FriendListInner() {
   const following = useSocialStore((s) => s.following);
+  const followingLoadedForUserId = useSocialStore(
+    (s) => s.followingLoadedForUserId,
+  );
+  const followingLoadError = useSocialStore((s) => s.followingLoadError);
+  const authUserId = useAuthStore((s) => s.user?.id ?? null);
   const followers = useSocialStore((s) => s.followers);
   const isLoading = useSocialStore((s) => s.isLoadingFollowers);
   const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
@@ -50,16 +63,45 @@ function FriendListInner() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [unfollowTarget, setUnfollowTarget] = useState<string | null>(null);
 
-  // Fetch on mount
+  // The follow set is keyed on the viewer identity (#995 round 9): an
+  // A-to-B account switch clears A's cache while this stays mounted, and a
+  // mount-only fetch would leave the relation unknown forever.
+  useViewerFollowing();
+  // Followers are account-scoped the same way, so key them on the viewer too
+  // rather than on mount alone.
   useEffect(() => {
-    fetchFollowing();
-    fetchFollowers();
-  }, [fetchFollowing, fetchFollowers]);
+    if (!authUserId) return;
+    void fetchFollowers();
+  }, [authUserId, fetchFollowers]);
+
+  // Whether the cached follow set is this account's. Until it is, no toggle
+  // is actionable: "Follow" on a relation that already exists is a duplicate
+  // write on the follows primary key. A refresh for the same account keeps
+  // the set, so this stays true across a remount.
+  const relationshipsKnown = followSetBelongsToViewer(
+    followingLoadedForUserId,
+    authUserId,
+  );
+  // One way out for the whole list, not a retry on every row.
+  const relationshipsRetryable =
+    !relationshipsKnown &&
+    followLoadFailedForViewer(followingLoadError, authUserId);
 
   // Set of IDs the current user follows (for toggle logic)
   const followingIds = useMemo(
     () => new Set(following.map((p) => p.id)),
     [following],
+  );
+
+  /**
+   * The one friendship input for this list: the viewer follows them, and the
+   * set that says so is this account's. An unknown set answers false, which
+   * keeps friends-only fields closed rather than opening them on a cache
+   * that may belong to someone else.
+   */
+  const viewerFollows = useCallback(
+    (profileId: string) => relationshipsKnown && followingIds.has(profileId),
+    [relationshipsKnown, followingIds],
   );
 
   // Filter by callsign search
@@ -135,6 +177,17 @@ function FriendListInner() {
         </p>
       )}
 
+      {relationshipsRetryable && (
+        <div className="bg-panel/30 border border-su-line/20 rounded-lg p-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-su-muted">
+            Could not load who you follow, so following is paused.
+          </p>
+          <Button variant="secondary" onClick={() => fetchFollowing()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {!isLoading && isEmpty && (
         <div className="text-center py-8">
           <p className="text-sm text-su-muted">
@@ -154,7 +207,8 @@ function FriendListInner() {
               <ProfileCard
                 key={profile.id}
                 profile={profile}
-                isFollowing={true}
+                isFollowing={viewerFollows(profile.id)}
+                actionable={relationshipsKnown}
                 onToggle={() => handleUnfollow(profile.id)}
               />
             ))}
@@ -173,9 +227,10 @@ function FriendListInner() {
               <ProfileCard
                 key={profile.id}
                 profile={profile}
-                isFollowing={followingIds.has(profile.id)}
+                isFollowing={viewerFollows(profile.id)}
+                actionable={relationshipsKnown}
                 onToggle={() =>
-                  followingIds.has(profile.id)
+                  viewerFollows(profile.id)
                     ? handleUnfollow(profile.id)
                     : handleFollow(profile.id)
                 }
@@ -206,13 +261,21 @@ interface ProfileCardProps {
     callsign: string;
     operatorName?: string;
     grid?: string;
+    visibilitySettings?: PublicProfile["visibilitySettings"];
     lastActiveAt?: string;
   };
   isFollowing: boolean;
+  /** False while the viewer's follow set is unknown; the toggle then waits. */
+  actionable: boolean;
   onToggle: () => void;
 }
 
-function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
+function ProfileCard({
+  profile,
+  isFollowing,
+  actionable,
+  onToggle,
+}: ProfileCardProps) {
   const online = isOnline(profile.lastActiveAt);
 
   return (
@@ -233,16 +296,27 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
             {profile.operatorName && (
               <span className="truncate">{profile.operatorName}</span>
             )}
-            {profile.grid && <span className="font-mono">{profile.grid}</span>}
+            {/* Friendship here is the viewer following THEM, never the
+                other way round: a follower the viewer does not follow back
+                is a stranger, and a friends-only grid stays hidden. The flag
+                comes from the account-tagged following set, so an unknown
+                set reads as "not a friend". */}
+            {profile.grid &&
+              isSectionVisibleToViewer(
+                profile.visibilitySettings,
+                "location",
+                isFollowing,
+              ) && <span className="font-mono">{profile.grid}</span>}
           </div>
         </div>
       </div>
       <button
         onClick={onToggle}
+        disabled={!actionable}
         className={
           isFollowing
-            ? "bg-su-line/10 text-su-muted border border-su-line/40 rounded-full px-3 py-1 text-xs hover:bg-su-line/20 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
-            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+            ? "bg-su-line/10 text-su-muted border border-su-line/40 rounded-full px-3 py-1 text-xs hover:bg-su-line/20 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
         }
       >
         {isFollowing ? "Unfollow" : "Follow"}

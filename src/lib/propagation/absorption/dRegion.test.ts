@@ -6,6 +6,7 @@ import {
   diurnalAbsorptionExponent,
   dRapAbsorptionDb,
   dRapScaleToFrequency,
+  DEFAULT_GYROFREQUENCY_MHZ,
   dRegionAbsorption,
   FIT_RESIDUALS,
   penetrationFactor,
@@ -393,5 +394,124 @@ describe("the NOAA D-RAP convention (R8)", () => {
         crossings: 2,
       }),
     ).toBeCloseTo(3, 12);
+  });
+});
+
+describe("the per-crossing longitudinal gyrofrequency (#1108)", () => {
+  const geometry = supported(3000, 1, 300);
+  const base: DRegionCrossing = {
+    latitudeDeg: 40,
+    monthIndex: 2,
+    modifiedDipDeg: 55,
+    foEMHz: 3.4,
+    zenithAngleDeg: 20,
+    zenithNoonAngleDeg: 20,
+  };
+
+  function run(
+    crossings: readonly DRegionCrossing[],
+    gyrofrequencyMHz?: number,
+  ) {
+    return dRegionAbsorption({
+      crossings,
+      hopCount: crossings.length / 2,
+      frequencyMHz: 14,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn: 100,
+      ...(gyrofrequencyMHz === undefined ? {} : { gyrofrequencyMHz }),
+    });
+  }
+
+  it("divides each crossing by its own (f + fL) squared", () => {
+    // fL is a property of where the crossing is. A 4-hop circuit straddles tens
+    // of degrees of dip, so one scalar for the whole mode reintroduces exactly
+    // the defect the per-crossing pass accounting was written to remove.
+    const entry: DRegionCrossing = { ...base, gyrofrequencyMHz: 0.35 };
+    const exit: DRegionCrossing = { ...base, gyrofrequencyMHz: 1.79 };
+    const mixed = run([entry, exit]);
+
+    const term = absorptionTerm(base, mixed.verticalFrequencyMHz);
+    const cosIncidence = Math.cos(geometry.incidenceAngle110Rad);
+    const expected =
+      ((1 + 0.0067 * 100) *
+        ((term / (14 + 0.35) ** 2 + term / (14 + 1.79) ** 2) / 2)) /
+      cosIncidence;
+
+    expect(mixed.absorptionDb).toBeCloseTo(expected, 12);
+    expect(mixed.gyrofrequenciesMHz).toEqual([0.35, 1.79]);
+    // And it is genuinely between the two uniform circuits, not either of them.
+    const uniformLowFl = run([entry, entry]).absorptionDb;
+    const uniformHighFl = run([exit, exit]).absorptionDb;
+    expect(mixed.absorptionDb).toBeLessThan(uniformLowFl);
+    expect(mixed.absorptionDb).toBeGreaterThan(uniformHighFl);
+  });
+
+  it("falls back to the mode-wide value for a crossing that carries none", () => {
+    const withOwn: DRegionCrossing = { ...base, gyrofrequencyMHz: 0.9 };
+    const result = run([withOwn, base], 1.6);
+    expect(result.gyrofrequenciesMHz).toEqual([0.9, 1.6]);
+  });
+
+  it("reduces exactly to the single-scalar form when every fL is the same", () => {
+    // The refactor must not be a silent change of model: with a uniform fL the
+    // folded mean is algebraically the old (f + fL)^2 divide outside the sum,
+    // and it must also be that number to the last bit the arithmetic allows.
+    const day: DRegionCrossing = { ...base, gyrofrequencyMHz: 1.37 };
+    const night: DRegionCrossing = {
+      ...base,
+      gyrofrequencyMHz: 1.37,
+      foEMHz: 0.9,
+      zenithAngleDeg: 100,
+    };
+    const folded = run([day, night]).absorptionDb;
+
+    const cosIncidence = Math.cos(geometry.incidenceAngle110Rad);
+    const verticalFrequencyMHz = 14 * cosIncidence;
+    const meanTerm =
+      (absorptionTerm(day, verticalFrequencyMHz) +
+        absorptionTerm(night, verticalFrequencyMHz)) /
+      2;
+    const scalarForm =
+      ((1 + 0.0067 * 100) * meanTerm) / ((14 + 1.37) ** 2 * cosIncidence);
+
+    expect(Math.abs(folded - scalarForm)).toBeLessThanOrEqual(
+      8 * Number.EPSILON * Math.abs(scalarForm),
+    );
+    // The mode-wide input reaches the same place as the per-crossing one.
+    const dayNoFl: DRegionCrossing = { ...day, gyrofrequencyMHz: undefined };
+    const nightNoFl: DRegionCrossing = {
+      ...night,
+      gyrofrequencyMHz: undefined,
+    };
+    expect(run([dayNoFl, nightNoFl], 1.37).absorptionDb).toBe(folded);
+  });
+
+  it("does not tell a caller who supplied exactly 1.2 MHz that it got the stand-in", () => {
+    // The selection used to compare the value to 1.2, so a caller that
+    // legitimately computed 1.2 MHz was labelled as having supplied nothing.
+    const supplied = run([base, base], DEFAULT_GYROFREQUENCY_MHZ);
+    expect(supplied.assumptions.join(" ")).not.toContain(
+      "the caller supplied no value",
+    );
+    const perCrossing = run([
+      { ...base, gyrofrequencyMHz: DEFAULT_GYROFREQUENCY_MHZ },
+      { ...base, gyrofrequencyMHz: DEFAULT_GYROFREQUENCY_MHZ },
+    ]);
+    expect(perCrossing.assumptions.join(" ")).not.toContain(
+      "the caller supplied no value",
+    );
+  });
+
+  it("still declares the 1.2 MHz stand-in when no fL is supplied anywhere", () => {
+    const declared = run([base, base]);
+    expect(declared.gyrofrequenciesMHz).toEqual([
+      DEFAULT_GYROFREQUENCY_MHZ,
+      DEFAULT_GYROFREQUENCY_MHZ,
+    ]);
+    const line = declared.assumptions.find((entry) =>
+      entry.includes("1.2 MHz"),
+    );
+    expect(line).toBeDefined();
+    expect(line).toContain("100 km");
   });
 });

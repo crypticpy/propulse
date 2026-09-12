@@ -153,6 +153,45 @@ export function magneticField(
 export const MAP_DIP_HEIGHT_KM = 300;
 
 /**
+ * The height ITU-R P.533-14 evaluates the absorption gyrofrequency at, km.
+ *
+ * This is not `MAP_DIP_HEIGHT_KM` and must never be confused with it. The map's
+ * modip coordinate is a property of the CCIR foF2 fit and is defined at 300 km;
+ * the longitudinal gyrofrequency of equation (20) is a property of the D region
+ * and is defined at 100 km. Two heights, two quantities, two calls.
+ */
+export const D_REGION_FIELD_HEIGHT_KM = 100;
+
+/**
+ * Longitudinal gyrofrequency `fL = |fH sin(dip)|`, MHz.
+ *
+ * The `(f + fL)^2` divisor of ITU-R P.533-14 equation (20). It is a property of
+ * where the D-region crossing is, so a circuit whose crossings straddle tens of
+ * degrees of dip has a different value at each of them.
+ *
+ * Pure and asset-free: it reads the same 6-degree expansion as the dip, so a
+ * caller needs no provider, no fetch and no promise to obtain it.
+ *
+ * @param latitudeRad geographic latitude, radians, positive north
+ * @param longitudeRad geographic longitude, radians, positive east
+ * @param heightKm height above the surface, km. Defaults to the 100 km the
+ *   recommendation specifies; the 300 km value is a measurably different
+ *   number and is not a substitute.
+ */
+export function longitudinalGyrofrequencyMHz(
+  latitudeRad: number,
+  longitudeRad: number,
+  heightKm: number = D_REGION_FIELD_HEIGHT_KM,
+): number {
+  const { dipRad, gyrofrequencyMHz } = magneticField(
+    latitudeRad,
+    longitudeRad,
+    heightKm,
+  );
+  return Math.abs(gyrofrequencyMHz * Math.sin(dipRad));
+}
+
+/**
  * Rawer modified dip latitude, `mu = atan(I / sqrt(cos(phi)))`.
  *
  * `I` is in radians here. That is not the textbook form, which uses degrees,

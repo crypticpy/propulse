@@ -20,9 +20,14 @@
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
+  DEFAULT_GYROFREQUENCY_MHZ,
   dRegionAbsorption,
   type DRegionCrossing,
 } from "@/lib/propagation/absorption/dRegion";
+import {
+  D2R,
+  longitudinalGyrofrequencyMHz,
+} from "@/lib/propagation/ionosphere/modip";
 import { getGeomagneticLatitude } from "./geomagnetic";
 
 /**
@@ -482,6 +487,12 @@ export interface DRegionContext {
   modifiedDipDeg?: number;
   /** E-layer critical frequency at the crossing, MHz. */
   foEMHz?: number;
+  /**
+   * Longitudinal gyrofrequency `|fH sin(dip)|` at the crossing, MHz, the `fL`
+   * of ITU-R P.533-14 equation (20). Omitted, the declared stand-in below is
+   * used and the absorption leaf says so in its assumptions.
+   */
+  gyrofrequencyMHz?: number;
 }
 
 /**
@@ -505,6 +516,12 @@ export const D_REGION_STANDIN = {
    * of the current one.
    */
   declinationDeg: 0,
+  /**
+   * The absorption leaf's own declared scalar, restated here rather than
+   * inherited silently. P.533-14 wants |fH sin(dip)| at 100 km, which the
+   * positionless callers cannot evaluate because they hold no position.
+   */
+  gyrofrequencyMHz: DEFAULT_GYROFREQUENCY_MHZ,
 } as const;
 
 export function calculateDLayerAbsorption(
@@ -533,6 +550,8 @@ export function calculateDLayerAbsorption(
     latitudeDeg,
     monthIndex,
     modifiedDipDeg,
+    gyrofrequencyMHz:
+      options.gyrofrequencyMHz ?? D_REGION_STANDIN.gyrofrequencyMHz,
     // A zero foE means no E layer to shield the D region. The penetration
     // factor handles the limit; a division by zero here would not.
     foEMHz: Math.max(foEMHz, 1e-6),
@@ -755,6 +774,12 @@ export function getAbsorptionAtLocation(
     latitudeDeg: lat,
     monthIndex: date.getUTCMonth(),
     modifiedDipDeg: modifiedDipAngle(lat, lon),
+    // This caller holds a position, so it owes equation (20) the real fL at
+    // 100 km rather than the leaf's declared scalar.
+    // D2R, not this module's DEG_TO_RAD: the field expansion is evaluated in
+    // the reference's own truncated constant so every caller of it agrees to
+    // the last bit.
+    gyrofrequencyMHz: longitudinalGyrofrequencyMHz(lat * D2R, lon * D2R),
     date,
   });
 }

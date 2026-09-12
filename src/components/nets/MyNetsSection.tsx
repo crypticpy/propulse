@@ -86,7 +86,7 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
   if (visibleNets.length === 0) {
     return (
       <div>
-        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
+        <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
           My Nets
         </h3>
         <p className="text-su-muted text-sm italic py-4 text-center">
@@ -114,10 +114,10 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
     <div>
       {/* Section header with count badge */}
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
+        <h3 className="text-xs uppercase tracking-widest text-su-muted">
           My Nets
         </h3>
-        <span className="text-[10px] font-mono bg-su-line/20 text-su-muted rounded-full px-1.5 py-0.5 leading-none">
+        <span className="text-xs font-mono bg-su-line/20 text-su-muted rounded-full px-1.5 py-0.5 leading-none">
           {visibleNets.length}
         </span>
       </div>
@@ -135,7 +135,7 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
                 <span className="text-sm font-medium text-su-text truncate block group-hover:text-plasma-orange transition-colors">
                   {net.name}
                 </span>
-                <span className="text-[11px] text-su-muted block truncate">
+                <span className="text-xs text-su-muted block truncate">
                   {net.frequency} &middot; {net.mode} &middot;{" "}
                   {formatScheduleText(net.schedule)}
                 </span>
@@ -143,7 +143,7 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
 
               {/* Type badge */}
               <span
-                className={`flex-shrink-0 text-[10px] font-medium rounded-full px-2 py-0.5 leading-tight ${NET_TYPE_COLORS[net.type]}`}
+                className={`flex-shrink-0 text-xs font-medium rounded-full px-2 py-0.5 leading-tight ${NET_TYPE_COLORS[net.type]}`}
               >
                 {NET_TYPE_LABELS[net.type]}
               </span>

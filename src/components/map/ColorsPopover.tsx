@@ -173,7 +173,7 @@ export function ColorsPopover() {
         aria-label="Spot coloring mode"
       >
         {/* ── Spot Coloring section ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Spot Coloring
         </div>
 
@@ -209,7 +209,7 @@ export function ColorsPopover() {
                 >
                   {option.label}
                 </span>
-                <span className="text-[10px] text-su-text/80 block">
+                <span className="text-xs text-su-text/80 block">
                   {option.description}
                 </span>
               </div>
@@ -230,7 +230,7 @@ export function ColorsPopover() {
 
         {/* ── Visual Style section ── */}
         <div className="border-t border-su-line/20 my-2" />
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Visual Style
         </div>
 
@@ -254,7 +254,7 @@ export function ColorsPopover() {
             }`}
           >
             High Contrast
-            <span className="text-su-text/80 text-[10px] ml-1">2D only</span>
+            <span className="text-su-text/80 text-xs ml-1">2D only</span>
           </span>
           <PillToggle
             checked={isHighViz}

@@ -370,7 +370,7 @@ function BandPill({
 
       {/* Spot count badge */}
       {!compact && (
-        <span className="text-[9px] text-su-muted font-mono mt-0.5">
+        <span className="text-xs text-su-muted font-mono mt-0.5">
           {info.spotCount}
         </span>
       )}
@@ -402,7 +402,7 @@ function BandPill({
 
       {/* Trending indicator */}
       {info.trending === "up" && (
-        <div className="absolute -top-1 -left-1 text-signal-green text-[10px]">
+        <div className="absolute -top-1 -left-1 text-signal-green text-xs">
           +
         </div>
       )}
@@ -444,16 +444,16 @@ function SolarBadge({
     <div className="flex items-center gap-2 px-2 py-1 rounded bg-su-line/10 border border-su-line/40">
       {solarFlux !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-su-muted">SFI</span>
-          <span className={`text-[10px] font-mono font-bold ${sfiColor}`}>
+          <span className="text-xs text-su-muted">SFI</span>
+          <span className={`text-xs font-mono font-bold ${sfiColor}`}>
             {solarFlux}
           </span>
         </div>
       )}
       {kIndex !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-su-muted">K</span>
-          <span className={`text-[10px] font-mono font-bold ${kColor}`}>
+          <span className="text-xs text-su-muted">K</span>
+          <span className={`text-xs font-mono font-bold ${kColor}`}>
             {kIndex}
           </span>
         </div>
@@ -577,7 +577,7 @@ export function BandReadinessStrip({
 
       {/* Summary (non-compact only) */}
       {!compact && (
-        <div className="flex items-center gap-2 text-[10px] text-su-muted ml-2">
+        <div className="flex items-center gap-2 text-xs text-su-muted ml-2">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-signal-green" />
             {openCount}

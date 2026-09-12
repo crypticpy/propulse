@@ -115,7 +115,7 @@ function PresetCard({
               {preset.name}
             </span>
             {isActive && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-plasma-orange/20 text-su-text border border-plasma-orange/30 uppercase tracking-wider">
+              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-plasma-orange/20 text-su-text border border-plasma-orange/30 uppercase tracking-wider">
                 Active
               </span>
             )}
@@ -127,7 +127,7 @@ function PresetCard({
             <button
               type="button"
               onClick={onActivate}
-              className="px-2 py-1 text-[10px] rounded bg-plasma-orange/10 border border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-plasma-orange/10 border border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20 transition-colors"
             >
               Activate
             </button>
@@ -135,14 +135,14 @@ function PresetCard({
           <button
             type="button"
             onClick={onEdit}
-            className="px-2 py-1 text-[10px] rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
+            className="px-2 py-1 text-xs rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
           >
             Edit
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="px-2 py-1 text-[10px] rounded bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 transition-colors"
+            className="px-2 py-1 text-xs rounded bg-alert-red/10 border border-alert-red/30 text-su-text hover:bg-alert-red/20 transition-colors"
           >
             Delete
           </button>
@@ -347,7 +347,7 @@ export function PresetBuilder() {
 
       {/* Error display outside modal */}
       {error && !modalOpen && (
-        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+        <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm">
           {error}
         </div>
       )}
@@ -362,7 +362,7 @@ export function PresetBuilder() {
       >
         <div className="space-y-5">
           {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-su-text text-sm">
               {error}
             </div>
           )}

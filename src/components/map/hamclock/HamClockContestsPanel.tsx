@@ -59,13 +59,13 @@ export function HamClockContestsPanel() {
   }, [parsed, now]);
 
   if (isLoading) {
-    return <p className="font-mono text-[10px] text-su-muted">Loading calendar…</p>;
+    return <p className="font-mono text-xs text-su-muted">Loading calendar…</p>;
   }
   if (error != null || status !== "ok") {
-    return <p className="font-mono text-[10px] text-su-muted">Contest calendar unavailable</p>;
+    return <p className="font-mono text-xs text-su-muted">Contest calendar unavailable</p>;
   }
   if (contests.length === 0) {
-    return <p className="font-mono text-[10px] text-su-muted">No contests in the current feed window</p>;
+    return <p className="font-mono text-xs text-su-muted">No contests in the current feed window</p>;
   }
 
   return (
@@ -76,15 +76,15 @@ export function HamClockContestsPanel() {
           <>
             <span className="flex min-w-0 items-center gap-1.5">
               {active && (
-                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-[8px] font-bold text-signal-green">
+                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-xs font-bold text-signal-green">
                   NOW
                 </span>
               )}
-              <span className="truncate text-[11px] font-semibold text-gray-200">
+              <span className="truncate text-xs font-semibold text-gray-200">
                 {contest.title}
               </span>
             </span>
-            <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px]">
+            <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-xs">
               <span className={active ? "text-signal-green" : "text-plasma-orange"}>
                 {scheduleCountdown(window, now)}
               </span>
@@ -115,7 +115,7 @@ export function HamClockContestsPanel() {
         href={WA7BNM_SITE_URL}
         target="_blank"
         rel="noreferrer"
-        className="block text-right font-mono text-[8px] uppercase tracking-wider text-su-muted hover:text-plasma-orange"
+        className="block text-right font-mono text-xs uppercase tracking-wider text-su-muted hover:text-plasma-orange"
       >
         WA7BNM Contest Calendar ↗
       </a>

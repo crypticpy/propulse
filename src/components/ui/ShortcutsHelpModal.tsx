@@ -345,7 +345,7 @@ export function ShortcutsHelpModal({
           <div className="pt-4 border-t border-su-line/40 text-center">
             <p className="text-xs text-su-muted">
               Press{" "}
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-su-line/20 border border-su-line/50 rounded">
+              <kbd className="px-1.5 py-0.5 text-xs font-mono bg-su-line/20 border border-su-line/50 rounded">
                 ?
               </kbd>{" "}
               anywhere to toggle this help

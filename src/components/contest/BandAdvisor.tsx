@@ -165,7 +165,7 @@ function QSYButton({
     <button
       type="button"
       onClick={handleQSY}
-      className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
+      className="px-2 py-0.5 rounded text-xs font-bold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
       title={
         connected
           ? `QSY to ${targetBand} (will tune rig)`
@@ -185,7 +185,7 @@ function SnoozeButton({ onSnooze }: { onSnooze: () => void }) {
     <button
       type="button"
       onClick={onSnooze}
-      className="px-1.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
+      className="px-1.5 py-0.5 rounded text-xs text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
       title="Snooze advice for 5 minutes"
     >
       Snooze
@@ -304,7 +304,7 @@ export function BandAdvisor({
   return (
     <div
       className={`
-        flex items-center gap-2 px-3 py-1.5 rounded-lg border
+        flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border
         ${colors.border} ${colors.bg}
         transition-all duration-300 animate-in fade-in slide-in-from-top-1
         ${className}
@@ -326,14 +326,14 @@ export function BandAdvisor({
       <RateIndicator rate={currentRate} trend={trend} />
 
       {/* Advice message */}
-      <span className="text-[11px] text-su-muted truncate flex-1 min-w-0">
+      <span className="text-xs text-su-muted flex-1" style={{ minWidth: "10rem" }}>
         {advice.message}
       </span>
 
       {/* Spot count badge */}
       {advice.spotCount !== undefined && advice.spotCount > 0 && (
         <span
-          className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${colors.badge} flex-shrink-0`}
+          className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${colors.badge} flex-shrink-0`}
         >
           {advice.spotCount} spots
         </span>

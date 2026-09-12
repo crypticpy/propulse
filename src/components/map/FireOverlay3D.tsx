@@ -15,6 +15,9 @@
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
  */
 
+import { FIRE_GLOW_COLOR, FIRE_CORE_COLOR } from "@/lib/colors/palettes/fire";
+export { FIRE_GLOW_COLOR, FIRE_CORE_COLOR } from "@/lib/colors/palettes/fire";
+
 import React, { useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -35,15 +38,6 @@ const GLOBE_RADIUS = 1.006;
 
 /** Minimum pick radius (world units) so small fires stay clickable */
 const MIN_PICK_RADIUS = 0.015;
-
-/**
- * Translucent outer glow around each hotspot.
- * Exported so LayerLegend (src/lib/map/layerLegends.ts) can never drift.
- */
-export const FIRE_GLOW_COLOR = "#ff6600";
-
-/** Opaque inner core -- this is the dot the user actually sees. */
-export const FIRE_CORE_COLOR = "#ff2200";
 
 // ---------------------------------------------------------------------------
 // Module-level dummies -- reused every frame/raycast, never recreated

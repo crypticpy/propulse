@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { VisualEffectsSettings } from "./VisualEffectsSettings";
 import { useVisualEffectsStore } from "@/stores/visualEffectsStore";
 
@@ -12,15 +13,24 @@ vi.mock("@/hooks/useVisualEffects", async (importOriginal) => {
   };
 });
 
+function renderSettings() {
+  return render(
+    <MemoryRouter>
+      <VisualEffectsSettings />
+    </MemoryRouter>,
+  );
+}
+
 describe("VisualEffectsSettings", () => {
   beforeEach(() => {
     reducedMotion = false;
     useVisualEffectsStore.getState().reset();
+    useVisualEffectsStore.getState().resetPresentation();
   });
   afterEach(cleanup);
 
   it("remembers individual choices across preset caps and resets only effects", () => {
-    render(<VisualEffectsSettings />);
+    renderSettings();
     fireEvent.click(screen.getByRole("switch", { name: "Decorative glow" }));
     fireEvent.click(screen.getByRole("radio", { name: "Off" }));
     expect(useVisualEffectsStore.getState().level).toBe("off");
@@ -33,10 +43,24 @@ describe("VisualEffectsSettings", () => {
     expect(useVisualEffectsStore.getState().glow).toBe(true);
   });
 
+  it("explains local presentation scope and restores hidden modules without touching effects", () => {
+    renderSettings();
+    expect(screen.getByText(/These choices affect only what you see here/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Profile → Social → Visibility Settings/ }).getAttribute("href")).toBe("/profile");
+    fireEvent.click(screen.getByRole("switch", { name: "Rank badge" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Achievement badges" }));
+    expect(useVisualEffectsStore.getState().showRankBadge).toBe(false);
+    expect(useVisualEffectsStore.getState().showAchievements).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Show all rank modules" }));
+    expect(useVisualEffectsStore.getState().showRankBadge).toBe(true);
+    expect(useVisualEffectsStore.getState().showAchievements).toBe(true);
+    expect(useVisualEffectsStore.getState().level).toBe("subtle");
+  });
+
   it("explains the OS motion cap and unavailable persistence", () => {
     reducedMotion = true;
     useVisualEffectsStore.setState({ persistenceAvailable: false, level: "full" });
-    render(<VisualEffectsSettings />);
+    renderSettings();
     expect(screen.getByText("Reduced motion is active")).toBeTruthy();
     expect(screen.getByText("Preferences are temporary")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try saving again" }));

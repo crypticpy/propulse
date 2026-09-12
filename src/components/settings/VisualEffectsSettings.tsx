@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   Badge,
   Button,
@@ -34,6 +35,19 @@ const effects = [
     hint: "Soft halos around rank details. Turn off for crisper edges.",
   },
 ] as const;
+
+const presentationModules = [
+  {
+    key: "showRankBadge" as const,
+    label: "Rank badge",
+    hint: "Your tier label on the profile card and masthead.",
+  },
+  {
+    key: "showAchievements" as const,
+    label: "Achievement badges",
+    hint: "The achievement grid on your Awards tab.",
+  },
+];
 
 export function VisualEffectsSettings() {
   const preferences = useVisualEffectsStore();
@@ -101,6 +115,37 @@ export function VisualEffectsSettings() {
               <p className="su-hint">Changes apply immediately on this device.</p>
               <Button variant="quiet" onClick={preferences.reset}>
                 Reset effects to Subtle
+              </Button>
+            </div>
+          </Stack>
+        </Section>
+        <Section
+          title="Rank and achievement presentation"
+          description="Hide selected rank and achievement modules on this device for a quieter station view. Your points, unlocks, history, and scoring stay the same and are not changed for visitors."
+          actions={<Badge>On this device</Badge>}
+        >
+          <Stack>
+            <p className="su-hint">
+              These choices affect only what you see here. To control what others
+              see on your public profile, use{" "}
+              <Link to="/profile" className="text-plasma-orange hover:underline">
+                Profile → Social → Visibility Settings
+              </Link>
+              .
+            </p>
+            {presentationModules.map(({ key, label, hint }) => (
+              <Switch
+                key={key}
+                label={label}
+                hint={`${hint} ${preferences[key] ? "Visible on this device." : "Hidden on this device; layout adjusts immediately."}`}
+                checked={preferences[key]}
+                onChange={(event) => preferences.setPresentation(key, event.target.checked)}
+              />
+            ))}
+            <div className="su-inline justify-between">
+              <p className="su-hint">Presentation changes apply immediately on this device.</p>
+              <Button variant="quiet" onClick={preferences.resetPresentation}>
+                Show all rank modules
               </Button>
             </div>
           </Stack>

@@ -6,6 +6,7 @@
  */
 
 import { useAwardProgress } from "@/hooks/useAwardProgress";
+import { useVisualEffectsStore } from "@/stores/visualEffectsStore";
 import { AwardProgressRing } from "./AwardProgressRing";
 import { AchievementGrid } from "./AchievementGrid";
 import { TrophyShelf } from "./TrophyShelf";
@@ -38,6 +39,7 @@ function RingSkeleton() {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function AwardsTab() {
+  const showAchievements = useVisualEffectsStore((s) => s.showAchievements);
   const {
     dxccWorkedCount,
     dxccConfirmedCount,
@@ -183,15 +185,16 @@ export function AwardsTab() {
         </div>
       </div>
 
-      {/* Achievement Badges */}
-      <div className="border-t border-su-line/20 pt-6">
-        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4">
-          Achievement Badges
-        </h3>
-        <TrophyShelf>
-          <AchievementGrid />
-        </TrophyShelf>
-      </div>
+      {showAchievements && (
+        <div className="border-t border-su-line/20 pt-6">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4">
+            Achievement Badges
+          </h3>
+          <TrophyShelf>
+            <AchievementGrid />
+          </TrophyShelf>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useVisualEffects } from "@/hooks/useVisualEffects";
+import { useVisualEffectsStore } from "@/stores/visualEffectsStore";
 /**
  * ProfileCard -- Sidebar / mobile header card showing the operator's identity.
  *
@@ -66,6 +67,7 @@ export function ProfileCardDesktop({
   const { rank, color: rankColor } = useOperatorRank();
   const assets = useRankAssets(rank);
   const effects = useVisualEffects();
+  const showRankBadge = useVisualEffectsStore((s) => s.showRankBadge);
   const frameStyle = getProfileFrameStyle(rank, effects);
   const glowStyle = getProfileGlowStyle(rank, effects);
 
@@ -163,9 +165,11 @@ export function ProfileCardDesktop({
               {displayCallsign}
             </span>
           </div>
-          <div className="mt-1">
-            <RankBadge rank={rank} size="sm" />
-          </div>
+          {showRankBadge && (
+            <div className="mt-1">
+              <RankBadge rank={rank} size="sm" />
+            </div>
+          )}
           {/* Top Archetype Badges */}
           {topArchetypes.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1 mt-1">
@@ -360,6 +364,7 @@ export function ProfileCardMobile({
   const { rank, color: rankColor } = useOperatorRank();
   const assets = useRankAssets(rank);
   const effects = useVisualEffects();
+  const showRankBadge = useVisualEffectsStore((s) => s.showRankBadge);
   const frameStyle = getProfileFrameStyle(rank, effects);
   const glowStyle = getProfileGlowStyle(rank, effects);
 
@@ -424,7 +429,7 @@ export function ProfileCardMobile({
             <h2 className="font-mono text-lg font-bold text-plasma-orange">
               {displayCallsign}
             </h2>
-            <RankBadge rank={rank} size="sm" />
+            {showRankBadge && <RankBadge rank={rank} size="sm" />}
             <p className="text-xs text-su-muted font-mono">{displayGrid}</p>
           </div>
         </div>

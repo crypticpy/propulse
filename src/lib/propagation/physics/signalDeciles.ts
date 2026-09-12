@@ -363,14 +363,14 @@ export function snrDecileDeviations(
   noise: NoiseTriplet,
 ): SnrDecileDeviations {
   const components = [noise.atmospheric, noise.manMade, noise.galactic];
-  const median = powerSum(components.map((c) => c.fa));
+  const medianDb = powerSumDb(components.map((c) => c.fa));
   // Step 6: each component at its own LOWER decile, so the total noise falls.
-  const atLowerDecile = powerSum(components.map((c) => c.fa - c.dl));
+  const atLowerDecileDb = powerSumDb(components.map((c) => c.fa - c.dl));
   // Step 9: each component at its own UPPER decile, so the total noise rises.
-  const atUpperDecile = powerSum(components.map((c) => c.fa + c.du));
+  const atUpperDecileDb = powerSumDb(components.map((c) => c.fa + c.du));
 
-  const noiseLowerTermDb = 10 * Math.log10(median / atLowerDecile);
-  const noiseUpperTermDb = 10 * Math.log10(atUpperDecile / median);
+  const noiseLowerTermDb = medianDb - atLowerDecileDb;
+  const noiseUpperTermDb = atUpperDecileDb - medianDb;
 
   return {
     upperDb: rootSumSquare([
@@ -388,10 +388,19 @@ export function snrDecileDeviations(
   };
 }
 
-function powerSum(dbValues: readonly number[]): number {
+/**
+ * The decibel sum of a set of decibel values, `10 log10(Σ 10^(db/10))`, kept
+ * entirely in the logarithmic domain by factoring out the maximum term first:
+ * `m = max(dbValues)`, then `m + 10 log10(Σ 10^((db - m)/10))`. Each shifted
+ * term is at most 1, so a large finite `db` (a decile or a noise figure the
+ * caller supplied) never overflows `Math.pow` to `Infinity`, and the sum is
+ * at least 1, so the logarithm is never taken of zero.
+ */
+function powerSumDb(dbValues: readonly number[]): number {
+  const m = Math.max(...dbValues);
   let total = 0;
-  for (const db of dbValues) total += Math.pow(10, db / 10);
-  return total;
+  for (const db of dbValues) total += Math.pow(10, (db - m) / 10);
+  return m + 10 * Math.log10(total);
 }
 
 function rootSumSquare(terms: readonly number[]): number {

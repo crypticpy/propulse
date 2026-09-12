@@ -401,6 +401,13 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
     ["receiver", request.receiver],
   ];
   for (const [name, point] of ends) {
+    if (typeof point !== "object" || point === null) {
+      return refuse(
+        "unsupported_coordinates",
+        `the ${name} is ${String(point)}; a terrestrial endpoint must be an ` +
+          "object with a finite latitude and longitude.",
+      );
+    }
     if (
       !Number.isFinite(point.latitudeDeg) ||
       !Number.isFinite(point.longitudeDeg) ||

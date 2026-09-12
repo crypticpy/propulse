@@ -364,4 +364,34 @@ describe("P.842-5 Table 1 Steps 6 and 9", () => {
       expect(Number.isFinite(value)).toBe(true);
     }
   });
+
+  it("stays finite when a component's noise figure is very large", () => {
+    // `circuitDomain` admits any finite noise figure; a linear-domain power
+    // sum overflows `10^(db/10)` to Infinity well before 5000 dB, turning
+    // both decile terms into NaN. The logarithmic-domain sum must not.
+    const huge = {
+      atmospheric: { fa: 5000, du: 9.4, dl: 6.2 },
+      manMade: { fa: 57.09, du: 10.6, dl: 5.3 },
+      galactic: { fa: 39.21, du: 2, dl: 2 },
+    };
+    const result = snrDecileDeviations({ upperDb: 8, lowerDb: 12 }, huge);
+    expect(Number.isFinite(result.noiseLowerTermDb)).toBe(true);
+    expect(Number.isFinite(result.noiseUpperTermDb)).toBe(true);
+    expect(Number.isFinite(result.upperDb)).toBe(true);
+    expect(Number.isFinite(result.lowerDb)).toBe(true);
+  });
+
+  it("matches the old power-ratio formula for ordinary values, to 1e-9 dB", () => {
+    const result = snrDecileDeviations({ upperDb: 8, lowerDb: 12 }, noise);
+    const powerSum = (dbValues: readonly number[]): number =>
+      dbValues.reduce((total, db) => total + Math.pow(10, db / 10), 0);
+    const components = [noise.atmospheric, noise.manMade, noise.galactic];
+    const median = powerSum(components.map((c) => c.fa));
+    const atLowerDecile = powerSum(components.map((c) => c.fa - c.dl));
+    const atUpperDecile = powerSum(components.map((c) => c.fa + c.du));
+    const expectedLowerTermDb = 10 * Math.log10(median / atLowerDecile);
+    const expectedUpperTermDb = 10 * Math.log10(atUpperDecile / median);
+    expect(result.noiseLowerTermDb).toBeCloseTo(expectedLowerTermDb, 9);
+    expect(result.noiseUpperTermDb).toBeCloseTo(expectedUpperTermDb, 9);
+  });
 });

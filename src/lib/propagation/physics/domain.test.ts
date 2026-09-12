@@ -227,6 +227,19 @@ describe("the route", () => {
     expect(detail).toContain("receiver");
     expect(detail).toContain("[-90, 90]");
   });
+
+  it("refuses a null or undefined endpoint instead of throwing", () => {
+    const nullTransmitter = refusedWith(
+      { transmitter: null as unknown as CircuitRequest["transmitter"] },
+      "unsupported_coordinates",
+    );
+    expect(nullTransmitter).toContain("transmitter");
+    const undefinedReceiver = refusedWith(
+      { receiver: undefined as unknown as CircuitRequest["receiver"] },
+      "unsupported_coordinates",
+    );
+    expect(undefinedReceiver).toContain("receiver");
+  });
 });
 
 describe("the path direction", () => {

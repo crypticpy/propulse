@@ -123,6 +123,8 @@ export class CivSession {
   /** Drop buffered bytes. Call when the link opens and when it closes. */
   resetParser(): void {
     this.frameParser.reset();
+    this.unsolicitedFrameCount = 0;
+    this.scopeFrameCount = 0;
   }
 
   /** Fail the in-flight command, if any. Call when the link closes. */
@@ -196,7 +198,7 @@ export class CivSession {
 
   /** Handle unsolicited CI-V frames (frequency changes from front panel, scope data) */
   private handleUnsolicitedFrame(frame: CivFrame): void {
-    // Log all unsolicited frames during first 30s for diagnostics
+    // Log the first UNSOLICITED_LOG_LIMIT unsolicited frames for diagnostics, then go quiet
     this.unsolicitedFrameCount++;
     if (this.unsolicitedFrameCount <= UNSOLICITED_LOG_LIMIT) {
       console.log(

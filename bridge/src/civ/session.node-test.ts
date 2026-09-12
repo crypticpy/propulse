@@ -244,6 +244,63 @@ test("cancelPending fails the in-flight command", async () => {
   assert.equal(await pending, null);
 });
 
+// ─── Timer cleanup ────────────────────────────────────────────────────────────
+
+test("a matching response clears the pending command's timeout timer", async (t) => {
+  const h = harness();
+  const setTimeoutSpy = t.mock.method(globalThis, "setTimeout");
+  const clearTimeoutSpy = t.mock.method(globalThis, "clearTimeout");
+
+  const pending = h.session.sendCommand(toRadio(CivCmd.READ_FREQ));
+  await tick();
+
+  assert.equal(setTimeoutSpy.mock.calls.length, 1);
+  const timerHandle = setTimeoutSpy.mock.calls[0].result;
+
+  h.receive(fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(14_074_000)));
+  const frame = await pending;
+  assert.ok(frame);
+
+  const clearedHandles = clearTimeoutSpy.mock.calls.map((c) => c.arguments[0]);
+  assert.ok(
+    clearedHandles.includes(timerHandle),
+    "expected clearTimeout to be called with the resolved command's timer",
+  );
+
+  // The queue must still be healthy afterward: nothing left dangling.
+  const next = h.session.sendCommand(toRadio(CivCmd.READ_MODE));
+  await tick();
+  h.receive(fromRadio(CivCmd.READ_MODE, [0x01, 0x01]));
+  assert.ok(await next);
+});
+
+test("cancelPending clears the pending command's timeout timer", async (t) => {
+  const h = harness();
+  const setTimeoutSpy = t.mock.method(globalThis, "setTimeout");
+  const clearTimeoutSpy = t.mock.method(globalThis, "clearTimeout");
+
+  const pending = h.session.sendCommand(toRadio(CivCmd.READ_FREQ));
+  await tick();
+
+  assert.equal(setTimeoutSpy.mock.calls.length, 1);
+  const timerHandle = setTimeoutSpy.mock.calls[0].result;
+
+  h.session.cancelPending();
+  assert.equal(await pending, null);
+
+  const clearedHandles = clearTimeoutSpy.mock.calls.map((c) => c.arguments[0]);
+  assert.ok(
+    clearedHandles.includes(timerHandle),
+    "expected cancelPending to clear the pending command's timer",
+  );
+
+  // The queue must still accept and resolve the next command normally.
+  const next = h.session.sendCommand(toRadio(CivCmd.READ_MODE));
+  await tick();
+  h.receive(fromRadio(CivCmd.READ_MODE, [0x01, 0x01]));
+  assert.ok(await next);
+});
+
 // ─── Queue ordering ───────────────────────────────────────────────────────────
 
 test("back-to-back sends stay half-duplex: one frame on the wire at a time", async () => {
@@ -264,6 +321,35 @@ test("back-to-back sends stay half-duplex: one frame on the wire at a time", asy
 
   h.receive(fromRadio(CivCmd.READ_MODE, [0x01, 0x01]));
   assert.ok(await second);
+});
+
+test("write is called exactly once per sendCommand, in order, and cancelling adds no write", async () => {
+  const h = harness();
+
+  const first = h.session.sendCommand(toRadio(CivCmd.READ_FREQ));
+  const second = h.session.sendCommand(toRadio(CivCmd.READ_MODE));
+  await tick();
+
+  assert.equal(h.transport.writes.length, 1, "second write waits its turn");
+  assert.equal(h.transport.writes[0][4], CivCmd.READ_FREQ);
+
+  h.receive(fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(14_074_000)));
+  assert.ok(await first);
+  await tick();
+
+  assert.equal(h.transport.writes.length, 2);
+  assert.equal(h.transport.writes[1][4], CivCmd.READ_MODE);
+
+  // Cancel the (now in-flight) second command instead of answering it.
+  h.session.cancelPending();
+  assert.equal(await second, null);
+  await tick();
+
+  assert.equal(
+    h.transport.writes.length,
+    2,
+    "cancelling a pending command must not produce an additional write",
+  );
 });
 
 test("sendRaw takes its turn in the queue and reports write errors", async () => {

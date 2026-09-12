@@ -117,7 +117,8 @@ describe("drawLightningLayer", () => {
       fakeProjection(),
     );
 
-    expect(fills[0]).toMatchObject({ radius: 6, alpha: 0.3 }); // glow = 6 * intensity(1)
+    // glow = 6 * intensity(1); the glow keeps the flat colour even above the strong threshold
+    expect(fills[0]).toMatchObject({ radius: 6, alpha: 0.3, color: "#ffe566" });
     expect(fills[1]).toMatchObject({
       radius: 3, // core = 3 * intensity(1)
       alpha: 0.8,

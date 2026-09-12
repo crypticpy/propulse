@@ -6,6 +6,10 @@ import { useMapStore } from "@/stores/mapStore";
 import { GreyLineReport } from "./GreyLineReport";
 import { SunReport } from "./SunReport";
 import { SunTile } from "../tiles/SunTile";
+import {
+  assertReportDoesNotOverflow,
+  withReportLayout,
+} from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   location: vi.fn(),
@@ -371,5 +375,15 @@ describe("GreyLineReport", () => {
     // ...and it told the Sun report underneath to close too, rather than
     // leaving that as the thing revealed behind the nested dialog.
     expect(onCloseSun).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the Grey line report body or boxes", () => {
+    vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
+    render(<GreyLineReport open onClose={vi.fn()} />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Grey line");
+    });
   });
 });

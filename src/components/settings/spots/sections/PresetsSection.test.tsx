@@ -180,6 +180,17 @@ describe("PresetsSection", () => {
     expect(testView.view.store.getState().config).toEqual(beforeSnapshot);
   });
 
+  it("scopes the preset name field to the controller instance", async () => {
+    const testView = createTestView();
+    const port = createMemoryLibraryPort();
+    render(<Harness view={testView.view} library={port} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Save as preset" }));
+    const input = screen.getByLabelText("Preset name");
+    expect(input.id).toBe(`${testView.view.store.getState().instanceId}-preset-name`);
+    expect(input.id).not.toBe("preset-name-input");
+  });
+
   it("custom preset lifecycle: save, duplicate, rename and delete send the expected revisions", async () => {
     const testView = createTestView();
     const port = createMemoryLibraryPort();

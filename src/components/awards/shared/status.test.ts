@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { SlotStatus } from "@/lib/awards/types";
-import { STATUS_OPTIONS, statusBg, statusLabel, statusText } from "./status";
+import {
+  STATUS_OPTIONS,
+  legendSwatchConfirmed,
+  legendSwatchNeeded,
+  legendSwatchWorked,
+  progressFillConfirmed,
+  progressFillWorked,
+  statusBg,
+  statusLabel,
+  statusText,
+} from "./status";
 
 const STATUSES: SlotStatus[] = ["confirmed", "worked_unconfirmed", "needed"];
 
@@ -36,6 +46,16 @@ describe("statusText", () => {
     expect(statusText("confirmed")).toBe("text-signal-green");
     expect(statusText("worked_unconfirmed")).toBe("text-caution-amber");
     expect(statusText("needed")).toBe("text-su-muted");
+  });
+});
+
+describe("legend and progress hues", () => {
+  it("exports shared summary swatch and progress fill classes", () => {
+    expect(legendSwatchConfirmed).toBe("bg-signal-green/60");
+    expect(legendSwatchWorked).toBe("bg-caution-amber/60");
+    expect(legendSwatchNeeded).toBe("bg-su-input");
+    expect(progressFillConfirmed).toBe("bg-signal-green");
+    expect(progressFillWorked).toBe("bg-caution-amber");
   });
 });
 

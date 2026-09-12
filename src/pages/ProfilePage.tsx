@@ -65,7 +65,8 @@ import { OnAirToggle } from "@/components/profile/OnAirToggle";
 import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
 import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
-import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
+import { isValidGrid } from "@/lib/utils/grid";
+import { applyIdentitySave } from "@/stores/applyIdentitySave";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
@@ -800,72 +801,13 @@ export default function ProfilePage() {
     }
     setGridError(null);
 
-    if (trimmedCallsign || grid) {
-      const coords = grid ? gridToLatLon(grid) : { lat: 0, lon: 0 };
-      const gridUpper = grid.toUpperCase();
-
-      // Preserve existing multi-location data if available
-      const existingHomeId = station?.homeLocationId;
-      const hasValidHome =
-        station &&
-        existingHomeId &&
-        station.savedLocations?.some((loc) => loc.id === existingHomeId);
-
-      if (hasValidHome && station && existingHomeId) {
-        const updatedLocations = station.savedLocations.map((loc) =>
-          loc.id === existingHomeId
-            ? { ...loc, grid: gridUpper, lat: coords.lat, lon: coords.lon }
-            : loc,
-        );
-        setStation({
-          ...station,
-          callsign: trimmedCallsign,
-          operatorName: operatorName.trim() || undefined,
-          savedLocations: updatedLocations,
-          grid: gridUpper,
-          lat: coords.lat,
-          lon: coords.lon,
-        });
-      } else {
-        // Only create home location if grid is provided
-        if (grid) {
-          const homeLocationId = crypto.randomUUID();
-          const homeLocation = {
-            id: homeLocationId,
-            name: "Home",
-            grid: gridUpper,
-            lat: coords.lat,
-            lon: coords.lon,
-            type: "home" as const,
-            createdAt: new Date().toISOString(),
-          };
-          setStation({
-            callsign: trimmedCallsign,
-            operatorName: operatorName.trim() || undefined,
-            homeLocationId,
-            activeLocationId: null,
-            savedLocations: [homeLocation],
-            grid: gridUpper,
-            lat: coords.lat,
-            lon: coords.lon,
-          });
-        } else {
-          // Callsign only, no grid — create station without location
-          setStation({
-            callsign: trimmedCallsign,
-            operatorName: operatorName.trim() || undefined,
-            homeLocationId: "",
-            activeLocationId: null,
-            savedLocations: station?.savedLocations ?? [],
-            grid: "",
-            lat: 0,
-            lon: 0,
-          });
-        }
-      }
-    } else {
-      setStation(null);
-    }
+    setStation(
+      applyIdentitySave(station, {
+        callsign: trimmedCallsign,
+        operatorName,
+        grid,
+      }),
+    );
 
     setIsEditing(false);
   }, [callsign, operatorName, grid, station, setStation]);

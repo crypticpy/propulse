@@ -721,7 +721,7 @@ export function PropagationForecastMini({
           <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
             <HelpButton onClick={() => setShowHelp(true)} />
           </div>
-          <div className="animate-pulse">Loading forecast...</div>
+          <div>Loading forecast...</div>
         </div>
 
         <HelpModal
@@ -834,7 +834,7 @@ export function PropagationForecastMini({
           </div>
         ))}
         {modelNowCast.pending && (
-          <span className="text-su-muted animate-pulse flex-shrink-0">
+          <span className="text-su-muted flex-shrink-0">
             &hellip;
           </span>
         )}

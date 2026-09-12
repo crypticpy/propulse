@@ -10,6 +10,21 @@ import type { SlotStatus } from "@/lib/awards/types";
 
 export type StatusFilterValue = SlotStatus | "all";
 
+/** Summary legend swatch for confirmed slots (60% opacity fill). */
+export const legendSwatchConfirmed = "bg-signal-green/60";
+
+/** Summary legend swatch for worked-but-unconfirmed slots. */
+export const legendSwatchWorked = "bg-caution-amber/60";
+
+/** Summary legend swatch for needed slots. */
+export const legendSwatchNeeded = "bg-su-input";
+
+/** WAS/WAZ progress bar fill for the confirmed segment. */
+export const progressFillConfirmed = "bg-signal-green";
+
+/** WAS/WAZ progress bar fill for the worked-unconfirmed segment. */
+export const progressFillWorked = "bg-caution-amber";
+
 export function statusBg(status: SlotStatus): string {
   switch (status) {
     case "confirmed":

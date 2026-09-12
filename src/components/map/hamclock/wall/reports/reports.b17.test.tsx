@@ -15,6 +15,11 @@ import {
   calculateZenithAngle,
   getAbsorptionAtLocation,
 } from "@/lib/utils/ionosphere";
+import {
+  assertEveryTabDoesNotOverflow,
+  assertReportDoesNotOverflow,
+  withReportLayout,
+} from "./assertReportDoesNotOverflow";
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -801,5 +806,42 @@ describe("MufReport mirror-height labelling (#1108 PR B2)", () => {
     // the trace needs a target anyway.
     expect(call?.[2]).toBeNull();
     expect(call?.[3]).toBeNull();
+  });
+});
+
+describe("S6 overflow (#880)", () => {
+  it("does not clip the MUF report body or boxes, on either tab", async () => {
+    // A target is set so HOPS has the content it would really carry.
+    mocks.target.mockReturnValue(LONDON);
+    const user = userEvent.setup();
+    render(<MufReport open onClose={vi.fn()} />);
+    await assertEveryTabDoesNotOverflow(
+      screen.getByRole("dialog"),
+      "MUF",
+      user,
+    );
+  });
+
+  it("does not clip the Best band report body or boxes", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandEntry({
+          band: "20m",
+          stable: "verified",
+          physicsOpen: true,
+          physicsScore: 0.8,
+          obs20m: 12,
+          reporters20m: 6,
+          surprise: false,
+        }),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    render(<BestBandReport open onClose={vi.fn()} />);
+    withReportLayout(() => {
+      assertReportDoesNotOverflow(screen.getByRole("dialog"), "Best band");
+    });
   });
 });

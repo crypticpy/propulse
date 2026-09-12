@@ -152,7 +152,7 @@ function MultiplierList({
               transition-all duration-200
               ${
                 isNew
-                  ? "bg-signal-green/30 border border-signal-green/50 text-signal-green animate-pulse"
+                  ? "bg-signal-green/30 border border-signal-green/50 text-signal-green"
                   : "bg-cosmic-cyan/20 border border-cosmic-cyan/30 text-cosmic-cyan"
               }
             `}

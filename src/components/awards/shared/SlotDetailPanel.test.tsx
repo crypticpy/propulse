@@ -1,6 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SlotDetailPanel } from "./SlotDetailPanel";
+
+const BASE_PROPS = {
+  title: "Texas",
+  subtitle: "TX",
+  subtitleClassName: "text-sm text-su-muted font-mono",
+  status: "confirmed" as const,
+  fields: [
+    { label: "QSOs", value: 12 },
+    { label: "Status", value: "Confirmed", tone: "status" as const },
+  ],
+  bands: ["20m"],
+  modes: ["SSB"],
+  ariaLabel: "Details for Texas",
+};
 
 describe("SlotDetailPanel", () => {
   it("renders a WAS-shaped slot: title, subtitle, status wording and bands", () => {
@@ -105,5 +119,32 @@ describe("SlotDetailPanel", () => {
 
     const statusValue = screen.getByText("Confirmed", { selector: "p" });
     expect(statusValue.className).toBe("text-signal-green");
+  });
+
+  it("closes on Escape and restores focus to the element that was active when it opened", () => {
+    const onClose = vi.fn();
+    const opener = document.createElement("button");
+    opener.textContent = "Texas cell";
+    document.body.append(opener);
+    opener.focus();
+
+    const { rerender } = render(
+      <SlotDetailPanel {...BASE_PROPS} onClose={onClose} />,
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Details for Texas" }),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+
+    rerender(<></>);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  afterEach(() => {
+    document.body.style.overflow = "";
   });
 });

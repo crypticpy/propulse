@@ -31,6 +31,7 @@ export function StationProvider({
   const appTheme = useThemeStore((s) => s.themeId);
   const appAccent = useThemeStore((s) => s.accentId);
   const customPrimary = useThemeStore((s) => s.customPrimary);
+  const saturation = useThemeStore((s) => s.saturation);
   // The tone tokens follow colour-blind mode here as well as on the document
   // root, so a scoped subtree never disagrees with the rest of the page.
   const colorBlindMode = useColorBlindMode();
@@ -42,13 +43,25 @@ export function StationProvider({
       theme: resolvedTheme,
       density,
       tokens: {
-        ...stationTokens(resolvedTheme, resolvedAccent, colorBlindMode),
+        ...stationTokens(
+          resolvedTheme,
+          resolvedAccent,
+          colorBlindMode,
+          saturation,
+        ),
         "--su-text-scale": String(
           { standard: 1, large: 1.125, "extra-large": 1.25 }[textSize],
         ),
       },
     }),
-    [resolvedTheme, resolvedAccent, colorBlindMode, density, textSize],
+    [
+      resolvedTheme,
+      resolvedAccent,
+      colorBlindMode,
+      saturation,
+      density,
+      textSize,
+    ],
   );
   return (
     <StationThemeContext.Provider value={value}>

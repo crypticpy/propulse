@@ -359,11 +359,11 @@ export function PresetsSection({
             <h3 className="font-orbitron text-lg font-bold text-su-text">
               {namePrompt?.mode === "rename" ? "Rename preset" : "Save as preset"}
             </h3>
-            <label htmlFor="preset-name-input" className="block text-sm font-medium text-su-text">
+            <label htmlFor={`${controller.instanceId}-preset-name`} className="block text-sm font-medium text-su-text">
               Preset name
             </label>
             <input
-              id="preset-name-input"
+              id={`${controller.instanceId}-preset-name`}
               type="text"
               value={nameValue}
               onChange={(event) => setNameValue(event.target.value)}

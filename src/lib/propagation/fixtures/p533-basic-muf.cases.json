@@ -1,0 +1,555 @@
+{
+  "schema_version": 1,
+  "derived_from": "ml/propagation_validation/reference/golden-v1.json",
+  "reference_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+  "reference_version": "ITURHFProp Version: Sep 11 2026\nP533 Version: 14.2",
+  "case_count": 22,
+  "selection": "The 22 of the 30 golden cases whose great-circle path is shorter than 9000 km. MUFBasic() and MUFOperational() both return immediately above 9000 km, so the BMUF and OPMUF columns of the other eight are produced by the long-path method of section 5.3, which this slice does not implement. Their OPMUF/BMUF ratios (1.42 to 1.76) are not Rop values, which is the visible sign of it.",
+  "columns": "Only the columns slice A can produce are kept: distance, dmax, BMUF, OPMUF and, where the reference names a dominant mode, its order and its own basic MUF. OPMUF is measurable because Rop is a plain ratio and needs no decile factor; OPMUF10 and OPMUF90 are deliberately absent because they do need the ITU-R P.1239 Tables 2 and 3 factors, which are issue #1102 and are not invented here. ele, ptick, Ep, PR, SNR and the reliabilities belong to later slices.",
+  "conventions": {
+    "sunspot_number": "The golden inputs' sunspot_number is written straight into the reference's Path.SSN, which the recommendation and the reference both treat as R12, the 12-month smoothed sunspot number (golden conventions: \"the ionospheric maps are monthly medians indexed by R12 (Path.SSN, 1-311)\"). It is passed to the provider as r12 unchanged. The provider clips R12 at 160 for foF2 exactly as section 3.4 requires, which is why the 250 sunspot cases sit outside this set anyway (they are all longer than 9000 km).",
+    "time": "hour_utc is an integer UTC hour 0-23. The reference's input file carries hour_utc + 1 because ITURHFProp's Path.hour is 1-24, and P533 stores it back to 0-23 internally, so the two agree. The reference's SolarParameters() fixes the day of the month at 15 (\"At present this code only works for the 15th day of the month\"), which is the provider's own monthly anchor, so validAt is YYYY-MM-15THH:00:00Z.",
+    "provider_mode": "reference, not enhanced. The reference mode reproduces P.533-14's own integer month and integer hour convention and the bilinear interpolation of the 1.5-degree grid; enhanced mode interpolates continuously in time and would answer a different instant from the one the oracle was run at.",
+    "day_night": "dayOrNightFromUtcSunTimes at the mid-path control point, which is the reference's own test (UTC hour against wrapped UTC sunrise and sunset), not the solar-zenith test. See operationalMuf.ts: the two disagree on G02, where the reference charges the night-time Rop at local solar noon.",
+    "eirp": "10 log10(tx_power_watts) dBW. Both golden antennas are isotropic with 0 dB gain offset, so EIRP is the delivered power. Every case here is at or below 30 dBW, so all of them read the same P.1240 band and none of them exercises the unverified one."
+  },
+  "tolerances": {
+    "distance_km": 0.1,
+    "dmax_km": 1.0,
+    "basic_muf_mhz": 0.05,
+    "operational_muf_mhz": 0.07,
+    "dominant_mode_basic_muf_mhz": 0.05
+  },
+  "tolerance_derivation": "Not chosen to pass. The CCIR provider has measured residuals against the ITU reference data, pinned in src/lib/propagation/ionosphere/fixtures/reference-parity.json and asserted in provider.test.ts: foF2 within 2e-3 MHz, M(3000)F2 within 1e-3, foE within 1e-3 MHz. Propagating those through equation (3), BMUF = [1 + (Cd/C3000)(B - 1)] foF2 + (fH/2)(1 - d/dmax):\n  - foF2 enters with the MUF factor 1 + (Cd/C3000)(B - 1), which reaches about 3.6 on this corpus (the largest BMUF/foF2 seen), so 3.6 x 2e-3 = 7.2e-3 MHz.\n  - M(3000)F2 enters through B (equation 6), dB/dM = 1 + 2 M (0.0215 + 0.005 sin (7.854/x - 1.9635)) <= 1.21, and dBMUF/dB = (Cd/C3000) foF2 <= 1.06 x 13 = 13.8, so 13.8 x 1.21 x 1e-3 = 1.67e-2 MHz. This is the dominant term.\n  - foE enters only through x = foF2/foE and only above x = 2; dB/dx is about -0.017 there and dx <= 1.4e-3, so under 3e-5 MHz.\n  - the gyrofrequency term is at most 0.7 MHz and its residual is about 1e-3 relative, so under 4e-4 MHz.\n  - the golden BMUF column is printed to two decimals, so +-5e-3 MHz.\nThe sum is 2.9e-2 MHz. The budget is set at 5e-2 MHz, which is that sum with room for the residual being measured at the dump-path control points rather than at these ones, and is still five times smaller than a two-decimal column's own last digit would allow if it were chosen by eye.\nOPMUF is BMUF x Rop with Rop <= 1.3 and its own +-5e-3 printing, so 1.3 x 5e-2 + 5e-3 = 7e-2 MHz.\ndistance: the reference's Earth radius is 6371.009 km and ours is the declared 6371 km (contract M06), a relative difference of 1.4e-6, so at most 1.3e-2 km over a 9000 km path; with the column's +-5e-2 km printing the budget is 1e-1 km.\ndmax: every case here reports the section 3.5.1.1 restriction value 4000.0 exactly, so the budget only has to absorb the possibility of an unrestricted dmax landing just under 4000; 1 km.",
+  "observed_max_delta": {
+    "measured_on": "2026-09-12, provider ccir-numerical-map 1.1.0, reference mode, all 22 cases",
+    "distance_km": 0.0124,
+    "dmax_km": 0.0,
+    "basic_muf_mhz": 0.005,
+    "operational_muf_mhz": 0.005,
+    "dominant_mode_basic_muf_mhz": 0.005,
+    "note": "Every MUF delta is at or under 5e-3 MHz, which is exactly the half-digit of the golden columns' two-decimal printing: on this corpus the leaf and the reference agree to the last digit the oracle publishes. The budgets above are still the derived ones and are not narrowed to the observed spread, because the provider residual they cover is real and these 22 control points do not exercise its worst case. No case is out of tolerance."
+  },
+  "cases": [
+    {
+      "case_id": "G01",
+      "label": "Austin-Dallas NVIS 80m night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 6,
+        "sunspot_number": 100,
+        "frequency_mhz": 3.6,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 4.55,
+        "operational_muf_mhz": 5.92,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 4.55
+      }
+    },
+    {
+      "case_id": "G02",
+      "label": "Austin-Dallas NVIS 40m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 32.7767,
+        "rx_lon": -96.797,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 293.1,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 8.83,
+        "operational_muf_mhz": 10.6,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 8.83
+      }
+    },
+    {
+      "case_id": "G03",
+      "label": "Austin-Chicago 80m regional night",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 41.8781,
+        "rx_lon": -87.6298,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 8,
+        "sunspot_number": 50,
+        "frequency_mhz": 3.6,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 1576.37,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 9.03,
+        "operational_muf_mhz": 11.74,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 9.03
+      }
+    },
+    {
+      "case_id": "G04",
+      "label": "Austin-Denver 40m one-hop",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 11.6,
+        "operational_muf_mhz": 14.5,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 11.6
+      }
+    },
+    {
+      "case_id": "G05",
+      "label": "Austin-New York 20m day",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 40.7128,
+        "rx_lon": -74.006,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 18,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 2431.61,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 24.15,
+        "operational_muf_mhz": 30.18,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 17.43
+      }
+    },
+    {
+      "case_id": "G06",
+      "label": "Honolulu-Los Angeles 17m",
+      "inputs": {
+        "tx_lat": 21.3069,
+        "tx_lon": -157.8583,
+        "rx_lat": 34.0522,
+        "rx_lon": -118.2437,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 22,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 4119.94,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 31.39,
+        "operational_muf_mhz": 39.23,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 31.39
+      }
+    },
+    {
+      "case_id": "G07",
+      "label": "Reykjavik-Fairbanks auroral 30m",
+      "inputs": {
+        "tx_lat": 64.1466,
+        "tx_lon": -21.9426,
+        "rx_lat": 64.8378,
+        "rx_lon": -147.7164,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 15,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 5012.57,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 12.16,
+        "operational_muf_mhz": 13.98,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 12.16
+      }
+    },
+    {
+      "case_id": "G08",
+      "label": "London-Moscow 40m winter night",
+      "inputs": {
+        "tx_lat": 51.5074,
+        "tx_lon": -0.1278,
+        "rx_lat": 55.7558,
+        "rx_lon": 37.6173,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 2,
+        "sunspot_number": 50,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 2500.54,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 6.63,
+        "operational_muf_mhz": 8.62,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 6.63
+      }
+    },
+    {
+      "case_id": "G09",
+      "label": "Delhi-Berlin 20m mid-latitude",
+      "inputs": {
+        "tx_lat": 28.6139,
+        "tx_lon": 77.209,
+        "rx_lat": 52.52,
+        "rx_lon": 13.405,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 14,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 5780.64,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 21.85,
+        "operational_muf_mhz": 27.32,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 21.85
+      }
+    },
+    {
+      "case_id": "G10",
+      "label": "Cairo-Johannesburg 15m trans-equatorial",
+      "inputs": {
+        "tx_lat": 30.0444,
+        "tx_lon": 31.2357,
+        "rx_lat": -26.2041,
+        "rx_lon": 28.0473,
+        "year": 2024,
+        "month": 3,
+        "hour_utc": 12,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6263.76,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 34.47,
+        "operational_muf_mhz": 39.64,
+        "dominant_mode": "3F2",
+        "dominant_mode_basic_muf_mhz": 27.84
+      }
+    },
+    {
+      "case_id": "G11",
+      "label": "Helsinki-Beijing 30m polar-ish",
+      "inputs": {
+        "tx_lat": 60.1699,
+        "tx_lon": 24.9384,
+        "rx_lat": 39.9042,
+        "rx_lon": 116.4074,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 5,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6322.25,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 19.92,
+        "operational_muf_mhz": 23.9,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 19.92
+      }
+    },
+    {
+      "case_id": "G12",
+      "label": "Anchorage-Oslo polar 20m",
+      "inputs": {
+        "tx_lat": 61.2181,
+        "tx_lon": -149.9003,
+        "rx_lat": 59.9139,
+        "rx_lon": 10.7522,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 20,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6443.88,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 13.36,
+        "operational_muf_mhz": 16.03,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 13.36
+      }
+    },
+    {
+      "case_id": "G13",
+      "label": "Toronto-Lima 20m north-south",
+      "inputs": {
+        "tx_lat": 43.6532,
+        "tx_lon": -79.3832,
+        "rx_lat": -12.0464,
+        "rx_lon": -77.0428,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 1,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 6198.07,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 19.96,
+        "operational_muf_mhz": 24.95,
+        "dominant_mode": "2F2",
+        "dominant_mode_basic_muf_mhz": 19.96
+      }
+    },
+    {
+      "case_id": "G14",
+      "label": "Singapore-Nairobi 15m equatorial",
+      "inputs": {
+        "tx_lat": 1.3521,
+        "tx_lon": 103.8198,
+        "rx_lat": -1.2921,
+        "rx_lon": 36.8219,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 11,
+        "sunspot_number": 160,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7454.96,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 36.38,
+        "operational_muf_mhz": 41.84,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G15",
+      "label": "Austin-Sao Paulo 15m",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": -23.5505,
+        "rx_lon": -46.6333,
+        "year": 2024,
+        "month": 10,
+        "hour_utc": 23,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 8095.11,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 21.58,
+        "operational_muf_mhz": 26.97,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G16",
+      "label": "Austin-London 20m transatlantic",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 18.87,
+        "operational_muf_mhz": 21.69,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G17",
+      "label": "Tokyo-Sydney 15m",
+      "inputs": {
+        "tx_lat": 35.6762,
+        "tx_lon": 139.6503,
+        "rx_lat": -33.8688,
+        "rx_lon": 151.2093,
+        "year": 2024,
+        "month": 7,
+        "hour_utc": 4,
+        "sunspot_number": 130,
+        "frequency_mhz": 21.2,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7825.83,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 27.95,
+        "operational_muf_mhz": 33.54,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G18",
+      "label": "Wellington-Honolulu 20m",
+      "inputs": {
+        "tx_lat": -41.2865,
+        "tx_lon": 174.7762,
+        "rx_lat": 21.3069,
+        "rx_lon": -157.8583,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 9,
+        "sunspot_number": 100,
+        "frequency_mhz": 14.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7510.65,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 20.81,
+        "operational_muf_mhz": 24.97,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G19",
+      "label": "Perth-Cape Town 17m southern",
+      "inputs": {
+        "tx_lat": -31.9505,
+        "tx_lon": 115.8605,
+        "rx_lat": -33.9249,
+        "rx_lon": 18.4241,
+        "year": 2024,
+        "month": 12,
+        "hour_utc": 16,
+        "sunspot_number": 130,
+        "frequency_mhz": 18.1,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 8697.26,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 14.35,
+        "operational_muf_mhz": 17.23,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G26",
+      "label": "Austin-London 10m solar min closed",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 1,
+        "hour_utc": 0,
+        "sunspot_number": 10,
+        "frequency_mhz": 28.5,
+        "tx_power_watts": 100.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 6.85,
+        "operational_muf_mhz": 8.91,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G27",
+      "label": "Austin-London 30m 1 W narrow-band",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 51.5074,
+        "rx_lon": -0.1278,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 12,
+        "sunspot_number": 100,
+        "frequency_mhz": 10.1,
+        "tx_power_watts": 1.0
+      },
+      "expected": {
+        "distance_km": 7910.38,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 18.87,
+        "operational_muf_mhz": 21.69,
+        "dominant_mode": "NONE"
+      }
+    },
+    {
+      "case_id": "G28",
+      "label": "Austin-Denver 40m 1 kW digital",
+      "inputs": {
+        "tx_lat": 30.2672,
+        "tx_lon": -97.7431,
+        "rx_lat": 39.7392,
+        "rx_lon": -104.9903,
+        "year": 2024,
+        "month": 4,
+        "hour_utc": 3,
+        "sunspot_number": 100,
+        "frequency_mhz": 7.1,
+        "tx_power_watts": 1000.0
+      },
+      "expected": {
+        "distance_km": 1241.93,
+        "dmax_km": 4000.0,
+        "basic_muf_mhz": 11.6,
+        "operational_muf_mhz": 14.5,
+        "dominant_mode": "1F2",
+        "dominant_mode_basic_muf_mhz": 11.6
+      }
+    }
+  ]
+}

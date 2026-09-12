@@ -340,7 +340,7 @@ export function ImageCropDialog({
         <button
           ref={cancelRef}
           type="button"
-          onClick={onClose}
+          onClick={handleDismiss}
           disabled={saving}
           className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
                      bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40

@@ -1,0 +1,97 @@
+{
+  "protocol_id": "propagation-candidate-0.1.0",
+  "qualification": "BLOCKED",
+  "synthetic_only": true,
+  "fixtures": [
+    {
+      "id": "M12-geodesic-invalid",
+      "event": "covariance",
+      "domain": "sphere_equatorial_four_point",
+      "units": "dimensionless_variance",
+      "role": "synthetic",
+      "kernel": "geodesic_se_counterexample",
+      "radius_km": 6371,
+      "ell_km": 15000,
+      "sigma": 1,
+      "longitudes_deg": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "expected_min_eigenvalue": -0.19037664870820725,
+      "tolerance": 1e-12,
+      "expected_psd": false
+    },
+    {
+      "id": "M12-chordal-valid",
+      "event": "covariance",
+      "domain": "sphere_equatorial_four_point",
+      "units": "dimensionless_variance",
+      "role": "synthetic",
+      "kernel": "chordal_se_times_temporal_exponential",
+      "radius_km": 6371,
+      "ell_km": 15000,
+      "sigma": 1,
+      "longitudes_deg": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "expected_min_eigenvalue": 0.027245628137876343,
+      "tolerance": 1e-12,
+      "expected_psd": true
+    }
+  ],
+  "labels": [
+    {
+      "id": "observed",
+      "event": "snr2500",
+      "domain": "synthetic_characterized_exposure",
+      "units": "dB",
+      "label_kind": "observed_snr",
+      "snr_db": -12,
+      "bound_db": null,
+      "ordinary_mae_eligible": true,
+      "tx_id": "synthetic-tx",
+      "rx_id": "synthetic-rx",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "valid_at": "2026-01-01T01:00:00Z",
+      "available_at": "2026-01-01T01:01:00Z",
+      "captured_at": "2026-01-01T01:02:00Z"
+    },
+    {
+      "id": "failed-censored",
+      "event": "snr2500",
+      "domain": "synthetic_characterized_exposure",
+      "units": "dB",
+      "label_kind": "censored_upper_bound",
+      "snr_db": null,
+      "bound_db": -24,
+      "ordinary_mae_eligible": false,
+      "tx_id": "synthetic-tx",
+      "rx_id": "synthetic-rx",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "valid_at": "2026-01-01T01:00:00Z",
+      "available_at": "2026-01-01T01:01:00Z",
+      "captured_at": "2026-01-01T01:02:00Z"
+    },
+    {
+      "id": "unknown",
+      "event": "snr2500",
+      "domain": "synthetic_characterized_exposure",
+      "units": "dB",
+      "label_kind": "unknown",
+      "snr_db": null,
+      "bound_db": null,
+      "ordinary_mae_eligible": false,
+      "tx_id": "synthetic-tx",
+      "rx_id": "synthetic-rx",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "valid_at": "2026-01-01T01:00:00Z",
+      "available_at": "2026-01-01T01:01:00Z",
+      "captured_at": "2026-01-01T01:02:00Z"
+    }
+  ]
+}

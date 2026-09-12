@@ -1,8 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { LayersPopover } from "./LayersPopover";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { useMapStore } from "@/stores/mapStore";
+
+vi.mock("@/hooks/useSatellites", () => ({
+  useSatellites: () => ({ satellites: [] }),
+}));
+
+vi.mock("./SatellitePanel", () => ({
+  SatellitePanel: () => <div>Satellite panel stub</div>,
+}));
 
 /**
  * B1/HW-23: the popover is portalled to `document.body` and positioned with
@@ -235,4 +245,58 @@ describe("LayersPopover viewport clamp", () => {
       }
     },
   );
+});
+
+describe("LayersPopover satellite list (#1085)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    useMapStore.setState({
+      layers: { ...useMapStore.getState().layers, satellites: true },
+    });
+  });
+
+  afterEach(() => {
+    useMapStore.setState({
+      layers: { ...useMapStore.getState().layers, satellites: false },
+      satelliteCategoryFilter: "all",
+    });
+  });
+
+  it("opens a Satellites dialog with no inline rows and restores Layers focus", async () => {
+    render(
+      <MemoryRouter>
+        <ViewProvider
+          ownerId="test-owner"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          <LayersPopover />
+        </ViewProvider>
+      </MemoryRouter>,
+    );
+
+    const layers = screen.getByRole("button", { name: /layers/i });
+    fireEvent.click(layers);
+    fireEvent.mouseEnter(screen.getByText("Activity"));
+    expect(
+      await screen.findByRole("button", { name: "See full list" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Manage satellites" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "See full list" }));
+    expect(screen.getByRole("dialog", { name: "Satellites" })).toBeTruthy();
+    expect(screen.getByText("Satellite panel stub")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Satellites" })).toBeNull();
+    });
+    expect(document.activeElement).toBe(layers);
+  });
 });

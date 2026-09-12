@@ -31,12 +31,12 @@ describe("parseOperatingMessage", () => {
     const message = parseOperatingMessage({
       ...envelope(),
       kind: "state",
-      patch: { band: { value: "20m", at: 900 } },
+      patch: { band: { value: "20m", at: 900, by: "screen-a" } },
     });
     expect(message).toEqual({
       ...envelope(),
       kind: "state",
-      patch: { band: { value: "20m", at: 900 } },
+      patch: { band: { value: "20m", at: 900, by: "screen-a" } },
     });
   });
 
@@ -44,9 +44,54 @@ describe("parseOperatingMessage", () => {
     const message = parseOperatingMessage({
       ...envelope(),
       kind: "state",
-      patch: { contact: { value: null, at: 900 } },
+      patch: { contact: { value: null, at: 900, by: "screen-a" } },
     });
     expect(message?.kind).toBe("state");
+  });
+
+  it("keeps an entry that names no author, rather than dropping it", () => {
+    // A tab left open across a deploy runs a bundle older than #859 round 5,
+    // which cannot name an author. It is still a supported peer: the entry
+    // parses with `by` undefined, and `mergePatch` — not the parser — is what
+    // refuses to let an authorless entry win a same-millisecond tie-break.
+    const message = parseOperatingMessage({
+      ...envelope(),
+      kind: "state",
+      patch: { band: { value: "20m", at: 900 } },
+    });
+    expect(message?.kind).toBe("state");
+    expect(message?.kind === "state" ? message.patch.band?.by : "unset").toBeUndefined();
+
+    // A non-string author is no better than none — dropped to undefined, not
+    // rejected, for the same reason.
+    const junk = parseOperatingMessage({
+      ...envelope(),
+      kind: "state",
+      patch: { band: { value: "20m", at: 900, by: 7 } },
+    });
+    expect(junk?.kind).toBe("state");
+    expect(junk?.kind === "state" ? junk.patch.band?.by : "unset").toBeUndefined();
+  });
+
+  it("drops a version this bundle has never seen", () => {
+    expect(
+      parseOperatingMessage({
+        v: OPERATING_PROTOCOL_VERSION + 1,
+        senderId: "screen-a",
+        sentAt: 1_000,
+        kind: "state",
+        patch: { band: { value: "20m", at: 900, by: "screen-a" } },
+      }),
+    ).toBeNull();
+    expect(
+      parseOperatingMessage({
+        v: 0,
+        senderId: "screen-a",
+        sentAt: 1_000,
+        kind: "state",
+        patch: { band: { value: "20m", at: 900, by: "screen-a" } },
+      }),
+    ).toBeNull();
   });
 
   it.each([

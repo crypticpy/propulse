@@ -1,53 +1,19 @@
 /**
- * SatelliteFilters — Inline satellite category filtering and compact list
+ * SatelliteFilters — Layers-menu satellite controls (#1085)
  *
- * Embedded inside the Activity submenu of LayersPopover. Shows category
- * filter chips, a "Popular" satellite section, and an expandable "All
- * Satellites" list grouped by category.
+ * Embedded inside the Activity submenu of LayersPopover. Keeps the on/off
+ * toggle's companion controls: category chips, tracking status, and two
+ * spelled-out buttons that open the existing satellite surfaces. Per-satellite
+ * rows live on those surfaces, not in this popover.
  */
 
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { useSatellites } from "@/hooks/useSatellites";
-import { POPULAR_SATS } from "@/lib/api/satellites";
 import { CATEGORY_META } from "@/lib/utils/satellite";
-import type { SatelliteCategory, SatelliteInfo } from "@/types/satellite";
-
-// ---------------------------------------------------------------------------
-// Inline micro-components (copied from SatellitePanel — ~10 lines each)
-// ---------------------------------------------------------------------------
-
-function CategoryBadge({ category }: { category: SatelliteCategory }) {
-  const meta = CATEGORY_META[category];
-  return (
-    <span
-      className={`inline-block px-1 py-px rounded text-xs font-semibold uppercase tracking-wider leading-none ${meta.color} ${meta.bg}`}
-    >
-      {meta.label}
-    </span>
-  );
-}
-
-function VisibilityDot({ isVisible }: { isVisible: boolean }) {
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-        isVisible ? "bg-green-400 animate-pulse" : "bg-su-line"
-      }`}
-      title={isVisible ? "Above horizon" : "Below horizon"}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const POPULAR_NORAD_IDS = new Set(
-  Object.values(POPULAR_SATS).map((s) => s.noradId),
-);
+import type { SatelliteCategory } from "@/types/satellite";
 
 const CATEGORY_ORDER: SatelliteCategory[] = [
   "iss",
@@ -58,35 +24,27 @@ const CATEGORY_ORDER: SatelliteCategory[] = [
   "other",
 ];
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+const ACTION_BUTTON_CLASS =
+  "flex min-h-11 w-full items-center justify-center rounded-lg border border-su-line/30 bg-su-line/15 px-3 text-sm font-medium text-su-text transition-colors hover:bg-su-line/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50";
 
-export default function SatelliteFilters() {
+export interface SatelliteFiltersProps {
+  /** Opens the Satellites list (centered dialog / existing panel). */
+  onSeeFullList: () => void;
+  /** Called when navigating to `/satellites` so the Layers popover can close. */
+  onManageSatellites?: () => void;
+}
+
+export default function SatelliteFilters({
+  onSeeFullList,
+  onManageSatellites,
+}: SatelliteFiltersProps) {
   const satelliteCategoryFilter = useMapStore((s) => s.satelliteCategoryFilter);
   const setSatelliteCategoryFilter = useMapStore(
     (s) => s.setSatelliteCategoryFilter,
   );
-  const satelliteShowAll = useMapStore((s) => s.satelliteShowAll);
-  const setSatelliteShowAll = useMapStore((s) => s.setSatelliteShowAll);
-  const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
-  const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
-  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
-
-  // Picking from the list is an explicit request for details: select the
-  // satellite (follower popup on the globe) and open the modal directly,
-  // since flat/azimuthal views have no popup to open it from.
-  const handleSelect = useCallback(
-    (noradId: number | null) => {
-      setSelectedSatelliteId(noradId);
-      setSatelliteModalId(noradId);
-    },
-    [setSelectedSatelliteId, setSatelliteModalId],
-  );
 
   const { satellites } = useSatellites();
 
-  // Count satellites per category
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<SatelliteCategory, number>> = {};
     for (const sat of satellites) {
@@ -95,7 +53,6 @@ export default function SatelliteFilters() {
     return counts;
   }, [satellites]);
 
-  // Filter chips data
   const chips = useMemo(() => {
     const result: Array<{
       key: SatelliteCategory | "all";
@@ -112,37 +69,9 @@ export default function SatelliteFilters() {
     return result;
   }, [satellites.length, categoryCounts]);
 
-  // Filtered satellites
-  const filtered = useMemo(() => {
-    if (satelliteCategoryFilter === "all") return satellites;
-    return satellites.filter((s) => s.category === satelliteCategoryFilter);
-  }, [satellites, satelliteCategoryFilter]);
-
-  // Popular satellites (matching current filter)
-  const popularSats = useMemo(
-    () => filtered.filter((s) => POPULAR_NORAD_IDS.has(s.noradId)),
-    [filtered],
-  );
-
-  // Remaining (non-popular) grouped by category
-  const remainingSats = useMemo(
-    () => filtered.filter((s) => !POPULAR_NORAD_IDS.has(s.noradId)),
-    [filtered],
-  );
-
-  const groupedRemaining = useMemo(() => {
-    const groups: Partial<Record<SatelliteCategory, SatelliteInfo[]>> = {};
-    for (const sat of remainingSats) {
-      if (!groups[sat.category]) groups[sat.category] = [];
-      groups[sat.category]!.push(sat);
-    }
-    return groups;
-  }, [remainingSats]);
-
   return (
-    <div className="space-y-1.5">
-      {/* ── Category chips ── */}
-      <div className="flex flex-wrap gap-1">
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Satellite category">
         {chips.map((chip) => {
           const isActive = satelliteCategoryFilter === chip.key;
           return (
@@ -150,15 +79,15 @@ export default function SatelliteFilters() {
               key={chip.key}
               type="button"
               onClick={() => setSatelliteCategoryFilter(chip.key)}
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-9 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                  : "bg-su-line/20 text-su-text/80 border border-transparent hover:bg-su-line/30 hover:text-su-text"
+                  ? "border border-cyan-500/40 bg-cyan-500/20 text-cyan-400"
+                  : "border border-transparent bg-su-line/20 text-su-text/80 hover:bg-su-line/30 hover:text-su-text"
               }`}
             >
-              {chip.label}
+              {chip.label}{" "}
               <span
-                className={`text-xs tabular-nums ${isActive ? "text-cyan-400/70" : "text-su-text/80"}`}
+                className={`tabular-nums ${isActive ? "text-cyan-400/70" : "text-su-text/80"}`}
               >
                 {chip.count}
               </span>
@@ -167,94 +96,23 @@ export default function SatelliteFilters() {
         })}
       </div>
 
-      {/* ── Popular section ── */}
-      {popularSats.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1 mb-0.5 px-0.5">
-            <svg
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              className="w-3 h-3 text-yellow-500/70"
-            >
-              <path d="M8 1.5l1.85 3.75 4.15.6-3 2.92.71 4.13L8 10.88l-3.71 1.97.71-4.08-3-2.97 4.15-.6L8 1.5z" />
-            </svg>
-            <span className="text-xs font-semibold text-su-text/80 uppercase tracking-wider">
-              Popular
-            </span>
-          </div>
-          <div className="flex flex-col">
-            {popularSats.map((sat) => (
-              <SatRow
-                key={sat.noradId}
-                sat={sat}
-                isSelected={selectedSatelliteId === sat.noradId}
-                onSelect={handleSelect}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── All Satellites (collapsible) ── */}
-      <div>
+      <div className="flex flex-col gap-1.5">
         <button
           type="button"
-          onClick={() => setSatelliteShowAll(!satelliteShowAll)}
-          className="flex items-center gap-1 w-full px-0.5 py-0.5 hover:bg-su-line/10 rounded transition-colors"
+          onClick={onSeeFullList}
+          className={ACTION_BUTTON_CLASS}
         >
-          <svg
-            viewBox="0 0 10 10"
-            fill="none"
-            className={`w-2.5 h-2.5 text-su-text/40 transition-transform duration-150 ${
-              satelliteShowAll ? "rotate-90" : ""
-            }`}
-          >
-            <path
-              d="M3 1.5l4 3.5-4 3.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="text-xs font-semibold text-su-text/80 uppercase tracking-wider">
-            All Satellites
-          </span>
-          <span className="text-xs text-su-text/80 tabular-nums">
-            ({remainingSats.length})
-          </span>
+          See full list
         </button>
-
-        {satelliteShowAll && (
-          <div className="max-h-48 overflow-y-auto scrollbar-hide mt-0.5">
-            {CATEGORY_ORDER.map((cat) => {
-              const group = groupedRemaining[cat];
-              if (!group || group.length === 0) return null;
-              return (
-                <div key={cat} className="mb-1">
-                  <div className="px-0.5 py-0.5">
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider ${CATEGORY_META[cat].color}`}
-                    >
-                      {CATEGORY_META[cat].label}
-                    </span>
-                  </div>
-                  {group.map((sat) => (
-                    <SatRow
-                      key={sat.noradId}
-                      sat={sat}
-                      isSelected={selectedSatelliteId === sat.noradId}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <Link
+          to="/satellites"
+          onClick={onManageSatellites}
+          className={ACTION_BUTTON_CLASS}
+        >
+          Manage satellites
+        </Link>
       </div>
 
-      {/* ── Tracking status + manage link ── */}
       <TrackingStatusFooter totalCount={satellites.length} />
     </div>
   );
@@ -271,54 +129,8 @@ function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
     : "Tracking all";
 
   return (
-    /*
-      This footer sits in the same rem-sized LayersPopover submenu column
-      as BasemapCategory's "Image quality" row. The tracking label ("Tracking
-      <n> of <n>") and the "Manage" link are both `text-xs`; at the xl scale
-      a two-digit count on each side can push their combined width past the
-      column. `flex-wrap` lets "Manage" drop to its own line instead of
-      overflowing.
-    */
-    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 px-0.5 pt-1 border-t border-su-line/20">
+    <div className="border-t border-su-line/20 px-0.5 pt-1">
       <span className="text-xs text-su-text/80">{label}</span>
-      <Link
-        to="/satellites"
-        className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
-      >
-        Manage
-      </Link>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Satellite row
-// ---------------------------------------------------------------------------
-
-function SatRow({
-  sat,
-  isSelected,
-  onSelect,
-}: {
-  sat: SatelliteInfo;
-  isSelected: boolean;
-  onSelect: (noradId: number | null) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(sat.noradId)}
-      className={`w-full flex items-center gap-1.5 px-1 py-0.5 rounded text-left transition-colors ${
-        isSelected
-          ? "bg-cyan-500/10 border border-cyan-500/30"
-          : "border border-transparent hover:bg-su-line/10"
-      }`}
-    >
-      <VisibilityDot isVisible={sat.isVisible} />
-      <span className="flex-1 text-xs font-mono text-su-muted truncate">
-        {sat.name}
-      </span>
-      <CategoryBadge category={sat.category} />
-    </button>
   );
 }

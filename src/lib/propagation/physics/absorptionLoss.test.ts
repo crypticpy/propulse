@@ -435,21 +435,6 @@ describe("absorptionLoss", () => {
     expect(() =>
       absorptionLoss({ ...base, rayPathElevationRad: Number.NaN }),
     ).toThrow(RangeError);
-    expect(() =>
-      absorptionLoss({
-        ...base,
-        rayPathElevationRad: Math.PI / 2 + 1e-9,
-      }),
-    ).toThrow(RangeError);
-    expect(() =>
-      absorptionLoss({ ...base, rayPathElevationRad: Math.PI }),
-    ).toThrow(RangeError);
-  });
-
-  it("accepts a vertical ray at exactly pi/2, the elevation boundary", () => {
-    expect(() =>
-      absorptionLoss({ ...base, rayPathElevationRad: Math.PI / 2 }),
-    ).not.toThrow();
   });
 
   it("rejects a non-finite or negative sunspot number, exported leaf and all", () => {

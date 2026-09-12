@@ -153,7 +153,7 @@ export function MemoryPanel({
             onKeyDown={handleStoreKeyDown}
             placeholder="Memory name"
             autoFocus
-            className="w-full px-2 py-1 text-[11px] font-mono text-su-text
+            className="w-full px-2 py-1 text-xs font-mono text-su-text
               bg-su-input border border-su-line/40 rounded
               focus:border-cosmic-cyan/50 focus:outline-none
               placeholder:text-su-muted"
@@ -164,7 +164,7 @@ export function MemoryPanel({
               <button
                 key={b}
                 onClick={() => setStoreBank(b)}
-                className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
+                className={`flex-1 px-1 py-0.5 text-xs font-bold rounded border transition-colors ${
                   storeBank === b
                     ? BANK_COLORS[b]
                     : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
@@ -179,7 +179,7 @@ export function MemoryPanel({
             <button
               onClick={handleConfirmStore}
               disabled={!storeName.trim()}
-              className="flex-1 px-2 py-1 text-[10px] font-semibold rounded border transition-colors
+              className="flex-1 px-2 py-1 text-xs font-semibold rounded border transition-colors
                 bg-signal-green/10 border-signal-green/30 text-signal-green
                 hover:bg-signal-green/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -187,7 +187,7 @@ export function MemoryPanel({
             </button>
             <button
               onClick={handleCancelStore}
-              className="flex-1 px-2 py-1 text-[10px] font-semibold rounded border transition-colors
+              className="flex-1 px-2 py-1 text-xs font-semibold rounded border transition-colors
                 bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             >
               Cancel
@@ -198,7 +198,7 @@ export function MemoryPanel({
         <button
           onClick={handleStartStore}
           disabled={!effectiveState || isFull}
-          className="w-full px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+          className="w-full px-2 py-1.5 text-xs font-semibold rounded border transition-colors
             bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan
             hover:bg-cosmic-cyan/20
             disabled:opacity-40 disabled:cursor-not-allowed"
@@ -211,7 +211,7 @@ export function MemoryPanel({
       <div className="flex gap-0.5">
         <button
           onClick={() => setActiveBank("ALL")}
-          className={`px-1.5 py-0.5 text-[9px] font-bold rounded border transition-colors ${
+          className={`px-1.5 py-0.5 text-xs font-bold rounded border transition-colors ${
             activeBank === "ALL"
               ? "bg-su-line/20 border-su-line/50 text-su-text"
               : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
@@ -219,7 +219,7 @@ export function MemoryPanel({
         >
           ALL
           {bankCounts.ALL > 0 && (
-            <span className="ml-0.5 text-[8px] opacity-60">
+            <span className="ml-0.5 text-xs opacity-60">
               {bankCounts.ALL}
             </span>
           )}
@@ -228,7 +228,7 @@ export function MemoryPanel({
           <button
             key={b}
             onClick={() => setActiveBank(b)}
-            className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
+            className={`flex-1 px-1 py-0.5 text-xs font-bold rounded border transition-colors ${
               activeBank === b
                 ? BANK_COLORS[b]
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
@@ -236,7 +236,7 @@ export function MemoryPanel({
           >
             {b}
             {(bankCounts[b] ?? 0) > 0 && (
-              <span className="ml-0.5 text-[8px] opacity-60">
+              <span className="ml-0.5 text-xs opacity-60">
                 {bankCounts[b]}
               </span>
             )}
@@ -248,7 +248,7 @@ export function MemoryPanel({
       {activeBank !== "ALL" && (bankCounts[activeBank] ?? 0) > 0 && (
         <button
           onClick={() => clearBank(activeBank)}
-          className="w-full text-[9px] text-alert-red/60 hover:text-alert-red transition-colors text-right"
+          className="w-full text-xs text-alert-red/60 hover:text-alert-red transition-colors text-right"
         >
           Clear bank {activeBank}
         </button>
@@ -256,7 +256,7 @@ export function MemoryPanel({
 
       {/* Memory list */}
       {filtered.length === 0 ? (
-        <div className="text-[9px] text-su-muted leading-tight py-2 text-center">
+        <div className="text-xs text-su-muted leading-tight py-2 text-center">
           {memories.length === 0
             ? "No memories saved. Store your first frequency."
             : `No memories in bank ${activeBank}.`}
@@ -283,17 +283,17 @@ export function MemoryPanel({
                 />
 
                 {/* Name (truncated) */}
-                <span className="text-[10px] text-su-muted truncate flex-1 min-w-0">
+                <span className="text-xs text-su-muted truncate flex-1 min-w-0">
                   {mem.name}
                 </span>
 
                 {/* Frequency */}
-                <span className="text-[9px] font-mono text-su-muted shrink-0">
+                <span className="text-xs font-mono text-su-muted shrink-0">
                   {formatFreqMHz(mem.freq)}
                 </span>
 
                 {/* Mode badge */}
-                <span className="text-[8px] font-bold text-su-muted bg-su-line/10 px-1 py-0.5 rounded shrink-0">
+                <span className="text-xs font-bold text-su-muted bg-su-line/10 px-1 py-0.5 rounded shrink-0">
                   {mem.mode}
                 </span>
 
@@ -303,7 +303,7 @@ export function MemoryPanel({
                     e.stopPropagation();
                     removeMemory(mem.id);
                   }}
-                  className="text-[9px] text-su-muted hover:text-alert-red transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                  className="text-xs text-su-muted hover:text-alert-red transition-colors shrink-0 opacity-0 group-hover:opacity-100"
                   title="Delete memory"
                 >
                   &times;
@@ -316,7 +316,7 @@ export function MemoryPanel({
 
       {/* Footer: count */}
       {memories.length > 0 && (
-        <div className="text-[8px] text-su-muted text-right">
+        <div className="text-xs text-su-muted text-right">
           {memories.length}/{MAX_MEMORIES} memories
         </div>
       )}

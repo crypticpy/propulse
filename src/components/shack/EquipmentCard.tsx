@@ -481,7 +481,7 @@ export function EquipmentCard({
           // Layout
           "equipment-card group relative flex flex-col w-full min-w-0",
           // 3D flip
-          "bg-[#0f1420] rounded-xl overflow-hidden",
+          "bg-su-panel rounded-xl overflow-hidden",
           // Border (dynamic color set via style)
           "border-2",
           // Cursor
@@ -553,13 +553,13 @@ export function EquipmentCard({
           {/* Type label + tier */}
           <div className="flex items-center gap-1">
             <span
-              className={`equipment-card-type text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
+              className={`equipment-card-type text-xs uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
             >
               {resolvedTypeLabel}
             </span>
             {tier && (
               <span
-                className={`equipment-card-type text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
+                className={`equipment-card-type text-xs uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
               >
                 {" "}
                 &middot; {TIER_LABELS[tier]}
@@ -682,14 +682,14 @@ export function EquipmentCard({
                   {displayStats?.map((stat) => (
                     <div
                       key={stat.label}
-                      className="flex items-center justify-between text-[11px] text-su-muted"
+                      className="flex items-center justify-between text-xs text-su-muted"
                     >
                       <span className="text-su-muted">{stat.label}</span>
                       <span className="font-mono">{stat.value}</span>
                     </div>
                   ))}
                   {qsoCount > 0 && (
-                    <p className="text-[11px] font-mono text-plasma-orange">
+                    <p className="text-xs font-mono text-plasma-orange">
                       {qsoCount} QSO{qsoCount === 1 ? "" : "s"} on this piece
                     </p>
                   )}
@@ -698,7 +698,7 @@ export function EquipmentCard({
                       {historyLines.map((line) => (
                         <li
                           key={line}
-                          className="text-[10px] text-su-muted truncate"
+                          className="text-xs text-su-muted truncate"
                         >
                           {line}
                         </li>
@@ -708,7 +708,7 @@ export function EquipmentCard({
                   {(!displayStats || displayStats.length === 0) &&
                     historyLines.length === 0 &&
                     qsoCount === 0 && (
-                      <p className="text-[11px] text-su-muted">
+                      <p className="text-xs text-su-muted">
                         No logged history yet
                       </p>
                     )}
@@ -779,7 +779,7 @@ export function EquipmentCard({
                     />
                     <circle cx={8} cy={8.5} r={2.5} />
                   </svg>
-                  <span className="text-[10px] font-mono text-su-text/70">
+                  <span className="text-xs font-mono text-su-text/70">
                     {1 + galleryImageIds.length}
                   </span>
                 </div>
@@ -820,7 +820,7 @@ export function EquipmentCard({
                     enabled={rankState.hasStatCountUp}
                   />
                 </span>
-                <span className="text-[9px] sm:text-[10px] text-su-muted truncate max-w-[60px] text-center">
+                <span className="text-xs text-su-muted truncate max-w-[60px] text-center">
                   {stat.label}
                 </span>
               </div>
@@ -856,7 +856,7 @@ export function EquipmentCard({
               return (
                 <span
                   key={`${cap.category}-${cap.label}-${i}`}
-                  className={`equipment-card-capability inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
+                  className={`equipment-card-capability inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono font-medium rounded border ${pillStyle}`}
                 >
                   {dotClass && (
                     <span
@@ -878,7 +878,7 @@ export function EquipmentCard({
             {badges?.map((badge, i) => (
               <span
                 key={`${badge.label}-${i}`}
-                className={`equipment-card-badge px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+                className={`equipment-card-badge px-1.5 py-0.5 text-xs font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
               >
                 {badge.label}
               </span>
@@ -914,7 +914,7 @@ export function EquipmentCard({
                 </button>
                 <span
                   className={[
-                    "text-[10px] font-semibold uppercase tracking-wider",
+                    "text-xs font-semibold uppercase tracking-wider",
                     isActive ? "text-signal-green" : "text-su-muted",
                   ].join(" ")}
                 >

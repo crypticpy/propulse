@@ -39,7 +39,7 @@ function QueueSlot({
       aria-live={live}
       aria-atomic={live ? true : undefined}
     >
-      <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
+      <p className="text-xs uppercase tracking-widest text-su-muted mb-1">
         {label}
       </p>
       {callsign ? (
@@ -70,7 +70,7 @@ export function QueuePanel({ checkins, onAdvance, onSkip }: QueuePanelProps) {
 
   return (
     <div className="space-y-3" aria-label="Speaking queue" role="region">
-      <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted">
         Speaking Queue
       </h3>
 

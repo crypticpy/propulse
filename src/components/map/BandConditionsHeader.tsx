@@ -148,7 +148,7 @@ export function BandConditionsHeader({
       {/* Status row -- the values that used to crowd the title */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span
-          className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+          className={`text-xs font-mono px-1.5 py-0.5 rounded ${
             currentKp >= 4
               ? "bg-caution-amber/20 text-caution-amber"
               : "bg-su-line/10 text-su-muted"
@@ -158,7 +158,7 @@ export function BandConditionsHeader({
           Kp {currentKp}
         </span>
         <span
-          className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+          className={`text-xs font-mono px-1.5 py-0.5 rounded ${
             currentSfi >= 120
               ? "bg-signal-green/20 text-signal-green"
               : "bg-su-line/10 text-su-muted"

@@ -363,6 +363,14 @@ export function shortPathFieldStrength(
         `${String(transmitterPowerDbKw)}.`,
     );
   }
+  // Equation (20) scales the absorption by (1 + 0.0067 R12); R12 is a
+  // smoothed sunspot number and is never negative, and a NaN here would
+  // reach every field strength and power below.
+  if (!Number.isFinite(ssn) || ssn < 0) {
+    throw new RangeError(
+      `ssn must be finite and non-negative, received ${String(ssn)}.`,
+    );
+  }
 
   const frequencyMHz = modeSet.frequencyMHz;
   const midPathHours = midPathLocalTimeHours(

@@ -645,6 +645,17 @@ describe("domain checks", () => {
     ).toThrow(RangeError);
   });
 
+  it("rejects a non-finite or negative sunspot number", () => {
+    const set = resolvedSet(3000, 14);
+    expect(() =>
+      shortPathFieldStrength(inputs(set, { ssn: Number.NaN })),
+    ).toThrow(RangeError);
+    expect(() => shortPathFieldStrength(inputs(set, { ssn: -1 }))).toThrow(
+      RangeError,
+    );
+    expect(() => shortPathFieldStrength(inputs(set, { ssn: 0 }))).not.toThrow();
+  });
+
   it("rejects a non-finite hour or transmitter power", () => {
     const set = resolvedSet(3000, 14);
     expect(() =>

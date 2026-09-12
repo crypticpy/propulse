@@ -480,7 +480,7 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
                 px-3 py-1.5 text-sm rounded-lg transition-colors duration-200
                 ${
                   confirmClear
-                    ? "bg-alert-red/20 text-alert-red border border-alert-red/50"
+                    ? "bg-alert-red/20 text-su-text border border-alert-red/50"
                     : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                 }
               `}

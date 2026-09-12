@@ -147,7 +147,7 @@ export function DateTimePicker({
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
           <div
             key={day}
-            className="text-[10px] text-su-muted text-center font-medium"
+            className="text-xs text-su-muted text-center font-medium"
           >
             {day}
           </div>

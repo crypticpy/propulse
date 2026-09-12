@@ -481,7 +481,7 @@ export function EquipmentCard({
           // Layout
           "equipment-card group relative flex flex-col w-full min-w-0",
           // 3D flip
-          "bg-[#0f1420] rounded-xl overflow-hidden",
+          "bg-su-panel rounded-xl overflow-hidden",
           // Border (dynamic color set via style)
           "border-2",
           // Cursor

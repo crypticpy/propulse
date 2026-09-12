@@ -162,7 +162,7 @@ export function RadioPickerModal({
                   : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-semibold text-su-text">
                   Use active profile radio
                 </div>
@@ -198,13 +198,13 @@ export function RadioPickerModal({
                           : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-su-text truncate">
+                          <div className="text-sm font-semibold text-su-text break-words">
                             {label}
                           </div>
                           {userRadio.nickname && (
-                            <div className="text-xs text-su-muted truncate">
+                            <div className="text-xs text-su-muted break-words">
                               {userRadio.nickname}
                             </div>
                           )}
@@ -271,9 +271,9 @@ export function RadioPickerModal({
                         : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-su-text truncate">
+                        <div className="text-sm font-semibold text-su-text break-words">
                           {radio.manufacturer} {radio.model}
                           {hasTested && (
                             <span className="ml-2 text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
@@ -281,7 +281,7 @@ export function RadioPickerModal({
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-su-muted truncate">
+                        <div className="text-xs text-su-muted break-words">
                           Tier: {radio.tier} • Bands:{" "}
                           {radio.bands.slice(0, 4).join(", ")}
                           {radio.bands.length > 4 ? "…" : ""}
@@ -322,7 +322,7 @@ export function RadioPickerModal({
             <div className="text-sm text-su-muted">
               Create and edit custom radios in the Manage tab.
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-xs text-su-muted">
                 Selected: {selectedCustomIds.size}
               </div>
@@ -368,7 +368,7 @@ export function RadioPickerModal({
                         : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <label className="flex items-center gap-2 min-w-0">
                         <input
                           type="checkbox"
@@ -385,10 +385,10 @@ export function RadioPickerModal({
                           className="accent-plasma-orange"
                         />
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-su-text truncate">
+                          <div className="text-sm font-semibold text-su-text break-words">
                             {getDisplayLabel(radio)}
                           </div>
-                          <div className="text-xs text-su-muted truncate">
+                          <div className="text-xs text-su-muted break-words">
                             {radio.manufacturer} {radio.model} • {radio.maxPower}W
                           </div>
                         </div>

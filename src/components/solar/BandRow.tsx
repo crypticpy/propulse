@@ -1,6 +1,8 @@
 import React from "react";
 import { Badge, type BadgeStatus } from "@/components/ui";
+import { BandPill } from "@/components/ui/BandPill";
 import type { BandCondition, VHFCondition } from "@/types/solar";
+import { BAND_CONDITIONS_GRID_TEMPLATE } from "./bandConditionsGrid";
 
 export interface BandRowProps {
   /** Band designation (e.g., "20m") */
@@ -69,12 +71,12 @@ export const BandRow: React.FC<BandRowProps> = ({
 }) => {
   return (
     <div
-      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 py-2 px-2 items-center border-b border-su-line/20 last:border-b-0 hover:bg-su-line/10 transition-colors"
+      className={`grid ${BAND_CONDITIONS_GRID_TEMPLATE} gap-3 md:gap-4 py-2 px-2 items-center border-b border-su-line/20 last:border-b-0 hover:bg-su-line/10 transition-colors`}
       role="row"
     >
       {/* Band Name */}
-      <div className="font-mono text-sm text-su-text font-medium" role="cell">
-        {name}
+      <div className="col-span-2 sm:col-span-1" role="cell">
+        <BandPill band={name} size="md" />
       </div>
 
       {/* Frequency - hidden on mobile */}
@@ -141,9 +143,10 @@ export const BandRow: React.FC<BandRowProps> = ({
 
       {/* Best For */}
       <div
-        className="text-xs text-su-muted text-right md:text-left md:pl-1"
+        className="col-span-2 min-w-0 text-xs text-su-muted sm:col-span-1 sm:break-words sm:text-right md:text-left md:pl-1"
         role="cell"
       >
+        <span className="font-semibold sm:hidden">Best for: </span>
         {bestFor}
       </div>
     </div>

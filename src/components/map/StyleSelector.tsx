@@ -186,11 +186,11 @@ export function StyleSelector({
   return (
     <div
       className={`flex flex-col gap-1.5 rounded-xl bg-su-line/10 backdrop-blur-md
-                   border border-su-line/40 p-2 max-w-[200px] ${className}`}
+                   border border-su-line/40 p-2 max-w-full w-fit ${className}`}
     >
       {/* --- Visual Style row --- */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs uppercase tracking-wider text-su-muted w-10 shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs uppercase tracking-wider text-su-muted w-14 shrink-0">
           Style
         </span>
         <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">
@@ -222,8 +222,8 @@ export function StyleSelector({
       </div>
 
       {/* --- Color Mode row --- */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs uppercase tracking-wider text-su-muted w-10 shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs uppercase tracking-wider text-su-muted w-14 shrink-0">
           Color
         </span>
         <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">

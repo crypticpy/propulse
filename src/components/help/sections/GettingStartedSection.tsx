@@ -285,11 +285,11 @@ export function GettingStartedSection() {
         <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Press{" "}
-            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
+            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono font-medium text-su-muted mx-0.5">
               Ctrl+K
             </kbd>{" "}
             (or{" "}
-            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
+            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono font-medium text-su-muted mx-0.5">
               Cmd+K
             </kbd>{" "}
             on Mac) anywhere in Propulse to open the Command Palette &mdash; a
@@ -323,7 +323,7 @@ export function GettingStartedSection() {
         <HelpShortcutTable shortcuts={SHORTCUTS} />
         <HelpCallout type="tip">
           Press{" "}
-          <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
+          <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono font-medium text-su-muted mx-0.5">
             ?
           </kbd>{" "}
           anywhere in the app to see the shortcuts overlay.

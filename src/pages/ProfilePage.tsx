@@ -65,8 +65,7 @@ import { OnAirToggle } from "@/components/profile/OnAirToggle";
 import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
 import { isSectionVisibleToViewer } from "@/lib/profile/visibility";
-import { isValidGrid } from "@/lib/utils/grid";
-import { applyIdentitySave } from "@/stores/applyIdentitySave";
+import { useStationIdentityDraft } from "@/components/profile/identityLookupDraft";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
@@ -80,17 +79,6 @@ import {
   ProfileWorkspaceShell,
   ProfileWorkspaceSection,
 } from "@/components/profile/ProfileWorkspaceShell";
-
-// ---- Callsign validation ----------------------------------------------------
-
-/** Amateur radio: 1-3 prefix + digit + 0-3 middle + letter suffix (W5XXX, VE3ABC) */
-const AMATEUR_CALLSIGN_REGEX = /^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z]$/i;
-/** GMRS: W + 3 letters + 3 digits (WSLK349, WRFQ375) */
-const GMRS_CALLSIGN_REGEX = /^W[A-Z]{3}[0-9]{3}$/i;
-
-function isValidCallsign(cs: string): boolean {
-  return AMATEUR_CALLSIGN_REGEX.test(cs) || GMRS_CALLSIGN_REGEX.test(cs);
-}
 
 // ---- Other profile view -----------------------------------------------------
 
@@ -710,7 +698,6 @@ export default function ProfilePage() {
   const isViewingOther = !!routeCallsign;
 
   const station = useProfileStore((s) => s.station);
-  const setStation = useProfileStore((s) => s.setStation);
   const activeLocation = useActiveLocation();
   const isMobile = useIsMobile();
   const completeness = useProfileCompleteness();
@@ -748,100 +735,34 @@ export default function ProfilePage() {
     }
   }, [location.pathname]);
 
-  // Local form state
-  const [callsign, setCallsign] = useState(station?.callsign ?? "");
-  const [operatorName, setOperatorName] = useState(station?.operatorName ?? "");
-  const [grid, setGrid] = useState(station?.grid ?? "");
-
-  // Validation errors
-  const [callsignError, setCallsignError] = useState<string | null>(null);
-  const [gridError, setGridError] = useState<string | null>(null);
+  const {
+    formProps: identityForm,
+    handleSave: saveIdentityDraft,
+    handleCancelEdit: revertIdentityDraft,
+  } = useStationIdentityDraft();
 
   // Editing state for sidebar card inline edit
   const [isEditing, setIsEditing] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
-  // Sync form state when store changes externally
-  useEffect(() => {
-    setCallsign(station?.callsign ?? "");
-    setOperatorName(station?.operatorName ?? "");
-    setGrid(station?.grid ?? "");
-    setCallsignError(null);
-    setGridError(null);
-  }, [station]);
-
-  // Dirty tracking
-  const isDirty = useMemo(() => {
-    const currentCallsign = station?.callsign ?? "";
-    const currentName = station?.operatorName ?? "";
-    const currentGrid = station?.grid ?? "";
-    return (
-      callsign !== currentCallsign ||
-      operatorName !== currentName ||
-      grid !== currentGrid
-    );
-  }, [callsign, operatorName, grid, station]);
-
-  // Save handler
   const handleSave = useCallback(() => {
-    // Validate callsign
-    const trimmedCallsign = callsign.toUpperCase().trim();
-    if (trimmedCallsign && !isValidCallsign(trimmedCallsign)) {
-      setCallsignError(
-        "Please enter a valid callsign (e.g., W5XXX, VE3XXX, or GMRS like WSLK349)",
-      );
-      return;
-    }
-    setCallsignError(null);
+    if (saveIdentityDraft()) setIsEditing(false);
+  }, [saveIdentityDraft]);
 
-    // Validate grid
-    if (grid && !isValidGrid(grid)) {
-      setGridError("Please enter a valid Maidenhead grid square");
-      return;
-    }
-    setGridError(null);
-
-    setStation(
-      applyIdentitySave(station, {
-        callsign: trimmedCallsign,
-        operatorName,
-        grid,
-      }),
-    );
-
-    setIsEditing(false);
-  }, [callsign, operatorName, grid, station, setStation]);
-
-  // Cancel edit -- reset form to store values
   const handleCancelEdit = useCallback(() => {
-    setCallsign(station?.callsign ?? "");
-    setOperatorName(station?.operatorName ?? "");
-    setGrid(station?.grid ?? "");
-    setCallsignError(null);
-    setGridError(null);
+    revertIdentityDraft();
     setIsEditing(false);
-  }, [station]);
+  }, [revertIdentityDraft]);
+
+  const formProps = {
+    ...identityForm,
+    handleSave,
+  };
 
   // Display values
   const displayCallsign = station?.callsign || "NO CALL";
   const displayName = station?.operatorName;
   const displayGrid = activeLocation?.grid || station?.grid || "----";
-
-  // Shared form props
-  const formProps = {
-    callsign,
-    setCallsign,
-    operatorName,
-    setOperatorName,
-    grid,
-    setGrid,
-    isDirty,
-    handleSave,
-    callsignError,
-    setCallsignError,
-    gridError,
-    setGridError,
-  };
 
   // ---- Viewing another user's profile ----------------------------------------
 

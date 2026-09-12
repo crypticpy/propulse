@@ -122,7 +122,7 @@ export function AtlasView() {
       {layerVisibility.radar && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-          <span className="text-[10px] font-mono text-su-muted">
+          <span className="text-xs font-mono text-su-muted">
             RADAR LIVE
           </span>
         </div>

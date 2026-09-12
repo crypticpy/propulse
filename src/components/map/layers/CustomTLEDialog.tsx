@@ -230,7 +230,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
           <div>
             <label
               htmlFor="tle-input"
-              className="block text-[10px] text-su-muted uppercase tracking-wider mb-1 font-semibold"
+              className="block text-xs text-su-muted uppercase tracking-wider mb-1 font-semibold"
             >
               TLE Data
             </label>
@@ -249,7 +249,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
           <div>
             <label
               htmlFor="tle-source"
-              className="block text-[10px] text-su-muted uppercase tracking-wider mb-1 font-semibold"
+              className="block text-xs text-su-muted uppercase tracking-wider mb-1 font-semibold"
             >
               Source Label{" "}
               <span className="text-su-muted normal-case">(optional)</span>
@@ -267,7 +267,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
           {/* Preview */}
           {preview.length > 0 && (
             <div className="bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2">
-              <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
+              <div className="text-xs text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
                 Preview ({preview.length} satellite
                 {preview.length !== 1 ? "s" : ""} detected)
               </div>
@@ -280,7 +280,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
                     <span className="text-su-muted font-mono truncate">
                       {sat.name}
                     </span>
-                    <span className="text-su-muted font-mono text-[10px] ml-2 flex-shrink-0">
+                    <span className="text-su-muted font-mono text-xs ml-2 flex-shrink-0">
                       #{sat.noradId}
                     </span>
                   </div>

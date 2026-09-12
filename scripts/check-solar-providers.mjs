@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { PLASMA_MAX_BYTES, validatePlasmaSeries } from "./solar-plasma-contract.mjs";
+
 const DATA_PRODUCTS = [
   ["noaa-k-index", "/api/solar/k-index", 48_000, 30 * 60_000, "observedAt", 3 * 60 * 60_000],
   ["noaa-solar-flux", "/api/solar/flux", 32_000, 24 * 60 * 60_000],
@@ -16,7 +18,7 @@ const DATA_PRODUCTS = [
   ["swpc-alerts", "/api/solar/alerts", 160_000, 10 * 60_000, "fetchedAt"],
   ["swpc-xray-latest", "/api/solar/xray-latest", 12_000, 30 * 60_000, "fetchedAt"],
   ["swpc-solar-wind-mag", "/api/solar/wind-mag", 8_000, 30 * 60_000],
-  ["swpc-solar-wind-plasma", "/api/solar/wind-plasma", 8_000, 30 * 60_000],
+  ["swpc-solar-wind-plasma", "/api/solar/wind-plasma", PLASMA_MAX_BYTES, 30 * 60_000],
 ];
 
 const IMAGE_PRODUCTS = [
@@ -113,6 +115,7 @@ async function checkData([
   const fetchedAt = parseTimestamp(body.fetchedAt, "fetchedAt");
   const freshnessTime = freshnessBasis === "fetchedAt" ? fetchedAt : observedAt;
   assert(Date.now() - freshnessTime <= hardTtlMs, `${freshnessBasis} passed the hard TTL`);
+  if (sourceId === "swpc-solar-wind-plasma") validatePlasmaSeries(body, bytes.byteLength);
   return { name: sourceId, durationMs, bytes: bytes.byteLength };
 }
 

@@ -116,6 +116,8 @@ export interface EquipmentCardProps {
   onDelete?: () => void;
   onDuplicate?: () => void;
   duplicateLabel?: string;
+  /** Open the read-only Used in impact dialog for this inventory row. */
+  onShowUsedIn?: () => void;
   /** Inventory id used for QSO wear and history on the reverse face. */
   instanceId?: string;
 }
@@ -322,6 +324,26 @@ function EditIcon() {
   );
 }
 
+function UsedInIcon() {
+  return (
+    <svg
+      width={14}
+      height={14}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 8h10M8 3v10" />
+      <circle cx="4" cy="8" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="8" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -402,6 +424,7 @@ export function EquipmentCard({
   onDelete,
   onDuplicate,
   duplicateLabel = "Duplicate",
+  onShowUsedIn,
   instanceId,
 }: EquipmentCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -417,7 +440,7 @@ export function EquipmentCard({
   const imageUrl = photoFailed ? null : photoUrl || storedImageUrl;
   const accentHex = ACCENT_HEX[equipmentType];
   const glowClass = GLOW_SHADOW[equipmentType];
-  const hasActions = onEdit || onDelete || onDuplicate;
+  const hasActions = onEdit || onDelete || onDuplicate || onShowUsedIn;
 
   // Operator rank integration
   const rankState = useOperatorRank();
@@ -609,6 +632,20 @@ export function EquipmentCard({
                 <path d="M2 8h12M10 4l4 4-4 4" />
               </svg>
             </button>
+            {onShowUsedIn && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowUsedIn();
+                }}
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                aria-label={`Used in references for ${title}`}
+                title="Used in"
+              >
+                <UsedInIcon />
+              </button>
+            )}
             {onEdit && (
               <button
                 type="button"

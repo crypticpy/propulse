@@ -9,6 +9,7 @@ import { FeedlineManager } from "./FeedlineManager";
 import { AccessoryManager } from "./AccessoryManager";
 import { InlineComponentManager } from "./InlineComponentManager";
 import { SetupWizard } from "./SetupWizard";
+import { EquipmentUsedInHost } from "./EquipmentUsedInHost";
 import { Button, Notice, Section, Surface } from "@/components/station-ui";
 
 export function EquipmentSection() {
@@ -78,6 +79,7 @@ export function EquipmentSection() {
   ];
 
   return (
+    <EquipmentUsedInHost>
     <Section
       title="My gear"
       description="Your radios, antennas, cables and the details that make this station yours."
@@ -148,5 +150,6 @@ export function EquipmentSection() {
         </>
       )}
     </Section>
+    </EquipmentUsedInHost>
   );
 }

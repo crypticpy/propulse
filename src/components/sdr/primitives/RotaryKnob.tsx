@@ -179,20 +179,12 @@ export function RotaryKnob({
           textAnchor="middle"
           dominantBaseline="central"
           fill="currentColor"
-          className="text-su-text"
-          style={{ fontSize: 10, fontFamily: "monospace" }}
+          className="text-xs font-mono text-su-text"
         >
           {displayValue}
         </text>
       </svg>
-      <span
-        className="text-su-muted"
-        style={{
-          fontSize: 9,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
+      <span className="text-xs text-su-muted uppercase tracking-wider">
         {label}
       </span>
     </div>

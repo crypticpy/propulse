@@ -110,7 +110,7 @@ export function LotwSyncButton() {
         disabled={isProcessing}
         className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors border ${
           isProcessing
-            ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange/30 animate-pulse"
+            ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange/30"
             : "bg-su-line/10 hover:bg-su-line/20 text-su-muted border-su-line/40"
         }`}
         aria-label="LoTW sync options"

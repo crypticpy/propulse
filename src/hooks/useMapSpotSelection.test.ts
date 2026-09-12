@@ -60,10 +60,37 @@ describe("resolveMapSpotSelection", () => {
     expect(result).toMatchObject({
       locationSource: "callsign-prefix",
       spot: { dxLocApprox: true },
-      target: { name: "PY2ABC" },
+      target: { name: "PY2ABC", approximate: true },
     });
     expect(Number.isFinite(result?.target.lat)).toBe(true);
     expect(Number.isFinite(result?.target.lon)).toBe(true);
+  });
+
+  it("falls back to the feed continent when the prefix is unknown", () => {
+    const result = resolveMapSpotSelection(
+      dxSpot({ dx: "QQ1ABC", continent: "EU" }),
+    );
+
+    expect(result).toMatchObject({
+      locationSource: "continent",
+      spot: { dxLocApprox: true },
+      target: { lat: 50, lon: 10, approximate: true, name: "QQ1ABC" },
+    });
+  });
+
+  it("returns null when neither prefix nor continent can locate the spot", () => {
+    expect(resolveMapSpotSelection(dxSpot({ dx: "QQ1ABC" }))).toBeNull();
+  });
+
+  it("marks feed coordinates as approximate when the spot already said so", () => {
+    const result = resolveMapSpotSelection(
+      dxSpot({ dxLat: 39.8, dxLon: -98.6, dxLocApprox: true }),
+    );
+
+    expect(result).toMatchObject({
+      locationSource: "coordinates",
+      target: { approximate: true },
+    });
   });
 
   it("retains an activation reference in the selected target label", () => {

@@ -140,6 +140,65 @@
  * total recorded on `fix/sub-text-xs-map-slice1-832`; this entry documents
  * only this file's 9 sites and does not attempt to reconcile that total.
  * Refs #832, #839.
+ *
+ * #833 (between-round hatch, no FILES append): `SIZE_RE` with `N < 12`
+ * could not tell `text-xs` from `text-[12px]` or from rem/em/pt forms.
+ * Census of the 44 audited files at this round: 0 `text-[12px]`, 0
+ * `text-[Nrem|em|pt]`, 0 `text-[clamp(`. Predicted failing-site count on
+ * revert is therefore 0 in source; the two injections named in #833
+ * (`text-[12px]`, `text-[0.6rem]` / 9.6px) are the red-on-revert proof via
+ * the matcher tests below. #925 already walks `src/components/map` for
+ * 12/13px classes; this round still asserts `text-[12px]` over `FILES`
+ * because that list includes `src/components/dx/` files #925 does not.
+ *
+ * #833 round 2 (review): two more spellings of the same hatch. `em` is
+ * relative to the parent's computed size, so no static px conversion is
+ * honest -- the guard now flags any `em` value below 1 instead of pretending
+ * a 16px base. And the numeric grammar now accepts a leading decimal point
+ * (`text-[.6rem]`, `fontSize: .5`), which the previous `\d+(\.\d+)?` form
+ * could not match at all. Re-census of the 44 audited files and of `src/` as
+ * a whole: 0 leading-decimal text classes, 0 `em` text classes, 0 inline
+ * leading-decimal `fontSize` values, so both fixes are matcher-proved rather
+ * than site-proved.
+ *
+ * #833 round 3 (review): the px grammar was the one unit still written as
+ * integers only, so `text-[12.0px]` and `text-[11.5px]` read as clean while
+ * rendering at the floor and below it. All four px matchers now share the
+ * `(\d*\.?\d+)` numeric part the relative units already had and compare
+ * numerically instead of textually: `SIZE_RE` (< 12), the floor spelling
+ * (== 12 exactly), the #925 map class scan (== 12 or == 13), and the inline
+ * `fontSize` scan (== 12 or == 13, numeric or string px). Census of `src/`
+ * for decimal px text classes at this round: 0, so this too is matcher-proved
+ * -- and the census now runs as an assertion of its own so a first decimal px
+ * class cannot land unnoticed.
+ *
+ * #833 round 4 (review): two rules corrected rather than widened.
+ * `text-[0.75rem]` IS `text-xs` -- the same value, and it follows the text
+ * scale the same way -- so rem now compares strictly below the floor while
+ * the absolute units (px/pt) still flag the floor value itself, matching the
+ * inline guard that already clears `fontSize: "0.75rem"`. `em` keeps its
+ * `< 1` rule because it is parent-relative and no static conversion is
+ * honest; the three units are documented side by side at
+ * `isSubFloorRelative`. Second, only `clamp(` was rejected, so `calc(`,
+ * `min(`, `max(` and nested forms slipped through: any function-valued
+ * arbitrary `text-[...]` value is now the hatch, with an exact-token
+ * allowlist for the ones that are not font sizes at all. Census of `src/`
+ * for `text-[<fn>(`: 10 -- 7 `text-[clamp(` in
+ * `src/components/kiosk/WallClockDisplay.tsx` (the wall clock numerals,
+ * outside `FILES`) and 3 `text-[var(--hc-fg)]` colour tokens in the HamClock
+ * switch/chip files, which are in `FILES` and are allowlisted by exact token.
+ *
+ * #833 round 5 (review): every arbitrary-size matcher required a digit right
+ * after the bracket, so Tailwind's explicit type-hint form -- `text-[length:
+ * 0.6rem]`, `text-[length:12px]` -- was exempt from all of them at once while
+ * rendering exactly what the un-hinted spelling renders. The `length:` prefix
+ * is now optional in the px sub-floor matcher, the floor spelling, the
+ * rem/em/pt matcher and the #925 map class scan (skipped, not captured, so
+ * the numeric comparisons are untouched); the function-valued rejection
+ * already saw through it because the token still contains the call, and the
+ * allowlist stays whole-token so a hinted spelling of an allowlisted colour
+ * is not cleared. Census of `src/` for `text-[length:`: 0 -- matcher-proved,
+ * and the census runs as an assertion so the first one cannot land unnoticed.
  */
 
 import { fileURLToPath } from "node:url";
@@ -227,7 +286,22 @@ const ALLOWLIST: AllowlistEntry[] = [
   },
 ];
 
-const SIZE_RE = /text-\[(\d+)px\]/g;
+/**
+ * `text-[Npx]` arbitrary sizes. The numeric part accepts decimals
+ * (`text-[11.5px]`, and the leading-dot form `text-[.5px]`) for the same
+ * reason `RELATIVE_SIZE_RE` does: they are valid CSS, they render smaller
+ * than the floor, and an integer-only grammar reported the file clean
+ * (#833 review round 3). The comparison below is numeric, not textual.
+ *
+ * Every arbitrary-size matcher here also accepts Tailwind's explicit type
+ * hint, `text-[length:12px]` / `text-[length:0.6rem]`. The hint changes
+ * nothing about the rendered size -- it only tells Tailwind to read the value
+ * as a length rather than guess -- so a grammar that required a digit right
+ * after the bracket exempted the identical dodge from every rule at once
+ * (#833 review round 5). The prefix is optional, never required, and is
+ * skipped rather than captured so the numeric comparisons are unchanged.
+ */
+const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 
 /**
  * The same floor written as an inline style rather than a Tailwind class:
@@ -239,13 +313,12 @@ const SIZE_RE = /text-\[(\d+)px\]/g;
  * the guard is only worth its green when it recognises every form the codebase
  * actually uses.
  *
- * Still unrecognised, and tracked by #833: rem and em arbitrary values
- * (`text-[0.7rem]`), point sizes, and a `clamp()` whose lower bound is below
- * the floor. That work lands between rounds, not inside one, because it
- * touches this shared file.
+ * #833 closed the remaining class spellings: `text-[12px]` (the floor
+ * written as an arbitrary, which does not follow Settings -> Text Size),
+ * rem/em/pt values at or below 12px, and `text-[clamp(` in the audited set.
  */
 const INLINE_SIZE_RE =
-  /fontSize:\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?(?![\w%.])/g;
+  /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;
 
 interface SubFloorSite {
   file: string;
@@ -307,6 +380,10 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
     expect(sizesIn("fontSize: 12,")).toEqual([12]);
     expect(sizesIn(`fontSize: "0.75rem",`)).toEqual([]);
     expect(sizesIn(`fontSize: "1rem",`)).toEqual([]);
+    // Leading-decimal px, the same grammar hole Codex found in the class
+    // matcher: `fontSize: .5` is valid JS and renders at 0.5px.
+    expect(sizesIn("fontSize: .5,")).toEqual([0.5]);
+    expect(sizesIn(`fontSize: ".5px",`)).toEqual([0.5]);
   });
 
   it("every allowlist entry still matches a real sub-floor site in the audited files", () => {
@@ -318,9 +395,280 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
       const stillPresent = findSubFloorSites(entry.file).some((site) =>
         site.text.includes(entry.match),
       );
+    expect(
+      stillPresent,
+      `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
+    ).toBe(true);
+    }
+  });
+});
+
+/** `text-[12px]` is the floor as an arbitrary: same rendered size as
+ * `text-xs` at the default root, but it ignores the text-scale multiplier.
+ * `/tight` and other modifiers still match because the class starts with
+ * this token. */
+const FLOOR_PX_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
+
+/** True when a line spells the floor itself as an arbitrary px value, at any
+ * decimal spelling of 12 (`text-[12px]`, `text-[12.0px]`). Sub-floor values
+ * are `findSubFloorSites`'s job; anything above the floor is legitimate. */
+function hasFloorPxSpelling(line: string): boolean {
+  return [...line.matchAll(FLOOR_PX_RE)].some(
+    (match) => Number(match[1]) === FLOOR_PX,
+  );
+}
+
+/** rem/em/pt arbitrary sizes. 1rem = 16px; 1pt = 4/3 px. Values at or
+ * below 12px are the same dodge as `text-[11px]`, just in a unit
+ * `SIZE_RE` cannot see. Larger rem (e.g. `text-[1rem]`) is above the floor
+ * and is not this hatch.
+ *
+ * The numeric part accepts a leading decimal point (`text-[.6rem]`) as well
+ * as the zero-prefixed form: both are valid CSS and render identically, so a
+ * grammar that only saw `0.6` would let the same 9.6px through. */
+const RELATIVE_SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)(rem|em|pt)\]/g;
+
+/** Every arbitrary `text-[...]` value on a line, with its full class token so
+ * the allowlist below can be matched exactly. */
+const ARBITRARY_TEXT_RE = /text-\[([^\]]+)\]/g;
+
+/** A function call inside an arbitrary value. `clamp(` was the only one the
+ * guard rejected, so `text-[calc(0.75rem-2px)]`, `text-[min(0.7rem,2vw)]`,
+ * `text-[max(...)]` and nested forms such as `text-[clamp(calc(...),...)]`
+ * walked straight past it -- every one of them can resolve below the floor,
+ * and none of them can be evaluated statically (#833 review round 4). The
+ * rule is therefore a rejection of the whole shape, not a list of function
+ * names to chase. The type-hint form is covered by the same rule: the token
+ * for `text-[length:calc(0.75rem-2px)]` still contains `calc(`, and the
+ * allowlist below is matched on the whole token, so a hinted spelling of an
+ * allowlisted color is not silently cleared (#833 review round 5). */
+const FUNCTION_VALUE_RE = /[A-Za-z-]+\(/;
+
+/**
+ * Exact class tokens that are function-valued but are NOT font sizes, so the
+ * floor has nothing to say about them. `text-[var(--hc-fg)]` is the HamClock
+ * foreground COLOR token on the three switch/chip files in `FILES`; Tailwind
+ * reads a bare `var()` arbitrary value on `text-` as a color.
+ *
+ * Matched on the whole token, never as a prefix: `text-[var(--hc-fg)]` must
+ * not clear a different custom property that happens to start the same way.
+ */
+const FUNCTION_TEXT_ALLOWLIST = new Set(["text-[var(--hc-fg)]"]);
+
+/** The un-allowlisted function-valued arbitrary text values on `line`. */
+function functionValuedTextValues(line: string): string[] {
+  return [...line.matchAll(ARBITRARY_TEXT_RE)]
+    .map((match) => `text-[${match[1]}]`)
+    .filter(
+      (token) =>
+        FUNCTION_VALUE_RE.test(token) && !FUNCTION_TEXT_ALLOWLIST.has(token),
+    );
+}
+
+const FLOOR_PX = 12;
+
+function relativeToPx(value: number, unit: string): number {
+  if (unit === "rem") return value * 16;
+  if (unit === "pt") return (value * 4) / 3;
+  return Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Why the three units compare differently (#833 review round 4):
+ *
+ * - `rem` is the scale-aware unit. `text-[0.75rem]` IS `text-xs`: 12px at the
+ *   default root and 16.5px at the xl text scale, following Settings -> Text
+ *   Size exactly like the utility class does. Only something SMALLER than the
+ *   floor is the hatch, so the comparison is strict. The inline guard already
+ *   takes the same position by clearing `fontSize: "0.75rem"`.
+ * - `pt` (like `px`) is absolute. `text-[9pt]` renders 12px at every text
+ *   scale, which is the floor spelled in a way that ignores the multiplier --
+ *   the same defect as `text-[12px]` -- so the floor value itself is flagged.
+ * - `em` is relative to the PARENT's computed size, not the root, so no
+ *   static px conversion is honest: under a `text-xs` parent `text-[0.8em]`
+ *   renders at 9.6px while a 16px-base conversion would call it 12.8px and
+ *   pass. The rule this guard can defend is the shrink itself, so any value
+ *   below `1em` is flagged regardless of what it works out to.
+ */
+
+function isSubFloorRelative(value: number, unit: string): boolean {
+  if (unit === "em") return value < 1;
+  if (unit === "rem") return relativeToPx(value, unit) < FLOOR_PX;
+  return relativeToPx(value, unit) <= FLOOR_PX;
+}
+
+function findFloorDodgeSites(file: string): SubFloorSite[] {
+  const absPath = resolve(REPO_ROOT, file);
+  const lines = readFileSync(absPath, "utf8").split("\n");
+  const sites: SubFloorSite[] = [];
+  lines.forEach((line, index) => {
+    if (hasFloorPxSpelling(line) || functionValuedTextValues(line).length > 0) {
+      sites.push({ file, line: index + 1, text: line });
+      return;
+    }
+    for (const match of line.matchAll(RELATIVE_SIZE_RE)) {
+      if (isSubFloorRelative(Number(match[1]), match[2])) {
+        sites.push({ file, line: index + 1, text: line });
+      }
+    }
+  });
+  return sites;
+}
+
+describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () => {
+  it("has no text-[12px], sub-floor rem/em/pt, or clamp() text class in FILES", () => {
+    const violations: string[] = [];
+    for (const file of FILES) {
+      for (const site of findFloorDodgeSites(file)) {
+        violations.push(`${site.file}:${site.line}: ${site.text.trim()}`);
+      }
+    }
+    expect(
+      violations,
+      `use text-xs instead of text-[12px] / rem / em / pt / clamp() in FILES:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("flags the #833 injections and clears text-xs", () => {
+    // Red-on-revert proof for the two forms the old SIZE_RE missed.
+    expect(hasFloorPxSpelling("text-[12px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[12px]/tight")).toBe(true);
+    expect(hasFloorPxSpelling("text-xs")).toBe(false);
+    expect(hasFloorPxSpelling("text-[11px]")).toBe(false);
+    // Decimal px spellings render exactly the same and must read the same
+    // (#833 review round 3): the floor written as 12.0px is still the floor,
+    // and 11.5px is still below it.
+    expect(hasFloorPxSpelling("text-[12.0px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[11.5px]")).toBe(false);
+    expect(hasFloorPxSpelling("text-[13px]")).toBe(false);
+
+    const relativeHits = (text: string) =>
+      [...text.matchAll(RELATIVE_SIZE_RE)].filter((match) =>
+        isSubFloorRelative(Number(match[1]), match[2]),
+      );
+    expect(relativeHits("text-[0.6rem]").length).toBe(1);
+    // 0.75rem IS text-xs: the scale-aware floor, not a dodge of it
+    // (#833 review round 4). Strictly below it is the hatch.
+    expect(relativeHits("text-[0.75rem]").length).toBe(0);
+    expect(relativeHits("text-[0.749rem]").length).toBe(1);
+    expect(relativeHits("text-[0.76rem]").length).toBe(0);
+    expect(relativeHits("text-[0.65em]").length).toBe(1);
+    expect(relativeHits("text-[8pt]").length).toBe(1);
+    // pt is absolute: 9pt is 12px at EVERY text scale, the same defect as
+    // text-[12px], so the floor value itself is flagged.
+    expect(relativeHits("text-[9pt]").length).toBe(1);
+    expect(relativeHits("text-[10pt]").length).toBe(0);
+    expect(relativeHits("text-[1rem]").length).toBe(0);
+    expect(relativeHits("text-xs").length).toBe(0);
+    // Leading-decimal forms are valid CSS and must not read as clean.
+    expect(relativeHits("text-[.6rem]").length).toBe(1);
+    expect(relativeHits("text-[.5em]").length).toBe(1);
+    // `.75rem` is the same value as `0.75rem`: the floor, not below it.
+    expect(relativeHits("text-[.75rem]").length).toBe(0);
+    expect(relativeHits("text-[.74rem]").length).toBe(1);
+    expect(relativeHits("text-[.9rem]").length).toBe(0);
+    // `em` is parent-relative: under a text-xs parent `0.8em` is 9.6px, so a
+    // 16px-base conversion (12.8px) would wrongly clear it. Any shrink below
+    // 1em is the hatch; 1em and larger are not.
+    expect(relativeHits("text-[0.8em]").length).toBe(1);
+    expect(relativeHits("text-[0.99em]").length).toBe(1);
+    expect(relativeHits("text-[1em]").length).toBe(0);
+    expect(relativeHits("text-[1.25em]").length).toBe(0);
+    // em stays parent-relative, so anything below 1em is the hatch even
+    // though 0.75rem at the same arithmetic is now allowed.
+    expect(relativeHits("text-[0.75em]").length).toBe(1);
+  });
+
+  it("rejects every function-valued arbitrary text size, not just clamp()", () => {
+    // Each of these can resolve below the floor and none can be evaluated
+    // statically (#833 review round 4).
+    expect(functionValuedTextValues("text-[clamp(0.5rem,2vw,1rem)]")).toEqual([
+      "text-[clamp(0.5rem,2vw,1rem)]",
+    ]);
+    expect(
+      functionValuedTextValues("text-[calc(0.75rem-2px)]").length,
+    ).toBe(1);
+    expect(functionValuedTextValues("text-[min(0.7rem,2vw)]").length).toBe(1);
+    expect(functionValuedTextValues("text-[max(0.6rem,1vw)]").length).toBe(1);
+    expect(
+      functionValuedTextValues("text-[clamp(calc(0.5rem+1px),2vw,1rem)]").length,
+    ).toBe(1);
+    expect(functionValuedTextValues("text-xs").length).toBe(0);
+    expect(functionValuedTextValues("text-[11px]").length).toBe(0);
+    expect(functionValuedTextValues("text-[0.9rem]").length).toBe(0);
+
+    // The allowlist is matched on the whole token, never as a prefix.
+    expect(
+      functionValuedTextValues("hover:text-[var(--hc-fg)]").length,
+    ).toBe(0);
+    expect(functionValuedTextValues("text-[var(--su-text)]").length).toBe(1);
+    expect(functionValuedTextValues("text-[var(--hc-fg-2)]").length).toBe(1);
+  });
+
+  it("reads Tailwind's explicit length: type hint under every rule (#833 review round 5)", () => {
+    // `text-[length:0.6rem]` renders exactly what `text-[0.6rem]` renders:
+    // the hint only tells Tailwind to treat the value as a length instead of
+    // guessing. Requiring a digit right after the bracket exempted the hinted
+    // spelling from every rule at once.
+    const relativeHits = (text: string) =>
+      [...text.matchAll(RELATIVE_SIZE_RE)].filter((match) =>
+        isSubFloorRelative(Number(match[1]), match[2]),
+      );
+    expect(relativeHits("text-[length:0.6rem]").length).toBe(1);
+    expect(relativeHits("text-[length:.6rem]").length).toBe(1);
+    // The floor itself still passes: the hint does not change the value.
+    expect(relativeHits("text-[length:0.75rem]").length).toBe(0);
+    expect(relativeHits("text-[length:0.65em]").length).toBe(1);
+    expect(relativeHits("text-[length:8pt]").length).toBe(1);
+
+    // px: the hinted floor is the floor, and the hinted sub-floor is a
+    // sub-floor.
+    expect(hasFloorPxSpelling("text-[length:12px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[length:12.0px]")).toBe(true);
+    expect(hasFloorPxSpelling("text-[length:11px]")).toBe(false);
+    const subFloorPxHits = (text: string) =>
+      [...text.matchAll(SIZE_RE)].filter(
+        (match) => Number(match[1]) < FLOOR_PX,
+      );
+    expect(subFloorPxHits("text-[length:11px]").length).toBe(1);
+    expect(subFloorPxHits("text-[length:12px]").length).toBe(0);
+    expect(hasFixedMapTextSize("text-[length:13px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[length:14px]")).toBe(false);
+
+    // Function-valued hinted values stay rejected: they cannot be evaluated
+    // statically whether or not the hint is there.
+    expect(
+      functionValuedTextValues("text-[length:calc(0.75rem-2px)]").length,
+    ).toBe(1);
+    expect(
+      functionValuedTextValues("text-[length:clamp(0.5rem,2vw,1rem)]").length,
+    ).toBe(1);
+
+    // Census 2026-09-10: zero `text-[length:` spellings under src/. The rules
+    // are in place before the first one lands, which is the point of a guard.
+    const hinted: string[] = [];
+    for (const file of walkMapSourceFiles(resolve(REPO_ROOT, "src"))) {
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          if (line.includes("text-[length:")) {
+            hinted.push(`${file.slice(REPO_ROOT.length + 1)}:${index + 1}`);
+          }
+        });
+    }
+    expect(hinted).toEqual([]);
+  });
+
+  it("every function-value allowlist entry still exists in FILES", () => {
+    // A stale entry would quietly widen the exemption; the audited files have
+    // to keep earning it.
+    for (const token of FUNCTION_TEXT_ALLOWLIST) {
+      const present = FILES.some((file) =>
+        readFileSync(resolve(REPO_ROOT, file), "utf8").includes(token),
+      );
       expect(
-        stillPresent,
-        `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
+        present,
+        `${token}: no audited file spells it any more -- drop it from FUNCTION_TEXT_ALLOWLIST`,
       ).toBe(true);
     }
   });
@@ -328,7 +676,17 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
 
 /** Fixed 12/13 px classes sit at or just above the floor but ignore the root
  * text-scale multiplier; #925 converts them to `text-xs`/`text-sm`. */
-const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
+const FIXED_MAP_TEXT_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
+
+/** True when a line carries a fixed 12px/13px text class at any decimal
+ * spelling (`text-[12.0px]`, `text-[13.0px]`). An integer-only grammar
+ * certified a file that still pinned its type (#833 review round 3). */
+function hasFixedMapTextSize(line: string): boolean {
+  return [...line.matchAll(FIXED_MAP_TEXT_RE)].some((match) => {
+    const value = Number(match[1]);
+    return value === 12 || value === 13;
+  });
+}
 
 /** The same defect spelled as an inline style. A class scanner alone would
  * certify `src/components/map` while `style={{ fontSize: 12 }}` sites kept
@@ -337,7 +695,16 @@ const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
  * Numeric and string px forms both count; rem values are the fix, so they do
  * not match. */
 const FIXED_MAP_INLINE_SIZE_RE =
-  /fontSize:\s*(?:(?:12|13)\s*[,}]|["'](?:12|13)px["'])/;
+  /fontSize:\s*(?:(\d*\.?\d+)\s*[,}]|["'](\d*\.?\d+)px["'])/g;
+
+/** True when a line pins an inline font size at 12 or 13, numeric or string,
+ * integer or decimal (`fontSize: 12.0`, `fontSize: "13.0px"`). */
+function hasFixedMapInlineSize(line: string): boolean {
+  return [...line.matchAll(FIXED_MAP_INLINE_SIZE_RE)].some((match) => {
+    const value = Number(match[1] ?? match[2]);
+    return value === 12 || value === 13;
+  });
+}
 
 /** Sites outside #925's file set, left for a follow-up rather than edited by
  * this PR (BandConditionsPanel is being changed by concurrent work). Listed
@@ -372,7 +739,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
       const rel = file.slice(REPO_ROOT.length + 1);
       const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, index) => {
-        if (FIXED_MAP_TEXT_RE.test(line)) {
+        if (hasFixedMapTextSize(line)) {
           violations.push(`${rel}:${index + 1}: ${line.trim()}`);
         }
       });
@@ -391,7 +758,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
       if (INLINE_SIZE_FOLLOWUP_FILES.has(rel)) continue;
       const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, index) => {
-        if (FIXED_MAP_INLINE_SIZE_RE.test(line)) {
+        if (hasFixedMapInlineSize(line)) {
           violations.push(`${rel}:${index + 1}: ${line.trim()}`);
         }
       });
@@ -402,16 +769,56 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
     ).toEqual([]);
   });
 
+  it("the class matcher reads decimal px spellings", () => {
+    // `text-[12.0px]` and `text-[11.5px]` render as 12px and 11.5px; an
+    // integer-only grammar read both as clean (#833 review round 3).
+    const subFloorHits = (text: string) =>
+      [...text.matchAll(SIZE_RE)].filter((match) => Number(match[1]) < FLOOR_PX)
+        .length;
+    expect(subFloorHits("text-[11.5px]")).toBe(1);
+    expect(subFloorHits("text-[.5px]")).toBe(1);
+    expect(subFloorHits("text-[11px]")).toBe(1);
+    expect(subFloorHits("text-[12.0px]")).toBe(0);
+    expect(subFloorHits("text-[12px]")).toBe(0);
+    expect(hasFixedMapTextSize("text-[12.0px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[13.0px]")).toBe(true);
+    expect(hasFixedMapTextSize("text-[14px]")).toBe(false);
+    expect(hasFixedMapTextSize("text-[11.5px]")).toBe(false);
+  });
+
+  it("has no decimal px text class anywhere under src (census)", () => {
+    const decimalPx = /text-\[\d*\.\d+px\]/;
+    const violations: string[] = [];
+    for (const file of walkMapSourceFiles(resolve(REPO_ROOT, "src"))) {
+      const rel = file.slice(REPO_ROOT.length + 1);
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          if (decimalPx.test(line)) {
+            violations.push(`${rel}:${index + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      violations,
+      `decimal px text classes under src:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
   it("the inline-size matcher reads both spellings and clears rem", () => {
     // Guards the guard: a regex that missed the numeric form would have let
     // #925's two LayersPopover sites through, and one that matched rem would
     // reject the fix itself.
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 12,")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 13 }")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "12px",`)).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: '13px',")).toBe(true);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "0.75rem",`)).toBe(false);
-    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 120,")).toBe(false);
+    expect(hasFixedMapInlineSize("fontSize: 12,")).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: 13 }")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "12px",`)).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: '13px',")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "0.75rem",`)).toBe(false);
+    expect(hasFixedMapInlineSize("fontSize: 120,")).toBe(false);
+    // Decimal spellings of the same pinned size (#833 review round 3).
+    expect(hasFixedMapInlineSize("fontSize: 12.0,")).toBe(true);
+    expect(hasFixedMapInlineSize(`fontSize: "13.0px",`)).toBe(true);
+    expect(hasFixedMapInlineSize("fontSize: 12.5,")).toBe(false);
   });
 
   it("every follow-up file still has the inline sites it is listed for", () => {
@@ -419,9 +826,7 @@ describe("map fixed 12/13px text classes respect text scale (#925)", () => {
     // follow-up lands, so the list has to keep earning its exemption.
     for (const rel of INLINE_SIZE_FOLLOWUP_FILES) {
       const lines = readFileSync(resolve(REPO_ROOT, rel), "utf8").split("\n");
-      const hits = lines.filter((line) =>
-        FIXED_MAP_INLINE_SIZE_RE.test(line),
-      ).length;
+      const hits = lines.filter((line) => hasFixedMapInlineSize(line)).length;
       expect(
         hits,
         `${rel}: no inline 12/13px font sizes left -- drop it from INLINE_SIZE_FOLLOWUP_FILES`,

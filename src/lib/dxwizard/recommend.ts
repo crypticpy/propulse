@@ -16,6 +16,7 @@ import {
   type WizardRecommendParams,
   type WizardRecommendation,
 } from "./types";
+import type { OperatingMode } from "@/types/signal";
 
 /** Earth circumference used for long-path free-space delta. */
 const EARTH_CIRCUMFERENCE_KM = 40030;
@@ -86,8 +87,8 @@ export function buildWizardRecommendation(
       ? txPowerCeilingWatts
       : 100;
 
-  const modelMode: "SSB" | "CW" | "FT8" =
-    mode === "SSB" ? "SSB" : mode === "CW" || mode === "RTTY" ? "CW" : "FT8";
+  const modelMode: OperatingMode =
+    mode === "SSB" ? "SSB" : mode === "CW" ? "CW" : mode === "RTTY" ? "RTTY" : "FT8";
 
   let bands = getEnhancedBandConditions(
     station.lat,

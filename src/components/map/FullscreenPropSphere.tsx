@@ -31,6 +31,7 @@ import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { useFullscreenEscape } from "@/components/map/useFullscreenEscape";
+import { revealFullscreenPathAnalysis } from "@/components/map/openPathAnalysis";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 import { safeDockGroupY } from "@/lib/map/proDockLayout";
@@ -345,6 +346,15 @@ export function FullscreenPropSphere({
     setFullscreen(false);
   }, [setFullscreen]);
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    revealFullscreenPathAnalysis({
+      pathPanelCollapsed: proPanelLayout["path-analysis"]?.collapsed ?? false,
+      setAmbientMode,
+      toggleProPanelCollapse,
+      bringToFront,
+    });
+  }, [bringToFront, proPanelLayout, toggleProPanelCollapse]);
+
   return (
     <div
       style={ambientMode && !showCursor ? { cursor: "none" } : undefined}
@@ -360,6 +370,7 @@ export function FullscreenPropSphere({
           <GlobeView
             displayTime={displayTime}
             onLocationClick={onLocationClick}
+            onOpenPathAnalysis={handleOpenPathAnalysis}
           />
         )}
         {viewMode === "flat" && (

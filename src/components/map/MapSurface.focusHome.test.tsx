@@ -1464,7 +1464,7 @@ describe("map surface focus home", () => {
     await screen.findByRole("dialog", { name: "Path point details" });
 
     const closeButton = await screen.findByRole("button", {
-      name: "Close path point card",
+      name: "Close path point details",
     });
     closeButton.focus();
     expect(document.activeElement).toBe(closeButton);

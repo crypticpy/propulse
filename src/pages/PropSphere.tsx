@@ -29,6 +29,7 @@ import {
   IonosphereLegend,
   LayerLegend,
   MapStatusChip,
+  SatelliteTrackEvictionBadge,
   ActiveKitChip,
   RecommendationsPanel,
   OptimalBandsPanel,
@@ -49,6 +50,7 @@ import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
+import { revealPropSpherePathAnalysis } from "@/components/map/openPathAnalysis";
 import { MapToolbarShell } from "@/components/map/MapToolbarShell";
 import { MapToolbarSecondaryControls } from "@/components/map/MapToolbarSecondaryControls";
 import { getMapToolbarLayout } from "@/components/map/mapToolbarLayout";
@@ -138,6 +140,7 @@ import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
+import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import {
   useMapOperationalContext,
@@ -187,6 +190,11 @@ export function PropSphere() {
   const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
+  // `hasSatelliteTracks` is intentionally omitted here (#994 PR B round 2
+  // item 9): this call only checks `.length > 0`, and the orbit-track row it
+  // gates is additive to a `satellites` legend that's already non-empty
+  // whenever the layer is on, so omitting it can't turn a true `.length > 0`
+  // into a false one.
   const hasLayerLegend = useMemo(
     () =>
       buildLayerLegends(layers, {
@@ -234,7 +242,6 @@ export function PropSphere() {
   const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
-  const setContestDockTab = useContestUIStore((s) => s.setDockTab);
   const operationalContext = useMapOperationalContext();
   const showPublicActivity = policyAllows(
     operationalContext.policy,
@@ -253,19 +260,11 @@ export function PropSphere() {
   useOperationalWorkspaceSync();
 
   // Restore the relevant tab without opening the console on route entry.
-  // Explicit scope changes and workspace actions own expansion.
-  useEffect(() => {
-    if (operationalContext.scope === "observe") return;
-    const dockKey = contestSessionId ?? "no-session";
-    setContestDockTab(
-      dockKey,
-      operationalContext.scope === "contest" ? "contest" : "log",
-    );
-  }, [
-    contestSessionId,
-    operationalContext.scope,
-    setContestDockTab,
-  ]);
+  // Explicit scope changes and workspace actions own expansion. This page is
+  // the single owner of that reconciliation (#884 round 4): it runs whether or
+  // not the console is expanded, and `OpsConsole` no longer keeps a rule of
+  // its own that this one would overwrite.
+  useDockTabReconciler();
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
@@ -792,6 +791,18 @@ export function PropSphere() {
     ],
   );
 
+  const handleOpenPathAnalysis = useCallback(() => {
+    revealPropSpherePathAnalysis({
+      isLiteMode,
+      rightPanelMode,
+      rightPanelLastWidth,
+      setActiveTab,
+      setRightPanelExpanded,
+      setRightPanelWidth,
+      setRightPanelMode,
+    });
+  }, [isLiteMode, rightPanelLastWidth, rightPanelMode]);
+
   // Rows PropSphere wants in the map's bottom-left corner. The map view owns
   // that corner and renders the one column there, stacking these above its
   // own row and the shared size control, so nothing in the corner can cover
@@ -1246,6 +1257,7 @@ export function PropSphere() {
                     <GlobeView
                       displayTime={displayTime}
                       onLocationClick={handleLocationClick}
+                      onOpenPathAnalysis={handleOpenPathAnalysis}
                       cornerSlot={mapCornerSlot}
                     />
                   )}
@@ -1911,6 +1923,24 @@ export function PropSphere() {
             onLocationClick={handleLocationClick}
           />
         </Suspense>
+      )}
+
+      {/* The orbit-track eviction notice (#994 PR B) only mounts as part of
+          <MapStatusChip>'s normal-layout toolbar above, which the "pro" and
+          "hamclock" fullscreen layouts never render -- so an eviction there
+          was silent, and by the time the operator returned to the normal
+          layout the notice had already expired (#994 PR B round 3 Codex
+          thread 4). Mount the badge once here instead, positioned like
+          FullscreenPropSphere's own top-center "Watch status pill". The
+          wrapper is pointer-events-none so it never blocks map interaction
+          when empty; the inner pointer-events-auto re-enables the badge's
+          own dismiss button. */}
+      {(layoutMode === "pro" || layoutMode === "hamclock") && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[215] pointer-events-none">
+          <div className="pointer-events-auto">
+            <SatelliteTrackEvictionBadge />
+          </div>
+        </div>
       )}
 
       <HelpModal

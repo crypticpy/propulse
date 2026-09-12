@@ -16,4 +16,5 @@ describe("solar operating handoff", () => {
   it.each([{ version: 2, mode: "CW" }, { version: 1, mode: "invalid" }, { version: 1, mode: "CW", at: "invalid" }, { version: 1, mode: "CW", target: { lat: 91, lon: 0 } }])("rejects invalid intent", (value) => expect(parseSolarHandoff(value)).toBeNull());
   it.each(["FT4", "RTTY", "CW", "SSB", "FT8"] as const)("preserves supported %s wizard intent", (mode) => expect(solarWizardMode(mode)).toBe(mode));
   it("explicitly maps modes unsupported by the path engine", () => expect(solarAnalysisMode("FT4")).toBe("FT8"));
+  it("preserves RTTY into the physics engine's mode set (#1081 round 6)", () => expect(solarAnalysisMode("RTTY")).toBe("RTTY"));
 });

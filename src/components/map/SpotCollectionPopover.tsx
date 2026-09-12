@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { LiveSpot } from "@/types/livespot";
 import {
@@ -7,19 +14,24 @@ import {
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import { formatActivationFrequency } from "@/lib/map/activationMarkers";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import {
-  placeAnchoredOverlayInFrame,
-  resolveOverlayFrame,
-  type OverlayFrame,
-  type ScreenAnchor,
-} from "@/lib/map/anchoredOverlay";
+  computeSpotCollectionPopoverLayout,
+  deriveWallVisibleSpotCount,
+  readRootFontPx,
+  resolveSpotCollectionPortalElement,
+  mergeMeasuredRowHeights,
+  resolveWallRowHeights,
+  ROOT_FONT_PX_DEFAULT,
+  spotRowKey,
+} from "./spotCollectionPopoverLayout";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
   formatSpotAge,
   getAgeBadgeColors,
   getSpotAgeInfo,
 } from "./LiveSpotArcs";
-import { useMapSurfaceFocus } from "./MapSurfaceContext";
+import { useFocusHome } from "./hooks/useFocusHome";
 
 export interface SpotCollectionPopoverProps {
   visible: boolean;
@@ -57,13 +69,6 @@ export interface SpotCollectionPopoverProps {
   isWallCanvas?: boolean;
 }
 
-const POPOVER_WIDTH = 330;
-const POPOVER_HEIGHT = 430;
-const EDGE_PADDING = 10;
-/** No in-widget scrolling on the HamClock wall (owner rule, 2026-09-05): cap
- * the list and show a "+N more" affordance instead of an internal scrollbar. */
-const WALL_MAX_VISIBLE_SPOTS = 6;
-
 function formatFrequency(spot: PresentableSpot) {
   if (spot.activation) {
     const value = formatActivationFrequency(spot.frequency);
@@ -91,18 +96,21 @@ export function SpotCollectionPopover({
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
-  // Whether focus actually entered this popover while it was open (#824,
-  // Codex round 3). See `PinFlyout.tsx` for the full reasoning: without this,
-  // the fallback below can't tell "focus died with the popover" from "focus
-  // was never here to die". In practice this popover always focuses its own
-  // first row on open, so the flag is set well before any close path can
-  // reach this cleanup — this exists for uniformity with the other three
-  // overlays (#848 will extract them into one hook), not because this
-  // popover has an observed body-origin-close-without-entering gap.
-  const heldFocusRef = useRef(false);
-  const focusMapSurface = useMapSurfaceFocus();
+  const wallListRef = useRef<HTMLDivElement>(null);
+  // Real heights of the rows that are currently rendered, in render order.
+  // The rem budgets are only an estimate: the badge line is `flex-wrap`, so a
+  // clamped width or a large text scale makes a row taller than any
+  // single-line formula predicts (#879 review round 4).
+  // Keyed by `spotRowKey`, never by render index, and retained for the whole
+  // popover session: see `resolveWallRowHeights` (#879 review round 5).
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<
+    Record<string, number>
+  >({});
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
+  // The wall row budgets are rem, so the cap has to know the real root font
+  // size: the text-scale control takes it from 14.4px to 22px, and a 16px
+  // assumption over-rendered the clipped wall body at lg/xl (#879 round 3).
+  const [rootFontPx, setRootFontPx] = useState(ROOT_FONT_PX_DEFAULT);
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {
@@ -128,14 +136,158 @@ export function SpotCollectionPopover({
     };
   }, [spots]);
 
+  // Resolved once per open session per `portalTarget` identity, NOT from
+  // `layout.portalElement`: that value is recomputed on every host resize, and
+  // a host that dips below the usability threshold mid-resize would otherwise
+  // swap the portal container, remount the popover, and drop keyboard focus to
+  // `<body>` (#879 review round). The focus effect below also lists it as a
+  // dependency so any container change that does happen re-runs focus setup.
+  const portalElement = useMemo(
+    () => (visible ? resolveSpotCollectionPortalElement(portalTarget) : null),
+    [portalTarget, visible],
+  );
+
+  // The frame is computed from the LOCKED container, never from the raw
+  // `portalTarget`: an open session that portals into `document.body` must
+  // keep the fixed viewport frame even after the host becomes usable again,
+  // or the panel is placed in host-local coordinates while its children hang
+  // off `body` (#879 review round 4).
+  const layout = useMemo(
+    () =>
+      computeSpotCollectionPopoverLayout(
+        position,
+        portalElement,
+        boundsHost,
+        layoutEpoch,
+      ),
+    [boundsHost, layoutEpoch, portalElement, position],
+  );
+
+  // Per-row heights, not a count: rows carrying a grid or comment render a
+  // third line, so the cap has to budget them individually (#879 review).
+  // Measured heights win; an unrendered row inherits the tallest measured
+  // height of its own kind (detail vs two-line), which is why no extra probe
+  // row has to be rendered to size the boundary row. The rem estimate is the
+  // pre-paint fallback only.
+  const wallRowHeights = useMemo(
+    () => resolveWallRowHeights(sortedSpots, measuredRowHeights, rootFontPx),
+    [measuredRowHeights, rootFontPx, sortedSpots],
+  );
+
+  const wallVisibleCount = useMemo(
+    () =>
+      isWallCanvas
+        ? deriveWallVisibleSpotCount(
+            layout.maxHeight,
+            wallRowHeights,
+            rootFontPx,
+          )
+        : sortedSpots.length,
+    [
+      isWallCanvas,
+      layout.maxHeight,
+      rootFontPx,
+      sortedSpots.length,
+      wallRowHeights,
+    ],
+  );
+
   // Rows shown when the wall's no-scroll rule caps the list instead of
   // scrolling it. `sortedSpots` itself (and its `.length`) is left untouched
-  // — the focus-restore effect below depends on the full count, not the
-  // wall-visible slice (see its dep array note).
+  // — focus-home depends on the full count, not the wall-visible slice.
   const visibleSpots = isWallCanvas
-    ? sortedSpots.slice(0, WALL_MAX_VISIBLE_SPOTS)
+    ? sortedSpots.slice(0, wallVisibleCount)
     : sortedSpots;
   const hiddenSpotCount = sortedSpots.length - visibleSpots.length;
+
+  // Every row's identity, in collection order. The same strings key the
+  // rendered rows, the measurement record and the height resolution, so a
+  // measurement can never be attributed to a different spot.
+  const wallRowKeys = useMemo(
+    () => sortedSpots.map((spot, index) => spotRowKey(spot, index)),
+    [sortedSpots],
+  );
+
+  // Measured after paint, inside the same layout epoch that placed the
+  // popover: `offsetHeight` of every rendered row. jsdom (and any pre-layout
+  // pass) reports 0, which `resolveWallRowHeights` reads as "not measured".
+  // The pass MERGES into the retained record rather than replacing it:
+  // replacing it with only the rendered rows threw away the boundary row's
+  // height every time it was capped out, so it was re-estimated short, came
+  // back, measured tall, and the cap oscillated (#879 review round 5).
+  useLayoutEffect(() => {
+    if (!visible || !isWallCanvas) return;
+    const rows = wallListRef.current?.querySelectorAll<HTMLElement>(
+      "[data-spot-row]",
+    );
+    if (!rows) return;
+    const measured: Record<string, number> = {};
+    for (const row of Array.from(rows)) {
+      const key = row.dataset.spotRow;
+      if (key) measured[key] = row.offsetHeight;
+    }
+    const liveKeys = new Set(wallRowKeys);
+    setMeasuredRowHeights((previous) =>
+      mergeMeasuredRowHeights(previous, measured, liveKeys),
+    );
+  }, [
+    isWallCanvas,
+    layoutEpoch,
+    rootFontPx,
+    visible,
+    visibleSpots.length,
+    wallRowKeys,
+  ]);
+
+  // The session owns the measurements: closing the popover drops them so the
+  // next open starts from the estimate again.
+  useEffect(() => {
+    if (visible) return;
+    setMeasuredRowHeights((previous) =>
+      Object.keys(previous).length === 0 ? previous : {},
+    );
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const measureRootFontPx = () => setRootFontPx(readRootFontPx());
+    const bumpLayout = () => {
+      measureRootFontPx();
+      setLayoutEpoch((epoch) => epoch + 1);
+    };
+    measureRootFontPx();
+    const observedHosts = [portalTarget, boundsHost].filter(
+      (host): host is Element =>
+        host instanceof Element &&
+        host !== document.body &&
+        host !== document.documentElement,
+    );
+
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(bumpLayout);
+      for (const host of observedHosts) observer.observe(host);
+    }
+
+    // The text-scale control rewrites `data-text-scale` on the root element,
+    // which changes the root font size without any resize of the host.
+    let scaleObserver: MutationObserver | undefined;
+    if (typeof MutationObserver !== "undefined") {
+      scaleObserver = new MutationObserver(measureRootFontPx);
+      scaleObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-text-scale", "style", "class"],
+      });
+    }
+
+    window.addEventListener("resize", bumpLayout);
+    return () => {
+      observer?.disconnect();
+      scaleObserver?.disconnect();
+      window.removeEventListener("resize", bumpLayout);
+    };
+  }, [boundsHost, portalTarget, visible]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -160,120 +312,19 @@ export function SpotCollectionPopover({
     };
   }, [handleKeyDown, onClose, visible]);
 
+  useFocusHome(visible && sortedSpots.length > 0, panelRef);
+
   useEffect(() => {
     if (!visible || sortedSpots.length === 0) return;
-    // `document.body` is not a restore target (see `SelectedSpotCard`): every
-    // opener for this popover is a canvas hit-test or a touch tap, neither of
-    // which focuses anything, so the pre-open activeElement is body far more
-    // often than not.
-    if (fallbackTimerRef.current !== null) {
-      window.clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const root = panelRef.current;
-    const active = document.activeElement;
-    // Containment check for the same child-before-parent race as
-    // `PathPointInspector.tsx` (#824, Codex round 4). This popover's own
-    // auto-focus below runs in a zero-delay timeout, which always lands
-    // after this synchronous setup, so `active` is never already inside
-    // `root` here — a no-op today, kept for the shape's uniformity ahead of
-    // the #848 hook extraction.
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
-        ? active
-        : null;
-    heldFocusRef.current = root?.contains(active) ?? false;
-    const handleFocusIn = () => {
-      heldFocusRef.current = true;
-    };
-    root?.addEventListener("focusin", handleFocusIn);
     const timeout = window.setTimeout(() => firstSpotRef.current?.focus(), 0);
-    return () => {
-      window.clearTimeout(timeout);
-      root?.removeEventListener("focusin", handleFocusIn);
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      // Gate the whole restore on focus having actually died with this
-      // popover, not just the deferred fallback below (#824). See
-      // `PinFlyout.tsx` for the full mutation-phase reasoning: by the time
-      // this cleanup runs, `activeElement === body` means focus died with
-      // the popover; anything else means a live element legitimately owns
-      // focus and must not be yanked back.
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      // You cannot restore what was never taken (#824 round 3; moved ahead
-      // of the restore branch in round 5, Codex on PR #842): a pointer-only
-      // interaction can blur a persistent control to `<body>` without focus
-      // ever entering this popover. `<body>` here otherwise reads the same
-      // as "this popover held focus and its removal dropped it", so both the
-      // restore below and the fallback beneath it must be gated on
-      // `heldFocusRef`: cleanup only ever gives back focus it actually held.
-      if (!heldFocusRef.current) return;
-      if (previousFocus?.isConnected) {
-        previousFocus.focus();
-        return;
-      }
-      // Only when nothing else has focus (#797/#824). A row click that opens
-      // `SelectedSpotCard` clears this popover in the same commit, so this
-      // cleanup and the card's own mount effect can both run before either
-      // element repaints. If this fired synchronously here, the map surface
-      // would already hold focus by the time the card's mount effect reads
-      // `document.activeElement`, and the card would wrongly capture the
-      // surface as ITS `previousFocus` — turning its own close-time fallback
-      // guard into an unconditional restore that steals focus from whatever
-      // the user tabs to next. Deferring one tick lets every same-commit
-      // sibling's mount effect capture the real (pre-fallback) activeElement
-      // first; the sibling's own focus-in timer (also `setTimeout(0)`, always
-      // scheduled after this one) then wins.
-      // Cancelled if setup runs again (#824, found by Codex on PR #842).
-      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
-      // so the simulated cleanup schedules this timer while the overlay is
-      // in fact still open; without the cancel it fires and moves focus to
-      // the surface, and merely hovering changes keyboard focus in dev. Any
-      // re-run of setup means the overlay is open again, which makes a
-      // pending fallback stale by definition.
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        if (document.activeElement === document.body) focusMapSurface?.();
-      }, 0);
-    };
-  }, [focusMapSurface, sortedSpots.length, visible]);
+    return () => window.clearTimeout(timeout);
+  // `portalElement` is a dependency so a container change re-runs the
+    // first-row focus (see its resolution above; it is stable while open,
+    // which is what keeps that from ever being needed in practice).
+  }, [portalElement, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
-  // Bound by the map host frame, not the window — a map host shorter than
-  // the viewport still let this popover spill past its own bottom edge
-  // (#846). `portalTarget` (an actual DOM destination) wins over `boundsHost`
-  // (bounds-only, no re-parenting): resolveOverlayFrame returns "absolute"
-  // for either since both are real Elements, but only a real `portalTarget`
-  // means the popover is actually a child of that element — a bounds-only
-  // host must stay `position: fixed` (the popover still portals to
-  // `document.body`) with its frame's own `left`/`top` added back into the
-  // final on-screen position below, since `placeAnchoredOverlayInFrame`
-  // returns coordinates local to the frame's origin.
-  const measuredHost = portalTarget ?? boundsHost;
-  const rawFrame = resolveOverlayFrame(measuredHost);
-  const frame: OverlayFrame =
-    !portalTarget && boundsHost ? { ...rawFrame, position: "fixed" } : rawFrame;
-  const overlaySize = {
-    width: Math.min(POPOVER_WIDTH, frame.width - EDGE_PADDING * 2),
-    height: Math.min(POPOVER_HEIGHT, frame.height - EDGE_PADDING * 2),
-  };
-  const adjustedPosition = placeAnchoredOverlayInFrame(
-    position,
-    overlaySize,
-    frame,
-    { axis: "horizontal", gap: 12, padding: EDGE_PADDING },
-  );
-  // The height the clamp above actually used to place `adjustedPosition.y`,
-  // not `frame.height - padding*2` in isolation — the two disagreed
-  // whenever `overlaySize.height` was clamped smaller than the frame, which
-  // let the rendered box still cross the frame's bottom edge even though
-  // `max-height` looked frame-bound (#871 review, F2).
-  const maxHeight = Math.max(0, frame.height - adjustedPosition.y - EDGE_PADDING);
-  const screenLeft =
-    frame.position === "fixed" ? frame.left + adjustedPosition.x : adjustedPosition.x;
-  const screenTop =
-    frame.position === "fixed" ? frame.top + adjustedPosition.y : adjustedPosition.y;
+  const { frame, overlaySize, maxHeight, screenLeft, screenTop } = layout;
   const visibleSpotLabel = isWallCanvas
     ? `${title}: showing ${visibleSpots.length} of ${sortedSpots.length} spots`
     : `${title}: ${sortedSpots.length} spots`;
@@ -317,9 +368,17 @@ export function SpotCollectionPopover({
 
       <div
         className={
-          isWallCanvas ? "min-h-0 overflow-hidden p-1" : "min-h-0 overflow-y-auto p-1"
+          isWallCanvas
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : "min-h-0 overflow-y-auto p-1"
         }
       >
+        <div
+          ref={wallListRef}
+          className={
+            isWallCanvas ? "min-h-0 flex-1 overflow-hidden p-1" : undefined
+          }
+        >
         {visibleSpots.map((rawSpot, index) => {
           const spot = normalizePresentableSpot(rawSpot);
           // Activation reports retain their provider outside LiveSpot.source
@@ -337,8 +396,9 @@ export function SpotCollectionPopover({
             <button
               type="button"
               ref={index === 0 ? firstSpotRef : undefined}
-              key={spot.id || `${spot.dx}-${spot.frequency}-${index}`}
+              key={wallRowKeys[index]}
               onClick={() => onSpotSelect(spot)}
+              data-spot-row={wallRowKeys[index]}
               className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"
               aria-label={`Select ${spot.dx} and view details`}
             >
@@ -393,8 +453,9 @@ export function SpotCollectionPopover({
             </button>
           );
         })}
+        </div>
         {isWallCanvas && hiddenSpotCount > 0 && (
-          <div className="px-2.5 py-2 text-center font-mono text-xs font-semibold text-su-muted">
+          <div className="shrink-0 px-2.5 py-2 text-center font-mono text-xs font-semibold text-su-muted">
             +{hiddenSpotCount} more
           </div>
         )}
@@ -423,7 +484,7 @@ export function SpotCollectionPopover({
         </div>
       </div>
     </div>,
-    portalTarget ?? document.body,
+    portalElement ?? document.body,
   );
 }
 

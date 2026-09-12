@@ -141,7 +141,7 @@ function HeroFieldCell({
 
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
+      <dt className="text-xs font-medium uppercase tracking-wider text-su-muted">
         {field.label}
       </dt>
       <dd
@@ -169,7 +169,7 @@ function HeroGroupSection({
 
   return (
     <div className="px-4 sm:px-5 py-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 flex items-center gap-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 flex items-center gap-2">
         <span
           className="w-[3px] h-3.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: accentHex }}
@@ -649,7 +649,7 @@ export function EquipmentHeroCard({
                            flex items-center gap-2 text-su-muted hover:text-su-text text-xs"
               />
             </div>
-            <span className="text-[11px] text-su-muted">
+            <span className="text-xs text-su-muted">
               Add more photos ({maxGalleryImages} max)
             </span>
           </div>
@@ -667,15 +667,15 @@ export function EquipmentHeroCard({
         <div className="px-5 pt-4 pb-3">
           {/* Type label + tier */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold text-su-muted">
+            <span className="text-xs uppercase tracking-[0.15em] font-semibold text-su-muted">
               {resolvedTypeLabel}
             </span>
             {tier && (
               <>
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-su-muted opacity-50">
+                <span className="text-xs uppercase tracking-wider font-semibold text-su-muted opacity-50">
                   &middot;
                 </span>
-                <span className="text-[11px] uppercase tracking-[0.15em] font-semibold text-su-muted opacity-60">
+                <span className="text-xs uppercase tracking-[0.15em] font-semibold text-su-muted opacity-60">
                   {TIER_LABELS[tier]}
                 </span>
               </>
@@ -708,7 +708,7 @@ export function EquipmentHeroCard({
                 return (
                   <span
                     key={badge.label}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs
                                font-semibold uppercase tracking-wider"
                     style={{
                       backgroundColor: badgeFill,
@@ -757,7 +757,7 @@ export function EquipmentHeroCard({
                       duration={600}
                     />
                   </span>
-                  <span className="text-[9px] sm:text-[10px] text-su-muted uppercase tracking-wider">
+                  <span className="text-xs text-su-muted uppercase tracking-wider">
                     {stat.label}
                   </span>
                 </div>
@@ -811,7 +811,7 @@ export function EquipmentHeroCard({
                     className="w-[3px] h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: `${accentHex}80` }}
                   />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-su-muted">
                     {CATEGORY_LABELS[category]}
                   </span>
                 </div>
@@ -829,7 +829,7 @@ export function EquipmentHeroCard({
                     return (
                       <span
                         key={`${cap.category}-${cap.label}`}
-                        className={`px-2 py-0.5 text-[11px] font-mono font-medium rounded border ${pillStyle}`}
+                        className={`px-2 py-0.5 text-xs font-mono font-medium rounded border ${pillStyle}`}
                       >
                         {cap.label}
                       </span>

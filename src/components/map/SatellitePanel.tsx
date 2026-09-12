@@ -41,6 +41,10 @@ import { useUserStore } from "@/stores/userStore";
 import { SatelliteTuneButton } from "@/components/radio/SatelliteTuneButton";
 import { SatelliteLogButton } from "./layers/SatelliteLogButton";
 import { CustomTLEDialog } from "./layers/CustomTLEDialog";
+import {
+  OrbitTrackControls,
+  OrbitTrackToggleButton,
+} from "./OrbitTrackControls";
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -149,21 +153,38 @@ function SatelliteRow({
   isSelected: boolean;
   onSelect: (noradId: number) => void;
 }) {
+  const id = String(satellite.noradId);
+  const isTracked = useMapStore((s) => s.satelliteTracks[id] !== undefined);
+
   return (
-    <button
-      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-left ${
+    <div
+      className={`w-full flex flex-col gap-1 px-2 py-1.5 rounded-md ${
         isSelected
           ? "bg-su-line/20 border border-su-line/50"
-          : "hover:bg-su-line/10 border border-transparent"
-      }`}
-      onClick={() => onSelect(satellite.noradId)}
+          : "border border-transparent"
+      } ${isTracked ? "border-su-accent/40 bg-su-accent/5" : ""}`}
     >
-      <VisibilityDot isVisible={satellite.isVisible} />
-      <span className="flex-1 text-xs font-mono text-su-text truncate">
-        {satellite.name}
-      </span>
-      <CategoryBadge category={satellite.category} />
-    </button>
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 text-left rounded-md"
+        onClick={() => onSelect(satellite.noradId)}
+      >
+        <VisibilityDot isVisible={satellite.isVisible} />
+        <span className="flex-1 text-xs font-mono text-su-text truncate min-w-0">
+          {satellite.name}
+        </span>
+        {isTracked && (
+          <span className="text-xs font-semibold text-su-accent flex-shrink-0">
+            Orbit mapped
+          </span>
+        )}
+        <CategoryBadge category={satellite.category} />
+      </button>
+      <OrbitTrackToggleButton
+        noradId={satellite.noradId}
+        name={satellite.name}
+      />
+    </div>
   );
 }
 
@@ -535,6 +556,12 @@ function SatelliteDetail({
         </div>
         <VisibilityDot isVisible={satellite.isVisible} />
       </div>
+
+      {/* Map orbit — same store actions as the modal / marker popup */}
+      <OrbitTrackControls
+        noradId={satellite.noradId}
+        name={satellite.name}
+      />
 
       {/* Position data grid */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3">

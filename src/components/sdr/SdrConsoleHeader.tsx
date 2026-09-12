@@ -73,7 +73,7 @@ export function SdrConsoleHeader({
         value={selectedDeviceId ?? ""}
         onChange={(e) => onDeviceSelect(e.target.value || null)}
         disabled={!daemonConnected || devices.length === 0 || isConnected}
-        className="px-2 py-1 bg-su-input border border-su-line/40 rounded text-[11px] text-su-text max-w-[180px] truncate disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-2 py-1 bg-su-input border border-su-line/40 rounded text-xs text-su-text max-w-[180px] truncate disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {devices.length === 0 ? (
           <option value="">No devices</option>
@@ -92,7 +92,7 @@ export function SdrConsoleHeader({
           type="button"
           onClick={onDisconnectRadio}
           disabled={!canControlConnected}
-          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-alert-red/15 border border-alert-red/30 text-alert-red hover:bg-alert-red/25 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-2 py-0.5 text-xs font-semibold rounded bg-alert-red/15 border border-alert-red/30 text-alert-red hover:bg-alert-red/25 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         >
           Disconnect
         </button>
@@ -101,7 +101,7 @@ export function SdrConsoleHeader({
           type="button"
           onClick={onConnectRadio}
           disabled={!canControlDevice || isConnected}
-          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-2 py-0.5 text-xs font-semibold rounded bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         >
           Connect
         </button>
@@ -118,7 +118,7 @@ export function SdrConsoleHeader({
                 : "bg-su-line"
           }`}
         />
-        <span className="text-[11px] text-su-muted truncate max-w-[120px]">
+        <span className="text-xs text-su-muted truncate max-w-[120px]">
           {daemonConnected
             ? (radioName ?? "Connected")
             : daemonConnecting
@@ -134,14 +134,14 @@ export function SdrConsoleHeader({
       <button
         type="button"
         onClick={onOpenDevicePicker}
-        className="px-2 py-0.5 rounded text-[10px] font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 whitespace-nowrap"
+        className="px-2 py-0.5 rounded text-xs font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 whitespace-nowrap"
       >
         Daemon
       </button>
 
       {/* Daemon URL */}
       {!isMobile && (
-        <span className="text-[10px] text-su-muted font-mono truncate max-w-[160px]">
+        <span className="text-xs text-su-muted font-mono truncate max-w-[160px]">
           {daemonUrl}
         </span>
       )}
@@ -150,7 +150,7 @@ export function SdrConsoleHeader({
       {!isMobile && (
         <Link
           to="/setup"
-          className="text-[10px] text-su-muted hover:text-su-text shrink-0"
+          className="text-xs text-su-muted hover:text-su-text shrink-0"
         >
           Setup
         </Link>

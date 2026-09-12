@@ -6,10 +6,18 @@
  * with a remove button that deletes from IndexedDB.
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import { ImageCropDialog } from "@/components/ui/ImageCropDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useImageUrl } from "@/hooks/useImageUrl";
+
+function readFailureMessage(err: unknown): string {
+  const detail =
+    err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  if (detail)
+    return `Could not read the selected photo: ${detail}. Try another file or try again.`;
+  return "Could not read the selected photo. Try another file or try again.";
+}
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -80,9 +88,11 @@ export function ImageUploadButton({
   className = "",
 }: ImageUploadButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const readErrorId = useId();
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
 
   const { url: imageUrl } = useImageUrl(imageId);
 
@@ -99,13 +109,28 @@ export function ImageUploadButton({
 
       // Reset the input so the same file can be re-selected
       e.target.value = "";
+      setReadError(null);
 
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") {
           setCropSrc(reader.result);
           setCropOpen(true);
+          return;
         }
+        console.error(
+          "[ImageUploadButton] FileReader returned a non-string result",
+        );
+        setReadError(
+          "Could not read the selected photo. Try another file or try again.",
+        );
+      };
+      reader.onerror = () => {
+        console.error("[ImageUploadButton] FileReader failed:", reader.error);
+        setReadError(readFailureMessage(reader.error));
+      };
+      reader.onabort = () => {
+        setReadError("Photo read was cancelled. Choose a file to try again.");
       };
       reader.readAsDataURL(file);
     },
@@ -147,63 +172,92 @@ export function ImageUploadButton({
         tabIndex={-1}
       />
 
-      <div className={`inline-flex items-center gap-2 ${className}`}>
-        {/* Preview thumbnail (when image exists) */}
-        {imageId && imageUrl && (
-          <div className="relative group flex-shrink-0">
-            <img
-              src={imageUrl}
-              alt="Preview"
-              className={`object-cover border border-su-line/40 ${
-                cropShape === "round"
-                  ? "w-10 h-10 rounded-full"
-                  : "w-12 h-9 rounded-md"
-              }`}
-            />
-            {/* Remove overlay */}
-            <button
-              type="button"
-              onClick={() => setShowRemoveConfirm(true)}
-              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
+      <div className="min-w-0">
+        <div className={`inline-flex items-center gap-2 ${className}`}>
+          {/* Preview thumbnail (when image exists) */}
+          {imageId && imageUrl && (
+            <div className="relative group flex-shrink-0">
+              <img
+                src={imageUrl}
+                alt="Preview"
+                className={`object-cover border border-su-line/40 ${
+                  cropShape === "round"
+                    ? "w-10 h-10 rounded-full"
+                    : "w-12 h-9 rounded-md"
+                }`}
+              />
+              {/* Remove overlay */}
+              <button
+                type="button"
+                onClick={() => setShowRemoveConfirm(true)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
                          bg-void-black border border-su-line/50
                          flex items-center justify-center
                          text-alert-red hover:text-alert-red/80
                          opacity-0 group-hover:opacity-100
                          transition-opacity focus:opacity-100
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-              aria-label="Remove image"
-            >
-              <RemoveIcon />
-            </button>
-          </div>
-        )}
+                aria-label="Remove image"
+              >
+                <RemoveIcon />
+              </button>
+            </div>
+          )}
 
-        {/* Upload / Change button */}
-        {compact ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="bg-su-input hover:bg-su-panel/60 rounded-lg p-2
+          {/* Upload / Change button */}
+          {compact ? (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="bg-su-input hover:bg-su-panel/60 rounded-lg p-2
                        text-su-muted hover:text-su-text
                        transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-su-line/60"
-            aria-label={imageId ? "Change photo" : label}
-          >
-            <CameraIcon size={16} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
+              aria-label={imageId ? "Change photo" : label}
+            >
+              <CameraIcon size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
                        rounded-lg px-4 py-2 text-sm text-su-muted
                        inline-flex items-center gap-2
                        transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-su-line/60"
+            >
+              <CameraIcon size={16} />
+              <span>{imageId ? "Change" : label}</span>
+            </button>
+          )}
+        </div>
+
+        {readError && (
+          <div
+            id={readErrorId}
+            role="alert"
+            aria-live="polite"
+            className="mt-2 max-w-sm rounded-lg border border-alert-red/20 bg-alert-red/10 px-3 py-2"
           >
-            <CameraIcon size={16} />
-            <span>{imageId ? "Change" : label}</span>
-          </button>
+            <p className="text-sm font-medium text-su-text">{readError}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleClick}
+                className="rounded-md border border-alert-red/30 bg-alert-red/20 px-3 py-1 text-xs font-medium text-su-text hover:bg-alert-red/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-alert-red/40"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => setReadError(null)}
+                className="rounded-md border border-su-line/40 bg-su-line/10 px-3 py-1 text-xs font-medium text-su-muted hover:bg-su-line/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-su-line/60"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

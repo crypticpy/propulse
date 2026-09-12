@@ -30,31 +30,59 @@ export interface LocalScale {
   stretch: number;
 }
 
-export interface Projection {
-  readonly kind: "equirectangular" | "azimuthal";
+interface ProjectionCommon {
   /** Raw view zoom, undamped. */
   readonly zoomScale: number;
-  /** Horizontal period in user-space px, undefined when the projection does not repeat. Wrapping stays the layer's job. */
-  readonly wrapWidth?: number;
-  /** Canvas height in user-space px, set alongside `wrapWidth` on the
-   * equirectangular projection (`addWrappedRingPath` needs both); undefined
-   * on the disc, which has no wrap. */
-  readonly wrapHeight?: number;
-  /** The azimuthal disc's radius in user-space px; undefined on the flat
-   * map. Lets the shared borders layer (#1091) compute the disc's
-   * jump-break threshold without reaching into the view's own radius const. */
-  readonly discRadiusPx?: number;
   project(lat: number, lon: number): ProjectedPoint;
   scaleAt(lat: number, lon: number): LocalScale;
   /** Convert an on-screen px size into this projection's user space (the flat map's zoomDamp). */
   screenPx(px: number): number;
 }
 
+/**
+ * The flat map's projection. `wrapWidth`/`wrapHeight` are always real
+ * numbers (never undefined) so the shared night-side clip and border seam
+ * code (#1091 PR 7) can read them directly after narrowing on `kind`,
+ * instead of an `?? 0` fallback that never actually triggers.
+ */
+export interface EquirectangularProjection extends ProjectionCommon {
+  readonly kind: "equirectangular";
+  /** Horizontal period in user-space px. Wrapping stays the layer's job. */
+  readonly wrapWidth: number;
+  /** Canvas height in user-space px, set alongside `wrapWidth` (`addWrappedRingPath` needs both). */
+  readonly wrapHeight: number;
+  readonly discRadiusPx?: undefined;
+  readonly discCenterPx?: undefined;
+}
+
+/**
+ * The azimuthal disc's projection. `discRadiusPx`/`discCenterPx` are always
+ * real values so the shared night-side clip and border seam code (#1091 PR
+ * 7) can read them directly after narrowing on `kind`, instead of a
+ * non-null assertion.
+ */
+export interface AzimuthalProjection extends ProjectionCommon {
+  readonly kind: "azimuthal";
+  readonly wrapWidth?: undefined;
+  readonly wrapHeight?: undefined;
+  /** The disc's radius in user-space px. Lets the shared borders layer
+   * (#1091) compute the disc's jump-break threshold and night-clip arc
+   * radius without reaching into the view's own radius const. */
+  readonly discRadiusPx: number;
+  /** The disc's centre in canvas px (`centerX`/`centerY` passed to
+   * `createAzimuthalProjection`). Lets the shared night-side clip (#1091 PR
+   * 7) build its closing arc without reaching into the view's own centre
+   * const. */
+  readonly discCenterPx: { x: number; y: number };
+}
+
+export type Projection = EquirectangularProjection | AzimuthalProjection;
+
 export function createEquirectangularProjection(opts: {
   width: number;
   height: number;
   zoomScale: number;
-}): Projection {
+}): EquirectangularProjection {
   const { width, height, zoomScale } = opts;
   const zoomDamp = Math.max(1, zoomScale); // same floor as every zoomDamp in the flat map view
   const pxPerKmNS = height / HALF_CIRCUMFERENCE_KM;
@@ -65,6 +93,7 @@ export function createEquirectangularProjection(opts: {
     wrapWidth: width,
     wrapHeight: height,
     discRadiusPx: undefined,
+    discCenterPx: undefined,
     project: (lat, lon) => ({
       x: ((lon + 180) / 360) * width,
       y: ((90 - lat) / 180) * height,
@@ -89,7 +118,7 @@ export function createAzimuthalProjection(opts: {
   radius: number;
   zoomScale: number;
   zoomDamp: number;
-}): Projection {
+}): AzimuthalProjection {
   const {
     centerLat,
     centerLon,
@@ -106,6 +135,7 @@ export function createAzimuthalProjection(opts: {
     wrapWidth: undefined,
     wrapHeight: undefined,
     discRadiusPx: radius,
+    discCenterPx: { x: centerX, y: centerY },
     project(lat, lon) {
       const p = azimuthalProject(lat, lon, centerLat, centerLon);
       return {

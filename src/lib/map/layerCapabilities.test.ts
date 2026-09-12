@@ -131,6 +131,14 @@ describe("PropSphere renderer capability matrix", () => {
     }
   });
 
+  it("offers the spot path age-fade switch on all three views (#1247)", () => {
+    for (const view of ["globe", "flat", "azimuthal"] as const) {
+      expect(getLayerAvailability("spotPathAgeFade", view)).toEqual({
+        available: true,
+      });
+    }
+  });
+
   it("rejects stale or external layer keys", () => {
     expect(getLayerAvailability("not-a-layer", "globe")).toEqual({
       available: false,

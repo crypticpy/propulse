@@ -369,6 +369,10 @@ export interface LabelOptions {
    * three map views (#1091 PR 8). Default `false`: a solid outlined line
    * is the most visible default when views disagree on style. */
   terminatorDashed: boolean;
+  /** Fade spot arcs as they age on all three map views instead of keeping
+   * them at full strength (#1247). Default `false`: an unfaded path is the
+   * most visible default. */
+  spotPathAgeFade: boolean;
 }
 
 export interface MapState {
@@ -869,6 +873,7 @@ const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   wasOverlay: false,
   tileLabels: false,
   terminatorDashed: false,
+  spotPathAgeFade: false,
 };
 
 // Load saved label options from localStorage

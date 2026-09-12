@@ -20,7 +20,7 @@ import {
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getPathPoints, getLongPathPoints } from "@/lib/utils/path";
+import { getPathMetrics, getLongPathPoints } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
@@ -65,6 +65,7 @@ import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { createAzimuthalProjection } from "@/lib/map/projection";
+import type { Projection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
@@ -77,6 +78,12 @@ import {
 } from "./layers/bordersLayer";
 import { drawTerminatorLayer } from "./layers/terminatorLayer";
 import type { TerminatorGeometry } from "./layers/terminatorLayer";
+import {
+  drawSpotArcsLayer,
+  SPOT_ARC_SELECTED_COLOR,
+  type SpotArcInput,
+} from "./layers/spotArcsLayer";
+import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -168,6 +175,8 @@ const COLORS = {
 const MAX_DISTANCE_KM = 20015;
 const MAX_AZIMUTHAL_BACKGROUND_TRACES = 64;
 const MAX_AZIMUTHAL_CALLSIGN_LABELS = 16;
+// Mirrors FlatMapView.tsx's EMPTY_GROUPED_MEMBERS (#1247).
+const EMPTY_GROUPED_MEMBERS: ReadonlySet<LiveSpot> = new Set<LiveSpot>();
 
 /**
  * Convert normalized projection coordinates to canvas coordinates
@@ -557,143 +566,69 @@ function drawNoQTHMessage(ctx: CanvasRenderingContext2D) {
 }
 
 /**
- * Build a Path2D tracing the great-circle path between two points under the
- * azimuthal projection. Only great circles that pass through the projection
- * center render as straight lines here; spotter/DX pairs almost never do, so
- * the path is approximated by sampling and projecting points along the true
- * great circle. Segments where a sample falls outside the visible disk
- * (dist > 1) are skipped, matching the existing endpoint-clip behavior.
+ * Build the shared `spotArcsLayer`'s per-arc input from a resolved spot
+ * (#1247). Mirrors `FlatMapView.tsx`'s `spotArcInput`.
  */
-function buildGreatCirclePath(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-  centerLat: number,
-  centerLon: number,
-  numPoints = 32,
-): Path2D {
-  const path = new Path2D();
-  const points = getPathPoints(lat1, lon1, lat2, lon2, numPoints);
-  let inPath = false;
-
-  for (const pt of points) {
-    const proj = azimuthalProject(pt.lat, pt.lon, centerLat, centerLon);
-    const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
-
-    if (dist > 1) {
-      inPath = false;
-      continue;
-    }
-
-    const canvasPt = projToCanvas(proj);
-    if (!inPath) {
-      path.moveTo(canvasPt.x, canvasPt.y);
-      inPath = true;
-    } else {
-      path.lineTo(canvasPt.x, canvasPt.y);
-    }
-  }
-
-  return path;
+function spotArcInput(
+  spot: ResolvedSpot,
+  colorMode: SpotColorMode,
+  options: {
+    isWatched?: boolean;
+    skipDxEndpoint?: boolean;
+    skipSpotterEndpoint?: boolean;
+    selected?: boolean;
+  } = {},
+): SpotArcInput {
+  return {
+    id: spot.id,
+    from: { lat: spot.spotterLat, lon: spot.spotterLon },
+    to: { lat: spot.dxLat, lon: spot.dxLon },
+    colour: getSpotColor(spot, colorMode),
+    isWatched: options.isWatched ?? true,
+    ageOpacity: getSpotAgeOpacity(spot.time),
+    skipDxEndpoint: options.skipDxEndpoint ?? false,
+    skipSpotterEndpoint: options.skipSpotterEndpoint ?? false,
+    selected: options.selected ?? false,
+  };
 }
 
 /**
- * Draw live spot arcs on the azimuthal projection.
- * Paths are sampled great circles (see buildGreatCirclePath) — they are only
- * straight lines when the path happens to pass through the projection center.
+ * Draw live spot arcs on the azimuthal disc through the shared
+ * `spotArcsLayer` (#1247), replacing the disc's own geometry
+ * (`buildGreatCirclePath`) and its always-on per-spot glow. `drawEndpoints:
+ * false` suppresses both endpoint glyphs -- the "Spot Traces" background
+ * layer's pre-#1247 behaviour, kept unchanged.
  */
 function drawSpotArcs(
   ctx: CanvasRenderingContext2D,
+  projection: Projection,
   spots: ResolvedSpot[],
-  centerLat: number,
-  centerLon: number,
   colorMode: SpotColorMode = "mode",
+  highViz = false,
   spotDotScale = 1.0,
   drawEndpoints = true,
+  options: {
+    watchDimming?: boolean;
+    watchMatchedIds?: Set<string>;
+    ageFade?: boolean;
+    groupedMembers?: ReadonlySet<LiveSpot>;
+  } = {},
 ) {
-  for (const spot of spots) {
-    const color = getSpotColor(spot, colorMode);
-    const opacity = getSpotAgeOpacity(spot.time);
-
-    // Project both endpoints
-    const spotterProj = azimuthalProject(
-      spot.spotterLat,
-      spot.spotterLon,
-      centerLat,
-      centerLon,
-    );
-    const dxProj = azimuthalProject(
-      spot.dxLat,
-      spot.dxLon,
-      centerLat,
-      centerLon,
-    );
-
-    // Check if both points are within the map circle
-    const spotterDist = Math.sqrt(
-      spotterProj.x * spotterProj.x + spotterProj.y * spotterProj.y,
-    );
-    const dxDist = Math.sqrt(dxProj.x * dxProj.x + dxProj.y * dxProj.y);
-
-    // Skip if both points are outside the circle
-    if (spotterDist > 1 && dxDist > 1) {
-      continue;
-    }
-
-    const spotterCanvas = projToCanvas(spotterProj);
-    const dxCanvas = projToCanvas(dxProj);
-
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.round(1.5 * spotDotScale);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 3;
-
-    // Sample and project the true great-circle path (see buildGreatCirclePath)
-    const path = buildGreatCirclePath(
-      spot.spotterLat,
-      spot.spotterLon,
-      spot.dxLat,
-      spot.dxLon,
-      centerLat,
-      centerLon,
-    );
-    ctx.stroke(path);
-
-    if (drawEndpoints) {
-      ctx.fillStyle = color;
-
-      // Spotter location (smaller, only if inside circle)
-      if (spotterDist <= 1) {
-        ctx.beginPath();
-        ctx.arc(
-          spotterCanvas.x,
-          spotterCanvas.y,
-          Math.round(3 * spotDotScale),
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
-
-      // DX location (larger, only if inside circle)
-      if (dxDist <= 1) {
-        ctx.beginPath();
-        ctx.arc(
-          dxCanvas.x,
-          dxCanvas.y,
-          Math.round(4 * spotDotScale),
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
-    }
-
-    ctx.restore();
-  }
+  const arcs: SpotArcInput[] = spots.map((spot) =>
+    spotArcInput(spot, colorMode, {
+      isWatched: options.watchMatchedIds?.has(spot.id) ?? true,
+      skipDxEndpoint:
+        !drawEndpoints ||
+        (options.groupedMembers?.has(spot.originalSpot) ?? false),
+      skipSpotterEndpoint: !drawEndpoints,
+    }),
+  );
+  drawSpotArcsLayer(ctx, projection, arcs, {
+    highViz,
+    spotDotScale,
+    watchDimming: options.watchDimming ?? false,
+    ageFade: options.ageFade ?? false,
+  });
 }
 
 interface AzimuthalSpotPillBox {
@@ -884,98 +819,34 @@ function drawSpotCallsignPills(
 }
 
 /**
- * Draw a highlighted arc for the selected DX cluster spot.
- * Path is a sampled great circle (see buildGreatCirclePath) — only straight
- * when it happens to pass through the projection center.
+ * Draw a highlighted arc for the selected DX cluster spot through the shared
+ * `spotArcsLayer` (#1247), plus its callsign label -- the label stays the
+ * disc's own (out of scope for #1247; unlike the flat map's pill, the disc
+ * has always drawn a plain outlined text label here).
  */
 function drawSelectedSpotArc(
   ctx: CanvasRenderingContext2D,
+  projection: Projection,
   spot: ResolvedSpot,
-  centerLat: number,
-  centerLon: number,
+  spotDotScale: number,
 ) {
-  const spotterProj = azimuthalProject(
-    spot.spotterLat,
-    spot.spotterLon,
-    centerLat,
-    centerLon,
+  drawSpotArcsLayer(
+    ctx,
+    projection,
+    [spotArcInput(spot, "mode", { selected: true })],
+    { highViz: false, spotDotScale, watchDimming: false, ageFade: false },
   );
-  const dxProj = azimuthalProject(spot.dxLat, spot.dxLon, centerLat, centerLon);
 
-  // Check if at least one endpoint is within view
-  const spotterDist = Math.sqrt(
-    spotterProj.x * spotterProj.x + spotterProj.y * spotterProj.y,
-  );
-  const dxDist = Math.sqrt(dxProj.x * dxProj.x + dxProj.y * dxProj.y);
-  if (spotterDist > 1.1 && dxDist > 1.1) return;
-
-  const sx = CENTER + spotterProj.x * RADIUS;
-  const sy = CENTER + spotterProj.y * RADIUS;
-  const ex = CENTER + dxProj.x * RADIUS;
-  const ey = CENTER + dxProj.y * RADIUS;
-
-  const highlightColor = "rgba(255, 107, 53, 1)";
-  const glowColor = "rgba(255, 107, 53, 0.3)";
+  const dx = projection.project(spot.dxLat, spot.dxLon);
+  if (!dx.visible || !spot.callsign) return;
 
   ctx.save();
-
-  // Sample and project the true great-circle path (see buildGreatCirclePath)
-  const path = buildGreatCirclePath(
-    spot.spotterLat,
-    spot.spotterLon,
-    spot.dxLat,
-    spot.dxLon,
-    centerLat,
-    centerLon,
-  );
-
-  // Draw glow line
-  ctx.strokeStyle = glowColor;
-  ctx.lineWidth = 6;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
-  ctx.shadowBlur = 12;
-  ctx.stroke(path);
-
-  // Draw main line
-  ctx.strokeStyle = highlightColor;
-  ctx.lineWidth = 2.5;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-  ctx.shadowBlur = 8;
-  ctx.stroke(path);
-
-  // Draw spotter endpoint (ring)
-  if (spotterDist <= 1) {
-    ctx.beginPath();
-    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-    ctx.strokeStyle = highlightColor;
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 6;
-    ctx.stroke();
-  }
-
-  // Draw DX endpoint (filled with white ring)
-  if (dxDist <= 1) {
-    ctx.beginPath();
-    ctx.arc(ex, ey, 6, 0, Math.PI * 2);
-    ctx.fillStyle = highlightColor;
-    ctx.shadowBlur = 8;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-    ctx.lineWidth = 1.5;
-    ctx.shadowBlur = 0;
-    ctx.stroke();
-
-    // Draw DX callsign label
-    if (spot.callsign) {
-      ctx.font = "bold 11px system-ui, sans-serif";
-      ctx.fillStyle = highlightColor;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
-      ctx.textAlign = "center";
-      ctx.fillText(spot.callsign, ex, ey - 10);
-    }
-  }
-
+  ctx.font = "bold 11px system-ui, sans-serif";
+  ctx.fillStyle = SPOT_ARC_SELECTED_COLOR;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+  ctx.shadowBlur = 4;
+  ctx.textAlign = "center";
+  ctx.fillText(spot.callsign, dx.x, dx.y - 10);
   ctx.restore();
 }
 
@@ -1179,6 +1050,8 @@ export function AzimuthalView({
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const setTarget = useMapStore((s) => s.setTarget);
   const setWatch = useWatchStore((s) => s.setWatch);
+  const watchEnabled = useWatchStore((s) => s.enabled);
+  const matchedSpotIds = useWatchStore((s) => s.matchedSpotIds);
 
   const cancelSpotHoverDismiss = useCallback(() => {
     if (spotHoverDismissRef.current === null) return;
@@ -1255,6 +1128,33 @@ export function AzimuthalView({
   const spotLabelScale = uiPrefs.labelScale ?? 1.0;
   const showSpotCallsignLabels = uiPrefs.showSpotCallsignLabels ?? true;
   const highVizSpots = uiPrefs.visualStyle === "high-viz";
+  // Mirrors FlatMapView.tsx's spotLayerPolicy (#1247): "Spots" now draws
+  // arcs too, not just callsign pills, so path visibility is gated the same
+  // way on both maps instead of the azimuthal-only `pathPresentation`.
+  const spotLayerPolicy = useMemo(
+    () =>
+      getSpotLayerPolicy(
+        {
+          spots: layers.spots,
+          spotTraces: layers.spotTraces,
+          gridActivity: layers.gridActivity,
+          activations: layers.activations,
+        },
+        {
+          isolateTargetPath: pathPresentation.isolateTargetPath,
+          hasTarget: Boolean(station && target),
+        },
+      ),
+    [
+      layers.activations,
+      layers.gridActivity,
+      layers.spotTraces,
+      layers.spots,
+      pathPresentation.isolateTargetPath,
+      station,
+      target,
+    ],
+  );
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
   const hiResTexturePreference = useSettingsStore(
@@ -1755,6 +1655,18 @@ export function AzimuthalView({
       ),
     [resolvedSpots],
   );
+
+  // Grouped-endpoint suppression (#746) shared with the flat map's spot arcs
+  // (#1247): a clustered spot's DX endpoint is drawn by the cluster glyph
+  // instead, so the individual arc's endpoint marker is suppressed.
+  const groupedMembers = useMemo(() => {
+    if (!groupingEnabled) return EMPTY_GROUPED_MEMBERS;
+    const members = new Set<LiveSpot>();
+    for (const cluster of clusters) {
+      for (const spot of cluster.spots) members.add(spot);
+    }
+    return members;
+  }, [clusters, groupingEnabled]);
 
   const handleOpenSpotCluster = useCallback(
     (cluster: AzimuthalSpotCluster, position: ScreenAnchor) => {
@@ -2285,17 +2197,47 @@ export function AzimuthalView({
       glowRendererRef.current.draw(ctx, glowProject, Date.now(), "radial");
     }
 
-    // Background routes belong only to Spot Traces and are capped for this
-    // compressed projection. Destination controls remain visible separately.
-    if (layers.spotTraces && !pathPresentation.hideOtherPaths && backgroundTraceSpots.length > 0) {
+    // Full arcs for the "Spots" layer (#1247 -- new capability; previously
+    // only callsign pills drew here, arcs were Spot-Traces-only). Takes
+    // precedence over the Spot-Traces background cap below when both layers
+    // are on, since it's a superset (uncapped, with endpoints).
+    if (
+      layers.spots &&
+      spotLayerPolicy.pathsVisible &&
+      !pathPresentation.hideOtherPaths &&
+      resolvedSpots.length > 0
+    ) {
       drawSpotArcs(
         ctx,
-        [...backgroundTraceSpots],
-        center.lat,
-        center.lon,
+        projection,
+        resolvedSpots,
         spotColorMode,
+        highVizSpots,
+        spotDotScale,
+        true,
+        {
+          watchDimming: watchEnabled && matchedSpotIds.size > 0,
+          watchMatchedIds: matchedSpotIds,
+          ageFade: labelOptions.spotPathAgeFade,
+          groupedMembers,
+        },
+      );
+    } else if (
+      layers.spotTraces &&
+      !pathPresentation.hideOtherPaths &&
+      backgroundTraceSpots.length > 0
+    ) {
+      // Background routes belong only to Spot Traces and are capped for this
+      // compressed projection. Destination controls remain visible separately.
+      drawSpotArcs(
+        ctx,
+        projection,
+        [...backgroundTraceSpots],
+        spotColorMode,
+        highVizSpots,
         spotDotScale,
         false,
+        { ageFade: labelOptions.spotPathAgeFade },
       );
     }
 
@@ -2415,7 +2357,7 @@ export function AzimuthalView({
       !selectedSpotMatchesTarget &&
       !pathPresentation.hideOtherPaths
     ) {
-      drawSelectedSpotArc(ctx, resolvedSelectedSpot, center.lat, center.lon);
+      drawSelectedSpotArc(ctx, projection, resolvedSelectedSpot, spotDotScale);
     }
 
     // Draw target and path if set
@@ -2460,6 +2402,11 @@ export function AzimuthalView({
     target,
     center,
     backgroundTraceSpots,
+    resolvedSpots,
+    spotLayerPolicy,
+    watchEnabled,
+    matchedSpotIds,
+    groupedMembers,
     labeledAzimuthalSpots,
     activationSpots,
     resolvedSelectedSpot,

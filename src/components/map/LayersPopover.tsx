@@ -882,6 +882,15 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               ),
           },
           {
+            key: "spotPathAgeFade",
+            label: "Fade Older Spot Paths",
+            title:
+              "Fade spot paths as they age instead of keeping them at full strength",
+            getValue: () => labelOptions.spotPathAgeFade,
+            onToggle: () =>
+              setLabelOption("spotPathAgeFade", !labelOptions.spotPathAgeFade),
+          },
+          {
             key: "maidenheadGrid",
             label: "Maidenhead Grid",
             title: "Grid lines and field labels on the globe",

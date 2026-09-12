@@ -71,13 +71,17 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
   "autoRotate",
   "qthOrientation",
   "terminatorDashed",
+  "spotPathAgeFade",
 ]);
 
 /** Display controls the azimuthal view honours. The layer set below is
  * keyed by `PropSphereLayerKey`, so label-option switches need their own
  * allowance here (#1091 PR 8: the dashed terminator applies on all three
- * views). */
-const AZIMUTHAL_DISPLAY_CONTROL_KEYS = new Set(["terminatorDashed"]);
+ * views; #1247: spot-arc age fade too). */
+const AZIMUTHAL_DISPLAY_CONTROL_KEYS = new Set([
+  "terminatorDashed",
+  "spotPathAgeFade",
+]);
 
 /** Layers FlatMapView does not draw. Radar and grid activity are omitted
  * on purpose: the flat canvas drapes radar (`useFlatRadarCanvas`) and paints

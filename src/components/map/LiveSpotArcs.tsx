@@ -840,6 +840,13 @@ export function LiveSpotArcs({
   const contactCallsign = useOpsPostureStore((s) => s.contactCallsign);
   const contactBand = useOpsPostureStore((s) => s.contactBand);
 
+  // Feature union with the 2D maps' new age-fade setting (#1247): the globe
+  // previously always faded via `spotAgePrefs.enabled` (a separate,
+  // pre-existing preference); it now reads the same store switch flat/disc
+  // use, and defaults to off since that's this setting's most-visible
+  // default.
+  const spotPathAgeFade = useMapStore((s) => s.labelOptions.spotPathAgeFade);
+
   // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
   const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpots = useReplayStore((s) => s.replaySpots);
@@ -1001,7 +1008,7 @@ export function LiveSpotArcs({
             <group key={spot.id}>
               <SpotArc
                 spot={spot}
-                ageVisualizationEnabled={spotAgePrefs.enabled}
+                ageVisualizationEnabled={spotPathAgeFade}
                 colorMode={colorMode}
                 sizeScale={spotDotScale}
                 filterOpacityMultiplier={filterOpacity}

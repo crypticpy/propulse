@@ -10,6 +10,7 @@ const LABEL_OPTIONS: { key: keyof LabelOptions; label: string }[] = [
   { key: "maidenheadGrid", label: "Maidenhead Grid" },
   { key: "wasOverlay", label: "WAS Progress (flat)" },
   { key: "terminatorDashed", label: "Dashed Terminator Line" },
+  { key: "spotPathAgeFade", label: "Fade Older Spot Paths" },
 ];
 
 const COLLAPSE_DELAY_MS = 2000;

@@ -43,3 +43,35 @@ describe("mapStore label options: terminatorDashed (#1091 PR 8)", () => {
     expect(saved.terminatorDashed).toBe(true);
   });
 });
+
+describe("mapStore label options: spotPathAgeFade (#1247)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("defaults to false -- an unfaded path is the most visible default", async () => {
+    const useMapStore = await loadFreshStore();
+    expect(useMapStore.getState().labelOptions.spotPathAgeFade).toBe(false);
+  });
+
+  it("merges a saved options object without the key in as false", async () => {
+    localStorage.setItem(
+      LABEL_OPTIONS_LS_KEY,
+      JSON.stringify({ borders: false, stateBorders: true }),
+    );
+    const useMapStore = await loadFreshStore();
+    const { labelOptions } = useMapStore.getState();
+    expect(labelOptions.spotPathAgeFade).toBe(false);
+    // The rest of the saved object still merges over the defaults.
+    expect(labelOptions.borders).toBe(false);
+    expect(labelOptions.stateBorders).toBe(true);
+  });
+
+  it("setLabelOption('spotPathAgeFade', true) flips and persists it", async () => {
+    const useMapStore = await loadFreshStore();
+    useMapStore.getState().setLabelOption("spotPathAgeFade", true);
+    expect(useMapStore.getState().labelOptions.spotPathAgeFade).toBe(true);
+    const saved = JSON.parse(localStorage.getItem(LABEL_OPTIONS_LS_KEY)!);
+    expect(saved.spotPathAgeFade).toBe(true);
+  });
+});

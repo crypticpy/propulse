@@ -1,8 +1,9 @@
 import {
-  flatSpotPath,
-  traceFlatSpotPath,
-  traceFlatSpotEndpoint,
-} from "@/lib/map/flatSpotPath";
+  drawSpotArcsLayer,
+  SPOT_ARC_SELECTED_COLOR,
+  type SpotArcInput,
+} from "@/components/map/layers/spotArcsLayer";
+import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 /**
  * FlatMapView Component
  *
@@ -1253,105 +1254,46 @@ function drawMUF(
 }
 
 /**
- * Draw the actual short great-circle path and distinguish TX/RX endpoints.
+ * Build the shared `spotArcsLayer`'s per-arc input from a resolved spot
+ * (#1247). `ageOpacity` is always computed so the layer can apply it when
+ * `style.ageFade` is on -- the flat map itself never faded before this PR.
  */
-function drawSpotArc(
-  ctx: CanvasRenderingContext2D,
+function spotArcInput(
   spot: ResolvedSpot,
-  width: number,
-  height: number,
-  colorMode: SpotColorMode = "mode",
-  highViz = false,
-  spotDotScale = 1.0,
-  opacity = 1,
-  zoomScale = 1.0,
-  /**
-   * A grouped member's DX endpoint is represented by the cluster glyph, so its
-   * own marker is suppressed while its path still draws (#746). Mirrors the
-   * globe, where traces read the full feed and endpoints read `singles`.
-   */
-  skipDxEndpoint = false,
-) {
-  const color = getSpotColor(spot, colorMode);
-  const zoomDamp = Math.max(1, zoomScale);
-
-  // Get start and end points
-  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
-  const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
-
-  const path = flatSpotPath(
-    spot.spotterLat,
-    spot.spotterLon,
-    spot.dxLat,
-    spot.dxLon,
-    width,
-    height,
-  );
-  if (path.length === 0) return;
-
-  ctx.save();
-  ctx.globalAlpha = opacity;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = ((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp;
-  ctx.lineCap = "round";
-
-  traceFlatSpotPath(ctx, path);
-  ctx.stroke();
-
-  // The reporting station is RX, represented by a hollow square.
-  traceFlatSpotEndpoint(
-    ctx,
-    start.x,
-    start.y,
-    ((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp,
-    "rx",
-  );
-  ctx.strokeStyle = color;
-  ctx.lineWidth = ((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp;
-  ctx.stroke();
-
-  // The DX station is TX, represented by a filled circle with an outer ring.
-  if (!skipDxEndpoint) {
-    traceFlatSpotEndpoint(
-      ctx,
-      end.x,
-      end.y,
-      ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
-      "tx",
-    );
-    ctx.fillStyle = color;
-    ctx.fill();
-    traceFlatSpotEndpoint(
-      ctx,
-      end.x,
-      end.y,
-      ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
-      "tx",
-    );
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.lineWidth = ((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp;
-    ctx.stroke();
-  }
-
-  ctx.restore();
+  colorMode: SpotColorMode,
+  options: {
+    isWatched?: boolean;
+    skipDxEndpoint?: boolean;
+    selected?: boolean;
+  } = {},
+): SpotArcInput {
+  return {
+    id: spot.id,
+    from: { lat: spot.spotterLat, lon: spot.spotterLon },
+    to: { lat: spot.dxLat, lon: spot.dxLon },
+    colour: getSpotColor(spot, colorMode),
+    isWatched: options.isWatched ?? true,
+    ageOpacity: getSpotAgeOpacity(spot.time),
+    skipDxEndpoint: options.skipDxEndpoint ?? false,
+    selected: options.selected ?? false,
+  };
 }
 
 /**
- * Draw all spot arcs on the 2D map.
- * When watchEnabled is true, matched spots render at full opacity
+ * Draw all spot arcs on the 2D map, through the shared `spotArcsLayer`
+ * (#1247). When `watchActive` is true, matched spots render at full opacity
  * and non-matched spots are dimmed to 0.3.
  */
 function drawSpotArcs(
   ctx: CanvasRenderingContext2D,
+  projection: Projection,
   spots: ResolvedSpot[],
-  width: number,
-  height: number,
   colorMode: SpotColorMode = "mode",
   highViz = false,
   spotDotScale = 1.0,
   watchActive = false,
   watchMatchedIds?: Set<string>,
-  zoomScale = 1.0,
+  ageFade = false,
   /**
    * Source spots whose DX endpoint is drawn as a cluster glyph instead (#746).
    * Keyed on `originalSpot` identity, not on `spot.id`: some upstream RBN rows
@@ -1362,131 +1304,70 @@ function drawSpotArcs(
    */
   groupedMembers?: ReadonlySet<LiveSpot>,
 ) {
-  for (const spot of spots) {
-    const opacity =
-      watchActive && watchMatchedIds
-        ? watchMatchedIds.has(spot.id)
-          ? 1
-          : 0.3
-        : 1;
-    drawSpotArc(
-      ctx,
-      spot,
-      width,
-      height,
-      colorMode,
-      highViz,
-      spotDotScale,
-      opacity,
-      zoomScale,
-      groupedMembers?.has(spot.originalSpot) ?? false,
-    );
-  }
+  const arcs: SpotArcInput[] = spots.map((spot) =>
+    spotArcInput(spot, colorMode, {
+      isWatched: watchMatchedIds?.has(spot.id) ?? true,
+      skipDxEndpoint: groupedMembers?.has(spot.originalSpot) ?? false,
+    }),
+  );
+  drawSpotArcsLayer(ctx, projection, arcs, {
+    highViz,
+    spotDotScale,
+    watchDimming: watchActive && Boolean(watchMatchedIds),
+    ageFade,
+  });
 }
 
 /**
- * Draw a highlighted arc for the selected DX cluster spot.
- * Persistent while the spot is selected — plasma orange with glow.
- * Also draws a callsign label at the DX endpoint.
+ * Draw a highlighted arc for the selected DX cluster spot through the shared
+ * `spotArcsLayer` (#1247), plus its callsign label pill -- the label stays
+ * FlatMapView's own (out of scope for #1247). Persistent while the spot is
+ * selected — plasma orange with glow.
  */
 function drawSelectedSpotArc(
   ctx: CanvasRenderingContext2D,
+  projection: Projection,
   spot: ResolvedSpot,
-  width: number,
-  height: number,
   spotDotScale: number,
-  zoomScale: number,
   labelScale: number,
 ) {
-  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
-  const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
-
-  const highlightColor = "rgba(255, 107, 53, 1)";
-  const glowColor = "rgba(255, 107, 53, 0.3)";
-  const zoomDamp = Math.max(1, zoomScale);
-
-  const path = flatSpotPath(
-    spot.spotterLat,
-    spot.spotterLon,
-    spot.dxLat,
-    spot.dxLon,
-    width,
-    height,
+  drawSpotArcsLayer(
+    ctx,
+    projection,
+    [spotArcInput(spot, "mode", { selected: true })],
+    { highViz: false, spotDotScale, watchDimming: false, ageFade: false },
   );
-  if (path.length === 0) return;
-  ctx.save();
 
-  // Reuse the same geodesic for the glow and main stroke.
-  const strokeArcPath = () => {
-    traceFlatSpotPath(ctx, path);
-    ctx.stroke();
-  };
-
-  // Glow arc (wider, blurred)
-  ctx.strokeStyle = glowColor;
-  ctx.lineWidth = (6 * spotDotScale) / zoomDamp;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
-  ctx.shadowBlur = 12 / zoomDamp;
-  ctx.lineCap = "round";
-  strokeArcPath();
-
-  // Main arc (thinner, solid)
-  ctx.strokeStyle = highlightColor;
-  ctx.lineWidth = (3 * spotDotScale) / zoomDamp;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-  ctx.shadowBlur = 8 / zoomDamp;
-  strokeArcPath();
-
-  // Reset shadow for endpoints
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-
-  // RX endpoint — hollow square (larger than normal arcs)
-  const spotterRadius = (5 * spotDotScale) / zoomDamp;
-  traceFlatSpotEndpoint(ctx, start.x, start.y, spotterRadius, "rx");
-  ctx.strokeStyle = highlightColor;
-  ctx.lineWidth = (2 * spotDotScale) / zoomDamp;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-  ctx.shadowBlur = 6 / zoomDamp;
-  ctx.stroke();
-
-  // TX endpoint — filled circle with white outer ring
-  const dxRadius = (6 * spotDotScale) / zoomDamp;
-  traceFlatSpotEndpoint(ctx, end.x, end.y, dxRadius, "tx");
-  ctx.fillStyle = highlightColor;
-  ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
-  ctx.shadowBlur = 8 / zoomDamp;
-  ctx.fill();
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  traceFlatSpotEndpoint(ctx, end.x, end.y, dxRadius + 2 / zoomDamp, "tx");
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-  ctx.lineWidth = (1.5 * spotDotScale) / zoomDamp;
-  ctx.stroke();
+  const end = projection.project(spot.dxLat, spot.dxLon);
+  const dxRadius = projection.screenPx(6 * spotDotScale);
 
   // --- Callsign label at DX endpoint ---
-  const fontSize = Math.max(1, Math.round((12 * labelScale) / zoomDamp));
+  ctx.save();
+  const fontSize = Math.max(
+    1,
+    Math.round(projection.screenPx(12 * labelScale)),
+  );
   ctx.font = `bold ${fontSize}px monospace`;
   ctx.textBaseline = "bottom";
   const labelText = spot.callsign;
   const textMetrics = ctx.measureText(labelText);
-  const textW = textMetrics.width + 8 / zoomDamp;
-  const textH = fontSize + 6 / zoomDamp;
+  const textW = textMetrics.width + projection.screenPx(8);
+  const textH = fontSize + projection.screenPx(6);
   const labelX = end.x - textW / 2;
-  const labelY = end.y - dxRadius - 6 / zoomDamp;
+  const labelY = end.y - dxRadius - projection.screenPx(6);
 
   // Background pill
   ctx.fillStyle = "rgba(10, 10, 26, 0.85)";
   ctx.beginPath();
-  const pillR = 3 / zoomDamp;
+  const pillR = projection.screenPx(3);
   ctx.roundRect(labelX, labelY - textH, textW, textH, pillR);
   ctx.fill();
   ctx.strokeStyle = "rgba(255, 107, 53, 0.6)";
-  ctx.lineWidth = 1 / zoomDamp;
+  ctx.lineWidth = projection.screenPx(1);
   ctx.stroke();
 
   // Label text
-  ctx.fillStyle = highlightColor;
+  ctx.fillStyle = SPOT_ARC_SELECTED_COLOR;
   ctx.textAlign = "center";
   ctx.fillText(labelText, end.x, labelY - 2);
 
@@ -5410,6 +5291,7 @@ export function FlatMapView({
           wasOverlay: false,
           tileLabels: false,
           terminatorDashed: false,
+          spotPathAgeFade: false,
         },
         isStandard,
         1,
@@ -5460,6 +5342,7 @@ export function FlatMapView({
           wasOverlay: false,
           tileLabels: false,
           terminatorDashed: false,
+          spotPathAgeFade: false,
         },
         isStandard,
         zoom.scale,
@@ -5599,15 +5482,14 @@ export function FlatMapView({
     if (spotLayerPolicy.pathsVisible && resolvedSpots.length > 0) {
       drawSpotArcs(
         ctx,
+        projection,
         resolvedSpots,
-        renderWidth,
-        renderHeight,
         spotColorMode,
         highViz,
         spotDotScale,
         watchEnabled && matchedSpotIds.size > 0,
         matchedSpotIds,
-        zoom.scale,
+        labelOptions.spotPathAgeFade,
         groupedMembers,
       );
     }
@@ -5743,16 +5625,16 @@ export function FlatMapView({
         ctx.globalAlpha = 1;
         ctx.shadowColor = getSpotColor(hoveredSpot, spotColorMode);
         ctx.shadowBlur = 8;
-        drawSpotArc(
+        drawSpotArcsLayer(
           ctx,
-          hoveredSpot,
-          renderWidth,
-          renderHeight,
-          spotColorMode,
-          true, // force high-viz style for highlight
-          spotDotScale,
-          1, // full opacity for highlight
-          zoom.scale,
+          projection,
+          [spotArcInput(hoveredSpot, spotColorMode)],
+          {
+            highViz: true, // force high-viz style for highlight
+            spotDotScale,
+            watchDimming: false, // full opacity for highlight
+            ageFade: false,
+          },
         );
         ctx.restore();
       }
@@ -5766,11 +5648,9 @@ export function FlatMapView({
     ) {
       drawSelectedSpotArc(
         ctx,
+        projection,
         resolvedSelectedSpot,
-        renderWidth,
-        renderHeight,
         spotDotScale,
-        zoom.scale,
         labelScale,
       );
     }

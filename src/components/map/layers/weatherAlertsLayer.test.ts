@@ -165,7 +165,7 @@ describe("drawWeatherAlertsLayer", () => {
   });
 
   it("draws the triangle vertices at a known position on the AZIMUTHAL profile with a damping projection", () => {
-    const { ctx, fills } = createMockCtx();
+    const { ctx, fills, strokes, texts } = createMockCtx();
     // Azimuthal always builds its Projection with zoomDamp: 1, so screenPx
     // is identity regardless of zoomScale -- modeled here with a halving
     // screenPx to prove the layer always calls through screenPx rather than
@@ -183,6 +183,11 @@ describe("drawWeatherAlertsLayer", () => {
       { x: 14, y: 22.4 },
       { x: 6, y: 22.4 },
     ]);
+    // lineWidth = screenPx(TRIANGLE_STROKE_WIDTH_PX) = screenPx(0.5) = 0.25
+    expect(strokes[0].lineWidth).toBe(0.25);
+    // glyphFontSize = Math.max(1, Math.round(screenPx(8))) = Math.max(1, 4) = 4
+    const glyph = texts.find((t) => t.text === "!");
+    expect(glyph?.font).toBe("bold 4px sans-serif");
   });
 
   it.each([
@@ -249,6 +254,22 @@ describe("drawWeatherAlertsLayer", () => {
       expect(label?.font).toBe("5px sans-serif");
       expect(label?.textBaseline).toBe("top");
       expect(label?.fillStyle).toBe("#ff6600"); // Severe
+      // y = point.y + size * 0.6 + screenPx(LABEL_OFFSET_PX)
+      //   = 20 + screenPx(8) * 0.6 + screenPx(2) = 20 + 4 * 0.6 + 1 = 23.4
+      expect(label?.y).toBeCloseTo(23.4);
+    });
+
+    it("FLAT profile at zoomScale exactly 1.5 draws no label text (strictly-greater-than gate)", () => {
+      const { ctx, texts } = createMockCtx();
+      drawWeatherAlertsLayer(
+        ctx,
+        [alert()],
+        fakeProjection({ zoomScale: 1.5 }),
+        FLAT_LAYER_PROFILE,
+      );
+      // Only the "!" glyph should be present; the gate is `>`, not `>=`.
+      expect(texts).toHaveLength(1);
+      expect(texts[0].text).toBe("!");
     });
 
     it("AZIMUTHAL profile draws the label at zoomScale 1.0 (always-on behaviour)", () => {

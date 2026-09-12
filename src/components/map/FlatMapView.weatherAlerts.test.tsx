@@ -7,10 +7,13 @@
  * `drawWeatherAlertsLayer` call site, nor whether the flat map still passes
  * its own live `zoom.scale` through. This test mounts the real component
  * (same jsdom canvas-recorder harness as `FlatMapView.earthquakes.test.tsx`)
- * with one weather alert, and pins both the triangle vertices at the alert's
- * projected position and the "!" glyph draw. Swapping in
- * `AZIMUTHAL_LAYER_PROFILE` at that call site, or dropping the call
- * entirely, fails this test.
+ * with one weather alert, and pins the triangle vertices at the alert's
+ * projected position, the "!" glyph draw, and that no event-type label is
+ * drawn at the map's default zoomScale of 1 -- `labelMinZoomScale` is the
+ * only profile-dependent value this layer reads, and the flat map's own
+ * threshold (1.5) suppresses the label there while `AZIMUTHAL_LAYER_PROFILE`
+ * (0, always-on) would draw it. Swapping `AZIMUTHAL_LAYER_PROFILE` in at
+ * that call site, or dropping the call entirely, fails this test.
  */
 import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -70,6 +73,7 @@ vi.mock("@/hooks/useWeatherAlerts", () => ({
 interface CanvasOp {
   name: string;
   args: number[];
+  strArgs: unknown[];
 }
 
 const ops: CanvasOp[] = [];
@@ -100,7 +104,7 @@ function installCanvasRecorder() {
       get: (_target, prop: string) => {
         if (prop === "canvas") return { width: 1024, height: 512 };
         return (...args: unknown[]) => {
-          ops.push({ name: prop, args: args.map(Number) });
+          ops.push({ name: prop, args: args.map(Number), strArgs: args });
           if (prop === "measureText") return { width: 10 };
           if (
             prop === "createLinearGradient" ||
@@ -177,5 +181,14 @@ describe("FlatMapView weather alerts layer binding", () => {
         Math.abs(op.args[2] - point.y) < 1,
     );
     expect(glyph).toBeDefined();
+
+    // At the flat map's default zoomScale of 1, FLAT_LAYER_PROFILE's
+    // labelMinZoomScale (1.5) suppresses the event-type label. Binding this
+    // call site to AZIMUTHAL_LAYER_PROFILE (labelMinZoomScale 0, always-on)
+    // would draw it here instead, so this pins the profile actually passed.
+    const label = ops.find(
+      (op) => op.name === "fillText" && op.strArgs[0] === ALERT.event,
+    );
+    expect(label).toBeUndefined();
   });
 });

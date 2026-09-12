@@ -1466,7 +1466,7 @@ function drawSelectedSpotArc(
   ctx.stroke();
 
   // --- Callsign label at DX endpoint ---
-  const fontSize = Math.max(1, Math.round((12 * labelScale) / zoomDamp));
+  const fontSize = screenPxToCanvas(12 * labelScale, zoomScale);
   ctx.font = `bold ${fontSize}px monospace`;
   ctx.textBaseline = "bottom";
   const labelText = spot.callsign;
@@ -1489,7 +1489,7 @@ function drawSelectedSpotArc(
   // Label text
   ctx.fillStyle = highlightColor;
   ctx.textAlign = "center";
-  ctx.fillText(labelText, end.x, labelY - 2);
+  ctx.fillText(labelText, end.x, labelY - screenPxToCanvas(2, zoomScale));
 
   ctx.restore();
 }

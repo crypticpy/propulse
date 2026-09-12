@@ -8,6 +8,8 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Card } from "./Card";
+import { stationTreatmentClasses } from "@/lib/themes/treatments";
+import { useOptionalStationTheme } from "@/components/station-ui/context";
 import {
   type ShareState,
   generateShareURL,
@@ -150,6 +152,7 @@ export function ShareModal({
   title = "Share",
   description,
 }: ShareModalProps) {
+  const stationTheme = useOptionalStationTheme();
   const [activeTab, setActiveTab] = useState<ShareTab>("link");
   const [copied, setCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -240,7 +243,11 @@ export function ShareModal({
     : null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
+    <div
+      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
+      style={stationTheme?.tokens}
+      data-station-theme={stationTheme?.theme}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -335,7 +342,7 @@ export function ShareModal({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-su-line/40">
+        <div className="flex gap-1 p-1 border-b border-su-line/40">
           {(
             [
               { id: "link", label: "Link", icon: LinkIcon },
@@ -345,15 +352,27 @@ export function ShareModal({
           ).map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === tab.id
-                  ? "text-plasma-orange border-plasma-orange bg-plasma-orange/5"
-                  : "text-su-muted border-transparent hover:text-su-text hover:bg-su-line/10"
-              }`}
+              aria-pressed={activeTab === tab.id}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium rounded border-b-2 ${stationTreatmentClasses(
+                {
+                  tone: activeTab === tab.id ? "accent" : "neutral",
+                  treatment: "subtle",
+                  interactive: true,
+                },
+              )}`}
             >
               <tab.icon className="w-4 h-4" />
-              {tab.label}
+              <span
+                className={
+                  activeTab === tab.id
+                    ? "underline underline-offset-4"
+                    : undefined
+                }
+              >
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
@@ -372,18 +391,20 @@ export function ShareModal({
                     type="text"
                     readOnly
                     value={shareURL}
-                    className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                    className="min-w-0 flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
                                text-sm text-su-muted font-mono
                                focus:outline-none focus:border-plasma-orange/50"
                     onClick={(e) => (e.target as HTMLInputElement).select()}
                   />
                   <button
                     onClick={handleCopyLink}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                      copied
-                        ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
-                        : "bg-plasma-orange/15 text-su-text border border-plasma-orange/50 hover:bg-plasma-orange/20"
-                    }`}
+                    type="button"
+                    className={`shrink-0 px-4 py-2 rounded-lg border font-medium text-sm ${stationTreatmentClasses(
+                      {
+                        tone: copied ? "success" : "accent",
+                        interactive: true,
+                      },
+                    )}`}
                   >
                     {copied ? (
                       <span className="flex items-center gap-1">

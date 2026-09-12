@@ -122,7 +122,7 @@ export function WasMap({
       </div>
 
       {/* States Grid */}
-      <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
         {filteredSlots.map((slot) => (
           <button
             key={slot.abbr}
@@ -139,11 +139,11 @@ export function WasMap({
             >
               {slot.abbr}
             </div>
-            <div className="text-[10px] text-su-muted truncate leading-tight mt-0.5">
-              {slot.name.length > 8 ? slot.name.slice(0, 7) + "…" : slot.name}
+            <div className="text-xs text-su-muted break-words leading-tight mt-0.5">
+              {slot.name}
             </div>
             {slot.qsoCount > 0 && (
-              <div className="text-[9px] text-su-muted mt-0.5">
+              <div className="text-xs text-su-muted mt-0.5">
                 {slot.qsoCount} QSO{slot.qsoCount !== 1 ? "s" : ""}
               </div>
             )}

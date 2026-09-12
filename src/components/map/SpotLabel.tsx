@@ -358,7 +358,7 @@ export function SpotLabel({
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
-    size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-sm px-2 py-1";
+    size === "sm" ? "text-xs px-1.5 py-0.5" : "text-sm px-2 py-1";
 
   // Hover handlers — always enabled so labels in a stack are navigable,
   // even spotter labels that don't have an onHover detail callback.

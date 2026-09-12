@@ -742,7 +742,7 @@ export function LabelsOverlay({
           <BackfaceLabel
             key={label.key}
             label={label}
-            fontSize="text-[10px]"
+            fontSize="text-xs"
             camDirRef={camDirRef}
           />
         ))}
@@ -753,7 +753,7 @@ export function LabelsOverlay({
           <BackfaceLabel
             key={label.key}
             label={label}
-            fontSize="text-[9px]"
+            fontSize="text-xs"
             camDirRef={camDirRef}
           />
         ))}
@@ -773,7 +773,7 @@ export function LabelsOverlay({
           <BackfaceLabel
             key={label.key}
             label={label}
-            fontSize="text-[8px]"
+            fontSize="text-xs"
             camDirRef={camDirRef}
           />
         ))}
@@ -784,7 +784,7 @@ export function LabelsOverlay({
           <BackfaceLabel
             key={label.key}
             label={label}
-            fontSize="text-[7px]"
+            fontSize="text-xs"
             camDirRef={camDirRef}
           />
         ))}

@@ -88,7 +88,7 @@ export function MapSizeSliders() {
     >
       {/* Header with close button */}
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium">
+        <span className="text-xs uppercase tracking-wider text-su-muted font-medium">
           Size
         </span>
         <button
@@ -113,7 +113,7 @@ export function MapSizeSliders() {
 
       {/* Spots slider */}
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
+        <span className="text-xs uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
           Spots
         </span>
         <input
@@ -126,14 +126,14 @@ export function MapSizeSliders() {
           className="map-size-slider flex-1"
           aria-label="Spot dot size scale"
         />
-        <span className="text-[10px] font-mono text-su-muted w-7 text-right shrink-0">
+        <span className="text-xs font-mono text-su-muted w-7 text-right shrink-0">
           {spotDotScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Pins slider */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
+        <span className="text-xs uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
           Pins
         </span>
         <input
@@ -146,7 +146,7 @@ export function MapSizeSliders() {
           className="map-size-slider flex-1"
           aria-label="Map pin size scale"
         />
-        <span className="text-[10px] font-mono text-su-muted w-7 text-right shrink-0">
+        <span className="text-xs font-mono text-su-muted w-7 text-right shrink-0">
           {mapPinScale.toFixed(1)}&times;
         </span>
       </div>

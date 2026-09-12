@@ -52,6 +52,21 @@ export function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
   return latLonToVector3(lat, lon, SATELLITE_GLOBE_RADIUS + 0.005);
 }
 
+/**
+ * Place one orbit-track sample at the same exaggerated visual altitude as
+ * the satellite marker (`latLonAltToVector3`). The globe "Map orbit" line
+ * must use this — `latLonToSurface` is for true ground tracks and footprints
+ * only, and glues the line to the globe while the marker floats above it
+ * (#1082).
+ */
+export function orbitTrackPointToGlobeVector(point: {
+  lat: number;
+  lon: number;
+  alt: number;
+}): THREE.Vector3 {
+  return latLonAltToVector3(point.lat, point.lon, point.alt);
+}
+
 // ---------------------------------------------------------------------------
 // Orbit-track time-marker label selection (#1029 review)
 // ---------------------------------------------------------------------------

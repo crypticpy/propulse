@@ -628,4 +628,46 @@ describe("drawNightBoostedBordersLayer", () => {
     // direction correction: negative sweep.
     expect(firstArcSweepSign(onCircle(270))).toBe(-1);
   });
+
+  it("disc: pins the closing arc's radius at 1.5x the disc radius", () => {
+    mockSubsolar(23, 10);
+    const centerX = 300;
+    const centerY = 300;
+    const radius = 260;
+    const discProjection = createAzimuthalProjection({
+      centerLat: 40,
+      centerLon: -100,
+      centerX,
+      centerY,
+      radius,
+      zoomScale: 1,
+      zoomDamp: 1,
+    });
+    const { ctx, lineTos } = createMockCtx();
+    drawNightBoostedBordersLayer(
+      ctx,
+      new Date("2026-06-21T12:00:00Z"),
+      discProjection,
+      AZIMUTHAL_LAYER_PROFILE,
+      { country: false, states: false },
+    );
+    // 120 terminator lineTo + 37 arc-closure lineTo = 157 total (no
+    // country/state passes are drawn, so these are the only lineTo calls).
+    expect(lineTos.length).toBe(120 + 37);
+    const terminatorPoints = lineTos.slice(0, 120);
+    const arcPoints = lineTos.slice(-37);
+    const expectedRadius = radius * 1.5;
+    for (const [x, y] of arcPoints) {
+      const dist = Math.hypot(x - centerX, y - centerY);
+      expect(Math.abs(dist - expectedRadius)).toBeLessThan(1e-6);
+    }
+    // Sanity: the terminator points are NOT all sitting on that same
+    // radius, so a test that always passed regardless of the arc's own
+    // geometry (a tautology) is ruled out.
+    const terminatorAllOnArcRadius = terminatorPoints.every(([x, y]) => {
+      const dist = Math.hypot(x - centerX, y - centerY);
+      return Math.abs(dist - expectedRadius) < 1e-6;
+    });
+    expect(terminatorAllOnArcRadius).toBe(false);
+  });
 });

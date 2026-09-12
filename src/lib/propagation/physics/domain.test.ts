@@ -7,11 +7,21 @@ import {
   circuitDomain,
   DECLARED_DOMAIN,
   MAN_MADE_NOISE_CATEGORIES,
+  MAX_ANTENNA_GAIN_DBI,
+  MAX_DECILE_DEVIATION_DB,
   MAX_FREQUENCY_MHZ,
   MAX_MONTH,
+  MAX_NOISE_FIGURE_DB,
+  MAX_NOISE_SLOPE_DB_PER_DECADE,
+  MAX_OTHER_LOSSES_DB,
+  MAX_TRANSMITTER_POWER_DB_KW,
   MAX_UTC_HOUR,
+  MIN_ANTENNA_GAIN_DBI,
   MIN_FREQUENCY_MHZ,
   MIN_MONTH,
+  MIN_NOISE_FIGURE_DB,
+  MIN_OTHER_LOSSES_DB,
+  MIN_TRANSMITTER_POWER_DB_KW,
   MIN_UTC_HOUR,
   MODEL_ID,
   PATH_DIRECTIONS,
@@ -240,6 +250,37 @@ describe("the route", () => {
     );
     expect(undefinedReceiver).toContain("receiver");
   });
+
+  it.each([
+    ["a number", 42],
+    ["a string", "30.3,-97.7"],
+    ["an array", [30.3, -97.7]],
+  ])("refuses an endpoint that is %s instead of throwing", (_label, value) => {
+    refusedWith(
+      { transmitter: value as unknown as CircuitRequest["transmitter"] },
+      "unsupported_coordinates",
+    );
+    refusedWith(
+      { receiver: value as unknown as CircuitRequest["receiver"] },
+      "unsupported_coordinates",
+    );
+  });
+});
+
+describe("the request itself", () => {
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["a number", 42],
+    ["a string", "not a request"],
+    ["an array", [1, 2, 3]],
+  ])("refuses a request that is %s instead of throwing", (_label, value) => {
+    const result = circuitDomain(value as unknown as CircuitRequest);
+    expect(result.kind).toBe("out_of_domain");
+    if (result.kind !== "out_of_domain") return;
+    expect(result.reason).toBe("malformed_request");
+    expect(result.declaredDomain).toBe(DECLARED_DOMAIN);
+  });
 });
 
 describe("the path direction", () => {
@@ -408,6 +449,135 @@ describe("the receiver", () => {
       expect(detail).toContain("unavailable");
     }
   });
+
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["a number", 42],
+    ["a string", "residential"],
+    ["an array", ["residential"]],
+  ])(
+    "refuses a man-made noise setting that is %s instead of throwing",
+    (_label, value) => {
+      refusedWith(
+        { manMadeNoise: value as unknown as CircuitRequest["manMadeNoise"] },
+        "unsupported_noise_environment",
+      );
+    },
+  );
+
+  it.each([
+    ["an empty string", ""],
+    ["a number", 42],
+  ])(
+    "refuses an unavailable setting whose reason is %s",
+    (_label, reason) => {
+      const detail = refusedWith(
+        {
+          manMadeNoise: {
+            kind: "unavailable",
+            reason: reason as unknown as string,
+          },
+        },
+        "unsupported_noise_environment",
+      );
+      expect(detail).toContain("reason");
+    },
+  );
+
+  it("admits an unavailable setting with a non-empty reason", () => {
+    expect(
+      ask({
+        manMadeNoise: { kind: "unavailable", reason: "no measurement on file" },
+      }).kind,
+    ).toBe("admitted");
+  });
+
+  describe("the explicit figure's numeric bounds", () => {
+    it("admits famAt1MHzDb at both ends of its declared range", () => {
+      for (const famAt1MHzDb of [MIN_NOISE_FIGURE_DB, MAX_NOISE_FIGURE_DB]) {
+        expect(
+          ask({ manMadeNoise: { kind: "explicit", famAt1MHzDb } }).kind,
+        ).toBe("admitted");
+      }
+    });
+
+    it.each([
+      ["just below the minimum", MIN_NOISE_FIGURE_DB - 0.001],
+      ["just above the maximum", MAX_NOISE_FIGURE_DB + 0.001],
+      ["Infinity", Number.POSITIVE_INFINITY],
+      ["-Infinity", Number.NEGATIVE_INFINITY],
+      ["NaN", Number.NaN],
+    ])("refuses famAt1MHzDb that is %s", (_label, famAt1MHzDb) => {
+      refusedWith(
+        { manMadeNoise: { kind: "explicit", famAt1MHzDb } },
+        "unsupported_noise_environment",
+      );
+    });
+
+    it("admits slopeDbPerDecade at both ends of its declared range", () => {
+      for (const slopeDbPerDecade of [0, MAX_NOISE_SLOPE_DB_PER_DECADE]) {
+        expect(
+          ask({
+            manMadeNoise: { kind: "explicit", famAt1MHzDb: 63.5, slopeDbPerDecade },
+          }).kind,
+        ).toBe("admitted");
+      }
+    });
+
+    it.each([
+      ["just below the minimum", -0.001],
+      ["just above the maximum", MAX_NOISE_SLOPE_DB_PER_DECADE + 0.001],
+      ["Infinity", Number.POSITIVE_INFINITY],
+      ["NaN", Number.NaN],
+    ])("refuses slopeDbPerDecade that is %s", (_label, slopeDbPerDecade) => {
+      refusedWith(
+        {
+          manMadeNoise: { kind: "explicit", famAt1MHzDb: 63.5, slopeDbPerDecade },
+        },
+        "unsupported_noise_environment",
+      );
+    });
+
+    it.each(["upperDecileDb", "lowerDecileDb"] as const)(
+      "admits %s at both ends of its declared range",
+      (field) => {
+        for (const value of [0, MAX_DECILE_DEVIATION_DB]) {
+          expect(
+            ask({
+              manMadeNoise: {
+                kind: "explicit",
+                famAt1MHzDb: 63.5,
+                [field]: value,
+              },
+            }).kind,
+          ).toBe("admitted");
+        }
+      },
+    );
+
+    it.each(["upperDecileDb", "lowerDecileDb"] as const)(
+      "refuses %s just above its declared maximum, Infinity or NaN",
+      (field) => {
+        for (const value of [
+          MAX_DECILE_DEVIATION_DB + 0.001,
+          Number.POSITIVE_INFINITY,
+          Number.NaN,
+        ]) {
+          refusedWith(
+            {
+              manMadeNoise: {
+                kind: "explicit",
+                famAt1MHzDb: 63.5,
+                [field]: value,
+              },
+            },
+            "unsupported_noise_environment",
+          );
+        }
+      },
+    );
+  });
 });
 
 describe("the power budget", () => {
@@ -457,6 +627,62 @@ describe("the power budget", () => {
 
   it("admits a request that supplies no power budget fields at all", () => {
     expect(ask({}).kind).toBe("admitted");
+  });
+
+  it("admits transmitterPowerDbKw at both ends of its declared range", () => {
+    for (const transmitterPowerDbKw of [
+      MIN_TRANSMITTER_POWER_DB_KW,
+      MAX_TRANSMITTER_POWER_DB_KW,
+    ]) {
+      expect(ask({ transmitterPowerDbKw }).kind).toBe("admitted");
+    }
+  });
+
+  it.each([
+    ["just below the minimum", MIN_TRANSMITTER_POWER_DB_KW - 0.001],
+    ["just above the maximum", MAX_TRANSMITTER_POWER_DB_KW + 0.001],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["-Infinity", Number.NEGATIVE_INFINITY],
+    ["NaN", Number.NaN],
+  ])("refuses transmitterPowerDbKw that is %s", (_label, transmitterPowerDbKw) => {
+    refusedWith({ transmitterPowerDbKw }, "unsupported_power_budget");
+  });
+
+  it.each(["transmitterGainDbi", "receiverGainDbi"] as const)(
+    "admits %s at both ends of its declared range",
+    (field) => {
+      for (const value of [MIN_ANTENNA_GAIN_DBI, MAX_ANTENNA_GAIN_DBI]) {
+        expect(ask({ [field]: value }).kind).toBe("admitted");
+      }
+    },
+  );
+
+  it.each(["transmitterGainDbi", "receiverGainDbi"] as const)(
+    "refuses %s just beyond its declared range, Infinity, -Infinity or NaN",
+    (field) => {
+      for (const value of [
+        MIN_ANTENNA_GAIN_DBI - 0.001,
+        MAX_ANTENNA_GAIN_DBI + 0.001,
+        Number.POSITIVE_INFINITY,
+        Number.NEGATIVE_INFINITY,
+        Number.NaN,
+      ]) {
+        refusedWith({ [field]: value }, "unsupported_power_budget");
+      }
+    },
+  );
+
+  it("admits otherLossesDb at both ends of its declared range", () => {
+    for (const otherLossesDb of [MIN_OTHER_LOSSES_DB, MAX_OTHER_LOSSES_DB]) {
+      expect(ask({ otherLossesDb }).kind).toBe("admitted");
+    }
+  });
+
+  it("refuses otherLossesDb just above its declared maximum", () => {
+    refusedWith(
+      { otherLossesDb: MAX_OTHER_LOSSES_DB + 0.001 },
+      "unsupported_power_budget",
+    );
   });
 });
 

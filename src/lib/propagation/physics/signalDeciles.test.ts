@@ -365,6 +365,15 @@ describe("P.842-5 Table 1 Steps 6 and 9", () => {
     }
   });
 
+  it("stays finite when a signal decile term is 1e200 (rootSumSquare overflow)", () => {
+    // `term * term` overflows `Number.MAX_VALUE` well before 1e200 and turns
+    // `Math.sqrt` of the sum into `Infinity`; `Math.hypot` is specified to
+    // avoid intermediate overflow and must stay finite here.
+    const result = snrDecileDeviations({ upperDb: 1e200, lowerDb: 1e200 }, noise);
+    expect(Number.isFinite(result.upperDb)).toBe(true);
+    expect(Number.isFinite(result.lowerDb)).toBe(true);
+  });
+
   it("stays finite when a component's noise figure is very large", () => {
     // `circuitDomain` admits any finite noise figure; a linear-domain power
     // sum overflows `10^(db/10)` to Infinity well before 5000 dB, turning

@@ -403,8 +403,13 @@ function powerSumDb(dbValues: readonly number[]): number {
   return m + 10 * Math.log10(total);
 }
 
+/**
+ * `sqrt(sum of squares)`, computed as `Math.hypot(...terms)` rather than a
+ * hand-rolled `sum(term * term)` then `Math.sqrt`: `term * term` overflows to
+ * `Infinity` for a large finite term (a large decile or noise figure the
+ * caller supplied), while `Math.hypot` is specified to avoid intermediate
+ * overflow and underflow and returns identical values for ordinary inputs.
+ */
 function rootSumSquare(terms: readonly number[]): number {
-  let total = 0;
-  for (const term of terms) total += term * term;
-  return Math.sqrt(total);
+  return Math.hypot(...terms);
 }

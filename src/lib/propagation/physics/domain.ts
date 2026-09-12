@@ -44,17 +44,32 @@
  *    ITU-R P.372-17 Table 1 publishes, or a figure the caller measured, or
  *    the declared absence of either. A request may not name a category
  *    P.372 does not have: see `ManMadeNoiseSetting`. An explicit figure's
- *    `upperDecileDb` and `lowerDecileDb`, when given, must be non-negative:
- *    they are magnitudes, and `signalDeciles.ts`'s `snrDecileDeviations`
- *    applies them directionally (`fa - dl` for the lower decile, `fa + du`
- *    for the upper), so a negative value would move the noise the wrong way
- *    and produce a plausible but wrong SNR decile.
+ *    `famAt1MHzDb`, `slopeDbPerDecade`, `upperDecileDb` and `lowerDecileDb`
+ *    are each bounded to the range ITU-R P.372's own tables span
+ *    (`MIN_NOISE_FIGURE_DB` to `MAX_NOISE_FIGURE_DB`, `MAX_NOISE_SLOPE_DB_PER_DECADE`,
+ *    `MAX_DECILE_DEVIATION_DB`), so a caller-supplied figure cannot carry an
+ *    unphysical magnitude into `signalDeciles.ts`'s noise sum. The two decile
+ *    fields must additionally be non-negative: they are magnitudes, and
+ *    `signalDeciles.ts`'s `snrDecileDeviations` applies them directionally
+ *    (`fa - dl` for the lower decile, `fa + du` for the upper), so a negative
+ *    value would move the noise the wrong way and produce a plausible but
+ *    wrong SNR decile. An `unavailable` setting's `reason` must be a
+ *    non-empty string, because the solver labels the noise-dependent columns
+ *    with it.
  *  - THE POWER BUDGET, when the caller supplies one. `transmitterPowerDbKw`,
  *    `transmitterGainDbi`, `receiverGainDbi` and `otherLossesDb` are optional,
- *    but when present each must be finite: equations (43) and (44) form the
- *    received power from them, and `operationalMuf.ts` throws on a non-finite
- *    e.i.r.p. rather than answer a labelled result on its own. `otherLossesDb`
+ *    but when present each must be finite and within a physical bound
+ *    (`MIN_TRANSMITTER_POWER_DB_KW`/`MAX_TRANSMITTER_POWER_DB_KW`,
+ *    `MIN_ANTENNA_GAIN_DBI`/`MAX_ANTENNA_GAIN_DBI`,
+ *    `MIN_OTHER_LOSSES_DB`/`MAX_OTHER_LOSSES_DB`): equations (43) and (44)
+ *    form the received power from them, and `operationalMuf.ts` throws on a
+ *    non-finite e.i.r.p. rather than answer a labelled result on its own; an
+ *    unbounded finite value would instead pass that check and overflow a
+ *    later power sum that is not itself in log-shifted form. `otherLossesDb`
  *    is additionally refused if negative, because it is a loss.
+ *  - THE REQUEST ITSELF must be an object: `null`, `undefined`, or a
+ *    primitive is refused as `malformed_request` before any field of it is
+ *    read.
  *
  * WHAT THE DOMAIN IS NOT. The layers. `propulse-physics-v1` is P.533-14's
  * regular E and F2 layers and nothing else: no F1, no sporadic E, no ground
@@ -94,6 +109,35 @@ export const MAX_UTC_HOUR = 23;
 export const MIN_R12 = 0;
 /** `ionosphere/numericalMap.ts` MAX_R12: the ceiling the CCIR maps were fitted to. */
 export const MAX_R12_IN_DOMAIN = MAX_R12;
+
+/**
+ * Power budget bounds, dB. Wide enough for any real HF station, so a
+ * caller-supplied value cannot carry through equations (43) and (44) into
+ * `fieldStrengthShort.ts`'s and `fieldStrengthLong.ts`'s power sums (which
+ * are not all in the overflow-safe log-shifted form `signalDeciles.ts` uses)
+ * and overflow one. `transmitterPowerDbKw` is dB above 1 kW; a guidance
+ * range of -60 to 90 dBW for real transmitters shifts by -30 dB to this unit.
+ */
+export const MIN_TRANSMITTER_POWER_DB_KW = -90;
+export const MAX_TRANSMITTER_POWER_DB_KW = 60;
+/** No real antenna's boresight gain falls outside dBi [-60, 60]. */
+export const MIN_ANTENNA_GAIN_DBI = -60;
+export const MAX_ANTENNA_GAIN_DBI = 60;
+/** `otherLossesDb` is a caller-supplied extra fixed loss; a loss cannot be negative, and this is generous headroom above any real HF path loss component. */
+export const MIN_OTHER_LOSSES_DB = 0;
+export const MAX_OTHER_LOSSES_DB = 300;
+
+/**
+ * Man-made noise bounds, dB. ITU-R P.372's noise figure Fa, referenced to
+ * kT0b, spans roughly this range across its HF tables; a value outside it is
+ * not a figure P.372 would publish.
+ */
+export const MIN_NOISE_FIGURE_DB = -30;
+export const MAX_NOISE_FIGURE_DB = 250;
+/** P.372's published decile deviations are single- or double-digit dB; this is generous. */
+export const MAX_DECILE_DEVIATION_DB = 60;
+/** P.372-17 Table 1 publishes 27.7 for curves A to C; generous margin for a caller-supplied override of equation (17)'s d. */
+export const MAX_NOISE_SLOPE_DB_PER_DECADE = 100;
 
 /**
  * The path directions `geometry/route.ts` resolves a route in.
@@ -256,6 +300,8 @@ export interface CircuitRequest {
 
 /** Which bound a request missed. */
 export type CircuitDomainReason =
+  /** The request itself is not an object: `null`, `undefined`, or a primitive. */
+  | "malformed_request"
   | "unsupported_frequency_band"
   | "unsupported_coordinates"
   | "unsupported_route_geometry"
@@ -299,6 +345,15 @@ export type CircuitDomainResult =
  * failure is the one reported.
  */
 export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
+  if (!isPlainObject(request)) {
+    return refuse(
+      "malformed_request",
+      `the request is ${String(request)}; a circuit request must be an ` +
+        "object naming a transmitter, a receiver, a frequency, and the " +
+        "rest of the fields this function checks below.",
+    );
+  }
+
   const endpoints = checkEndpoints(request);
   if (endpoints !== null) return endpoints;
 
@@ -401,7 +456,7 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
     ["receiver", request.receiver],
   ];
   for (const [name, point] of ends) {
-    if (typeof point !== "object" || point === null) {
+    if (!isPlainObject(point)) {
       return refuse(
         "unsupported_coordinates",
         `the ${name} is ${String(point)}; a terrestrial endpoint must be an ` +
@@ -484,13 +539,63 @@ function checkPowerBudget(
         "cannot be negative.",
     );
   }
+
+  const bounds: readonly (readonly [
+    string,
+    number | undefined,
+    string,
+    number,
+    number,
+  ])[] = [
+    [
+      "the transmitter power",
+      request.transmitterPowerDbKw,
+      "dB(1 kW)",
+      MIN_TRANSMITTER_POWER_DB_KW,
+      MAX_TRANSMITTER_POWER_DB_KW,
+    ],
+    [
+      "the transmitter gain",
+      request.transmitterGainDbi,
+      "dBi",
+      MIN_ANTENNA_GAIN_DBI,
+      MAX_ANTENNA_GAIN_DBI,
+    ],
+    [
+      "the receiver gain",
+      request.receiverGainDbi,
+      "dBi",
+      MIN_ANTENNA_GAIN_DBI,
+      MAX_ANTENNA_GAIN_DBI,
+    ],
+    [
+      "the other losses",
+      request.otherLossesDb,
+      "dB",
+      MIN_OTHER_LOSSES_DB,
+      MAX_OTHER_LOSSES_DB,
+    ],
+  ];
+  for (const [name, value, unit, min, max] of bounds) {
+    if (value === undefined) continue;
+    if (value < min || value > max) {
+      return refuse(
+        "unsupported_power_budget",
+        `${name} is ${String(value)} ${unit}; ${MODEL_ID} bounds it to ` +
+          `${String(min)} to ${String(max)} ${unit}, a range wide enough ` +
+          "for any real station, so a value outside it is refused rather " +
+          "than carried into a downstream power sum that assumes a " +
+          "physical input.",
+      );
+    }
+  }
   return null;
 }
 
 function checkManMadeNoise(
   setting: ManMadeNoiseSetting,
 ): RefusedCircuitRequest | null {
-  if (setting === null || typeof setting !== "object") {
+  if (!isPlainObject(setting)) {
     return refuse(
       "unsupported_noise_environment",
       `the man-made noise setting is ${String(setting)}; it must be one of ` +
@@ -498,23 +603,28 @@ function checkManMadeNoise(
     );
   }
   if (setting.kind === "unavailable") {
-    // Not a refusal. The caller has said it has no figure, which is a fact
-    // about the receiver, not a malformed request; the solver labels the
-    // columns that needed one.
+    if (typeof setting.reason !== "string" || setting.reason.length === 0) {
+      return refuse(
+        "unsupported_noise_environment",
+        `the unavailable man-made noise setting gives reason as ` +
+          `${String(setting.reason)}; a caller declaring the figure ` +
+          "unavailable must say why, as a non-empty string, so the solver " +
+          "can label the noise-dependent columns with it.",
+      );
+    }
+    // Not otherwise a refusal. The caller has said it has no figure, which
+    // is a fact about the receiver, not a malformed request; the solver
+    // labels the columns that needed one.
     return null;
   }
   if (setting.kind === "explicit") {
-    const numbers: readonly (readonly [
-      string,
-      number | undefined,
-      number | undefined,
-    ])[] = [
-      ["c, Fam at 1 MHz", setting.famAt1MHzDb, undefined],
-      ["the slope d", setting.slopeDbPerDecade, undefined],
-      ["the upper decile", setting.upperDecileDb, 0],
-      ["the lower decile", setting.lowerDecileDb, 0],
+    const finiteFields: readonly (readonly [string, number | undefined])[] = [
+      ["c, Fam at 1 MHz", setting.famAt1MHzDb],
+      ["the slope d", setting.slopeDbPerDecade],
+      ["the upper decile", setting.upperDecileDb],
+      ["the lower decile", setting.lowerDecileDb],
     ];
-    for (const [name, value, min] of numbers) {
+    for (const [name, value] of finiteFields) {
       if (value === undefined) continue;
       if (!Number.isFinite(value)) {
         return refuse(
@@ -523,7 +633,15 @@ function checkManMadeNoise(
             `${String(value)} dB; P.372-17 equation (17) needs finite values.`,
         );
       }
-      if (min !== undefined && value < min) {
+    }
+
+    const deciles: readonly (readonly [string, number | undefined])[] = [
+      ["the upper decile", setting.upperDecileDb],
+      ["the lower decile", setting.lowerDecileDb],
+    ];
+    for (const [name, value] of deciles) {
+      if (value === undefined) continue;
+      if (value < 0) {
         return refuse(
           "unsupported_noise_environment",
           `${name} is ${String(value)} dB; P.842-5's decile deviations are ` +
@@ -534,12 +652,46 @@ function checkManMadeNoise(
             "SNR decile.",
         );
       }
+      if (value > MAX_DECILE_DEVIATION_DB) {
+        return refuse(
+          "unsupported_noise_environment",
+          `${name} is ${String(value)} dB; ITU-R P.372's published decile ` +
+            `deviations are single- or double-digit dB, so ${MODEL_ID} ` +
+            `bounds it to 0 to ${String(MAX_DECILE_DEVIATION_DB)} dB, wide ` +
+            "enough for any real receiver, so a value outside it is refused " +
+            "rather than carried unbounded into signalDeciles.ts's noise sum.",
+        );
+      }
     }
-    if (!Number.isFinite(setting.famAt1MHzDb)) {
+
+    if (
+      setting.slopeDbPerDecade !== undefined &&
+      (setting.slopeDbPerDecade < 0 ||
+        setting.slopeDbPerDecade > MAX_NOISE_SLOPE_DB_PER_DECADE)
+    ) {
+      return refuse(
+        "unsupported_noise_environment",
+        `the slope d is ${String(setting.slopeDbPerDecade)} dB/decade; ` +
+          "P.372-17 Table 1 publishes 27.7 for curves A to C, so " +
+          `${MODEL_ID} bounds a caller-supplied slope to 0 to ` +
+          `${String(MAX_NOISE_SLOPE_DB_PER_DECADE)} dB/decade, wide enough ` +
+          "for any real curve, so a value outside it is refused rather " +
+          "than carried unbounded into equation (17)'s Fam.",
+      );
+    }
+
+    if (
+      !Number.isFinite(setting.famAt1MHzDb) ||
+      setting.famAt1MHzDb < MIN_NOISE_FIGURE_DB ||
+      setting.famAt1MHzDb > MAX_NOISE_FIGURE_DB
+    ) {
       return refuse(
         "unsupported_noise_environment",
         `the explicit man-made noise figure is ${String(setting.famAt1MHzDb)} dB; ` +
-          "P.372-17 equation (17) needs a finite c, the value of Fam at 1 MHz.",
+          "P.372-17 equation (17) needs a finite c, the value of Fam at 1 MHz, " +
+          `and ${MODEL_ID} bounds it to ${String(MIN_NOISE_FIGURE_DB)} to ` +
+          `${String(MAX_NOISE_FIGURE_DB)} dB, the range ITU-R P.372's noise ` +
+          "figure tables span above kT0b.",
       );
     }
     return null;
@@ -569,6 +721,16 @@ function checkManMadeNoise(
 
 function isInteger(value: number, min: number, max: number): boolean {
   return Number.isInteger(value) && value >= min && value <= max;
+}
+
+/**
+ * True when a property read on `value` is safe: not `null`, `undefined`, or
+ * a primitive such as a number, string, or array element accessed as if it
+ * were a record. Used before every dereference of a caller-supplied
+ * container, so a malformed request is refused instead of throwing.
+ */
+function isPlainObject(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function refuse(

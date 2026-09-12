@@ -40,12 +40,12 @@ export function ContestLiteHudPill({
           Contest
         </button>
 
-        <span className="text-[10px] text-su-muted font-mono">
+        <span className="text-xs text-su-muted font-mono">
           {runMode.toUpperCase()}
         </span>
 
         {lastQsoTimestamp && (
-          <span className="text-[10px] text-su-muted">
+          <span className="text-xs text-su-muted">
             Last{" "}
             <span className="text-su-text font-mono">
               {formatDeltaSince(lastQsoTimestamp)}
@@ -55,7 +55,7 @@ export function ContestLiteHudPill({
 
         {badge && (
           <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.classes}`}
+            className={`px-2 py-0.5 rounded-full text-xs font-bold border ${badge.classes}`}
           >
             {badge.label}
           </span>
@@ -66,7 +66,7 @@ export function ContestLiteHudPill({
           onClick={() =>
             issueVoiceCommand(isRecording ? "stop" : "start", sessionId)
           }
-          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+          className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${
             isRecording
               ? "bg-alert-red/20 text-alert-red border-alert-red/40 hover:bg-alert-red/30"
               : "bg-cosmic-cyan/15 text-cosmic-cyan border-cosmic-cyan/40 hover:bg-cosmic-cyan/20"

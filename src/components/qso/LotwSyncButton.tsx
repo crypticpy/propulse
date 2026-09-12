@@ -163,12 +163,12 @@ export function LotwSyncButton() {
               <span className="text-sm font-semibold text-su-text">
                 LoTW Sync
               </span>
-              <span className="text-[10px] text-su-muted font-mono">
+              <span className="text-xs text-su-muted font-mono">
                 {lastSyncLabel}
               </span>
             </div>
             {lastDownloadResult && lastDownloadResult.matchedCount > 0 && (
-              <p className="text-[11px] text-signal-green mt-1">
+              <p className="text-xs text-signal-green mt-1">
                 Last sync: {lastDownloadResult.matchedCount} QSO
                 {lastDownloadResult.matchedCount !== 1 ? "s" : ""} confirmed
               </p>
@@ -198,7 +198,7 @@ export function LotwSyncButton() {
             </svg>
             <div>
               <p className="text-sm text-su-text font-medium">Export for TQSL</p>
-              <p className="text-[11px] text-su-muted mt-0.5">
+              <p className="text-xs text-su-muted mt-0.5">
                 {selectedIds.size > 0
                   ? `Generate ADIF for ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
                   : `Generate ADIF for all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -231,7 +231,7 @@ export function LotwSyncButton() {
               <p className="text-sm text-su-text font-medium">
                 Download Confirmations
               </p>
-              <p className="text-[11px] text-su-muted mt-0.5">
+              <p className="text-xs text-su-muted mt-0.5">
                 Fetch QSL confirmations and update local log
               </p>
             </div>
@@ -240,7 +240,7 @@ export function LotwSyncButton() {
           {/* Status / Error */}
           {(statusMessage || error) && (
             <div
-              className={`px-4 py-2.5 border-t text-[11px] ${
+              className={`px-4 py-2.5 border-t text-xs ${
                 error
                   ? "border-alert-red/20 text-alert-red bg-alert-red/5"
                   : "border-su-line/40 text-su-muted"

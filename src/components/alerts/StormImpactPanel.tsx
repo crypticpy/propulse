@@ -44,19 +44,19 @@ const SEVERITY_STYLES: Record<
   { badge: string; dot: string }
 > = {
   minimal: {
-    badge: "bg-signal-green/20 text-signal-green border-signal-green/40",
+    badge: "bg-signal-green/20 text-su-text border-signal-green/40",
     dot: "bg-signal-green",
   },
   moderate: {
-    badge: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+    badge: "bg-caution-amber/20 text-su-text border-caution-amber/40",
     dot: "bg-caution-amber",
   },
   severe: {
-    badge: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
+    badge: "bg-plasma-orange/20 text-su-text border-plasma-orange/40",
     dot: "bg-plasma-orange",
   },
   extreme: {
-    badge: "bg-alert-red/20 text-alert-red border-alert-red/40",
+    badge: "bg-alert-red/20 text-su-text border-alert-red/40",
     dot: "bg-alert-red",
   },
 };

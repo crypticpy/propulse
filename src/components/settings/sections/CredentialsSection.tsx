@@ -531,7 +531,7 @@ export function CredentialsSection() {
                         {service.label}
                       </h4>
                       {isStored && (
-                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-signal-green/20 text-signal-green border border-signal-green/30">
+                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-signal-green/20 text-signal-green border border-signal-green/30">
                           Stored
                         </span>
                       )}

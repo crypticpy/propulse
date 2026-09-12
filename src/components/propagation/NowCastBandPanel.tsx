@@ -194,8 +194,9 @@ export function NowCastBandPanel({
 
       {state.predictions.size > 0 && (
         <div
+          style={compact ? undefined : { gridTemplateColumns: "repeat(auto-fit, minmax(min(12rem, 100%), 1fr))" }}
           className={`mt-4 grid gap-px overflow-hidden rounded-md border border-su-line/40 bg-su-line/20 ${
-            compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+            compact ? "grid-cols-1 sm:grid-cols-2" : ""
           }`}
         >
           {bands.map((band) => {
@@ -216,7 +217,7 @@ export function NowCastBandPanel({
                     {band}
                   </span>
                   <span
-                    className={`cursor-help text-[11px] ${
+                    className={`cursor-help text-xs ${
                       prediction.profile === "physics"
                         ? "text-caution-amber/80"
                         : "text-su-muted"
@@ -265,7 +266,7 @@ export function NowCastBandPanel({
                 </div>
 
                 {state.personalized && envelope && (
-                  <div className="mt-2 border-t border-su-line/20 pt-2 text-[10px] text-su-muted">
+                  <div className="mt-2 border-t border-su-line/20 pt-2 text-xs text-su-muted">
                     {envelope.supported ? (
                       <>
                         <span>{formatPower(envelope.eirpWatts)} EIRP</span>
@@ -282,7 +283,7 @@ export function NowCastBandPanel({
                   </div>
                 )}
 
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-su-muted">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-su-muted">
                   <span>{Math.round(prediction.confidence * 100)}% confidence</span>
                   {state.personalized && (
                     <span className={delta >= 0 ? "text-signal-green" : "text-caution-amber"}>
@@ -324,7 +325,7 @@ export function NowCastBandPanel({
       )}
 
       {firstPrediction && (
-        <div className="mt-3 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-t border-su-line/20 pt-2 text-[10px] text-su-muted">
+        <div className="mt-3 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-t border-su-line/20 pt-2 text-xs text-su-muted">
           <span
             className="max-w-full truncate font-mono"
             title={firstPrediction.model_version}

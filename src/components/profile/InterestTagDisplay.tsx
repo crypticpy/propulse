@@ -54,7 +54,7 @@ export function InterestTagDisplay({
             return (
               <span
                 key={`${t.category}::${t.tag}`}
-                className={`inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full shrink-0 ${
+                className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${
                   isMatch ? "ring-1" : ""
                 }`}
                 style={{
@@ -86,7 +86,7 @@ export function InterestTagDisplay({
       {grouped.map(({ category, def, items }) => (
         <div key={category}>
           <span
-            className="block text-[10px] uppercase tracking-widest mb-1"
+            className="block text-xs uppercase tracking-widest mb-1"
             style={{ color: `${def.color}99` }}
           >
             {def.label}
@@ -98,7 +98,7 @@ export function InterestTagDisplay({
               return (
                 <span
                   key={t.tag}
-                  className={`inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                  className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
                     isMatch ? "ring-1" : ""
                   }`}
                   style={{

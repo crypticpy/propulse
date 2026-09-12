@@ -79,13 +79,17 @@
  *     hop length and elevation angle are recalculated UNTIL THE ELEVATION
  *     ANGLE EXCEEDS 3.0 DEGREES." WE FOLLOW THE TEXT and add hops until the
  *     elevation clears 3.0 degrees. THE REFERENCE adds exactly one hop and
- *     does not re-test. The two readings agree whenever one hop is enough,
- *     which is every hop count up to three; they part company from four hops
- *     up, because 4 000 (nM)/(nM + 1) first exceeds the 3.0-degree hop limit
- *     of 3 229.2 km at nM = 5. In this corpus it matters on G25 alone
- *     (26 400.16 km): the reference stops at 8 hops of 3 300.02 km, whose
- *     elevation is 2.600 degrees and therefore below the minimum the same
- *     sentence sets, and we take 9 hops of 2 933.35 km at 4.659 degrees. The
+ *     does not re-test. The two readings agree whenever one added hop is
+ *     enough, and one added hop is always enough while the starting count
+ *     nM = ceil(d/4 000) is 4 or fewer: the longest hop the reference can be
+ *     left holding is 4 000 nM/(nM + 1), which first exceeds the 3.0-degree
+ *     hop limit of 3 224.51 km at nM = 5. So the two readings can only part
+ *     company on a path longer than 16 000 km, and in this corpus it matters
+ *     on G25 alone (26 400.16 km): the reference stops at 8 hops of
+ *     3 300.02 km, whose elevation is 2.598 degrees and therefore below the
+ *     minimum the same sentence sets, and we take 9 hops of 2 933.35 km at
+ *     4.657 degrees. G29 at 16 920.26 km starts at nM = 5 and needs the added
+ *     hop, but one is enough there and both readings settle on 6. The
  *     divergence that follows is recorded per case in the parity fixture.
  *  2. THE HOUR "CORRESPONDING TO LOCAL NOON". THE TEXT: "fBM,noon: value of
  *     fBM for a time corresponding to local noon." Local solar noon at a

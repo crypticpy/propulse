@@ -104,7 +104,7 @@ const TX_STAGE_NAMES = ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] as const;
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] font-semibold text-su-muted uppercase tracking-wider mb-1">
+    <div className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-1">
       {children}
     </div>
   );
@@ -192,7 +192,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               onAntennaChange(antennas[nextIdx]);
             }}
             disabled={!canControlConnected}
-            className="flex-1 px-2 py-0.5 text-[10px] font-medium rounded border
+            className="flex-1 px-2 py-0.5 text-xs font-medium rounded border
             bg-su-line/10 border-su-line/40 text-su-muted
             hover:bg-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -214,7 +214,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             key={v}
             onClick={() => onVfoChange(v)}
             disabled={!canControlConnected}
-            className={`flex-1 px-2 py-1 text-[10px] font-bold font-mono rounded border transition-colors
+            className={`flex-1 px-2 py-1 text-xs font-bold font-mono rounded border transition-colors
               disabled:opacity-40 disabled:cursor-not-allowed ${
                 vfo === v
                   ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
@@ -328,7 +328,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           <button
             key={unit}
             onClick={() => onFreqUnitChange(unit)}
-            className={`flex-1 px-1 py-0.5 text-[10px] font-semibold rounded-full border transition-colors ${
+            className={`flex-1 px-1 py-0.5 text-xs font-semibold rounded-full border transition-colors ${
               freqUnit === unit
                 ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
@@ -372,7 +372,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           <button
             key={m}
             onClick={() => onFt8ModeChange(m)}
-            className={`flex-1 px-2 py-1.5 text-[11px] font-bold tracking-wide rounded border transition-colors ${
+            className={`flex-1 px-2 py-1.5 text-xs font-bold tracking-wide rounded border transition-colors ${
               ft8DecoderMode === m
                 ? ft8DecoderEnabled
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40 ring-1 ring-cosmic-cyan/20"
@@ -391,10 +391,10 @@ export const FlexSideControls = memo(function FlexSideControls({
           {/* Cycle progress bar */}
           <div className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] text-su-muted uppercase tracking-wider">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Cycle
               </span>
-              <span className="text-[10px] font-mono text-su-muted">
+              <span className="text-xs font-mono text-su-muted">
                 {Math.round(ft8CycleProgress * 100)}%
               </span>
             </div>
@@ -420,7 +420,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                   {s.value.toLocaleString()}
                 </div>
-                <div className="text-[8px] uppercase tracking-wider text-su-text/80">
+                <div className="text-xs uppercase tracking-wider text-su-text/80">
                   {s.label}
                 </div>
               </div>
@@ -428,7 +428,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           </div>
 
           {/* Status line */}
-          <div className="text-[10px] text-su-muted leading-snug">
+          <div className="text-xs text-su-muted leading-snug">
             {ft8DecoderStats.workerReady
               ? `Decoding ${ft8DecoderMode} — filter auto-set to 0\u20133000 Hz`
               : "Initializing WASM decoder\u2026"}
@@ -436,7 +436,7 @@ export const FlexSideControls = memo(function FlexSideControls({
 
           {/* Error */}
           {ft8Error && (
-            <div className="rounded bg-alert-red/10 border border-alert-red/20 px-2 py-1.5 text-[10px] leading-tight text-alert-red/90">
+            <div className="rounded bg-alert-red/10 border border-alert-red/20 px-2 py-1.5 text-xs leading-tight text-alert-red/90">
               {ft8Error}
             </div>
           )}
@@ -454,7 +454,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           <button
             key={opt.value}
             onClick={() => onTuningStepChange(opt.value)}
-            className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+            className={`px-1.5 py-0.5 text-xs font-medium rounded border transition-colors ${
               tuningStepHz === opt.value
                 ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"
                 : "bg-su-line/10 text-su-muted border-su-line/40 hover:text-su-text"
@@ -482,10 +482,10 @@ export const FlexSideControls = memo(function FlexSideControls({
           return (
             <div key={stage.name} className="space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-su-muted">
+                <span className="text-xs text-su-muted">
                   {stage.label ?? stage.name}
                 </span>
-                <span className="text-[10px] text-su-text font-mono">
+                <span className="text-xs text-su-text font-mono">
                   {stage.max <= 1
                     ? Math.round(currentValue * 100) + "%"
                     : currentValue}
@@ -519,7 +519,7 @@ export const FlexSideControls = memo(function FlexSideControls({
         <button
           onClick={onToggleFft}
           disabled={!canStreamFft}
-          className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
+          className={`flex-1 px-1.5 py-1 text-xs font-semibold rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               fftEnabled
                 ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
@@ -532,7 +532,7 @@ export const FlexSideControls = memo(function FlexSideControls({
         <button
           onClick={onToggleAudio}
           disabled={!canStreamAudio}
-          className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
+          className={`flex-1 px-1.5 py-1 text-xs font-semibold rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               audioEnabled
                 ? "bg-plasma-orange/15 border-plasma-orange/30 text-su-text"
@@ -629,7 +629,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             </button>
 
             {!audioEnabled && !isRecording && (
-              <div className="text-[9px] text-su-muted leading-tight">
+              <div className="text-xs text-su-muted leading-tight">
                 Start audio streaming to enable recording.
               </div>
             )}
@@ -641,7 +641,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                   <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatDuration(recordingDurationSec)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
+                  <div className="text-xs uppercase tracking-wider text-su-text/80">
                     Duration
                   </div>
                 </div>
@@ -649,7 +649,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                   <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatBytes(recordingEstimatedBytes)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
+                  <div className="text-xs uppercase tracking-wider text-su-text/80">
                     Size
                   </div>
                 </div>
@@ -661,7 +661,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               <div className="flex gap-1">
                 <button
                   onClick={onExportRecording}
-                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                  className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                     bg-signal-green/10 border-signal-green/30 text-signal-green
                     hover:bg-signal-green/20"
                 >
@@ -669,7 +669,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 </button>
                 <button
                   onClick={onDiscardRecording}
-                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                  className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                     bg-alert-red/10 border-alert-red/25 text-alert-red/70
                     hover:bg-alert-red/20 hover:text-alert-red"
                 >

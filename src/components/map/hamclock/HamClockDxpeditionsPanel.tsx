@@ -49,13 +49,13 @@ export function HamClockDxpeditionsPanel() {
   );
 
   if (isLoading) {
-    return <p className="font-mono text-[10px] text-su-muted">Loading operations…</p>;
+    return <p className="font-mono text-xs text-su-muted">Loading operations…</p>;
   }
   if (error != null || status !== "ok") {
-    return <p className="font-mono text-[10px] text-su-muted">DXpedition schedule unavailable</p>;
+    return <p className="font-mono text-xs text-su-muted">DXpedition schedule unavailable</p>;
   }
   if (rows.length === 0) {
-    return <p className="font-mono text-[10px] text-su-muted">No announced operations</p>;
+    return <p className="font-mono text-xs text-su-muted">No announced operations</p>;
   }
 
   return (
@@ -69,16 +69,16 @@ export function HamClockDxpeditionsPanel() {
           >
             <span className="flex min-w-0 items-center gap-1.5">
               {active && (
-                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-[8px] font-bold text-signal-green">
+                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-xs font-bold text-signal-green">
                   NOW
                 </span>
               )}
-              <span className="shrink-0 font-mono text-[11px] font-bold text-nebula-blue">
+              <span className="shrink-0 font-mono text-xs font-bold text-nebula-blue">
                 {entry.callsign}
               </span>
-              <span className="truncate text-[10px] text-su-muted">{entry.entity}</span>
+              <span className="truncate text-xs text-su-muted">{entry.entity}</span>
             </span>
-            <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px]">
+            <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-xs">
               <span className={active ? "text-signal-green" : "text-plasma-orange"}>
                 {scheduleCountdown(window, now)}
               </span>
@@ -93,7 +93,7 @@ export function HamClockDxpeditionsPanel() {
         href={NG3K_ADXO_URL}
         target="_blank"
         rel="noreferrer"
-        className="block text-right font-mono text-[8px] uppercase tracking-wider text-su-muted hover:text-plasma-orange"
+        className="block text-right font-mono text-xs uppercase tracking-wider text-su-muted hover:text-plasma-orange"
       >
         NG3K ADXO ↗
       </a>

@@ -43,21 +43,21 @@ export const FlexBottomBar = memo(function FlexBottomBar({
         <button
           disabled
           title="Not yet available"
-          className="px-2 py-0.5 text-[10px] font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
+          className="px-2 py-0.5 text-xs font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
         >
           TNF
         </button>
         <button
           disabled
           title="Not yet available"
-          className="px-2 py-0.5 text-[10px] font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
+          className="px-2 py-0.5 text-xs font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
         >
           CWX
         </button>
       </div>
 
       {/* Center section -- daemon status */}
-      <div className="flex items-center gap-2 text-[11px] text-su-muted">
+      <div className="flex items-center gap-2 text-xs text-su-muted">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
             daemonConnected ? "bg-green-500" : "bg-su-line"
@@ -65,17 +65,17 @@ export const FlexBottomBar = memo(function FlexBottomBar({
         />
         <span>{radioName ?? "No Radio"}</span>
         {vfo && (
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-su-line/20 text-su-muted">
+          <span className="px-1.5 py-0.5 text-xs font-mono font-medium rounded bg-su-line/20 text-su-muted">
             VFO {vfo}
           </span>
         )}
         {activeBand && (
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-su-line/20 text-su-muted">
+          <span className="px-1.5 py-0.5 text-xs font-mono font-medium rounded bg-su-line/20 text-su-muted">
             {activeBand}
           </span>
         )}
         {cpuPercent != null && memoryMb != null && (
-          <span className="font-mono text-[10px] text-su-muted">
+          <span className="font-mono text-xs text-su-muted">
             CPU {cpuPercent.toFixed(0)}% &middot; {memoryMb.toFixed(0)} MB
           </span>
         )}
@@ -84,7 +84,7 @@ export const FlexBottomBar = memo(function FlexBottomBar({
       {/* Right section -- LIVE indicator, TX badge, UTC clock */}
       <div className="flex items-center gap-3">
         {/* LIVE / IDLE indicator */}
-        <div className="flex items-center gap-1 text-[10px] font-medium">
+        <div className="flex items-center gap-1 text-xs font-medium">
           <span
             className={`inline-block h-1.5 w-1.5 rounded-full ${
               fftEnabled ? "bg-green-500 animate-pulse" : "bg-su-line"
@@ -103,7 +103,7 @@ export const FlexBottomBar = memo(function FlexBottomBar({
         )}
 
         {/* UTC clock */}
-        <span className="font-mono text-[11px] text-su-muted">{utc}</span>
+        <span className="font-mono text-xs text-su-muted">{utc}</span>
       </div>
     </div>
   );

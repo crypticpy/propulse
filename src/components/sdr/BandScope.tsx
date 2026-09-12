@@ -105,7 +105,7 @@ export function BandScope({
             style={{ left: `${Math.max(0, Math.min(1, t)) * 100}%` }}
           >
             <div className="w-px h-full bg-plasma-orange/60" />
-            <div className="absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 text-plasma-orange">
+            <div className="absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-xs bg-su-panel/90 border border-su-line/40 text-plasma-orange">
               {s.label}
             </div>
           </div>

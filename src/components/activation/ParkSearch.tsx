@@ -260,7 +260,7 @@ export function ParkSearch({
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                           item.active
-                            ? "bg-signal-green/20 text-signal-green"
+                            ? "bg-signal-green/20 text-su-text"
                             : "bg-su-line/20 text-su-text/80"
                         }`}
                       >

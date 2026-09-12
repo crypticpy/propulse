@@ -1,5 +1,8 @@
 /** Owner-scoped legacy gear deletion intents persisted until server ack. */
 
+/** Client-side mirror of server tombstone retention (#1078). */
+export const GEAR_DELETION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
 export type GearDeletionTable =
   | "user_radios"
   | "antennas"
@@ -23,10 +26,32 @@ export interface PendingGearDeletion {
   ownerId: string;
 }
 
+/** Server-acknowledged deletion retained for restore guard (#1078). */
+export interface AcknowledgedGearDeletion {
+  table: GearDeletionTable;
+  recordId: string;
+  acknowledgedAt: string;
+  ownerId: string;
+}
+
 export function gearDeletionKey(
   deletion: Pick<PendingGearDeletion, "table" | "recordId">,
 ): string {
   return `${deletion.table}:${deletion.recordId}`;
+}
+
+export function parseGearDeletionKey(key: string): {
+  table: GearDeletionTable;
+  recordId: string;
+} {
+  const separator = key.indexOf(":");
+  if (separator <= 0) {
+    throw new Error(`Invalid gear deletion key: ${key}`);
+  }
+  return {
+    table: key.slice(0, separator) as GearDeletionTable,
+    recordId: key.slice(separator + 1),
+  };
 }
 
 export function enqueueGearDeletionIntent(

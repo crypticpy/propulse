@@ -40,8 +40,12 @@ import {
   enqueueGearDeletionIntents,
   removeAcknowledgedGearDeletions,
   type GearDeletionTable,
+  type AcknowledgedGearDeletion,
   type PendingGearDeletion,
+  gearDeletionKey,
+  parseGearDeletionKey,
 } from "@/lib/sync/shackDeletionIntent";
+import { GEAR_DELETION_RETENTION_MS } from "@/lib/sync/shackDeletionIntent";
 import { useAuthStore } from "@/stores/authStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -324,6 +328,8 @@ interface ShackStore {
   activeChainId: string | null;
   /** Server deletion intents that remain until push/pull ack (#326). */
   pendingGearDeletions: PendingGearDeletion[];
+  /** Push/pull acks retained for restore guard, pruned at 90 days (#1078). */
+  acknowledgedGearDeletions: AcknowledgedGearDeletion[];
   acknowledgeGearDeletions: (keys: string[], ownerId: string) => void;
   /**
    * Referential cleanup for gear ids already removed from `table`'s array
@@ -503,15 +509,42 @@ export const useShackStore = create<ShackStore>()(
       stationChains: [],
       activeChainId: null,
       pendingGearDeletions: [],
+      acknowledgedGearDeletions: [],
 
       acknowledgeGearDeletions: (keys, ownerId) =>
-        set((state) => ({
-          pendingGearDeletions: removeAcknowledgedGearDeletions(
-            state.pendingGearDeletions,
-            keys,
-            ownerId,
-          ),
-        })),
+        set((state) => {
+          const acknowledgedAt = new Date().toISOString();
+          const cutoff = Date.now() - GEAR_DELETION_RETENTION_MS;
+          const nextAcks: AcknowledgedGearDeletion[] = [
+            ...state.acknowledgedGearDeletions.filter(
+              (entry) =>
+                entry.ownerId !== ownerId ||
+                Date.parse(entry.acknowledgedAt) >= cutoff,
+            ),
+          ];
+          const seen = new Set(
+            nextAcks.map((entry) => `${entry.ownerId}:${gearDeletionKey(entry)}`),
+          );
+          for (const key of keys) {
+            const parsed = parseGearDeletionKey(key);
+            const dedupeKey = `${ownerId}:${key}`;
+            if (seen.has(dedupeKey)) continue;
+            seen.add(dedupeKey);
+            nextAcks.push({
+              ...parsed,
+              ownerId,
+              acknowledgedAt,
+            });
+          }
+          return {
+            pendingGearDeletions: removeAcknowledgedGearDeletions(
+              state.pendingGearDeletions,
+              keys,
+              ownerId,
+            ),
+            acknowledgedGearDeletions: nextAcks,
+          };
+        }),
 
       applyGearRemoval: (table, ids, ownerId) =>
         set((state) => {
@@ -2189,7 +2222,7 @@ export const useShackStore = create<ShackStore>()(
     }),
     {
       name: "propulse-shack",
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -2205,6 +2238,7 @@ export const useShackStore = create<ShackStore>()(
         stationChains: state.stationChains,
         activeChainId: state.activeChainId,
         pendingGearDeletions: state.pendingGearDeletions,
+        acknowledgedGearDeletions: state.acknowledgedGearDeletions,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -2279,6 +2313,11 @@ export const useShackStore = create<ShackStore>()(
           // any real pending deletion re-queues the next time that gear is
           // removed.
           state.pendingGearDeletions = [];
+        }
+        if (version < 8) {
+          if (!("acknowledgedGearDeletions" in state)) {
+            state.acknowledgedGearDeletions = [];
+          }
         }
         return state as never;
       },

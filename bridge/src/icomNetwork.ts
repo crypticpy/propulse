@@ -24,30 +24,7 @@
  */
 
 import dgram from "node:dgram";
-import {
-  readFrequency,
-  setFrequency,
-  setMode,
-  setPtt,
-  readLevel,
-  setLevel,
-  readFunction,
-  setFunction,
-  setAgc,
-  setVfo,
-  setSplit,
-  setRit,
-  setXit,
-  setCwSpeed,
-  setIfShift,
-  startScope,
-  stopScope,
-  startScopeDataOutput,
-  stopScopeDataOutput,
-  setAntenna,
-  parseLevelResponse,
-  parseFunctionResponse,
-} from "./civ/commands.js";
+import { readFrequency } from "./civ/commands.js";
 import {
   type CivAddress,
   CIV_CONTROLLER_ADDR,
@@ -335,141 +312,91 @@ export class IcomNetworkBackend {
   // ── Rig Control Commands ──────────────────────────────────────────────────
 
   async setFrequency(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFrequency(this.addr, hz),
-      "Set frequency",
-    );
+    await this.session.setFrequency(hz);
   }
 
   async setMode(mode: string, _passband?: number): Promise<void> {
-    await this.session.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
+    await this.session.setMode(mode, _passband);
   }
 
   async setPTT(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
+    await this.session.setPTT(on);
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    await this.session.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
+    await this.session.setVFO(vfo);
   }
 
   async setSplit(on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(setSplit(this.addr, on), "Set split");
+    await this.session.setSplit(on);
   }
 
   async setFunc(func: string, on: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, func, on),
-      `Set function ${func}`,
-    );
+    await this.session.setFunc(func, on);
   }
 
   async setLevel(level: string, value: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setLevel(this.addr, level, value),
-      `Set level ${level}`,
-    );
+    await this.session.setLevel(level, value);
   }
 
   async getLevel(level: string): Promise<number> {
-    const frame = await this.session.sendCommand(readLevel(this.addr, level));
-    if (!frame) return 0;
-    return parseLevelResponse(frame) ?? 0;
+    return this.session.getLevel(level);
   }
 
   async getFunc(func: string): Promise<boolean> {
-    const frame = await this.session.sendCommand(readFunction(this.addr, func));
-    if (!frame) return false;
-    return parseFunctionResponse(frame) ?? false;
+    return this.session.getFunc(func);
   }
 
   async setAgc(mode: number): Promise<void> {
-    await this.session.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
+    await this.session.setAgc(mode);
   }
 
   async setPassband(hz: number): Promise<void> {
-    // CI-V doesn't have a direct passband command — set filter width via mode
-    // For now, this is a no-op. Filter width is set implicitly via setMode.
-    void hz;
+    await this.session.setPassband(hz);
   }
 
   async setAntenna(index: string): Promise<void> {
-    const port = parseInt(index, 10);
-    if (!isNaN(port)) {
-      await this.session.sendAndWaitOk(
-        setAntenna(this.addr, port),
-        "Set antenna",
-      );
-    }
+    await this.session.setAntenna(index);
   }
 
   async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setRit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setRit(enabled, offsetHz);
   }
 
   async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
-    const cmd = setXit(this.addr, enabled, offsetHz);
-    await this.session.sendRaw(cmd);
+    await this.session.setXit(enabled, offsetHz);
   }
 
   async setAnf(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "ANF", enabled),
-      "Set ANF",
-    );
+    await this.session.setAnf(enabled);
   }
 
   async setQsk(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "BKIN", enabled),
-      "Set QSK",
-    );
+    await this.session.setQsk(enabled);
   }
 
   async setVox(enabled: boolean): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setFunction(this.addr, "VOX", enabled),
-      "Set VOX",
-    );
+    await this.session.setVox(enabled);
   }
 
   async setCwSpeed(wpm: number): Promise<void> {
-    await this.session.sendAndWaitOk(
-      setCwSpeed(this.addr, wpm),
-      "Set CW speed",
-    );
+    await this.session.setCwSpeed(wpm);
   }
 
   async setIfShift(hz: number): Promise<void> {
-    await this.session.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
+    await this.session.setIfShift(hz);
   }
 
   // ── Spectrum Control ──────────────────────────────────────────────────────
 
   async startSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(true);
-    await this.session.sendAndWaitOk(
-      startScope(this.addr),
-      "Enable scope display",
-    );
-    await this.session.sendAndWaitOk(
-      startScopeDataOutput(this.addr),
-      "Enable scope data output",
-    );
+    await this.session.startSpectrum();
   }
 
   async stopSpectrum(): Promise<void> {
-    this.session.setSpectrumEnabled(false);
-    await this.session.sendAndWaitOk(
-      stopScopeDataOutput(this.addr),
-      "Disable scope data output",
-    );
-    await this.session.sendAndWaitOk(
-      stopScope(this.addr),
-      "Disable scope display",
-    );
+    await this.session.stopSpectrum();
   }
+
 
   // ── Audio Stream Control ──────────────────────────────────────────────────
 

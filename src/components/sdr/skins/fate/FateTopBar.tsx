@@ -70,7 +70,7 @@ function FateCycleBar({
           />
         )}
       </div>
-      <span className="text-[8px] text-su-text/80 font-mono text-center leading-none">
+      <span className="text-xs text-su-text/80 font-mono text-center leading-none">
         {pct.toFixed(0)}%
       </span>
     </div>
@@ -118,9 +118,9 @@ function FateDialSwitcher({
             }}
             title={`Tune to ${dial.band} ${dial.mode} — ${dial.label} MHz`}
           >
-            <span className="text-[11px] font-bold">{dial.band}</span>
+            <span className="text-xs font-bold">{dial.band}</span>
             <span
-              className="text-[9px] tabular-nums"
+              className="text-xs tabular-nums"
               style={{ color: isActive ? bandColor : "rgba(255,255,255,0.3)" }}
             >
               {dial.label}
@@ -158,7 +158,7 @@ export function FateTopBar({
           type="button"
           onClick={onFt8Toggle}
           className={`
-            flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold
+            flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold
             transition-all duration-200 border shrink-0
             ${
               ft8DecoderEnabled
@@ -183,7 +183,7 @@ export function FateTopBar({
             type="button"
             onClick={() => onFt8ModeChange("FT8")}
             className={`
-              px-2 py-0.5 rounded text-[10px] font-bold tracking-wide transition-colors
+              px-2 py-0.5 rounded text-xs font-bold tracking-wide transition-colors
               ${
                 ft8DecoderMode === "FT8"
                   ? "bg-signal-green/15 text-signal-green"
@@ -197,7 +197,7 @@ export function FateTopBar({
             type="button"
             onClick={() => onFt8ModeChange("FT4")}
             className={`
-              px-2 py-0.5 rounded text-[10px] font-bold tracking-wide transition-colors
+              px-2 py-0.5 rounded text-xs font-bold tracking-wide transition-colors
               ${
                 ft8DecoderMode === "FT4"
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
@@ -213,7 +213,7 @@ export function FateTopBar({
         <button
           type="button"
           onClick={() => onCqFilterChange(!showCqOnly)}
-          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+          className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
               : "text-su-muted hover:text-su-text"
@@ -232,7 +232,7 @@ export function FateTopBar({
         {/* 4. Error display */}
         {ft8Error && (
           <span
-            className="text-[10px] text-alert-red truncate max-w-[200px] shrink"
+            className="text-xs text-alert-red truncate max-w-[200px] shrink"
             title={ft8Error}
           >
             {ft8Error}
@@ -242,7 +242,7 @@ export function FateTopBar({
         {/* Current band context (subtle) */}
         {currentBand && (
           <span
-            className="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0"
+            className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
             style={{
               color: BAND_COLORS[currentBand] ?? BAND_COLORS.default,
               backgroundColor: `${BAND_COLORS[currentBand] ?? BAND_COLORS.default}10`,
@@ -258,7 +258,7 @@ export function FateTopBar({
 
       {/* Row 2: Band/Dial frequency selector — full-width, easy to hit */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
-        <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
+        <span className="text-xs text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
           Tune
         </span>
         <FateDialSwitcher

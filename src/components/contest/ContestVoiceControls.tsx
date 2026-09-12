@@ -17,7 +17,7 @@ export interface ContestVoiceControlsProps {
 
 function formatHotkey(label: string) {
   return (
-    <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-[10px] text-su-muted">
+    <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-xs text-su-muted">
       {label}
     </kbd>
   );
@@ -79,7 +79,7 @@ export function ContestVoiceControls({
           {buttonLabel}
         </button>
 
-        <div className="text-[10px] text-su-muted flex items-center gap-1">
+        <div className="text-xs text-su-muted flex items-center gap-1">
           <span>Hotkey</span>
           {formatHotkey("Ctrl")}
           {formatHotkey("Shift")}
@@ -87,11 +87,11 @@ export function ContestVoiceControls({
         </div>
 
         {error && (
-          <span className="ml-auto text-[10px] text-alert-red">{error}</span>
+          <span className="ml-auto text-xs text-alert-red">{error}</span>
         )}
 
         {status === "unavailable" && (
-          <span className="ml-auto text-[10px] text-su-muted">
+          <span className="ml-auto text-xs text-su-muted">
             Web Speech unsupported
           </span>
         )}
@@ -101,19 +101,19 @@ export function ContestVoiceControls({
       {(isRecording || isBusy) && (
         <div className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-xs text-su-muted">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-su-muted uppercase tracking-wide">
+            <span className="text-xs text-su-muted uppercase tracking-wide">
               {isRecording ? "Listening" : "Processing"}
             </span>
             <button
               type="button"
               onClick={() => resetVoiceState(sessionId)}
-              className="text-[10px] text-su-muted hover:text-su-text transition-colors"
+              className="text-xs text-su-muted hover:text-su-text transition-colors"
               title="Clear voice state"
             >
               Clear
             </button>
           </div>
-          <div className="font-mono text-[11px]">
+          <div className="font-mono text-xs">
             {interim || (isBusy ? "…" : "")}
           </div>
         </div>
@@ -123,20 +123,20 @@ export function ContestVoiceControls({
       {status === "candidates" && (
         <div className="p-3 rounded-lg bg-su-line/10 border border-su-line/40 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-su-muted uppercase tracking-wide">
+            <span className="text-xs text-su-muted uppercase tracking-wide">
               Voice Candidates
             </span>
             <button
               type="button"
               onClick={() => resetVoiceState(sessionId)}
-              className="text-[10px] text-su-muted hover:text-su-text transition-colors"
+              className="text-xs text-su-muted hover:text-su-text transition-colors"
               title="Dismiss candidates"
             >
               Dismiss
             </button>
           </div>
 
-          <div className="text-[11px] text-su-muted">
+          <div className="text-xs text-su-muted">
             <span className="text-su-muted">Transcript:</span>{" "}
             <span className="font-mono text-su-text">{transcript}</span>
           </div>
@@ -157,7 +157,7 @@ export function ContestVoiceControls({
                     requestEntryFocus();
                     resetVoiceState(sessionId);
                   }}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors"
+                  className="px-2 py-1 rounded text-xs font-bold bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors"
                   title="Apply to entry"
                 >
                   Apply

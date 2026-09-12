@@ -330,4 +330,23 @@ describe("what section 5.4 refuses rather than guesses", () => {
       }
     }
   });
+
+  it("returns non_finite_result rather than a NaN field strength when a corrupted upstream Es overflows equation (42)'s exponential", () => {
+    // shortPathDb only has to be finite to be accepted; at 1e6 dB it still
+    // is, but Xs = 10^(0.01 Es) overflows double range on its own, before the
+    // interpolation itself runs, corrupting Xi and the field strength with
+    // it. This is the distanceBlend sibling of the fM finding: neither Es nor
+    // El fails any check above, and it is the record's own arithmetic that
+    // overflows.
+    const result = distanceBlend({
+      groundDistanceKm: 8000,
+      shortPathDb: 1e6,
+      longPathDb: -50,
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("non_finite_result");
+    expect(result.detail).toContain("xShort");
+    expect(result.detail).toContain("Infinity");
+  });
 });

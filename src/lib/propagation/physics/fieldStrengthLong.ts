@@ -88,10 +88,14 @@
  * the text states in the same breath as equation (41) and which exists because
  * equation (41) is genuinely unbounded at D = pi R0. Everything else that could
  * fail returns a labelled `unsupported` record: a path shorter than 7 000 km, a
- * frequency that is not positive, a non-finite antenna or power input, or an
- * unsupported fM or fL.
+ * frequency that is not positive, a non-finite antenna or power input, an
+ * unsupported fM or fL, or (`non_finite_result`) a resolved El whose own
+ * arithmetic overflowed despite every input being individually in bounds, such
+ * as an operating frequency so large that `(f + fH)^2` overflows equation
+ * (39)'s bracket; see `finiteResult.ts`.
  */
 
+import { firstNonFiniteField } from "./finiteResult";
 import {
   longPathMuf,
   type LongPathMufResult,
@@ -201,7 +205,11 @@ export interface ResolvedLongPathFieldStrength {
 
 export interface UnsupportedLongPathFieldStrength {
   readonly kind: "unsupported";
-  readonly reason: "out_of_domain" | "muf_unsupported" | "luf_unsupported";
+  readonly reason:
+    | "out_of_domain"
+    | "muf_unsupported"
+    | "luf_unsupported"
+    | "non_finite_result";
   readonly detail: string;
   readonly groundDistanceKm: number;
   /** The leaf result that declined, when one did. */
@@ -441,7 +449,7 @@ export function longPathFieldStrength(
     );
   }
 
-  return {
+  const resolved: ResolvedLongPathFieldStrength = {
     kind: "field_strength",
     groundDistanceKm: D,
     frequencyMHz,
@@ -471,4 +479,21 @@ export function longPathFieldStrength(
     alreadyIncludedMechanisms: LONG_PATH_INCLUDED_MECHANISMS,
     assumptions,
   };
+
+  // The last check, after every input bound above: no resolved El record
+  // leaves this function carrying a non-finite number anywhere in its own
+  // tree, whatever combination of in-bounds inputs produced it. See
+  // `finiteResult.ts`.
+  const nonFinite = firstNonFiniteField(resolved);
+  if (nonFinite !== null) {
+    return unsupported(
+      "non_finite_result",
+      `the resolved El record's ${nonFinite.path} is ` +
+        `${String(nonFinite.value)}, not a finite number.`,
+      D,
+      muf,
+      luf,
+    );
+  }
+  return resolved;
 }

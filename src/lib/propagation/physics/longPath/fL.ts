@@ -159,10 +159,14 @@
  * from equation (33) is not clamped to zero and not returned as a frequency:
  * equation (36)'s floor is what the text applies next, and the text's own
  * sentence ("In this way, the 24-hour minimum fL value is fLN") says the floor
- * is the answer. Out-of-domain inputs return a labelled `unsupported` record.
+ * is the answer. Out-of-domain inputs return a labelled `unsupported` record,
+ * reason `out_of_domain`. A resolved record whose own arithmetic still
+ * overflowed despite every input being individually in bounds is refused the
+ * same way, reason `non_finite_result`; see `finiteResult.ts`.
  */
 
 import tables from "../assets/p533-fl-tables.json";
+import { firstNonFiniteField } from "../finiteResult";
 import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import {
@@ -263,7 +267,7 @@ export interface ResolvedLongPathLuf {
 
 export interface UnsupportedLongPathLuf {
   readonly kind: "unsupported";
-  readonly reason: "out_of_domain";
+  readonly reason: "out_of_domain" | "non_finite_result";
   readonly detail: string;
   readonly groundDistanceKm: number;
 }
@@ -432,8 +436,9 @@ export function applySunsetDecay(
 function unsupported(
   detail: string,
   groundDistanceKm: number,
+  reason: UnsupportedLongPathLuf["reason"] = "out_of_domain",
 ): UnsupportedLongPathLuf {
-  return { kind: "unsupported", reason: "out_of_domain", detail, groundDistanceKm };
+  return { kind: "unsupported", reason, detail, groundDistanceKm };
 }
 
 /**
@@ -603,7 +608,7 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
     });
   }
 
-  return {
+  const resolved: ResolvedLongPathLuf = {
     kind: "resolved",
     groundDistanceKm: D,
     hopCount,
@@ -619,4 +624,19 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
     // Deviation 2: the text's "current hour", not the reference's hour + 1.
     fLMHz: decayed.hours[utcHour],
   };
+
+  // The last check, after every input bound above: no resolved fL record
+  // leaves this function carrying a non-finite number anywhere in its own
+  // tree, whatever combination of in-bounds inputs produced it. See
+  // `finiteResult.ts`.
+  const nonFinite = firstNonFiniteField(resolved);
+  if (nonFinite !== null) {
+    return unsupported(
+      `the resolved fL record's ${nonFinite.path} is ` +
+        `${String(nonFinite.value)}, not a finite number.`,
+      D,
+      "non_finite_result",
+    );
+  }
+  return resolved;
 }

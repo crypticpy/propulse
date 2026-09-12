@@ -18,6 +18,7 @@ import {
   type ResolvedRoute,
 } from "@/lib/propagation/geometry/route";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
+import { firstNonFiniteField } from "../finiteResult";
 import {
   distanceReductionFactor,
   f2FourThousandMufMHz,
@@ -37,6 +38,9 @@ import {
   LONG_PATH_MIN_ELEVATION_DEG,
   LONG_PATH_MIRROR_HEIGHT_KM,
   MAX_ROUTE_DISTANCE_KM,
+  SAMPLED_FOF2_MAX_MHZ,
+  SAMPLED_GYROFREQUENCY_MAX_MHZ,
+  SAMPLED_M3000F2_MAX,
   type LongPathMufState,
   type ResolvedLongPathMuf,
 } from "./fM";
@@ -710,6 +714,80 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     expect(result.detail).toContain("0 or greater");
   });
 
+  it("declines a sampled foF2 just above its envelope, which is a margin and not a physics limit", () => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({ ...FLAT_STATE, foF2MHz: SAMPLED_FOF2_MAX_MHZ + 0.001 }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("foF2MHz");
+    expect(result.detail).toContain("50.001");
+  });
+
+  it("declines a sampled m3000F2 just above its envelope", () => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({ ...FLAT_STATE, m3000F2: SAMPLED_M3000F2_MAX + 0.001 }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("m3000F2");
+    expect(result.detail).toContain("6.001");
+  });
+
+  it("declines a sampled gyrofrequency300kmMHz just above its envelope", () => {
+    const result = longPathMuf({
+      route: stretched(EASTBOUND, 8095.11),
+      utcHour: 12,
+      sample: () => ({
+        ...FLAT_STATE,
+        gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MAX_MHZ + 0.001,
+      }),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("gyrofrequency300kmMHz");
+    expect(result.detail).toContain("3.001");
+  });
+
+  it("admits each envelope boundary exactly: foF2 = 50, M(3000)F2 = 6, gyrofrequency = 3", () => {
+    const atFoF2Bound = resolved(
+      longPathMuf({
+        route: stretched(EASTBOUND, 8095.11),
+        utcHour: 12,
+        sample: () => ({ ...FLAT_STATE, foF2MHz: SAMPLED_FOF2_MAX_MHZ }),
+      }),
+    );
+    expect(Number.isFinite(atFoF2Bound.fMMHz)).toBe(true);
+
+    const atM3000Bound = resolved(
+      longPathMuf({
+        route: stretched(EASTBOUND, 8095.11),
+        utcHour: 12,
+        sample: () => ({ ...FLAT_STATE, m3000F2: SAMPLED_M3000F2_MAX }),
+      }),
+    );
+    expect(Number.isFinite(atM3000Bound.fMMHz)).toBe(true);
+
+    const atGyroBound = resolved(
+      longPathMuf({
+        route: stretched(EASTBOUND, 8095.11),
+        utcHour: 12,
+        sample: () => ({
+          ...FLAT_STATE,
+          gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MAX_MHZ,
+        }),
+      }),
+    );
+    expect(Number.isFinite(atGyroBound.fMMHz)).toBe(true);
+  });
+
   it("admits gyrofrequency300kmMHz = 0 and a tiny positive foF2, the legitimate boundary", () => {
     const result = resolved(
       longPathMuf({
@@ -772,5 +850,67 @@ describe("what section 5.3.1 refuses rather than guesses", () => {
     for (const value of numbers) {
       expect(Number.isFinite(value)).toBe(true);
     }
+  });
+});
+
+describe("the non_finite_result invariant on the assembled fM record", () => {
+  it("cannot be reached through the public longPathMuf() surface once the sampler is in-envelope", () => {
+    // fBM = fz + (f4 - fz) fD (equation 29) with fz = foF2 + fH/2 > 0 and
+    // f4 = 1.1 foF2 M(3000)F2 > 0 once the sampler passes SAMPLED_STATE_BOUNDS,
+    // and fD lies in [0, ~0.92038] over every hop length section 5.3.1 can
+    // produce (see `distanceReductionFactor`'s own comment: it never reaches
+    // its own 4 000 km extreme here). So fBM is always a weighted average of
+    // two positive numbers and can never leave the interval between them,
+    // whatever the sampler answers inside its envelope. With the envelope's
+    // upper bounds (foF2 <= 50, M(3000)F2 <= 6, gyrofrequency <= 3), f4 and fz
+    // are both bounded above by a few hundred MHz, so fBM, the K-factor ratios
+    // in equation (32) and the final fM all stay many orders of magnitude
+    // inside double range. There is therefore no `LongPathMufState` this
+    // module's own sampler contract admits that reaches a non-finite result
+    // any more: the injected `Number.MAX_VALUE` sentinel the finding used is
+    // now rejected by the envelope itself, at the sampler boundary, before
+    // equation (29) ever sees it (see the envelope tests above). The largest
+    // in-envelope state is exercised here to show the result stays finite;
+    // the test below exercises `firstNonFiniteField` directly, on a record
+    // built by this same module, to prove the invariant's own wiring still
+    // catches a non-finite field if one ever reached it by some other route.
+    const result = resolved(
+      longPathMuf({
+        route: stretched(EASTBOUND, 8095.11),
+        utcHour: 12,
+        sample: () => ({
+          foF2MHz: SAMPLED_FOF2_MAX_MHZ,
+          m3000F2: SAMPLED_M3000F2_MAX,
+          gyrofrequency300kmMHz: SAMPLED_GYROFREQUENCY_MAX_MHZ,
+        }),
+      }),
+    );
+    expect(Number.isFinite(result.basicMufMHz)).toBe(true);
+    expect(Number.isFinite(result.fMMHz)).toBe(true);
+  });
+
+  it("firstNonFiniteField names the exact field and value on a record corrupted after the fact", () => {
+    const base = resolved(
+      longPathMuf({
+        route: stretched(NORTHBOUND, 12345.6),
+        utcHour: 17,
+        sample: (_point, _label, utcHour) => diurnalState(utcHour),
+      }),
+    );
+    const corrupted: ResolvedLongPathMuf = {
+      ...base,
+      controlPoints: [
+        { ...base.controlPoints[0], kFactor: Number.NaN },
+        base.controlPoints[1],
+      ],
+    };
+    const found = firstNonFiniteField(corrupted);
+    expect(found).not.toBeNull();
+    expect(found?.path).toBe("controlPoints[0].kFactor");
+    expect(found?.value !== undefined && Number.isNaN(found.value)).toBe(
+      true,
+    );
+    // And a healthy record reports nothing to find.
+    expect(firstNonFiniteField(base)).toBeNull();
   });
 });

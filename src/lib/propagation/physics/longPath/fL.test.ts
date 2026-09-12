@@ -668,4 +668,28 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
       expect(Number.isFinite(value)).toBe(true);
     }
   });
+
+  it("returns non_finite_result rather than an infinite fL when an injected R12 sentinel and a slant range near equation (33)'s log pole overflow the square root", () => {
+    // Neither input is individually out of bounds: R12 "does not saturate for
+    // high values" (previous test), and virtualSlantRangeKm need only be
+    // positive and below LUF_PATH_CONSTANT_KM (9.5e6 km), which this is. But
+    // together, log_e(9.5e6 / p') is driven to about 1e-5 by a p' a mere
+    // 0.001% below the pole, and R12 = 1.5e308 (comfortably inside
+    // Number.MAX_VALUE) inflates equation (33)'s numerator to roughly 1e306
+    // on any sunlit hour; numerator / denominator overflows past double range
+    // before the square root is even taken, giving +Infinity rather than a
+    // NaN (the direction equation (36)'s night floor does not catch, since
+    // Math.max(Infinity, fLN) is Infinity). This is the fL sibling of the
+    // fM finding: a bounds check on each input cannot see an overflow that
+    // only the combination produces.
+    const result = call({
+      r12: 1.5e308,
+      virtualSlantRangeKm: LUF_PATH_CONSTANT_KM * (1 - 1e-5),
+    });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("non_finite_result");
+    expect(result.detail).toContain("hours[");
+    expect(result.detail).toContain("Infinity");
+  });
 });

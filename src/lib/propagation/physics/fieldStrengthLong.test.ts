@@ -486,4 +486,19 @@ describe("what section 5.3.3 refuses rather than guesses", () => {
       }
     }
   });
+
+  it("returns non_finite_result rather than an infinite El when an absurdly large but finite frequency overflows equation (39)'s bracket", () => {
+    // frequencyMHz only has to be finite and positive to pass the check above.
+    // At 1e200 MHz it still is, but (f + fH)^2 inside frequencyFactor()
+    // overflows double range on its own, well before fM, fL or any sampled
+    // ionospheric quantity is involved: this is the fieldStrengthLong sibling
+    // of the fM finding, an input whose own bound cannot see what it does in
+    // combination with the rest of the equation.
+    const result = longPathFieldStrength(inputs({ frequencyMHz: 1e200 }));
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("non_finite_result");
+    expect(result.detail).toContain("terms.frequencyFactor");
+    expect(result.detail).toContain("Infinity");
+  });
 });

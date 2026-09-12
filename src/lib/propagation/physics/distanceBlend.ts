@@ -44,7 +44,12 @@
  * a circuit for its own reasons. This module takes what the caller has, states
  * what it needed, and returns a labelled `unsupported` record naming the missing
  * side rather than substituting a number for it. NOTHING HERE INVENTS A FIELD
- * STRENGTH AND NOTHING HERE RETURNS NaN.
+ * STRENGTH AND NOTHING HERE RETURNS NaN. That covers the assembled result too:
+ * an absurd but individually finite `Es` or `El`, such as a corrupted upstream
+ * value of `1e6` dB, overflows equation (42)'s `10 **` inside the resolved
+ * record rather than any input failing a check above, and is refused with
+ * reason `non_finite_result` for the same reason the other slice D leaves
+ * refuse it; see `finiteResult.ts`.
  *
  * THE SAME EQUATION APPLIES TO POWER. Section 6: "In the intermediate range
  * 7 000 to 9 000 km, the power is determined from equation (42) using the powers
@@ -67,6 +72,8 @@
  * values given from equation (3) for the two control points noted in Table
  * 1a)") belongs to whoever assembles the circuit, not to the interpolation.
  */
+
+import { firstNonFiniteField } from "./finiteResult";
 
 /** Section 5.4's lower bound, km. */
 export const BLEND_MIN_DISTANCE_KM = 7000; // section 5.4, equation (42)
@@ -116,7 +123,8 @@ export interface UnsupportedDistanceBlend {
     | "out_of_domain"
     | "short_path_missing"
     | "long_path_missing"
-    | "both_missing";
+    | "both_missing"
+    | "non_finite_result";
   readonly detail: string;
   readonly regime: DistanceBlendRegime | null;
   readonly groundDistanceKm: number;
@@ -189,6 +197,33 @@ function usable(value: number | null | undefined): value is number {
 }
 
 /**
+ * The one place every `resolved` branch below exits through.
+ *
+ * `distanceBlend` has five return sites that build a `ResolvedDistanceBlend`
+ * (the two single-sided regimes, the two exact-boundary shortcuts and the
+ * general interpolation), and each already has to state its own `source` and
+ * decide which side is null, so there is no single point in the arithmetic to
+ * check instead. What there is is a single point every candidate passes
+ * through on its way out; this is that point, and the check itself lives once
+ * in `finiteResult.ts`.
+ */
+function finalizeResolved(
+  candidate: ResolvedDistanceBlend,
+): DistanceBlendResult {
+  const nonFinite = firstNonFiniteField(candidate);
+  if (nonFinite !== null) {
+    return unsupported(
+      "non_finite_result",
+      `the resolved distance-blend record's ${nonFinite.path} is ` +
+        `${String(nonFinite.value)}, not a finite number.`,
+      candidate.regime,
+      candidate.groundDistanceKm,
+    );
+  }
+  return candidate;
+}
+
+/**
  * The circuit's median field strength across section 5.4's three ranges.
  *
  * Pure: it takes a distance and the two decibel values and knows nothing about
@@ -221,7 +256,7 @@ export function distanceBlend(
         D,
       );
     }
-    return {
+    return finalizeResolved({
       kind: "resolved",
       regime,
       groundDistanceKm: D,
@@ -233,7 +268,7 @@ export function distanceBlend(
       xInterpolated: null,
       fieldStrengthDb: shortPathDb,
       source: "equation_28",
-    };
+    });
   }
 
   if (regime === "long_path_only") {
@@ -246,7 +281,7 @@ export function distanceBlend(
         D,
       );
     }
-    return {
+    return finalizeResolved({
       kind: "resolved",
       regime,
       groundDistanceKm: D,
@@ -258,7 +293,7 @@ export function distanceBlend(
       xInterpolated: null,
       fieldStrengthDb: longPathDb,
       source: "equation_39",
-    };
+    });
   }
 
   if (D === BLEND_MIN_DISTANCE_KM) {
@@ -277,7 +312,7 @@ export function distanceBlend(
     }
     const xShort = 10 ** (shortPathDb / BLEND_DB_PER_DECADE);
     const xLong = haveLong ? 10 ** (longPathDb / BLEND_DB_PER_DECADE) : null;
-    return {
+    return finalizeResolved({
       kind: "resolved",
       regime,
       groundDistanceKm: D,
@@ -289,7 +324,7 @@ export function distanceBlend(
       xInterpolated: xShort,
       fieldStrengthDb: shortPathDb,
       source: "equation_42",
-    };
+    });
   }
 
   if (D === BLEND_MAX_DISTANCE_KM) {
@@ -308,7 +343,7 @@ export function distanceBlend(
     }
     const xLong = 10 ** (longPathDb / BLEND_DB_PER_DECADE);
     const xShort = haveShort ? 10 ** (shortPathDb / BLEND_DB_PER_DECADE) : null;
-    return {
+    return finalizeResolved({
       kind: "resolved",
       regime,
       groundDistanceKm: D,
@@ -320,7 +355,7 @@ export function distanceBlend(
       xInterpolated: xLong,
       fieldStrengthDb: longPathDb,
       source: "equation_42",
-    };
+    });
   }
 
   if (!haveShort && !haveLong) {
@@ -355,7 +390,7 @@ export function distanceBlend(
   }
 
   const blended = interpolateDb(D, shortPathDb, longPathDb);
-  return {
+  return finalizeResolved({
     kind: "resolved",
     regime,
     groundDistanceKm: D,
@@ -367,5 +402,5 @@ export function distanceBlend(
     xInterpolated: blended.xInterpolated,
     fieldStrengthDb: blended.db,
     source: "equation_42",
-  };
+  });
 }

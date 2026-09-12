@@ -18,11 +18,7 @@ import {
   obliqueIncidenceAngle,
   solarNoonZenithAngle,
 } from "./ionosphere";
-import {
-  evaluateHopQuality,
-  hopElevationAngle,
-  calculateMUF,
-} from "./rayTrace";
+import { evaluateHopQuality, calculateMUF } from "./rayTrace";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import { dRegionAbsorption } from "@/lib/propagation/absorption/dRegion";
 import {
@@ -54,12 +50,24 @@ describe("item 1 - M(3000)F2 Shimazaki inverse", () => {
 
 describe("item 2 - spherical hop geometry", () => {
   it("gives a realistic ~4-5 deg take-off elevation for a 3000 km / 300 km hop", () => {
-    const elev = hopElevationAngle(3000, 300);
+    const geometry = hopGeometry({
+      groundDistanceKm: 3000,
+      hopCount: 1,
+      mirrorHeightKm: 300,
+    });
+    if (geometry.kind !== "supported") throw new Error("expected a hop");
+    const elev = (geometry.elevationAngleRad * 180) / Math.PI;
     expect(elev).toBeGreaterThan(4);
     expect(elev).toBeLessThan(5);
   });
   it("produces a secant-law MUF factor of ~3.0-3.6", () => {
-    const elev = hopElevationAngle(3000, 300);
+    const geometry = hopGeometry({
+      groundDistanceKm: 3000,
+      hopCount: 1,
+      mirrorHeightKm: 300,
+    });
+    if (geometry.kind !== "supported") throw new Error("expected a hop");
+    const elev = (geometry.elevationAngleRad * 180) / Math.PI;
     const factor = calculateMUF(1, elev, 300); // foF2 = 1 -> factor = sec(i)
     expect(factor).toBeGreaterThan(3.0);
     expect(factor).toBeLessThan(3.6);

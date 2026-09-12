@@ -14,8 +14,8 @@
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
-  calculateDLayerAbsorption,
   calculateZenithAngle,
+  getAbsorptionAtLocation,
 } from "@/lib/utils/ionosphere";
 import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import type { FrequencyLimits } from "@/types/propagation";
@@ -320,7 +320,20 @@ export function calculateLUF(
 
   for (let i = 0; i < 20; i++) {
     const mid = (low + high) / 2;
-    const absorption = calculateDLayerAbsorption(mid, zenithAngle, sfi);
+    // The position and the instant are already parameters of this function,
+    // so the absorption is evaluated at the caller's own latitude, month and
+    // magnetic dip rather than at the declared 45 N / March / dip 60 stand-in
+    // a positionless call falls back to.
+    //
+    // The obliquity stays vertical. `getAbsorptionAtLocation` defaults
+    // elevationDeg to 90, which is exactly what the previous positionless call
+    // used. Note the divergence: the sibling `calculateLUF` in
+    // `@/lib/utils/ionosphere` defaults to 15 degrees instead, arguing that an
+    // oblique ray traverses a longer slant path. The two disagree today.
+    // Changing this one to 15 would move every LUF the wall prints, so it is a
+    // separate question with its own fixtures and is deliberately not answered
+    // here.
+    const absorption = getAbsorptionAtLocation(lat, lon, date, mid, sfi);
 
     if (absorption > maxAcceptableAbsorption) {
       // Too much absorption at this frequency, need to go higher

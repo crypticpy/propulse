@@ -24,7 +24,14 @@ import {
   calculateMUF,
 } from "./rayTrace";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
-import { dRegionAbsorption } from "@/lib/propagation/absorption/dRegion";
+import {
+  DEFAULT_GYROFREQUENCY_MHZ,
+  dRegionAbsorption,
+} from "@/lib/propagation/absorption/dRegion";
+import {
+  D2R,
+  longitudinalGyrofrequencyMHz,
+} from "@/lib/propagation/ionosphere/modip";
 import {
   isSignalDecodable,
   calculateExpectedSNR,
@@ -245,6 +252,7 @@ describe("item 4/12 - D-layer absorption", () => {
           latitudeDeg: 10,
           monthIndex: tropicalJune.getUTCMonth(),
           modifiedDipDeg: modifiedDipAngle(10, 0),
+          gyrofrequencyMHz: longitudinalGyrofrequencyMHz(10 * D2R, 0 * D2R),
           date: tropicalJune,
         },
       ),
@@ -345,5 +353,78 @@ describe("item 9 - auroral penalty uses geomagnetic latitude", () => {
     const quiet = evaluateHopQuality(55, -95, 14, NOON, 120, 1, 3000);
     const storm = evaluateHopQuality(55, -95, 14, NOON, 120, 9, 3000);
     expect(storm.qualityScore).toBeLessThan(quiet.qualityScore);
+  });
+});
+
+describe("the longitudinal gyrofrequency reaches the absorption (#1108)", () => {
+  const AT = new Date("2026-03-21T12:00:00Z");
+
+  function standIn(
+    lat: number,
+    lon: number,
+    frequencyMHz: number,
+    sfi: number,
+  ): number {
+    // The same crossing context the adapter builds, with the module's declared
+    // 1.2 MHz scalar instead of the field model's fL. Everything else matches,
+    // so the difference between the two is the fL correction and nothing else.
+    return calculateDLayerAbsorption(
+      frequencyMHz,
+      calculateZenithAngle(lat, lon, AT),
+      sfi,
+      90,
+      {
+        latitudeDeg: lat,
+        monthIndex: AT.getUTCMonth(),
+        modifiedDipDeg: modifiedDipAngle(lat, lon),
+        date: AT,
+        gyrofrequencyMHz: DEFAULT_GYROFREQUENCY_MHZ,
+      },
+    );
+  }
+
+  it("absorbs 0.498 dB more at the dip equator at 14 MHz than the 1.2 MHz stand-in", () => {
+    // Kenya, 0 N 38 E: fL = 0.353066 MHz at 100 km, so the (f + fL)^2 divisor
+    // shrinks and the circuit absorbs more than the declared scalar says.
+    const corrected = getAbsorptionAtLocation(0, 38, AT, 14, 150);
+    const declared = standIn(0, 38, 14, 150);
+    expect(corrected).toBeGreaterThan(declared);
+    expect(10 * Math.log10(corrected / declared)).toBeCloseTo(0.497978, 4);
+  });
+
+  it("flips sign at high dip, where fL exceeds the stand-in", () => {
+    // Fairbanks, 64.84 N 147.72 W: fL = 1.486163 MHz, above 1.2, so the
+    // corrected circuit absorbs less.
+    const corrected = getAbsorptionAtLocation(64.84, -147.72, AT, 14, 150);
+    const declared = standIn(64.84, -147.72, 14, 150);
+    expect(corrected).toBeLessThan(declared);
+    expect(10 * Math.log10(corrected / declared)).toBeCloseTo(-0.162005, 4);
+  });
+
+  it("keeps the global 14 MHz correction inside +0.714 dB and -0.332 dB", () => {
+    // Equation (20) divides by (f + fL)^2, so the numerator cancels and the
+    // correction is exactly 20 log10((f + 1.2) / (f + fL)) dB everywhere. The
+    // issue quotes "about 0.9 dB"; the shipped expansion actually gives these
+    // two cells, and pinning the measured extremes is what makes a later change
+    // that widens the correction fail here rather than quietly reclassify a
+    // band on the wall.
+    let max = { db: -Infinity, lat: NaN, lon: NaN };
+    let min = { db: Infinity, lat: NaN, lon: NaN };
+    for (let lat = -90; lat <= 90; lat += 1) {
+      for (let lon = -180; lon <= 180; lon += 2) {
+        const fL = longitudinalGyrofrequencyMHz(lat * D2R, lon * D2R);
+        const db =
+          20 * Math.log10((14 + DEFAULT_GYROFREQUENCY_MHZ) / (14 + fL));
+        if (db > max.db) max = { db, lat, lon };
+        if (db < min.db) min = { db, lat, lon };
+      }
+    }
+    expect(max.db).toBeCloseTo(0.714311, 3);
+    expect(max.lat).toBe(-7);
+    expect(max.lon).toBe(-100);
+    expect(min.db).toBeCloseTo(-0.331557, 3);
+    expect(min.lat).toBe(-65);
+    expect(min.lon).toBe(144);
+    expect(max.db - min.db).toBeCloseTo(1.045868, 3);
   });
 });

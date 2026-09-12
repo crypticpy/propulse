@@ -50,6 +50,10 @@ import {
 } from "./ionosphere";
 import { getGeomagneticLatitude } from "./geomagnetic";
 import {
+  D2R,
+  longitudinalGyrofrequencyMHz,
+} from "@/lib/propagation/ionosphere/modip";
+import {
   resolveRoute,
   routeSampleAtFraction,
   type GeodeticPoint,
@@ -415,6 +419,13 @@ export function crossingAt(
     latitudeDeg: point.latitudeDeg,
     monthIndex: date.getUTCMonth(),
     modifiedDipDeg: modifiedDipAngle(point.latitudeDeg, point.longitudeDeg),
+    // fL is a property of where this crossing is, not of the mode: the
+    // crossings of a trans-equatorial circuit straddle the magnetic dip
+    // equator, where |fH sin(dip)| collapses to zero.
+    gyrofrequencyMHz: longitudinalGyrofrequencyMHz(
+      point.latitudeDeg * D2R,
+      point.longitudeDeg * D2R,
+    ),
     // A zero foE is the night-time limit, where no E layer shields the D
     // region. The penetration factor handles it; a division by zero does not.
     foEMHz: Math.max(calculateF0E(zenithAngleDeg, sfi), 1e-6),

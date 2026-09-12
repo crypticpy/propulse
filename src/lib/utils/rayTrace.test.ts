@@ -13,6 +13,10 @@ import {
   routeSampleAtFraction,
 } from "@/lib/propagation/geometry/route";
 import { sfiToR12 } from "./ionosphere";
+import {
+  D2R,
+  longitudinalGyrofrequencyMHz,
+} from "@/lib/propagation/ionosphere/modip";
 
 const DATE = new Date("2026-06-21T18:00:00Z");
 
@@ -170,7 +174,13 @@ describe("traceRayPath", () => {
   it("declares what it stands in for", () => {
     const result = trace("short");
     expect(result.assumptions.join(" ")).toContain("300 km");
-    expect(result.assumptions.join(" ")).toContain("1.2 MHz");
+    // fL stopped being a stand-in in #1108: every crossing carries its own
+    // |fH sin(dip)| at 100 km, so claiming the 1.2 MHz scalar here would be
+    // the engine describing something it no longer does.
+    expect(result.assumptions.join(" ")).not.toContain("1.2 MHz");
+    expect(result.assumptions.join(" ")).toContain(
+      "applied per crossing inside the mean",
+    );
   });
 
   it("declares the mirror height it used, not the one it defaults to", () => {
@@ -362,5 +372,71 @@ describe("PROP-03 (#949): per-hop absorption is taken at the hop's own crossings
     expect(result.totalAbsorptionDb).toBe(summed);
     expect(result.absorptionPassCount).toBe(2 * result.hops.length);
     expect(result.losses.absorptionDb).toBe(summed);
+  });
+});
+
+describe("the per-crossing longitudinal gyrofrequency (#1108)", () => {
+  const REYKJAVIK = { lat: 64.13, lon: -21.9 };
+  const CAPE_TOWN = { lat: -33.92, lon: 18.42 };
+  const AT = new Date("2026-03-20T12:00:00Z");
+  const FREQUENCY_MHZ = 14.1;
+  const SFI = 150;
+
+  it("gives a trans-equatorial circuit a different fL at each crossing", () => {
+    // fL = |fH sin(dip)| goes to zero at the magnetic dip equator and rises
+    // above 1.7 MHz at high southern dip, so a circuit that crosses the dip
+    // equator cannot honestly be described by one scalar for the whole mode.
+    const route = resolveRoute(
+      { latitudeDeg: REYKJAVIK.lat, longitudeDeg: REYKJAVIK.lon },
+      { latitudeDeg: CAPE_TOWN.lat, longitudeDeg: CAPE_TOWN.lon },
+    );
+    if (route.kind !== "resolved") throw new Error("unreachable");
+    const result = traceRayPath({
+      startLat: REYKJAVIK.lat,
+      startLon: REYKJAVIK.lon,
+      endLat: CAPE_TOWN.lat,
+      endLon: CAPE_TOWN.lon,
+      frequencyMHz: FREQUENCY_MHZ,
+      date: AT,
+      sfi: SFI,
+      kp: 2,
+    });
+    const geometry = hopGeometry({
+      groundDistanceKm: route.groundDistanceKm,
+      hopCount: result.hops.length,
+      mirrorHeightKm: DECLARED_MIRROR_HEIGHT_KM,
+    });
+    if (geometry.kind !== "supported") throw new Error("unreachable");
+
+    const samples = geometry.penetrationFractions.map((fraction) =>
+      routeSampleAtFraction(route, fraction),
+    );
+    const crossings = samples.map((sample) => crossingAt(sample, AT, SFI));
+    expect(crossings.length).toBeGreaterThanOrEqual(4);
+
+    crossings.forEach((crossing, index) => {
+      expect(crossing.gyrofrequencyMHz).toBe(
+        longitudinalGyrofrequencyMHz(
+          samples[index].latitudeDeg * D2R,
+          samples[index].longitudeDeg * D2R,
+        ),
+      );
+    });
+    const values = crossings.map(
+      (crossing) => crossing.gyrofrequencyMHz ?? NaN,
+    );
+    expect(new Set(values).size).toBe(values.length);
+    expect(Math.max(...values) - Math.min(...values)).toBeGreaterThan(0.3);
+
+    // And the engine actually spends them: the hop loss is the absorption of
+    // exactly these crossings, each with its own fL.
+    const expected = dRegionAbsorption({
+      crossings: crossings.slice(0, 2),
+      hopCount: 1,
+      frequencyMHz: FREQUENCY_MHZ,
+      incidenceAngle110Rad: geometry.incidenceAngle110Rad,
+      ssn: sfiToR12(SFI),
+    }).absorptionDb;
+    expect(result.hops[0].absorptionDb).toBe(expected);
   });
 });

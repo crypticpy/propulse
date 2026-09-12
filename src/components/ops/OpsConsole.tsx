@@ -111,7 +111,7 @@ export function OperationalScopeControl({
       data-public-assistance={String(policy.publicAssistance)}
     >
       <span
-        className={`rounded px-1.5 py-1 text-[9px] font-bold uppercase tracking-wider ${
+        className={`rounded px-1.5 py-1 text-xs font-bold uppercase tracking-wider ${
           scope === "observe"
             ? "bg-cosmic-cyan/15 text-cosmic-cyan"
             : scope === "log"
@@ -125,7 +125,7 @@ export function OperationalScopeControl({
         aria-label="PropSphere operating scope"
         value={manualScope ?? "auto"}
         onChange={(event) => handleScopeChange(event.target.value)}
-        className="max-w-24 rounded border border-su-line/40 bg-su-canvas px-1.5 py-1 text-[10px] text-su-text focus:border-cosmic-cyan/50 focus:outline-none"
+        className="max-w-24 rounded border border-su-line/40 bg-su-canvas px-1.5 py-1 text-xs text-su-text focus:border-cosmic-cyan/50 focus:outline-none"
         title={`Automatic scope: ${SCOPE_LABELS[automaticScope]}`}
       >
         <option value="auto">Auto</option>
@@ -139,7 +139,7 @@ export function OperationalScopeControl({
           onClick={() =>
             setPublicAssistance(contestSessionId, !policy.publicAssistance)
           }
-          className={`rounded border px-1.5 py-1 text-[9px] font-bold uppercase tracking-wide transition-colors ${
+          className={`rounded border px-1.5 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
             policy.publicAssistance
               ? "border-caution-amber/40 bg-caution-amber/15 text-caution-amber"
               : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-text"
@@ -154,7 +154,7 @@ export function OperationalScopeControl({
         <button
           type="button"
           onClick={openOperatingPopout}
-          className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-1 text-[9px] text-su-muted transition-colors hover:border-su-line/50 hover:text-su-text"
+          className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-1 text-xs text-su-muted transition-colors hover:border-su-line/50 hover:text-su-text"
           title="Open synchronized operating workspace in a secondary window"
           aria-label="Open operating workspace in secondary window"
         >
@@ -194,18 +194,18 @@ function LoggingDock() {
 
       <aside className="min-h-0 min-w-0 space-y-3 overflow-y-auto">
         <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+          <div className="text-xs font-semibold uppercase tracking-wider text-su-muted">
             Current operation
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-md bg-su-input p-2">
-              <div className="text-[9px] uppercase text-su-muted">Target</div>
+              <div className="text-xs uppercase text-su-muted">Target</div>
               <div className="truncate font-mono text-su-text">
                 {selectedReport?.callsign ?? target?.name ?? target?.grid ?? "None"}
               </div>
             </div>
             <div className="rounded-md bg-su-input p-2">
-              <div className="text-[9px] uppercase text-su-muted">Radio</div>
+              <div className="text-xs uppercase text-su-muted">Radio</div>
               <div className="truncate font-mono text-su-text">
                 {rigConnected
                   ? `${(rigFrequency / 1_000_000).toFixed(5)} ${rigMode}`
@@ -214,7 +214,7 @@ function LoggingDock() {
             </div>
           </div>
           {selectedReport && (
-            <div className="mt-2 rounded-md border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-2 py-1.5 text-[10px] text-su-muted">
+            <div className="mt-2 rounded-md border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-2 py-1.5 text-xs text-su-muted">
               Seeded from {selectedReport.source} · {selectedReport.provenance}{" "}
               report
             </div>
@@ -223,10 +223,10 @@ function LoggingDock() {
 
         <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
+            <span className="text-xs font-semibold uppercase tracking-wider text-su-muted">
               Recent own QSOs
             </span>
-            <span className="font-mono text-[10px] text-su-muted">
+            <span className="font-mono text-xs text-su-muted">
               {entries.length}
             </span>
           </div>
@@ -234,7 +234,7 @@ function LoggingDock() {
             {entries.slice(0, 8).map((entry) => (
               <div
                 key={entry.id}
-                className="flex gap-2 rounded-md bg-su-input px-2 py-1.5 text-[10px]"
+                className="flex gap-2 rounded-md bg-su-input px-2 py-1.5 text-xs"
               >
                 <span className="flex-1 truncate font-mono text-su-text">
                   {entry.callsign}
@@ -244,7 +244,7 @@ function LoggingDock() {
               </div>
             ))}
             {entries.length === 0 && (
-              <p className="py-3 text-center text-[10px] text-su-muted">
+              <p className="py-3 text-center text-xs text-su-muted">
                 No logged contacts yet
               </p>
             )}
@@ -316,7 +316,7 @@ export function OpsConsole({
             Ops Console
           </span>
           {hasActiveSession && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 shrink-0">
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 shrink-0">
               Contest Active
             </span>
           )}

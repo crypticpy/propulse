@@ -131,7 +131,7 @@ export function PropagationNetSuggestions() {
         {openBandLabels.map((band) => (
           <span
             key={band}
-            className="bg-signal-green/20 text-signal-green text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide"
+            className="bg-signal-green/20 text-su-text text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide"
           >
             {band}
           </span>
@@ -164,7 +164,7 @@ export function PropagationNetSuggestions() {
 
             {/* Newcomer-friendly badge */}
             {net.newcomerFriendly && (
-              <span className="shrink-0 bg-signal-green/15 text-signal-green text-[10px] rounded-full px-2 py-0.5">
+              <span className="shrink-0 bg-signal-green/15 text-su-text text-[10px] rounded-full px-2 py-0.5">
                 Newcomer OK
               </span>
             )}

@@ -433,12 +433,12 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                     />
                     {scene.name}
                     {isRemoteSnapshot && (
-                      <span className="text-[10px] uppercase tracking-wider text-cosmic-cyan/70">
+                      <span className="text-xs uppercase tracking-wider text-cosmic-cyan/70">
                         Paired-display snapshot
                       </span>
                     )}
                     {!isEnabled && (
-                      <span className="text-[10px] uppercase tracking-wider text-su-muted">
+                      <span className="text-xs uppercase tracking-wider text-su-muted">
                         Disabled · not assignable
                       </span>
                     )}

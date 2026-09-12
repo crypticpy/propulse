@@ -292,19 +292,19 @@ function ServiceCard({
           <p className="text-sm font-bold text-su-text">
             {service.totalUploaded}
           </p>
-          <p className="text-[10px] text-su-muted">Uploaded</p>
+          <p className="text-xs text-su-muted">Uploaded</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-signal-green">
             {service.totalConfirmed}
           </p>
-          <p className="text-[10px] text-su-muted">Confirmed</p>
+          <p className="text-xs text-su-muted">Confirmed</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-caution-amber">
             {service.pendingUploads}
           </p>
-          <p className="text-[10px] text-su-muted">Pending</p>
+          <p className="text-xs text-su-muted">Pending</p>
         </div>
       </div>
 
@@ -402,12 +402,12 @@ function ActivityLogEntry({ event }: { event: ActivityEvent }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-su-text">{serviceLabel}</span>
-          <span className="text-[10px] text-su-muted">{event.action}</span>
+          <span className="text-xs text-su-muted">{event.action}</span>
         </div>
         <p className="text-xs text-su-muted truncate">{event.message}</p>
       </div>
 
-      <span className="text-[10px] text-su-muted flex-shrink-0 font-mono">
+      <span className="text-xs text-su-muted flex-shrink-0 font-mono">
         {formatTimestamp(event.timestamp)}
       </span>
     </div>
@@ -730,7 +730,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-xl font-bold text-su-text">{stats.totalQSOs}</p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Total QSOs
             </p>
           </div>
@@ -738,7 +738,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-plasma-orange">
               {stats.totalUploaded}
             </p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Uploaded
             </p>
           </div>
@@ -746,7 +746,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-signal-green">
               {stats.totalConfirmed}
             </p>
-            <p className="text-[10px] text-su-muted uppercase tracking-wider">
+            <p className="text-xs text-su-muted uppercase tracking-wider">
               Confirmed
             </p>
           </div>

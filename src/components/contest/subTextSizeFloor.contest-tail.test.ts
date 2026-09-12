@@ -38,14 +38,7 @@ interface AllowlistEntry {
   reason: string;
 }
 
-const ALLOWLIST: AllowlistEntry[] = [
-  {
-    file: "src/components/contest/BandAdvisor.tsx",
-    match: "text-[9px] px-1.5 py-0.5 rounded-full font-mono",
-    reason:
-      "compact spot-count badge on band-advisor row — decorative mono pill that overflows at text-xs beside the QSY chip",
-  },
-];
+const ALLOWLIST: AllowlistEntry[] = [];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
 const INLINE_SIZE_RE = /fontSize:\s*["']?(\d*\.?\d+)(?:px)?["']?(?![\w%.])/g;

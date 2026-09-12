@@ -304,7 +304,7 @@ export function BandAdvisor({
   return (
     <div
       className={`
-        flex items-center gap-2 px-3 py-1.5 rounded-lg border
+        flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border
         ${colors.border} ${colors.bg}
         transition-all duration-300 animate-in fade-in slide-in-from-top-1
         ${className}
@@ -326,14 +326,14 @@ export function BandAdvisor({
       <RateIndicator rate={currentRate} trend={trend} />
 
       {/* Advice message */}
-      <span className="text-xs text-su-muted truncate flex-1 min-w-0">
+      <span className="text-xs text-su-muted flex-1 min-w-[10rem]">
         {advice.message}
       </span>
 
       {/* Spot count badge */}
       {advice.spotCount !== undefined && advice.spotCount > 0 && (
         <span
-          className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${colors.badge} flex-shrink-0`}
+          className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${colors.badge} flex-shrink-0`}
         >
           {advice.spotCount} spots
         </span>

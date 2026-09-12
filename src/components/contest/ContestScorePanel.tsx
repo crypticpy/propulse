@@ -138,12 +138,12 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
         </div>
 
         {/* Stats row */}
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           {/* QSO Count */}
           <StatDisplay label="QSOs" value={session.qsos.length} color="white" />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-su-line/20" />
+          <div className="hidden h-8 w-px bg-su-line/20 xl:block" />
 
           {/* QSO Points */}
           <StatDisplay
@@ -153,7 +153,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-su-line/20" />
+          <div className="hidden h-8 w-px bg-su-line/20 xl:block" />
 
           {/* Multipliers */}
           <StatDisplay
@@ -163,7 +163,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-su-line/20" />
+          <div className="hidden h-8 w-px bg-su-line/20 xl:block" />
 
           {/* Total Score */}
           <StatDisplay
@@ -174,13 +174,13 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-su-line/20" />
+          <div className="hidden h-8 w-px bg-su-line/20 xl:block" />
 
           {/* QSO Rate */}
           <StatDisplay label="Rate/Hr" value={qsoRate} color="green" />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-su-line/20" />
+          <div className="hidden h-8 w-px bg-su-line/20 xl:block" />
 
           {/* Elapsed Time */}
           <StatDisplay label="Elapsed" value={elapsedTime} color="white" />

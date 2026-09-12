@@ -15,7 +15,13 @@ export interface RadioBadgeProps {
   label: string;
   /** Color variant. Default "default". */
   variant?: "default" | "danger" | "success" | "warning" | "accent";
-  /** Apply animate-pulse to the badge. */
+  /**
+   * Apply animate-pulse to the badge. Deprecated: Tailwind's pulse fades
+   * the WHOLE element (including the label text) to 50% opacity at the
+   * trough, which halves the contrast of the label against its tint for
+   * half of every cycle (#847, same defect as the `Badge` `storm` variant
+   * in #827). No-op until a decorative-only pulse cue is designed.
+   */
   pulse?: boolean;
   /** Optional icon rendered before the label. */
   icon?: ReactNode;
@@ -49,15 +55,15 @@ const SIZE_CLASSES = {
 export function RadioBadge({
   label,
   variant = "default",
-  pulse = false,
+  // `pulse` is accepted for API compatibility but intentionally unused --
+  // see the prop's doc comment.
+  pulse: _pulse = false,
   icon,
   onClick,
   size = "sm",
   className = "",
 }: RadioBadgeProps) {
-  const base = `${SIZE_CLASSES[size]} rounded font-bold font-mono border ${VARIANT_CLASSES[variant]} ${
-    pulse ? "animate-pulse" : ""
-  } ${className}`;
+  const base = `${SIZE_CLASSES[size]} rounded font-bold font-mono border ${VARIANT_CLASSES[variant]} ${className}`;
 
   const content = (
     <>

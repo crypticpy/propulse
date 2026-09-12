@@ -6,67 +6,13 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui";
 import type { MultiplierEntry, MultiplierType } from "@/stores/contestStore";
+import { US_STATES_WITH_DC as US_STATES } from "@/lib/data/usStateAbbreviations";
 
 /** CQ zones are numbered 1-40 */
 const CQ_ZONES = Array.from({ length: 40 }, (_, i) => i + 1);
 
 /** ITU zones are numbered 1-90 */
 const ITU_ZONES = Array.from({ length: 90 }, (_, i) => i + 1);
-
-/** US States and common territories */
-const US_STATES = [
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
-  "DC",
-];
 
 export interface MultiplierTrackerProps {
   /** List of worked multipliers */

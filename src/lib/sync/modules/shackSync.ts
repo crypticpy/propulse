@@ -19,6 +19,13 @@
 
 import { getSupabase } from "@/lib/supabase";
 import { useShackStore } from "@/stores/shackStore";
+import {
+  mergeGearPullRows,
+  pendingGearDeletionKeys,
+  pullAcknowledgementKeys,
+  pushPendingGearDeletions,
+} from "@/lib/sync/shackGearTombstone";
+import type { GearDeletionTable } from "@/lib/sync/shackDeletionIntent";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Json } from "@/types/supabase";
 import type { UserRadio, RadioEquipment } from "@/types/radio";
@@ -817,88 +824,122 @@ export const shackSync: SyncModule = {
     // --- Merge into local state ---
     const state = useShackStore.getState();
     const stateUpdate: Record<string, unknown> = {};
+    const ackKeys: string[] = [];
+    const pendingKeys = pendingGearDeletionKeys(
+      state.pendingGearDeletions ?? [],
+      userId,
+    );
 
-    // Radios: server wins for matching IDs, preserve local-only
-    if (radioRows && radioRows.length > 0) {
-      const serverRadios = radioRows.map(rowToRadio);
-      for (const row of radioRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverRadios.map((r) => r.id));
-      const localOnly = state.radios.filter((r) => !serverIdSet.has(r.id));
-      stateUpdate.radios = [...serverRadios, ...localOnly];
-    }
-
-    // Antennas
-    if (antennaRows && antennaRows.length > 0) {
-      const serverAntennas = antennaRows.map(rowToAntenna);
-      for (const row of antennaRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverAntennas.map((a) => a.id));
-      const localOnly = state.antennas.filter((a) => !serverIdSet.has(a.id));
-      stateUpdate.antennas = [...serverAntennas, ...localOnly];
-    }
-
-    // Feedlines
-    if (feedlineRows && feedlineRows.length > 0) {
-      const serverFeedlines = feedlineRows.map(rowToFeedline);
-      for (const row of feedlineRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverFeedlines.map((f) => f.id));
-      const localOnly = state.feedlines.filter((f) => !serverIdSet.has(f.id));
-      stateUpdate.feedlines = [...serverFeedlines, ...localOnly];
-    }
-
-    // Accessories
-    if (accessoryRows && accessoryRows.length > 0) {
-      const serverAccessories = accessoryRows.map(rowToAccessory);
-      for (const row of accessoryRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverAccessories.map((a) => a.id));
-      const localOnly = state.accessories.filter((a) => !serverIdSet.has(a.id));
-      stateUpdate.accessories = [...serverAccessories, ...localOnly];
-    }
-
-    // Station presets
-    if (presetRows && presetRows.length > 0) {
-      const serverPresets = presetRows.map(rowToPreset);
-      for (const row of presetRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverPresets.map((p) => p.id));
-      const localOnly = state.stationPresets.filter(
-        (p) => !serverIdSet.has(p.id),
+    const radioMerge = mergeGearPullRows(
+      radioRows,
+      rowToRadio,
+      (row) => row.instance_id,
+      state.radios,
+      "user_radios",
+      pendingKeys,
+    );
+    if (radioMerge) {
+      stateUpdate.radios = radioMerge.merged;
+      timestamps.push(...radioMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("user_radios", radioMerge.removedIds),
       );
-      stateUpdate.stationPresets = [...serverPresets, ...localOnly];
     }
 
-    // Inline components
-    if (inlineRows && inlineRows.length > 0) {
-      const serverInline = inlineRows.map(rowToInline);
-      for (const row of inlineRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverInline.map((c) => c.id));
-      const localOnly = state.inlineComponents.filter(
-        (c) => !serverIdSet.has(c.id),
+    const antennaMerge = mergeGearPullRows(
+      antennaRows,
+      rowToAntenna,
+      (row) => row.id,
+      state.antennas,
+      "antennas",
+      pendingKeys,
+    );
+    if (antennaMerge) {
+      stateUpdate.antennas = antennaMerge.merged;
+      timestamps.push(...antennaMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("antennas", antennaMerge.removedIds),
       );
-      stateUpdate.inlineComponents = [...serverInline, ...localOnly];
     }
 
-    // Station chains
-    if (chainRows && chainRows.length > 0) {
-      const serverChains = chainRows.map(rowToChain);
-      for (const row of chainRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverChains.map((c) => c.id));
-      const localOnly = state.stationChains.filter(
-        (c) => !serverIdSet.has(c.id),
+    const feedlineMerge = mergeGearPullRows(
+      feedlineRows,
+      rowToFeedline,
+      (row) => row.id,
+      state.feedlines,
+      "feedlines",
+      pendingKeys,
+    );
+    if (feedlineMerge) {
+      stateUpdate.feedlines = feedlineMerge.merged;
+      timestamps.push(...feedlineMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("feedlines", feedlineMerge.removedIds),
       );
-      stateUpdate.stationChains = [...serverChains, ...localOnly];
+    }
+
+    const accessoryMerge = mergeGearPullRows(
+      accessoryRows,
+      rowToAccessory,
+      (row) => row.id,
+      state.accessories,
+      "accessories",
+      pendingKeys,
+    );
+    if (accessoryMerge) {
+      stateUpdate.accessories = accessoryMerge.merged;
+      timestamps.push(...accessoryMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("accessories", accessoryMerge.removedIds),
+      );
+    }
+
+    const presetMerge = mergeGearPullRows(
+      presetRows,
+      rowToPreset,
+      (row) => row.id,
+      state.stationPresets,
+      "station_presets",
+      pendingKeys,
+    );
+    if (presetMerge) {
+      stateUpdate.stationPresets = presetMerge.merged;
+      timestamps.push(...presetMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("station_presets", presetMerge.removedIds),
+      );
+    }
+
+    const inlineMerge = mergeGearPullRows(
+      inlineRows,
+      rowToInline,
+      (row) => row.id,
+      state.inlineComponents,
+      "inline_components",
+      pendingKeys,
+    );
+    if (inlineMerge) {
+      stateUpdate.inlineComponents = inlineMerge.merged;
+      timestamps.push(...inlineMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("inline_components", inlineMerge.removedIds),
+      );
+    }
+
+    const chainMerge = mergeGearPullRows(
+      chainRows,
+      rowToChain,
+      (row) => row.id,
+      state.stationChains,
+      "station_chains",
+      pendingKeys,
+    );
+    if (chainMerge) {
+      stateUpdate.stationChains = chainMerge.merged;
+      timestamps.push(...chainMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("station_chains", chainMerge.removedIds),
+      );
     }
 
     // Equipment history (full merge — no delta query, immutable entries)
@@ -919,22 +960,49 @@ export const shackSync: SyncModule = {
       stateUpdate.equipmentHistory = merged;
     }
 
-    // Custom radios
-    if (customRadioRows && customRadioRows.length > 0) {
-      const serverCustomRadios = customRadioRows.map(rowToCustomRadio);
-      for (const row of customRadioRows) {
-        timestamps.push(row.updated_at);
-      }
-      const serverIdSet = new Set(serverCustomRadios.map((r) => r.id));
-      const localCustom = (state.customRadios || []).filter(
-        (r) => !serverIdSet.has(r.id),
+    const customRadioMerge = mergeGearPullRows(
+      customRadioRows,
+      rowToCustomRadio,
+      (row) => row.id,
+      state.customRadios || [],
+      "custom_radios",
+      pendingKeys,
+    );
+    if (customRadioMerge) {
+      stateUpdate.customRadios = customRadioMerge.merged;
+      timestamps.push(...customRadioMerge.timestamps);
+      ackKeys.push(
+        ...pullAcknowledgementKeys("custom_radios", customRadioMerge.removedIds),
       );
-      stateUpdate.customRadios = [...serverCustomRadios, ...localCustom];
     }
 
     // Single setState call for the entire pull
     if (Object.keys(stateUpdate).length > 0) {
       useShackStore.setState(stateUpdate);
+    }
+
+    // Referential cleanup for any rows the server tombstoned during this
+    // pull — the same cascade a local remove* action runs, so a pulled
+    // tombstone doesn't leave a dangling preset.radioId / chain node /
+    // active-selection id pointing at gear that's already gone (#326).
+    const removalCascades: Array<[GearDeletionTable, string[]]> = [
+      ["user_radios", radioMerge?.removedIds ?? []],
+      ["antennas", antennaMerge?.removedIds ?? []],
+      ["feedlines", feedlineMerge?.removedIds ?? []],
+      ["accessories", accessoryMerge?.removedIds ?? []],
+      ["inline_components", inlineMerge?.removedIds ?? []],
+      ["station_presets", presetMerge?.removedIds ?? []],
+      ["station_chains", chainMerge?.removedIds ?? []],
+      ["custom_radios", customRadioMerge?.removedIds ?? []],
+    ];
+    for (const [table, ids] of removalCascades) {
+      if (ids.length > 0) {
+        useShackStore.getState().applyGearRemoval(table, ids, userId);
+      }
+    }
+
+    if (ackKeys.length > 0) {
+      useShackStore.getState().acknowledgeGearDeletions(ackKeys, userId);
     }
 
     return maxTimestamp(timestamps);
@@ -944,6 +1012,7 @@ export const shackSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
+    const shackState = useShackStore.getState();
     const {
       radios,
       antennas,
@@ -954,7 +1023,18 @@ export const shackSync: SyncModule = {
       stationChains,
       equipmentHistory,
       customRadios,
-    } = useShackStore.getState();
+      pendingGearDeletions,
+    } = shackState;
+
+    const acknowledgedDeletions = await pushPendingGearDeletions(
+      userId,
+      pendingGearDeletions ?? [],
+    );
+    if (acknowledgedDeletions.length > 0) {
+      useShackStore
+        .getState()
+        .acknowledgeGearDeletions(acknowledgedDeletions, userId);
+    }
 
     // --- Upsert radios ---
     if (radios.length > 0) {
@@ -1082,8 +1162,7 @@ export const shackSync: SyncModule = {
     }
 
     // Note: We intentionally do NOT delete server-side rows missing from
-    // the local set. In a multi-device scenario, another device may have
-    // added equipment that this device hasn't pulled yet. Orphan cleanup
-    // should be handled via explicit delete operations through the write queue.
+    // the local set. Explicit owner-scoped tombstones are pushed via
+    // pendingGearDeletions before survivor upserts.
   },
 };

@@ -43,7 +43,7 @@
 - Vitest is configured: `npm run test` (runs the station-postgres harness, then `vitest run`). Bridge tests: `npm run test:bridge`. Radio daemon tests: `npm run test:radio-daemon`.
 - The gate before pushing is `npm run verify`, which chains tracked-artifact, design-token, ML pre-registration/archive, production-boundary, and view-library type checks with lint, the full test suite, the build, and the bundle budget check.
 - Focused runs: `npx vitest run <path>`.
-- Browser verification follows `docs/guides/LOCAL-AGENT-TESTING.md`. Agents start dev servers only through `npm run dev:session` (check `status` first); plain `npm run dev` is reserved for the owner's manual use. See the shared-machine rules in `CLAUDE.md`.
+- **One dev server per machine, at <http://localhost:5173>, owned by the human or the orchestrator. Agents never start one** — not `npm run dev`, not `npm run dev:session start`, not `vite` or `vite preview`, not a Playwright `webServer`, not any other listener — and never reach the site through another port, a tunnel, or a build. Before a rendered check, run `npm run dev:session -- status` (or `ps -axo pid=,command= | grep '[v]ite'`) and use the shared URL. If it is not running, report that and stop; do not start one. A brief that hands you a URL is the only authorization to use a server. If your PR needs a rendered check and no brief handed you a URL, leave a comment on the PR listing what to check (route, viewport, text scale, steps); the orchestrator or the human runs it on the shared server and posts the result. `npm run dev:session -- start` itself refuses when any dev server, managed or not, is already running. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in `CLAUDE.md`.
 
 ## Commit & Pull Request Guidelines
 
@@ -51,6 +51,7 @@
 - Branch names: `<type>/<epic-slug>-<task-slug>` (`type` is `feat`, `fix`, `docs`, `chore`, `refactor`, or `test`).
 - PRs follow `.github/PULL_REQUEST_TEMPLATE.md`: `Closes #N` or `Refs #N`, an `Agent:` line, a test plan (commands run + pages verified), and risks/follow-ups. At most 15 files, base `main`, merge `main` in before review, drain every review thread, and workers do not merge their own PRs — see the Pull requests section of `docs/AGENT-CONSTITUTION.md`.
 - Any design, and any PR that touches UI (anything a person sees; the path list is in the constitution), needs an `approved` **design review** comment from a Claude Fable session naming the current head SHA before merge; `pr-contract` checks the comment. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and Composer reviews do not count — see the Design and UI review section of `docs/AGENT-CONSTITUTION.md`.
+- After five bot review rounds on a PR, `.github/workflows/review-cap.yml` labels it `review-capped` and `pr-contract` blocks merge until an **architecture review** comment (`ship` or `redesign` verdict) names the current head; that review is posted by CI automation (`anthropics/claude-code-action@v1`), never by the fix agent, the orchestrator, or the owner — see the Review cap section of `docs/AGENT-CONSTITUTION.md`.
 
 ## Configuration & API Notes
 
@@ -59,7 +60,7 @@
 
 ## Coordinating local browser testing
 
-- Read [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) before launching or borrowing a server, including login and first-visit setup.
-- Check `npm run dev:session -- status`; start owned sessions with `npm run dev:session -- start --owner <slug> --task <description> --profile local`.
-- Different code changes require separate worktrees. Separate ports alone do not isolate HMR or source edits.
-- Verify the printed URL and `/__propulse_dev_session` identity before testing. Stop only your own session; never kill shared Node/Vite processes broadly.
+- Read [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) before using a server, including login and first-visit setup.
+- Check `npm run dev:session -- status` (or `ps -axo pid=,command= | grep '[v]ite'`) for the one shared server at <http://localhost:5173>. Agents never start their own — see the single-server rule above.
+- Different code changes still require separate worktrees for source edits; the shared server only covers the checkout it was started from.
+- Verify the printed URL and `/__propulse_dev_session` identity before testing. Never stop or kill the shared server; it is not yours to end.

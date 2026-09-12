@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Propagation synthetic fixture manifest 0.1",
+  "type": "object",
+  "properties": {
+    "protocol_id": {
+      "const": "propagation-candidate-0.1.0"
+    },
+    "qualification": {
+      "const": "BLOCKED"
+    },
+    "synthetic_only": {
+      "const": true
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event": {
+            "const": "covariance"
+          },
+          "domain": {
+            "const": "sphere_equatorial_four_point"
+          },
+          "units": {
+            "const": "dimensionless_variance"
+          },
+          "role": {
+            "const": "synthetic"
+          },
+          "kernel": {
+            "enum": [
+              "geodesic_se_counterexample",
+              "chordal_se_times_temporal_exponential"
+            ]
+          },
+          "radius_km": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "ell_km": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "sigma": {
+            "type": "number",
+            "minimum": 0
+          },
+          "longitudes_deg": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 1
+          },
+          "expected_min_eigenvalue": {
+            "type": "number"
+          },
+          "tolerance": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "expected_psd": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "domain",
+          "units",
+          "role",
+          "kernel",
+          "radius_km",
+          "ell_km",
+          "sigma",
+          "longitudes_deg",
+          "expected_min_eigenvalue",
+          "tolerance",
+          "expected_psd"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event": {
+            "const": "snr2500"
+          },
+          "domain": {
+            "const": "synthetic_characterized_exposure"
+          },
+          "units": {
+            "const": "dB"
+          },
+          "label_kind": {
+            "enum": [
+              "observed_snr",
+              "censored_upper_bound",
+              "unknown"
+            ]
+          },
+          "snr_db": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bound_db": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ordinary_mae_eligible": {
+            "type": "boolean"
+          },
+          "tx_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rx_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "issued_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "valid_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "available_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "captured_at": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "domain",
+          "units",
+          "label_kind",
+          "snr_db",
+          "bound_db",
+          "ordinary_mae_eligible",
+          "tx_id",
+          "rx_id",
+          "issued_at",
+          "valid_at",
+          "available_at",
+          "captured_at"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "protocol_id",
+    "qualification",
+    "synthetic_only",
+    "fixtures",
+    "labels"
+  ],
+  "additionalProperties": false
+}

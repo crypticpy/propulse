@@ -19,6 +19,10 @@
  */
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import {
+  dRegionAbsorption,
+  type DRegionCrossing,
+} from "@/lib/propagation/absorption/dRegion";
 import { getGeomagneticLatitude } from "./geomagnetic";
 
 /**
@@ -430,83 +434,164 @@ export function calculateM3000F2(hmF2: number): number {
 }
 
 /**
- * Calculate D-layer absorption
+ * Non-deviative D-region absorption, ITU-R P.533-14 section 5.2.2.
  *
- * The D-layer is the primary source of HF signal absorption.
- * Key characteristics:
- * - Absorption is inversely proportional to frequency squared (1/f^2)
- * - Absorption increases with solar activity
- * - Absorption follows solar zenith angle (day only)
- * - Low frequencies are heavily absorbed, high frequencies pass through
+ * This is a thin adapter over `src/lib/propagation/absorption/dRegion`, which
+ * owns the model, the conventions and the fitted coefficients. Everything the
+ * recommendation asks for and this signature cannot express is supplied
+ * through `options`; when a caller omits a field the stand-in used is declared
+ * here rather than hidden.
  *
- * Based on the ITU-R P.533 non-deviative absorption form:
- * L = K * sec(i) * (1 + 0.003 * R12) * cos(0.881 * chi) / (f + fL)^2
+ * What changed, and why the numbers move:
  *
- * where sec(i) is the obliquity of the D-region crossing (h ~= 90 km),
- * cos(0.881 * chi) is the P.533 solar-zenith dependence, and (f + fL) with
- * fL ~= 1.2 MHz is the electron gyro-frequency correction that replaces the
- * pure 1/f^2 law.
+ *  - The absorption term `AT` of equation (21) now exists. The previous form
+ *    had a bare coefficient of 677 in place of `ATnoon * phi(fv/foE)`, so it
+ *    could not respond to season, latitude or the E layer's shielding of the
+ *    D region at all.
+ *  - The obliquity secant is taken at 110 km, the height equation (20)
+ *    specifies, not at 90 km.
+ *  - The solar activity factor is `1 + 0.0067 SSN`, not `1 + 0.003 R12`.
+ *  - The 90 to 98 degree twilight ramp and the hard zero above 98 degrees are
+ *    gone, replaced by the recommendation's own 102 degree zenith clip and the
+ *    0.02 floor on `F(chi)`. The old ramp made absorption discontinuous at
+ *    sunset and exactly zero all night, which no D region does.
+ *  - The 50 dB clamp is gone. An opaque circuit returns a large loss and the
+ *    signal budget decides it is closed.
  *
  * @param frequency - Operating frequency in MHz
  * @param zenithAngle - Solar zenith angle in degrees
- * @param sfi - Solar Flux Index (proxy for R12)
- * @param elevationDeg - Ray take-off elevation in degrees (default 90 = vertical)
- * @returns Absorption in dB (single pass through D-layer)
- *
- * @example
- * ```typescript
- * // 7 MHz during noon, near-vertical (high absorption on 40m)
- * const absorption = calculateDLayerAbsorption(7, 20, 120);
- * // Returns approximately 10-15 dB
- *
- * // 21 MHz during noon (low absorption on 15m)
- * const absorption_15m = calculateDLayerAbsorption(21, 20, 120);
- * // Returns approximately 1-2 dB
- * ```
+ * @param sfi - Solar Flux Index, converted to R12 and used as the SSN proxy
+ * @param elevationDeg - Ray take-off elevation in degrees (default 90, vertical)
+ * @param options - Position and season. See `DRegionContext`.
+ * @returns Absorption in dB for one hop, that is two D-region crossings
  */
+export interface DRegionContext {
+  /** Geographic latitude of the crossing, degrees. */
+  latitudeDeg?: number;
+  /** 0 = January. */
+  monthIndex?: number;
+  /** Solar zenith angle at this crossing's local noon, degrees. */
+  zenithNoonAngleDeg?: number;
+  /**
+   * Instant of the crossing. Supplied instead of `zenithNoonAngleDeg`, it
+   * derives the noon angle honestly from the latitude and the solar
+   * declination rather than falling back to the declared equinox.
+   */
+  date?: Date;
+  /** Modified magnetic dip magnitude, degrees. */
+  modifiedDipDeg?: number;
+  /** E-layer critical frequency at the crossing, MHz. */
+  foEMHz?: number;
+}
+
+/**
+ * Stand-ins for the positionless entry points.
+ *
+ * `MufReport` and `api/muf.ts` call this function with a frequency, a zenith
+ * angle and nothing else. Equation (21) cannot be evaluated without a latitude
+ * and a month, so those callers get a declared mid-latitude equinox crossing:
+ * 45 degrees, March, modified dip 60 degrees. That is a stated assumption, not
+ * a silent default, and the fix is for those callers to pass the position they
+ * already hold.
+ */
+export const D_REGION_STANDIN = {
+  latitudeDeg: 45,
+  monthIndex: 2,
+  modifiedDipDeg: 60,
+  /**
+   * March is an equinox month, so the declared crossing's solar declination is
+   * zero and its local-noon zenith angle is `|latitude|`. Stating the
+   * declination here is what keeps `chi_noon` a real angle rather than a copy
+   * of the current one.
+   */
+  declinationDeg: 0,
+} as const;
+
 export function calculateDLayerAbsorption(
   frequency: number,
   zenithAngle: number,
   sfi: number,
   elevationDeg: number = 90,
+  options: DRegionContext = {},
 ): number {
-  // No absorption at night (D-layer disappears)
-  if (zenithAngle >= 98) {
-    return 0;
-  }
+  const latitudeDeg = options.latitudeDeg ?? D_REGION_STANDIN.latitudeDeg;
+  const monthIndex = options.monthIndex ?? D_REGION_STANDIN.monthIndex;
+  const modifiedDipDeg =
+    options.modifiedDipDeg ?? D_REGION_STANDIN.modifiedDipDeg;
+  const foEMHz = options.foEMHz ?? calculateF0E(zenithAngle, sfi);
+  // The noon zenith angle is a property of where and when the crossing is, not
+  // of the current sun. Setting it equal to the current angle makes
+  // F(chi)/F(chi_noon) identically one and deletes the whole diurnal term, so
+  // every hour of the day absorbs like local noon. chi_noon = |lat - decl|.
+  const zenithNoonAngleDeg =
+    options.zenithNoonAngleDeg ??
+    (options.date !== undefined
+      ? solarNoonZenithAngle(latitudeDeg, options.date)
+      : Math.abs(latitudeDeg - D_REGION_STANDIN.declinationDeg));
 
-  // Twilight decay (90-98 degrees)
-  let dayFactor = 1.0;
-  if (zenithAngle >= 90) {
-    dayFactor = (98 - zenithAngle) / 8;
-  }
+  const crossing: DRegionCrossing = {
+    latitudeDeg,
+    monthIndex,
+    modifiedDipDeg,
+    // A zero foE means no E layer to shield the D region. The penetration
+    // factor handles the limit; a division by zero here would not.
+    foEMHz: Math.max(foEMHz, 1e-6),
+    zenithAngleDeg: zenithAngle,
+    zenithNoonAngleDeg,
+  };
 
-  // Solar activity factor via the shared SFI -> R12 conversion.
-  const activityFactor = 1 + 0.003 * sfiToR12(sfi);
+  const incidenceAngle110Rad =
+    obliqueIncidenceAngle(elevationDeg, 110) * DEG_TO_RAD;
 
-  // P.533 solar-zenith dependence cos(0.881 * chi), clamped >= 0 (replaces the
-  // previous cos(chi)^1.3 which decayed too fast at low sun elevation).
-  const zenithFactor = Math.max(0, Math.cos(0.881 * zenithAngle * DEG_TO_RAD));
+  return dRegionAbsorption({
+    crossings: [crossing, crossing],
+    hopCount: 1,
+    frequencyMHz: Math.max(frequency, 1.5),
+    incidenceAngle110Rad,
+    ssn: sfiToR12(sfi),
+  }).absorptionDb;
+}
 
-  // Gyro-frequency-corrected frequency factor: 1/(f + fL)^2 with fL ~= 1.2 MHz
-  // (the ordinary-wave longitudinal gyro-frequency term) instead of 1/f^2.
-  const fL = 1.2;
-  const freqFactor = 1.0 / Math.pow(Math.max(frequency, 1.5) + fL, 2);
+/**
+ * Solar zenith angle at the given place's local solar noon, degrees.
+ *
+ * At local noon the sun is on the meridian, so the zenith angle is the angular
+ * distance between the latitude and the solar declination. The declination is
+ * read from the same subsolar point the instantaneous zenith angle uses, so
+ * the two agree by construction.
+ */
+export function solarNoonZenithAngle(latitudeDeg: number, date: Date): number {
+  const declinationDeg = getSubsolarPoint(date).lat;
+  return Math.abs(latitudeDeg - declinationDeg);
+}
 
-  // Obliquity of the D-region crossing (h ~= 90 km): a low-angle ray traverses
-  // a much longer slant path and is absorbed more. sec(i) = 1 at vertical.
-  const incidenceDeg = obliqueIncidenceAngle(elevationDeg, 90);
-  const secI = 1 / Math.max(0.05, Math.cos(incidenceDeg * DEG_TO_RAD));
-
-  // Base absorption coefficient
-  // ~677 gives roughly 10-15 dB at 7 MHz, noon, moderate solar activity, vertical
-  const K = 677;
-
-  const absorption =
-    K * secI * activityFactor * zenithFactor * freqFactor * dayFactor;
-
-  // Clamp to realistic range (0-50 dB single pass)
-  return Math.max(0, Math.min(50, absorption));
+/**
+ * Modified magnetic dip, degrees, from the dipole geomagnetic latitude.
+ *
+ * `tan(I) = 2 tan(geomagnetic latitude)` is the centred-dipole relation, and
+ * the modified dip is `atan(tan(I) / sqrt(cos(latitude)))`, the form P.533-14
+ * indexes its diurnal absorption exponent by. The numerator is the tangent of
+ * the inclination, not the inclination itself: the reference harness supplies
+ * the exponent with `dip = tan(moddip)` at latitude zero, where the modified
+ * dip reduces to `atan(dip)`, which fixes the convention. At 45 degrees
+ * geomagnetic latitude that is 67.2 degrees; passing the angle instead of its
+ * tangent gave 52.8 and selected the wrong exponent.
+ *
+ * This is a declared approximation: the true dip comes from a field model
+ * evaluated at 100 km, which no leaf in this repository exposes yet.
+ */
+export function modifiedDipAngle(
+  latitudeDeg: number,
+  longitudeDeg: number,
+): number {
+  const geomagneticLatRad =
+    getGeomagneticLatitude(latitudeDeg, longitudeDeg) * DEG_TO_RAD;
+  const tanDip = 2 * Math.tan(geomagneticLatRad);
+  const latitudeRad = latitudeDeg * DEG_TO_RAD;
+  return (
+    Math.abs(Math.atan2(tanDip, Math.sqrt(Math.abs(Math.cos(latitudeRad))))) *
+    RAD_TO_DEG
+  );
 }
 
 /**
@@ -637,16 +722,24 @@ export function getIonosphericParameters(
 }
 
 /**
- * Get D-layer absorption for a frequency at a location
+ * Get D-layer absorption for a frequency at a location.
  *
- * Convenience function that combines zenith angle calculation
- * with absorption calculation.
+ * Combines the zenith angle calculation with the absorption calculation. The
+ * crossing described to the adapter is the caller's own: equation (21) is a
+ * function of latitude, season, modified dip and the crossing's local-noon
+ * angle, and this helper holds all four. Passing only the zenith angle, which
+ * is what it used to do, pinned every location on Earth to the declared
+ * stand-in crossing and made the position argument decorative.
+ *
+ * `foE` is left to the adapter, which derives it from the same zenith angle
+ * and SFI this function computed.
  *
  * @param lat - Geographic latitude
  * @param lon - Geographic longitude
  * @param date - Date/time
  * @param frequency - Operating frequency in MHz
  * @param sfi - Solar Flux Index
+ * @param elevationDeg - Ray take-off elevation, degrees. Vertical by default.
  * @returns Absorption in dB
  */
 export function getAbsorptionAtLocation(
@@ -655,9 +748,15 @@ export function getAbsorptionAtLocation(
   date: Date,
   frequency: number,
   sfi: number,
+  elevationDeg: number = 90,
 ): number {
   const zenithAngle = calculateZenithAngle(lat, lon, date);
-  return calculateDLayerAbsorption(frequency, zenithAngle, sfi);
+  return calculateDLayerAbsorption(frequency, zenithAngle, sfi, elevationDeg, {
+    latitudeDeg: lat,
+    monthIndex: date.getUTCMonth(),
+    modifiedDipDeg: modifiedDipAngle(lat, lon),
+    date,
+  });
 }
 
 /**

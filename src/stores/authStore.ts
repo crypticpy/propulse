@@ -10,6 +10,10 @@ import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useProfileStore } from "@/stores/profileStore";
+// socialStore imports this module back, for the signed-in user id. The cycle
+// is safe because neither side dereferences the other at module scope: both
+// reads happen inside actions/listeners that run long after evaluation.
+import { useSocialStore } from "@/stores/socialStore";
 
 // ── Module-scoped deduplication & cleanup ────────────────────────────
 /** Deduplicates concurrent initialize() calls */
@@ -116,7 +120,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           // supabase-js already forwards the session to Realtime on its own
           // auth-change listener, so this is a belt-and-braces call, not the
           // only thing keeping it current.
-          supabase.realtime.setAuth(session?.access_token ?? undefined).catch(() => {});
+          supabase.realtime
+            .setAuth(session?.access_token ?? undefined)
+            .catch(() => {});
 
           // #866/#867 Codex round 4: persisted billing state (profileStore's
           // subscriptionTier/Status/PeriodEnd) is tagged with the account it
@@ -136,6 +142,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             useProfileStore.getState().resetBilling();
           }
 
+          // #995 round 4: the follow relation is account-scoped the same way.
+          // socialStore tags its following set with the account it was loaded
+          // for; drop it at the same boundary so account B never inherits
+          // account A's relationships and with them the friends-only sections
+          // those relationships unlock. Reusing this listener on purpose —
+          // a second subscription would race this one.
+          const { followingLoadedForUserId } = useSocialStore.getState();
+          if (
+            followingLoadedForUserId !== null &&
+            incomingUserId !== followingLoadedForUserId
+          ) {
+            useSocialStore.getState().clearFollowing();
+          }
+
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
           }
@@ -150,6 +170,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
               sessionExpired: prevUser !== null,
             });
             useProfileStore.getState().resetBilling();
+            useSocialStore.getState().clearFollowing();
           }
         });
         authSubscription = subscription;

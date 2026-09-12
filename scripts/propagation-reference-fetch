@@ -1,0 +1,56 @@
+#!/bin/bash
+# =============================================================================
+# propagation-reference-fetch — reproduce the pinned ITU-R HF reference build
+#
+# Clones github.com/ITU-R-Study-Group-3/ITU-R-HF at the commit pinned in
+# ml/propagation_validation/reference/runner.py, builds ITURHFProp + libp533 +
+# libp372 natively, and rewrites manifest.json. With --golden it regenerates
+# golden-v1.json; with --portable it also runs the WASM portability proof.
+#
+# Nothing this script downloads is committed: the clone and every build
+# artifact live in ml/propagation_validation/reference/.build/, which is
+# gitignored. Only the small JSON manifests are in git.
+#
+#   scripts/propagation-reference-fetch                  # build + manifest
+#   scripts/propagation-reference-fetch --golden         # + golden-v1.json
+#   scripts/propagation-reference-fetch --golden --portable
+#
+# Prerequisites: git, make, a C compiler (clang on macOS, gcc on Linux),
+# python3 >= 3.10. --portable additionally needs Emscripten (emcc) and node.
+# The clone plus coefficient data needs roughly 400 MB of disk.
+# =============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+WANT_GOLDEN=0
+WANT_PORTABLE=0
+for arg in "$@"; do
+  case "$arg" in
+    --golden) WANT_GOLDEN=1 ;;
+    --portable) WANT_PORTABLE=1 ;;
+    -h|--help) sed -n '3,20p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+cd "$PROJECT_DIR"
+export PYTHONDONTWRITEBYTECODE=1
+
+echo "==> cloning, pinning, building and inventorying the reference"
+python3 -m ml.propagation_validation.reference.build
+
+if [ "$WANT_GOLDEN" = "1" ]; then
+  echo "==> regenerating golden-v1.json from the native build"
+  python3 -m ml.propagation_validation.reference.generate_golden
+fi
+
+if [ "$WANT_PORTABLE" = "1" ]; then
+  echo "==> building the static WASM port and checking parity"
+  python3 -m ml.propagation_validation.reference.portable
+fi
+
+echo "==> checking the committed manifests"
+python3 -m unittest discover -s ml/propagation_validation -p 'test_reference.py' -v

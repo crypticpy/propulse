@@ -513,22 +513,30 @@ export function MufReport({ open, onClose }: MufReportProps) {
 
   // Path diagnostics need a target and a viable trace; both read "SET
   // TARGET" / "—" rather than a fabricated number when either is missing.
-  const midpointHop = rayTrace
-    ? rayTrace.hops.reduce((closest, hop) =>
+  //
+  // A trace object is not the same thing as a traced path. A circuit whose
+  // endpoints determine no great circle, which is what selecting your own QTH
+  // as the target produces, yields a result with an empty `hops`. An
+  // initial-value-free `reduce` throws a TypeError on that array and
+  // `hops[0]` is undefined, so the emptiness is checked once here and every
+  // path row falls back to the same "—" a missing target already produces.
+  const tracedHops = rayTrace && rayTrace.hops.length > 0 ? rayTrace : null;
+  const midpointHop = tracedHops
+    ? tracedHops.hops.reduce((closest, hop) =>
         Math.abs(hop.reflectionPoint.fractionAlongPath - 0.5) <
         Math.abs(closest.reflectionPoint.fractionAlongPath - 0.5)
           ? hop
           : closest,
       )
     : null;
-  const takeoffAngleDeg = rayTrace
+  const takeoffAngleDeg = tracedHops
     ? hopElevationAngle(
-        rayTrace.totalDistanceKm / rayTrace.hops.length,
-        rayTrace.hops[0].hmF2,
+        tracedHops.totalDistanceKm / tracedHops.hops.length,
+        tracedHops.hops[0].hmF2,
       )
     : null;
-  const limitingHopReason = rayTrace
-    ? rayTrace.isPathViable
+  const limitingHopReason = tracedHops
+    ? tracedHops.isPathViable
       ? "lowest-quality hop"
       : "exceeds MUF"
     : null;
@@ -653,16 +661,16 @@ export function MufReport({ open, onClose }: MufReportProps) {
         <dd>
           {!target
             ? "SET TARGET"
-            : rayTrace
-              ? `${rayTrace.totalPathLossDb.toFixed(1)} dB`
+            : tracedHops
+              ? `${tracedHops.totalPathLossDb.toFixed(1)} dB`
               : "—"}
         </dd>
         <dt>Limiting hop</dt>
         <dd>
           {!target
             ? "SET TARGET"
-            : rayTrace
-              ? `#${rayTrace.limitingHop + 1} · ${limitingHopReason}`
+            : tracedHops
+              ? `#${tracedHops.limitingHop + 1} · ${limitingHopReason}`
               : "—"}
         </dd>
       </dl>
@@ -673,13 +681,13 @@ export function MufReport({ open, onClose }: MufReportProps) {
     <div className="hcr-cols hcr-cols--fill hcr-cols--hops">
       {!target ? (
         <p className="hcr-note">Pick a target on the map to trace a path.</p>
-      ) : !rayTrace ? (
+      ) : !tracedHops ? (
         <p className="hcr-note">No viable ray trace for this path right now.</p>
       ) : (
         <div className="hcr-box">
           <p className="hcr-bandtable-caption">
-            {rayTrace.hops.length} hop{rayTrace.hops.length === 1 ? "" : "s"} ·{" "}
-            {rayTrace.summary}
+            {tracedHops.hops.length} hop
+            {tracedHops.hops.length === 1 ? "" : "s"} · {tracedHops.summary}
           </p>
           <div className="hcr-hoptable-head" aria-hidden="true">
             <span>#</span>
@@ -689,7 +697,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
             <span>Score</span>
           </div>
           <div className="hcr-bandtable">
-            {rayTrace.hops.map((hop, index) => (
+            {tracedHops.hops.map((hop, index) => (
               <button
                 key={index}
                 type="button"
@@ -719,7 +727,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
                 </span>
                 <span>{hop.absorptionDb.toFixed(1)} dB</span>
                 <span
-                  className={index === rayTrace.limitingHop ? "hc-warn" : ""}
+                  className={index === tracedHops.limitingHop ? "hc-warn" : ""}
                 >
                   {Math.round(hop.qualityScore)}
                 </span>
@@ -739,7 +747,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
               </tr>
             </thead>
             <tbody>
-              {rayTrace.hops.map((hop, index) => (
+              {tracedHops.hops.map((hop, index) => (
                 <tr key={index}>
                   <td>{index + 1}</td>
                   <td>{hop.reflectionPoint.lat.toFixed(2)}</td>

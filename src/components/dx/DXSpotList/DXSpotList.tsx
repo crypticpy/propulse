@@ -432,7 +432,7 @@ export function DXSpotList({
               {SOURCE_BADGE_STYLES[spotSource].label} · {feedState.state}
             </span>
             {alertMatchCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
+              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-alert-red/20 text-alert-red border border-alert-red/30">
                 {alertMatchCount} alert{alertMatchCount !== 1 ? "s" : ""}
               </span>
             )}

@@ -165,7 +165,7 @@ function WorkedBeforeView({
     <div className="space-y-1">
       {/* Header row with badge and last QSO info */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30 rounded-full text-xs font-mono font-medium">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cosmic-cyan/20 text-su-text border border-cosmic-cyan/30 rounded-full text-xs font-mono font-medium">
           <CheckIcon />
           WORKED BEFORE
         </span>
@@ -234,7 +234,7 @@ function NewCallsignView({ externalData, onAutoFill }: NewCallsignViewProps) {
     <div className="space-y-1">
       {/* Header row with badge and country/zone info */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-signal-green/20 text-signal-green border border-signal-green/30 rounded-full text-xs font-mono font-medium">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-signal-green/20 text-su-text border border-signal-green/30 rounded-full text-xs font-mono font-medium">
           <StarIcon />
           NEW CALLSIGN
         </span>

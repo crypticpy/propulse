@@ -12,7 +12,10 @@ import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { useSatellites } from "@/hooks/useSatellites";
 import { POPULAR_SATS } from "@/lib/api/satellites";
-import { CATEGORY_META } from "@/lib/utils/satellite";
+import {
+  CATEGORY_META,
+  filterGlobeVisibleSatellites,
+} from "@/lib/utils/satellite";
 import type { SatelliteCategory, SatelliteInfo } from "@/types/satellite";
 
 // ---------------------------------------------------------------------------
@@ -72,6 +75,8 @@ export default function SatelliteFilters() {
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
   const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
   // Picking from the list is an explicit request for details: select the
   // satellite (follower popup on the globe) and open the modal directly,
@@ -86,14 +91,23 @@ export default function SatelliteFilters() {
 
   const { satellites } = useSatellites();
 
+  const globeVisibleSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
+
   // Count satellites per category
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<SatelliteCategory, number>> = {};
-    for (const sat of satellites) {
+    for (const sat of globeVisibleSatellites) {
       counts[sat.category] = (counts[sat.category] ?? 0) + 1;
     }
     return counts;
-  }, [satellites]);
+  }, [globeVisibleSatellites]);
 
   // Filter chips data
   const chips = useMemo(() => {
@@ -101,7 +115,9 @@ export default function SatelliteFilters() {
       key: SatelliteCategory | "all";
       label: string;
       count: number;
-    }> = [{ key: "all", label: "All", count: satellites.length }];
+    }> = [
+      { key: "all", label: "All", count: globeVisibleSatellites.length },
+    ];
 
     for (const cat of CATEGORY_ORDER) {
       const count = categoryCounts[cat] ?? 0;
@@ -110,13 +126,15 @@ export default function SatelliteFilters() {
       }
     }
     return result;
-  }, [satellites.length, categoryCounts]);
+  }, [globeVisibleSatellites.length, categoryCounts]);
 
   // Filtered satellites
   const filtered = useMemo(() => {
-    if (satelliteCategoryFilter === "all") return satellites;
-    return satellites.filter((s) => s.category === satelliteCategoryFilter);
-  }, [satellites, satelliteCategoryFilter]);
+    if (satelliteCategoryFilter === "all") return globeVisibleSatellites;
+    return globeVisibleSatellites.filter(
+      (s) => s.category === satelliteCategoryFilter,
+    );
+  }, [globeVisibleSatellites, satelliteCategoryFilter]);
 
   // Popular satellites (matching current filter)
   const popularSats = useMemo(
@@ -255,7 +273,7 @@ export default function SatelliteFilters() {
       </div>
 
       {/* ── Tracking status + manage link ── */}
-      <TrackingStatusFooter totalCount={satellites.length} />
+      <TrackingStatusFooter totalCount={globeVisibleSatellites.length} />
     </div>
   );
 }

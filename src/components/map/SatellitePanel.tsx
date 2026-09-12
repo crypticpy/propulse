@@ -15,6 +15,9 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useMapStore } from "@/stores/mapStore";
+import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
+import { filterGlobeVisibleSatellites } from "@/lib/utils/satellite";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
 import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import type {
@@ -628,6 +631,9 @@ export function SatellitePanel({
     isAvailable,
     refetch,
   } = useSatellites();
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
   const [filterCategory, setFilterCategory] = useState<
     SatelliteCategory | "all"
@@ -640,9 +646,18 @@ export function SatellitePanel({
   const { alertsEnabled, notificationSupported, requestPermission } =
     useSatelliteAlerts();
 
-  // Filter and sort satellites
+  const globeVisibleSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
+
+  // Filter and sort satellites (same globe predicate as SatelliteOverlay)
   const filteredSatellites = useMemo(() => {
-    let filtered = satellites;
+    let filtered = globeVisibleSatellites;
 
     // Apply category filter
     if (filterCategory !== "all") {
@@ -671,23 +686,25 @@ export function SatellitePanel({
       // Then alphabetically
       return a.name.localeCompare(b.name);
     });
-  }, [satellites, filterCategory]);
+  }, [globeVisibleSatellites, filterCategory]);
 
   // Count visible satellites
   const visibleCount = useMemo(
-    () => satellites.filter((s) => s.isVisible).length,
-    [satellites],
+    () => globeVisibleSatellites.filter((s) => s.isVisible).length,
+    [globeVisibleSatellites],
   );
 
   const handleSelect = useCallback(
     (noradId: number) => {
       if (selectedSatellite?.noradId === noradId) {
         selectSatellite(null);
+        setSatelliteModalId(null);
       } else {
         selectSatellite(noradId);
+        setSatelliteModalId(noradId);
       }
     },
-    [selectedSatellite, selectSatellite],
+    [selectedSatellite, selectSatellite, setSatelliteModalId],
   );
 
   const handleBack = useCallback(() => {
@@ -758,7 +775,9 @@ export function SatellitePanel({
 
           {/* Summary stats */}
           <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className="text-gray-400">{satellites.length} tracked</span>
+            <span className="text-gray-400">
+              {globeVisibleSatellites.length} tracked
+            </span>
             {visibleCount > 0 && (
               <span className="text-green-400">{visibleCount} visible</span>
             )}
@@ -806,7 +825,7 @@ export function SatellitePanel({
             </span>
           )}
           <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
-            {satellites.length} sats
+            {globeVisibleSatellites.length} sats
           </span>
 
           <Link
@@ -951,6 +970,12 @@ export function SatellitePanel({
         {/* Satellite list (when no satellite is selected) */}
         {!selectedSatellite && isAvailable && (
           <div className="flex flex-col h-full">
+            {issTrackerActive && (
+              <p className="text-[10px] text-white/40 px-1 mb-1.5 flex-shrink-0">
+                ISS is shown in the dedicated ISS tracker, not this list.
+              </p>
+            )}
+
             {/* Category filter bar */}
             <div className="flex gap-1 mb-2 flex-shrink-0 overflow-x-auto scrollbar-hide">
               {categoryFilters.map((filter) => (

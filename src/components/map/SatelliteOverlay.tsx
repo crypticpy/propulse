@@ -28,8 +28,10 @@ import { getTransponder } from "@/lib/data/satelliteTransponders";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import {
   CATEGORY_META,
+  filterGlobeVisibleSatellites,
   formatFreqMHz,
   formatLatLon,
+  ISS_NORAD_ID,
 } from "@/lib/utils/satellite";
 import type {
   SatelliteInfoExtended,
@@ -656,20 +658,14 @@ export function SatelliteOverlay() {
 
   const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
-  // Filter satellites: ISS dedup when dedicated tracker is active + user tracking prefs
-  const filteredSatellites = useMemo(() => {
-    let sats = satellites;
-    // Remove ISS from general overlay when dedicated ISS tracker is active
-    if (issTrackerActive) {
-      sats = sats.filter((s) => s.noradId !== 25544);
-    }
-    // Apply user tracking preferences (default "all" = no filter)
-    if (trackedNoradIds !== "all") {
-      const idSet = new Set(trackedNoradIds);
-      sats = sats.filter((s) => idSet.has(s.noradId));
-    }
-    return sats;
-  }, [satellites, issTrackerActive, trackedNoradIds]);
+  const filteredSatellites = useMemo(
+    () =>
+      filterGlobeVisibleSatellites(satellites, {
+        issTrackerActive,
+        trackedNoradIds,
+      }),
+    [satellites, issTrackerActive, trackedNoradIds],
+  );
 
   const handleSelect = useCallback(
     (noradId: number) => {
@@ -690,7 +686,7 @@ export function SatelliteOverlay() {
   // Skip ISS ground track if issTracker is active and selected satellite is ISS
   const showGroundTrack =
     selectedSatellite &&
-    !(issTrackerActive && selectedSatellite.noradId === 25544);
+    !(issTrackerActive && selectedSatellite.noradId === ISS_NORAD_ID);
 
   return (
     <group>

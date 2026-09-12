@@ -44,6 +44,7 @@
 - The gate before pushing is `npm run verify`, which chains tracked-artifact, design-token, ML pre-registration/archive, production-boundary, and view-library type checks with lint, the full test suite, the build, and the bundle budget check.
 - Focused runs: `npx vitest run <path>`.
 - **One dev server per machine, at <http://localhost:5173>, owned by the human or the orchestrator. Agents never start one** — not `npm run dev`, not `npm run dev:session start`, not `vite` or `vite preview`, not a Playwright `webServer`, not any other listener — and never reach the site through another port, a tunnel, or a build. Before a rendered check, run `npm run dev:session -- status` (or `ps -axo pid=,command= | grep '[v]ite'`) and use the shared URL. If it is not running, report that and stop; do not start one. A brief that hands you a URL is the only authorization to use a server. If your PR needs a rendered check and no brief handed you a URL, leave a comment on the PR listing what to check (route, viewport, text scale, steps); the orchestrator or the human runs it on the shared server and posts the result. `npm run dev:session -- start` itself refuses when any dev server, managed or not, is already running. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in `CLAUDE.md`.
+- The Playwright `scripts/check-hamclock-display.mjs` harness was retired (#780); do not run it or restore its selectors.
 
 ## Commit & Pull Request Guidelines
 

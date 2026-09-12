@@ -80,7 +80,7 @@ export function RadioDeviceCard({
           type="button"
           onClick={onDisconnectRadio}
           disabled={!canControlConnected}
-          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-alert-red/10 border border-alert-red/30 text-su-text hover:bg-alert-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Disconnect
         </button>

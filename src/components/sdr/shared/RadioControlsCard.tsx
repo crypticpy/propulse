@@ -115,7 +115,7 @@ export function RadioControlsCard({
                 disabled={!canControlConnected || !canTune || tuningLocked}
                 className={`px-2 py-1 rounded text-xs border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   freqUnit === u
-                    ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
+                    ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-su-text"
                     : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                 }`}
               >
@@ -164,7 +164,7 @@ export function RadioControlsCard({
                 disabled={!canControlConnected}
                 className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   effectiveState.ptt
-                    ? "bg-alert-red/20 border-alert-red/40 text-alert-red"
+                    ? "bg-alert-red/20 border-alert-red/40 text-su-text"
                     : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
                 }`}
                 aria-pressed={!!effectiveState.ptt}
@@ -187,7 +187,7 @@ export function RadioControlsCard({
               disabled={!canControlConnected}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 effectiveState.agc
-                  ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                  ? "bg-signal-green/10 border-signal-green/30 text-su-text"
                   : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
               }`}
               aria-pressed={effectiveState.agc}
@@ -318,7 +318,7 @@ export function RadioControlsCard({
                     disabled={!canControlConnected}
                     className={`px-2 py-1 rounded border text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nr?.enabled
-                        ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                        ? "bg-signal-green/10 border-signal-green/30 text-su-text"
                         : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                     }`}
                     aria-pressed={effectiveState.nr?.enabled ?? false}
@@ -363,7 +363,7 @@ export function RadioControlsCard({
                     disabled={!canControlConnected}
                     className={`px-2 py-1 rounded border text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nb?.enabled
-                        ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                        ? "bg-signal-green/10 border-signal-green/30 text-su-text"
                         : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                     }`}
                     aria-pressed={effectiveState.nb?.enabled ?? false}
@@ -413,7 +413,7 @@ export function RadioControlsCard({
           disabled={!canControlConnected || !canStreamFft}
           className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             fftEnabled
-              ? "bg-signal-green/10 border-signal-green/30 text-signal-green hover:bg-signal-green/20"
+              ? "bg-signal-green/10 border-signal-green/30 text-su-text hover:bg-signal-green/20"
               : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
           }`}
         >

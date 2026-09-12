@@ -204,17 +204,20 @@ describe("the path basic MUF", () => {
     expect(result.pathBasicMufMHz).toBe(result.f2?.basicMufMHz);
   });
 
-  it("refuses the long-path domain at exactly 9000 km", () => {
+  it("resolves exactly 9000 km and refuses the long-path domain beyond it", () => {
+    // Section 3.5.2 covers "paths up to 9 000 km"; section 5.3 starts at
+    // "paths longer than 9 000 km". The reference's MUFBasic() returns only
+    // for distance > 9000.
+    expect(
+      basicMuf({ route: routeOfLength(9000), sample: uniform(state()) }).kind,
+    ).toBe("resolved");
     const result = basicMuf({
-      route: routeOfLength(9000),
+      route: routeOfLength(9000.000001),
       sample: uniform(state()),
     });
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") throw new Error("expected unsupported");
     expect(result.reason).toBe("out_of_domain");
-    expect(
-      basicMuf({ route: routeOfLength(8999), sample: uniform(state()) }).kind,
-    ).toBe("resolved");
   });
 });
 

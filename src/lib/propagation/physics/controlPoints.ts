@@ -98,15 +98,21 @@ export const E_MODE_MAX_PATH_KM = 4000;
 /** Above this the short-path method of sections 2 to 5.2 does not apply, km. */
 export const MAX_SHORT_PATH_KM = 9000;
 
+/*
+ * The 9000 km boundary is INCLUSIVE on the short-path side. Table 1 writes
+ * its last rows as `dmax < D < 9 000`, but section 3.5.2 is headed "paths up
+ * to 9 000 km", section 5.3 is "paths longer than 9 000 km", and section 5.4
+ * interpolates "between 7 000 and 9 000 km"; a circuit of exactly 9000 km has
+ * a short-path basic MUF and no long-path method. The reference agrees:
+ * MUFBasic.c returns only for `path->distance > 9000` and the long-path
+ * routine takes over only for `> 9000`.
+ */
+
 /** Table 1's first breakpoint, km. */
 export const MID_POINT_ONLY_PATH_KM = 2000;
 
 export type ControlPointLabel =
-  | "M"
-  | "T + 1000"
-  | "R - 1000"
-  | "T + d0/2"
-  | "R - d0/2";
+  "M" | "T + 1000" | "R - 1000" | "T + d0/2" | "R - d0/2";
 
 /** Which part of Table 1 a selection came from. */
 export type ControlPointTable = "1a" | "1b" | "1c" | "1d";
@@ -118,10 +124,7 @@ export type ControlPointTable = "1a" | "1b" | "1c" | "1d";
  * reason the recommendation splits the table.
  */
 export type ControlPointPurpose =
-  | "basic_muf"
-  | "e_layer_screening"
-  | "reflection_height"
-  | "absorption";
+  "basic_muf" | "e_layer_screening" | "reflection_height" | "absorption";
 
 export type ControlPointLayer = "E" | "F2";
 
@@ -342,7 +345,7 @@ export function selectControlPoints(
             `section 2 admits E modes "up to 4 000 km range" only.`,
         };
       }
-      if (D >= MAX_SHORT_PATH_KM) {
+      if (D > MAX_SHORT_PATH_KM) {
         return {
           kind: "not_applicable",
           table,
@@ -376,7 +379,7 @@ export function selectControlPoints(
       if (D <= MID_POINT_ONLY_PATH_KM) {
         return { kind: "points", table, points: [mid()] };
       }
-      if (D < MAX_SHORT_PATH_KM) {
+      if (D <= MAX_SHORT_PATH_KM) {
         return { kind: "points", table, points: ends() };
       }
       return {
@@ -402,7 +405,7 @@ export function selectControlPoints(
       if (D <= requireDmax(query)) {
         return { kind: "points", table, points: [mid()] };
       }
-      if (D < MAX_SHORT_PATH_KM) {
+      if (D <= MAX_SHORT_PATH_KM) {
         const [near, far] = halfHop(requireHopDistance(query));
         return { kind: "points", table, points: [near, mid(), far] };
       }
@@ -432,7 +435,7 @@ export function selectControlPoints(
       if (D <= MID_POINT_ONLY_PATH_KM) {
         return { kind: "points", table, points: [mid()] };
       }
-      if (D >= MAX_SHORT_PATH_KM) {
+      if (D > MAX_SHORT_PATH_KM) {
         return {
           kind: "not_applicable",
           table,

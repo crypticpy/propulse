@@ -310,7 +310,7 @@ export function basicMuf({ route, sample }: BasicMufInputs): BasicMufResult {
       `the route has no usable ground distance (${String(D)} km).`,
     );
   }
-  if (D >= MAX_SHORT_PATH_KM) {
+  if (D > MAX_SHORT_PATH_KM) {
     return {
       kind: "unsupported",
       reason: "out_of_domain",

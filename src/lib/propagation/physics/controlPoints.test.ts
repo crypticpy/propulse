@@ -49,7 +49,9 @@ function labels(selection: ControlPointSelection): readonly string[] {
   return selection.points.map((point) => point.label);
 }
 
-const query = (overrides: Partial<ControlPointQuery> & { route: ResolvedRoute }) =>
+const query = (
+  overrides: Partial<ControlPointQuery> & { route: ResolvedRoute },
+) =>
   selectControlPoints({
     purpose: "basic_muf",
     layer: "F2",
@@ -130,9 +132,9 @@ describe("Table 1a: basic MUF and associated gyrofrequency", () => {
       "M",
     ]);
     // and below 2000 km even when dmax itself is smaller than 2000
-    expect(
-      labels(query({ route: routeOfLength(1800), dmaxKm: 1500 })),
-    ).toEqual(["M"]);
+    expect(labels(query({ route: routeOfLength(1800), dmaxKm: 1500 }))).toEqual(
+      ["M"],
+    );
   });
 
   it("moves F2 to T + d0/2 and R - d0/2 past dmax, at d0/2 from each end", () => {
@@ -155,21 +157,23 @@ describe("Table 1a: basic MUF and associated gyrofrequency", () => {
     );
   });
 
-  it("stops at exactly 9000 km, where the long-path method takes over", () => {
+  it("includes exactly 9000 km; the long-path method starts beyond it", () => {
+    // Section 3.5.2 is "paths up to 9 000 km" and section 5.3 "paths longer
+    // than 9 000 km", so 9000 km itself is a short path.
     expect(
       query({
         route: routeOfLength(9000),
         dmaxKm: MAX_DMAX_KM,
         hopGroundDistanceKm: 3000,
       }).kind,
-    ).toBe("not_applicable");
+    ).toBe("points");
     expect(
       query({
-        route: routeOfLength(8999.999999),
+        route: routeOfLength(9000.000001),
         dmaxKm: MAX_DMAX_KM,
         hopGroundDistanceKm: 3000,
       }).kind,
-    ).toBe("points");
+    ).toBe("not_applicable");
   });
 
   it("refuses to guess dmax or d0", () => {
@@ -181,7 +185,7 @@ describe("Table 1a: basic MUF and associated gyrofrequency", () => {
 });
 
 describe("Table 1b: E-layer screening", () => {
-  it("is M up to 2000 km, the 1000 km end points below 9000, and nothing at 9000", () => {
+  it("is M up to 2000 km, the 1000 km end points to 9000, and nothing beyond", () => {
     const at = (km: number) =>
       selectControlPoints({
         route: routeOfLength(km),
@@ -190,8 +194,8 @@ describe("Table 1b: E-layer screening", () => {
       });
     expect(labels(at(2000))).toEqual(["M"]);
     expect(labels(at(2000.000001))).toEqual(["T + 1000", "R - 1000"]);
-    expect(labels(at(8999.999999))).toEqual(["T + 1000", "R - 1000"]);
-    expect(at(9000).kind).toBe("not_applicable");
+    expect(labels(at(9000))).toEqual(["T + 1000", "R - 1000"]);
+    expect(at(9000.000001).kind).toBe("not_applicable");
   });
 
   it("has no E-layer row", () => {
@@ -251,7 +255,11 @@ describe("Table 1c reproduces ionosphere/mirrorHeight.ts's choice", () => {
 });
 
 describe("Table 1d: ionospheric absorption", () => {
-  const at = (km: number, layer: "E" | "F2", extra: Partial<ControlPointQuery> = {}) =>
+  const at = (
+    km: number,
+    layer: "E" | "F2",
+    extra: Partial<ControlPointQuery> = {},
+  ) =>
     selectControlPoints({
       route: routeOfLength(km),
       purpose: "absorption",

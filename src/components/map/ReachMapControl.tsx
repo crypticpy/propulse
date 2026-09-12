@@ -59,7 +59,7 @@ export function ReachMapControl({
           <RadioTower size={15} className="text-plasma-orange shrink-0" aria-hidden="true" />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-su-text">ReachMap</div>
-            <div className="text-[10px] text-su-muted truncate">
+            <div className="text-xs text-su-muted truncate">
               {state.locationName ?? "Operating location required"}
               {state.personalized && state.chainName ? ` · ${state.chainName}` : ""}
             </div>
@@ -83,7 +83,7 @@ export function ReachMapControl({
         <button
           type="button"
           onClick={() => onPersonalizedChange(false)}
-          className={`h-7 rounded text-[11px] font-medium transition-colors ${
+          className={`h-7 rounded text-xs font-medium transition-colors ${
             !personalized ? "bg-plasma-orange text-su-on-accent" : "text-su-muted hover:bg-su-line/20"
           }`}
         >
@@ -94,7 +94,7 @@ export function ReachMapControl({
           onClick={() => onPersonalizedChange(true)}
           disabled={!state.stationAvailable}
           title={state.stationAvailable ? "Use the active station chain" : "Configure an active station chain"}
-          className={`h-7 rounded text-[11px] font-medium transition-colors ${
+          className={`h-7 rounded text-xs font-medium transition-colors ${
             personalized && state.stationAvailable
               ? "bg-plasma-orange text-su-on-accent"
               : state.stationAvailable
@@ -112,7 +112,7 @@ export function ReachMapControl({
             key={option}
             type="button"
             onClick={() => onBandChange(option)}
-            className={`h-7 px-2 rounded text-[11px] font-mono transition-colors ${
+            className={`h-7 px-2 rounded text-xs font-mono transition-colors ${
               band === option
                 ? "bg-plasma-orange text-su-on-accent"
                 : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
@@ -136,7 +136,7 @@ export function ReachMapControl({
           ["60-79", "#22c55e"],
           ["80+", "#06b6d4"],
         ].map(([label, color]) => (
-          <div key={label} className="text-center text-[9px] text-su-muted">
+          <div key={label} className="text-center text-xs text-su-muted">
             <span
               className="block rounded-sm mb-1"
               style={{ backgroundColor: color, height: 6 }}
@@ -146,7 +146,7 @@ export function ReachMapControl({
         ))}
       </div>
 
-      <div className="mt-3 text-[10px] text-su-muted" style={{ minHeight: 34 }}>
+      <div className="mt-3 text-xs text-su-muted" style={{ minHeight: 34 }}>
         {state.loading ? (
           <div className="flex items-center gap-1.5">
             <LoaderCircle size={12} className="animate-spin" /> Scoring global paths...
@@ -186,7 +186,7 @@ export function ReachMapControl({
           </>
         )}
       </div>
-      <div className="mt-2 border-t border-su-line/40 pt-2 text-[9px] text-su-muted">
+      <div className="mt-2 border-t border-su-line/40 pt-2 text-xs text-su-muted">
         {state.futureCastHorizons.length > 0
           ? `Live NowCast + FutureCast ${state.futureCastHorizons
               .map((horizon) => `+${horizon}h`)

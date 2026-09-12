@@ -69,6 +69,13 @@ jobs:
             exit 0
           fi
           node --test scripts/pr-contract-ui-hunk.test.mjs
+      - name: Run delegated design-review tests
+        # The delegation is policy from the protected default-branch checkout.
+        # Bootstrap: existing Fable requirements remain until this lands there.
+        run: |
+          if [ -f scripts/delegated-design-review.test.mjs ]; then
+            node --test scripts/delegated-design-review.test.mjs
+          fi
       - name: Check PR body contract
         env:
           BODY: ${{ github.event.pull_request.body }}
@@ -110,7 +117,7 @@ jobs:
           else
             echo "All commits carry a Signed-off-by trailer."
           fi
-      - name: Require a Fable design review on UI changes
+      - name: Require an authorized design review on UI changes
         # Rule and path list: docs/AGENT-CONSTITUTION.md, "Design and UI review".
         # The list here is a floor (what CI can see), not the definition.
         env:
@@ -118,6 +125,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
@@ -187,8 +195,15 @@ jobs:
                 echo "$url"
               fi
             done)
+          # Preserve the Fable path above. Only the explicitly delegated color
+          # epic/tasks may use Codex, as evaluated by trusted default-branch code.
+          # Reuse the comment snapshot; no second API read or PR-head execution.
+          if [ -z "$APPROVED" ] && [ -f scripts/delegated-design-review.mjs ]; then
+            APPROVED=$(printf '%s\n' "$COMMENTS" | node scripts/delegated-design-review.mjs) \
+              || { echo "::error::could not evaluate delegated design review"; exit 1; }
+          fi
           if [ -z "$APPROVED" ]; then
-            echo "This PR touches UI. It needs a **design review** comment from a Fable-posting account (crypticpy or propulse-bot) with an \`agent: Claude Fable …\` line, \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry."
+            echo "This PR touches UI. It needs a **design review** comment from a Fable-posting account (crypticpy or propulse-bot) with an \`agent: Claude Fable …\` line, \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry. Epic #1256 tasks #1257–#1264 may instead use the explicit Codex delegation documented in the constitution."
             exit 1
           fi
           echo "Design review approved for ${HEAD7}: ${APPROVED}"

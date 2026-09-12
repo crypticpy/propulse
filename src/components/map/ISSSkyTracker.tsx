@@ -603,7 +603,7 @@ export function ISSSkyTracker() {
               d="M4.5 12H2m20 0h-2.5M12 4.5V2m0 20v-2.5M7.05 7.05 5.636 5.636m12.728 12.728-1.414-1.414M7.05 16.95l-1.414 1.414M18.364 5.636l-1.414 1.414"
             />
           </svg>
-          <span className="text-[10px] font-medium uppercase tracking-wider">
+          <span className="text-xs font-medium uppercase tracking-wider">
             ISS
           </span>
         </button>
@@ -644,7 +644,7 @@ export function ISSSkyTracker() {
         <div className="relative rounded-lg overflow-hidden bg-su-panel/80 backdrop-blur-md border border-su-line/40 shadow-lg w-[220px]">
           <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
             {dragHandle}
-            <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
+            <span className="text-xs font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
               ISS Tracker
             </span>
             <button
@@ -667,7 +667,7 @@ export function ISSSkyTracker() {
             </button>
           </div>
           <div className="px-4 py-8 text-center">
-            <p className="text-[11px] text-su-muted leading-relaxed">
+            <p className="text-xs text-su-muted leading-relaxed">
               Set your home QTH in Settings to see ISS pass predictions
             </p>
           </div>
@@ -697,7 +697,7 @@ export function ISSSkyTracker() {
         {/* Header with drag handle */}
         <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
           {dragHandle}
-          <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
+          <span className="text-xs font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
             ISS Tracker
           </span>
           <button
@@ -731,7 +731,7 @@ export function ISSSkyTracker() {
         <div className="px-2.5 py-2 bg-su-input/50 border-t border-su-line/20 space-y-0.5 font-mono">
           {/* Line 1: Position */}
           {elevation !== null && azimuth !== null && (
-            <div className="text-[10px] text-su-muted">
+            <div className="text-xs text-su-muted">
               El: {Math.round(elevation)}&deg;{"  "}Az: {Math.round(azimuth)}
               &deg; {azimuthToCompass(azimuth)}
             </div>
@@ -739,7 +739,7 @@ export function ISSSkyTracker() {
 
           {/* Line 2: Orbital */}
           {iss && (
-            <div className="text-[10px] text-su-muted">
+            <div className="text-xs text-su-muted">
               Alt: {Math.round(iss.position.alt)}km{"  "}
               {(iss.position.velocity * 3600).toLocaleString(undefined, {
                 maximumFractionDigits: 0,
@@ -749,7 +749,7 @@ export function ISSSkyTracker() {
           )}
 
           {/* Line 3: Pass Status */}
-          <div className="text-[10px]">
+          <div className="text-xs">
             {currentPass && passTimeToLos !== null ? (
               <span className="text-green-400">
                 <span className="inline-block mr-1">{"\u25CF"}</span>

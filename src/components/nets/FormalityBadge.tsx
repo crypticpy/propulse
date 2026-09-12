@@ -20,7 +20,7 @@ export function FormalityBadge({ level, size = "md" }: FormalityBadgeProps) {
   if (!label || !colorClasses) return null;
 
   const sizeClasses =
-    size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-2.5 py-1";
+    size === "sm" ? "text-xs px-2 py-0.5" : "text-xs px-2.5 py-1";
 
   return (
     <span

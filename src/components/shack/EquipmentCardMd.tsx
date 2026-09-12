@@ -137,7 +137,7 @@ export function EquipmentCardMd({
       onMouseLeave={() => setIsHovered(false)}
       className={[
         "group relative flex flex-col w-full min-w-0",
-        "bg-[#0f1420] rounded-lg overflow-hidden",
+        "bg-su-panel rounded-lg overflow-hidden",
         "border",
         onClick ? "cursor-pointer" : "",
         "transition-all duration-200",

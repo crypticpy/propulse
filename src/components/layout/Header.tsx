@@ -98,14 +98,14 @@ export function Header({
                 <h1 className="font-orbitron text-lg md:text-xl font-black text-gradient-orange tracking-wider">
                   PROPULSE
                 </h1>
-                <p className="text-[10px] text-su-muted uppercase tracking-wider -mt-1">
+                <p className="text-xs text-su-muted uppercase tracking-wider -mt-1">
                   The ionosphere, visualized
                 </p>
               </div>
             </Link>
 
             {/* Navigation */}
-            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:overflow-visible xl:order-none xl:col-span-1">
+            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:flex-wrap md:overflow-visible xl:order-none xl:col-span-1">
               {/* Main nav items */}
               {mainNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
@@ -213,7 +213,7 @@ export function Header({
             </nav>
 
             {/* Right side: Time & Settings */}
-            <div className="flex min-w-0 items-center justify-end gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
               <div className="hidden shrink-0 text-right sm:block">
                 <HeaderClock />
                 {!publicView && <Suspense fallback={<span className="inline-block h-4 w-14" aria-hidden="true" />}>
@@ -222,7 +222,7 @@ export function Header({
               </div>
 
               {/* Global status and account controls stay in the same place on every route. */}
-              {publicView ? <Link to="/profile" className="text-sm text-su-text px-3 py-3">Sign in</Link> : <div className="flex shrink-0 items-center gap-1">
+              {publicView ? <Link to="/profile" className="text-sm text-su-text px-3 py-3">Sign in</Link> : <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
                 {/* Alert Indicator */}
                 {alertCount > 0 && (
                   <button
@@ -440,7 +440,7 @@ function AuthHeaderButton() {
         <HeaderRankBadge />
       </Suspense>
       {subscriptionTier === "pro" && (
-        <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
+        <span className="text-xs font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
           PRO
         </span>
       )}

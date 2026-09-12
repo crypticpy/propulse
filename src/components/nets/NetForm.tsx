@@ -799,7 +799,7 @@ export function NetForm({
                 onChange={(e) => setFormalityLevel(Number(e.target.value))}
                 className="w-full accent-plasma-orange"
               />
-              <div className="flex justify-between text-[10px] text-su-muted mt-1">
+              <div className="flex justify-between text-xs text-su-muted mt-1">
                 <span>Casual</span>
                 <span>Formal</span>
               </div>
@@ -827,7 +827,7 @@ export function NetForm({
               />
               <div>
                 <span className="text-sm text-su-text">Newcomer Friendly</span>
-                <p className="text-[11px] text-su-muted">
+                <p className="text-xs text-su-muted">
                   This net welcomes first-time check-ins
                 </p>
               </div>
@@ -1007,7 +1007,7 @@ export function NetForm({
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-su-line/20 text-su-muted border border-su-line/20"
+                className="px-2 py-0.5 text-xs font-medium rounded-full bg-su-line/20 text-su-muted border border-su-line/20"
               >
                 {tag}
               </span>
@@ -1041,7 +1041,7 @@ export function NetForm({
                 <span className="text-sm font-medium text-su-text">
                   {opt.label}
                 </span>
-                <p className="text-[11px] text-su-muted">{opt.description}</p>
+                <p className="text-xs text-su-muted">{opt.description}</p>
               </div>
             </label>
           ))}

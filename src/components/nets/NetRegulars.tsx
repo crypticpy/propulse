@@ -144,13 +144,13 @@ export function NetRegulars({ netId }: NetRegularsProps) {
       <div className="space-y-0.5">
         {regulars.map((entry, idx) => (
           <div key={entry.callsign} className="flex items-center gap-3 py-1.5">
-            <span className="w-5 text-right text-[10px] text-su-muted">
+            <span className="w-5 text-right text-xs text-su-muted">
               {idx + 1}
             </span>
             <span className="font-mono text-sm text-su-text">
               {entry.callsign}
             </span>
-            <span className="ml-auto rounded-full bg-su-line/20 px-1.5 py-0.5 text-[10px] text-su-muted">
+            <span className="ml-auto rounded-full bg-su-line/20 px-1.5 py-0.5 text-xs text-su-muted">
               {entry.count}
             </span>
           </div>

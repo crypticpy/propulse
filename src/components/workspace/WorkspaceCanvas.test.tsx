@@ -13,7 +13,7 @@ const RAIL_COMPATIBLE_ENTRIES = Object.values(WIDGET_REGISTRY).filter(
 
 const originalState = useWorkspaceStore.getState();
 
-/** Every weight-1, rail-eligible, non-hero registry id — used to fill workstation's 5+6+6=17 rail slots deterministically. */
+/** Every weight-1, rail-eligible, non-hero registry id — used to fill the workstation's declared rail budgets. */
 const ONE_WEIGHT_RAIL_IDS = Object.values(WIDGET_REGISTRY)
   .filter(
     (entry) =>
@@ -23,6 +23,11 @@ const ONE_WEIGHT_RAIL_IDS = Object.values(WIDGET_REGISTRY)
       (entry.densities.includes("work") || entry.densities.includes("glance")),
   )
   .map((entry) => entry.id);
+
+const WORKSTATION_RAIL_BUDGET = canvasRulesFor("workstation").rails.reduce(
+  (n, rail) => n + rail.weightBudget,
+  0,
+);
 
 describe("WorkspaceCanvas", () => {
   beforeEach(() => {
@@ -57,18 +62,19 @@ describe("WorkspaceCanvas", () => {
   });
 
   it("shows the full-rail refusal sentence in the overlay, without placing the widget", () => {
-    // Fill every rail (17 slots) directly through the store. Every rail's own
+    // Fill every rail through the store. Every rail's own
     // "+ ADD WIDGET" button disappears once it holds a widget (it only shows
     // on a completely empty rail), so the only surviving entry point for a
     // rail-only widget is the workspace bar's button (context "any" —
     // SpaceSlot's is hero-only and the space is still empty, so it would
     // just dock there instead of refusing).
-    const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, 17);
-    expect(oneWeightIds).toHaveLength(17);
+    const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, WORKSTATION_RAIL_BUDGET);
+    expect(oneWeightIds).toHaveLength(WORKSTATION_RAIL_BUDGET);
+    expect(ONE_WEIGHT_RAIL_IDS.length).toBeGreaterThan(WORKSTATION_RAIL_BUDGET);
     for (const id of oneWeightIds) {
       expect(useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, id)).toEqual({ ok: true });
     }
-    const overflowEntry = WIDGET_REGISTRY[ONE_WEIGHT_RAIL_IDS[17]];
+    const overflowEntry = WIDGET_REGISTRY[ONE_WEIGHT_RAIL_IDS[WORKSTATION_RAIL_BUDGET]];
     expect(overflowEntry.canSpace).toBe(false);
 
     render(

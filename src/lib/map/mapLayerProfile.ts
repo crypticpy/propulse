@@ -24,6 +24,19 @@ export interface MapLayerProfile {
     /** event label drawn when projection.zoomScale is greater than this; 0 means at every zoom */
     readonly labelMinZoomScale: number;
   };
+  /** Consumed only by the azimuthal per-vertex seam strategy in
+   * bordersLayer.ts's `traceRing` (#1091 PR 6). The flat map's seam
+   * (`addWrappedRingPath`, wrap-and-repeat) never reads this group, so it is
+   * deliberately absent from FLAT_LAYER_PROFILE rather than filled with
+   * placeholder numbers a flat-map reader would never see. */
+  readonly borders?: {
+    /** Drop a ring vertex when its normalised distance from the disc centre
+     * exceeds this. */
+    readonly rimDrop: number;
+    /** Jump-break (moveTo instead of lineTo) when a step's squared canvas
+     * distance exceeds this fraction of the disc radius squared. */
+    readonly jumpBreakFraction: number;
+  };
 }
 
 export const FLAT_LAYER_PROFILE: MapLayerProfile = {
@@ -57,5 +70,9 @@ export const AZIMUTHAL_LAYER_PROFILE: MapLayerProfile = {
   },
   weatherAlerts: {
     labelMinZoomScale: 0,
+  },
+  borders: {
+    rimDrop: 0.99,
+    jumpBreakFraction: 0.25,
   },
 };

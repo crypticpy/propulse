@@ -64,14 +64,19 @@ import {
 import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
-import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
-import { US_STATES } from "@/lib/data/usStates.generated";
 import { createAzimuthalProjection } from "@/lib/map/projection";
+import type { Projection } from "@/lib/map/projection";
 import { AZIMUTHAL_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
 import { drawLightningLayer } from "./layers/lightningLayer";
+import {
+  drawCountryBordersLayer,
+  drawStateBordersLayer,
+  drawBoostedCountryBordersLayer,
+  drawBoostedStateBordersLayer,
+} from "./layers/bordersLayer";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
@@ -1200,129 +1205,6 @@ function drawAzimuthalLabels(
 }
 
 /**
- * Draw country borders on azimuthal projection
- */
-function drawAzimuthalBorders(
-  ctx: CanvasRenderingContext2D,
-  centerLat: number,
-  centerLon: number,
-  opacity: number,
-  lineWidth: number,
-) {
-  ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-  ctx.lineWidth = lineWidth;
-
-  ctx.beginPath();
-  for (const country of WORLD_COUNTRIES) {
-    for (const ring of country.borders) {
-      let inPath = false;
-
-      for (let i = 0; i < ring.length; i++) {
-        const [lat, lon] = ring[i];
-        const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-        const dist = Math.sqrt(
-          projected.x * projected.x + projected.y * projected.y,
-        );
-
-        if (dist > 0.99) {
-          // Outside visible circle — break the path
-          inPath = false;
-          continue;
-        }
-
-        const canvas = projToCanvas(projected);
-
-        if (!inPath) {
-          ctx.moveTo(canvas.x, canvas.y);
-          inPath = true;
-        } else {
-          // Check for large jumps (anti-meridian or edge wrapping)
-          const prev = ring[i - 1];
-          if (prev) {
-            const prevProj = azimuthalProject(
-              prev[0],
-              prev[1],
-              centerLat,
-              centerLon,
-            );
-            const prevCanvas = projToCanvas(prevProj);
-            const dx = canvas.x - prevCanvas.x;
-            const dy = canvas.y - prevCanvas.y;
-            if (dx * dx + dy * dy > RADIUS * RADIUS * 0.25) {
-              // Big jump — start new sub-path
-              ctx.moveTo(canvas.x, canvas.y);
-              continue;
-            }
-          }
-          ctx.lineTo(canvas.x, canvas.y);
-        }
-      }
-    }
-  }
-  ctx.stroke();
-}
-
-/**
- * Draw US state borders on azimuthal projection
- */
-function drawAzimuthalStateBorders(
-  ctx: CanvasRenderingContext2D,
-  centerLat: number,
-  centerLon: number,
-  opacity: number,
-  lineWidth: number,
-) {
-  ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-  ctx.lineWidth = lineWidth;
-
-  ctx.beginPath();
-  for (const state of US_STATES) {
-    for (const ring of state.borders) {
-      let inPath = false;
-
-      for (let i = 0; i < ring.length; i++) {
-        const [lat, lon] = ring[i];
-        const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-        const dist = Math.sqrt(
-          projected.x * projected.x + projected.y * projected.y,
-        );
-
-        if (dist > 0.99) {
-          inPath = false;
-          continue;
-        }
-
-        const canvas = projToCanvas(projected);
-
-        if (!inPath) {
-          ctx.moveTo(canvas.x, canvas.y);
-          inPath = true;
-        } else {
-          const prev = ring[i - 1];
-          if (prev) {
-            const prevProj = azimuthalProject(
-              prev[0],
-              prev[1],
-              centerLat,
-              centerLon,
-            );
-            const prevCanvas = projToCanvas(prevProj);
-            const dx = canvas.x - prevCanvas.x;
-            const dy = canvas.y - prevCanvas.y;
-            if (dx * dx + dy * dy > RADIUS * RADIUS * 0.25) {
-              ctx.moveTo(canvas.x, canvas.y);
-              continue;
-            }
-          }
-          ctx.lineTo(canvas.x, canvas.y);
-        }
-      }
-    }
-  }
-  ctx.stroke();
-}
-
-/**
  * Draw borders with boosted opacity on the night side (clipped)
  */
 function drawAzimuthalNightBoostedBorders(
@@ -1332,6 +1214,7 @@ function drawAzimuthalNightBoostedBorders(
   centerLon: number,
   drawCountry: boolean,
   drawStates: boolean,
+  projection: Projection,
 ) {
   const subsolar = getSubsolarPoint(date);
 
@@ -1421,10 +1304,10 @@ function drawAzimuthalNightBoostedBorders(
 
   // Now draw borders at boosted opacity within the clip
   if (drawCountry) {
-    drawAzimuthalBorders(ctx, centerLat, centerLon, 0.55, 1.0);
+    drawBoostedCountryBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
   }
   if (drawStates) {
-    drawAzimuthalStateBorders(ctx, centerLat, centerLon, 0.4, 0.7);
+    drawBoostedStateBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE);
   }
 
   ctx.restore();
@@ -2501,25 +2384,22 @@ export function AzimuthalView({
     // Draw country borders (independent of labels toggle)
     if (labelOptions.borders) {
       const isStandard = mapStyle === "standard";
-      drawAzimuthalBorders(
-        ctx,
-        center.lat,
-        center.lon,
-        isStandard ? 0.65 : 0.3,
-        isStandard ? 1.0 : 0.8,
-      );
+      drawCountryBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE, {
+        standardMode: isStandard,
+        // The disc reads the theme store but has always drawn white
+        // borders in the light theme; harmonising is a design decision,
+        // see the PR notes.
+        lightTheme: false,
+      });
     }
 
     // Draw state borders
     if (labelOptions.stateBorders) {
       const isStandard = mapStyle === "standard";
-      drawAzimuthalStateBorders(
-        ctx,
-        center.lat,
-        center.lon,
-        isStandard ? 0.45 : 0.2,
-        isStandard ? 0.7 : 0.5,
-      );
+      drawStateBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE, {
+        standardMode: isStandard,
+        lightTheme: false,
+      });
     }
 
     // Night-boosted border pass
@@ -2534,6 +2414,7 @@ export function AzimuthalView({
         center.lon,
         labelOptions.borders,
         labelOptions.stateBorders,
+        projection,
       );
     }
 

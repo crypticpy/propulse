@@ -216,11 +216,18 @@ import {
 } from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
 import { createEquirectangularProjection } from "@/lib/map/projection";
+import type { Projection } from "@/lib/map/projection";
 import { FLAT_LAYER_PROFILE } from "@/lib/map/mapLayerProfile";
 import { drawFiresLayer } from "./layers/firesLayer";
 import { drawEarthquakesLayer } from "./layers/earthquakesLayer";
 import { drawWeatherAlertsLayer } from "./layers/weatherAlertsLayer";
 import { drawLightningLayer } from "./layers/lightningLayer";
+import {
+  drawCountryBordersLayer,
+  drawStateBordersLayer,
+  drawBoostedCountryBordersLayer,
+  drawBoostedStateBordersLayer,
+} from "./layers/bordersLayer";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -2394,23 +2401,15 @@ function drawLabels(
   viewportHeight = 0,
   gridLabelDetail = 2,
   lightTheme = false,
+  projection: Projection,
 ) {
   const lightStandard = standardMode && lightTheme;
   // Draw country border polygons
   if (opts.borders) {
-    ctx.strokeStyle = standardMode
-      ? lightStandard
-        ? "rgba(15, 23, 42, 0.6)"
-        : "rgba(255, 255, 255, 0.65)"
-      : "rgba(255, 255, 255, 0.3)";
-    ctx.lineWidth = standardMode ? 1.0 : 0.8;
-    ctx.beginPath();
-    for (const country of WORLD_COUNTRIES) {
-      for (const ring of country.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
+    drawCountryBordersLayer(ctx, projection, FLAT_LAYER_PROFILE, {
+      standardMode,
+      lightTheme,
+    });
   }
 
   // Draw country name labels
@@ -2642,24 +2641,14 @@ function drawLabels(
  */
 function drawStateBorders(
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
   standardMode: boolean,
-  lightTheme = false,
+  lightTheme: boolean,
+  projection: Projection,
 ) {
-  ctx.strokeStyle = standardMode
-    ? lightTheme
-      ? "rgba(15, 23, 42, 0.5)"
-      : "rgba(255, 255, 255, 0.45)"
-    : "rgba(255, 255, 255, 0.2)";
-  ctx.lineWidth = standardMode ? 0.7 : 0.5;
-  ctx.beginPath();
-  for (const state of US_STATES) {
-    for (const ring of state.borders) {
-      addWrappedRingPath(ctx, ring, width, height);
-    }
-  }
-  ctx.stroke();
+  drawStateBordersLayer(ctx, projection, FLAT_LAYER_PROFILE, {
+    standardMode,
+    lightTheme,
+  });
 }
 
 /**
@@ -2726,6 +2715,7 @@ function drawNightBoostedBorders(
   height: number,
   drawCountry: boolean,
   drawStates: boolean,
+  projection: Projection,
 ) {
   const subsolar = getSubsolarPoint(date);
   const subsolarLatRad = subsolar.lat * (Math.PI / 180);
@@ -2792,28 +2782,12 @@ function drawNightBoostedBorders(
 
   // Draw boosted country borders within the night clip
   if (drawCountry) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-    ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    for (const country of WORLD_COUNTRIES) {
-      for (const ring of country.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
+    drawBoostedCountryBordersLayer(ctx, projection, FLAT_LAYER_PROFILE);
   }
 
   // Draw boosted state borders within the night clip
   if (drawStates) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    for (const state of US_STATES) {
-      for (const ring of state.borders) {
-        addWrappedRingPath(ctx, ring, width, height);
-      }
-    }
-    ctx.stroke();
+    drawBoostedStateBordersLayer(ctx, projection, FLAT_LAYER_PROFILE);
   }
 
   ctx.restore();
@@ -5427,6 +5401,16 @@ export function FlatMapView({
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
+    // Built once at the top so the border passes below share one instance
+    // with identical inputs to the live-interaction surface's own
+    // `createEquirectangularProjection` call (same renderWidth/renderHeight,
+    // same zoom.scale) -- not a second, differently-configured projection.
+    const bordersProjection = createEquirectangularProjection({
+      width: renderWidth,
+      height: renderHeight,
+      zoomScale: zoom.scale,
+    });
+
     // RainViewer (+ NEXRAD) equirect overlay — after basemap underlay, before spots.
     if (layers.radar && radarCanvas) {
       context.save();
@@ -5520,6 +5504,7 @@ export function FlatMapView({
         0,
         2,
         themeId === "light",
+        bordersProjection,
       );
     }
     if (labelOptions.wasOverlay) {
@@ -5528,10 +5513,9 @@ export function FlatMapView({
     if (labelOptions.stateBorders) {
       drawStateBorders(
         context,
-        renderWidth,
-        renderHeight,
         isStandard,
         themeId === "light",
+        bordersProjection,
       );
     }
     if (
@@ -5545,6 +5529,7 @@ export function FlatMapView({
         renderHeight,
         labelOptions.borders,
         labelOptions.stateBorders,
+        bordersProjection,
       );
     }
     if (layers.labels) {
@@ -5570,6 +5555,7 @@ export function FlatMapView({
         displaySize.height,
         gridLabelDetail,
         themeId === "light",
+        bordersProjection,
       );
     }
 

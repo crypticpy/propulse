@@ -318,8 +318,8 @@ export function CallsignLookupSuggestions({
                 type="button"
                 onClick={handleSaveQrzKey}
                 disabled={!qrzKeyDraft.trim()}
-                className="px-2 py-1 text-xs rounded bg-nebula-blue/20 text-nebula-blue
-                           border border-nebula-blue/30 hover:bg-nebula-blue/30 transition-colors
+                className="px-2 py-1 text-xs rounded bg-nebula-blue/20 text-su-text
+                           border border-nebula-blue/30 hover:bg-nebula-blue/20 transition-colors
                            disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Save
@@ -345,8 +345,8 @@ export function CallsignLookupSuggestions({
           type="button"
           onClick={() => onApply(result, selected)}
           disabled={selected.size === 0}
-          className="px-3 py-1 text-xs font-medium rounded bg-signal-green/20 text-signal-green
-                     border border-signal-green/30 hover:bg-signal-green/30 transition-colors
+          className="px-3 py-1 text-xs font-medium rounded bg-signal-green/20 text-su-text
+                     border border-signal-green/30 hover:bg-signal-green/20 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Apply Selected ({selected.size})

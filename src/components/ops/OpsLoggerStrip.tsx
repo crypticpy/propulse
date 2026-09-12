@@ -155,7 +155,7 @@ export function OpsLoggerStrip() {
                   resolved ? { lat: resolved.target.lat, lon: resolved.target.lon } : null,
                 );
               }}
-              className="rounded border border-plasma-orange/40 bg-plasma-orange/25 px-2 py-1 text-xs font-bold text-plasma-orange"
+              className="rounded border border-plasma-orange/40 bg-plasma-orange/20 px-2 py-1 text-xs font-bold text-su-text"
             >
               Replace
             </button>
@@ -254,7 +254,7 @@ export function OpsLoggerStrip() {
           disabled={!canLog || dupeBlocks}
           className={`h-9 rounded-md px-3 text-xs font-bold uppercase tracking-wide ${
             canLog && !dupeBlocks
-              ? "bg-signal-green/20 text-signal-green hover:bg-signal-green/30"
+              ? "bg-signal-green/20 text-su-text hover:bg-signal-green/20"
               : "cursor-not-allowed bg-su-line/10 text-su-muted"
           }`}
           title={

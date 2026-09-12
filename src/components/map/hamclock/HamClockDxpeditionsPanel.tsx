@@ -69,7 +69,7 @@ export function HamClockDxpeditionsPanel() {
           >
             <span className="flex min-w-0 items-center gap-1.5">
               {active && (
-                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-xs font-bold text-signal-green">
+                <span className="rounded border border-signal-green/35 bg-signal-green/10 px-1 font-mono text-xs font-bold text-su-text">
                   NOW
                 </span>
               )}

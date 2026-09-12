@@ -65,7 +65,7 @@ export function ProtocolCheatSheet({
         <div className="px-4 pb-4 pt-1 space-y-3">
           {/* Newcomer Friendly badge */}
           {newcomerFriendly && (
-            <div className="inline-flex items-center gap-1.5 bg-signal-green/15 text-signal-green border border-signal-green/30 rounded-full px-2.5 py-1 text-xs font-medium">
+            <div className="inline-flex items-center gap-1.5 bg-signal-green/15 text-su-text border border-signal-green/30 rounded-full px-2.5 py-1 text-xs font-medium">
               {/* Hand wave icon */}
               <svg
                 className="w-3.5 h-3.5"

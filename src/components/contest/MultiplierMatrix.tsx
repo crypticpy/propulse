@@ -181,9 +181,9 @@ function GridCell({
   isWorked,
   bands,
   showBands = false,
-  size = "md",
+  size: _size = "md",
 }: GridCellProps) {
-  const sizeClasses = size === "sm" ? "w-7 h-6 text-[10px]" : "w-8 h-7 text-xs";
+  const sizeClasses = "w-8 h-7 text-xs";
 
   return (
     <div
@@ -401,7 +401,7 @@ function MultiplierSection({
             </>
           )}
           {rule.perBand && selectedBand && !showAllBandsView && (
-            <span className="text-su-muted text-[10px]">on {selectedBand}</span>
+            <span className="text-su-muted text-xs">on {selectedBand}</span>
           )}
         </div>
       </div>
@@ -415,7 +415,7 @@ function MultiplierSection({
             .map((value) => (
               <div
                 key={value}
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold
+                className="px-2 py-0.5 rounded text-xs font-mono font-bold
                   bg-signal-green/25 border border-signal-green/60 text-signal-green"
               >
                 {value}
@@ -489,7 +489,7 @@ function BandTabs({
       <button
         onClick={() => onSelectBand(null)}
         className={`
-          px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors whitespace-nowrap
+          px-2 py-1 text-xs font-bold uppercase rounded transition-colors whitespace-nowrap
           ${
             selectedBand === null
               ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
@@ -510,7 +510,7 @@ function BandTabs({
             key={band}
             onClick={() => onSelectBand(band)}
             className={`
-              px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors whitespace-nowrap
+              px-2 py-1 text-xs font-bold uppercase rounded transition-colors whitespace-nowrap
               flex items-center gap-1
               ${
                 isSelected
@@ -523,7 +523,7 @@ function BandTabs({
             {count > 0 && (
               <span
                 className={`
-                  text-[9px] px-1 rounded-full
+                  text-xs px-1 rounded-full
                   ${isSelected ? "bg-cosmic-cyan/30" : "bg-su-line/20"}
                 `}
               >
@@ -622,7 +622,7 @@ export function MultiplierMatrix({
           </span>
         </div>
         {hasPerBand && (
-          <div className="text-[10px] text-su-muted mt-1">
+          <div className="text-xs text-su-muted mt-1">
             {typeCount} type{typeCount > 1 ? "s" : ""}, per-band
           </div>
         )}
@@ -671,11 +671,11 @@ export function MultiplierMatrix({
       <div className="flex items-center gap-4 mt-4 pt-3 border-t border-su-line/40">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-signal-green/25 border border-signal-green/60" />
-          <span className="text-[10px] text-su-muted">Worked</span>
+          <span className="text-xs text-su-muted">Worked</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-su-line/10 border border-su-line/40" />
-          <span className="text-[10px] text-su-muted">Needed</span>
+          <span className="text-xs text-su-muted">Needed</span>
         </div>
       </div>
     </Card>

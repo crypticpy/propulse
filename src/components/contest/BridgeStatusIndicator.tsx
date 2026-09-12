@@ -216,7 +216,7 @@ export function BridgeStatusIndicator({
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between">
               <span className="text-su-muted">Bridge URL</span>
-              <span className="text-su-muted font-mono text-[10px]">
+              <span className="text-su-muted font-mono text-xs">
                 {url.replace("ws://", "")}
               </span>
             </div>
@@ -241,21 +241,21 @@ export function BridgeStatusIndicator({
 
             {error && (
               <div className="mt-2 p-2 rounded bg-alert-red/10 border border-alert-red/30">
-                <span className="text-alert-red text-[10px] line-clamp-3">
+                <span className="text-alert-red text-xs line-clamp-3">
                   {error}
                 </span>
               </div>
             )}
 
             {state === "disconnected" && (
-              <div className="mt-2 text-su-muted text-[10px]">
+              <div className="mt-2 text-su-muted text-xs">
                 Bridge is offline. The app will continue to work without rig
                 control.
               </div>
             )}
 
             {state === "connected" && (
-              <div className="mt-2 text-signal-green/70 text-[10px]">
+              <div className="mt-2 text-signal-green/70 text-xs">
                 Rig control active
               </div>
             )}

@@ -10,7 +10,7 @@ import {
   type ResolvedRoute,
 } from "@/lib/propagation/geometry/route";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
-import { MAX_ROUTE_DISTANCE_KM } from "./fM";
+import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
 import {
   applySunsetDecay,
   longPathLuf,
@@ -584,6 +584,22 @@ describe("what section 5.3.2 refuses rather than guesses", () => {
     expect(result.kind).toBe("unsupported");
     if (result.kind !== "unsupported") return;
     expect(result.detail).toContain("circumference");
+  });
+
+  it("declines a path shorter than 7 000 km, the same reason the sibling leaves use", () => {
+    const result = call({ route: stretched(EQUATORIAL, 6999.999) });
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("out_of_domain");
+    expect(result.detail).toContain("5.1");
+    expect(result.detail).toContain(String(LONG_PATH_MIN_DISTANCE_KM));
+  });
+
+  it("accepts a path at exactly the 7 000 km lower bound", () => {
+    const result = call({
+      route: stretched(EQUATORIAL, LONG_PATH_MIN_DISTANCE_KM),
+    });
+    expect(result.kind).toBe("resolved");
   });
 
   it("declines a month or an hour the tables have no column for", () => {

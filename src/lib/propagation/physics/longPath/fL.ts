@@ -163,7 +163,7 @@
  */
 
 import tables from "../assets/p533-fl-tables.json";
-import { MAX_ROUTE_DISTANCE_KM } from "./fM";
+import { LONG_PATH_MIN_DISTANCE_KM, MAX_ROUTE_DISTANCE_KM } from "./fM";
 import { hopGeometry } from "@/lib/propagation/geometry/hop";
 import {
   routeSampleAtFraction,
@@ -464,6 +464,14 @@ export function longPathLuf(inputs: LongPathLufInputs): LongPathLufResult {
       `the route is ${D.toFixed(1)} km, longer than the ` +
         `${MAX_ROUTE_DISTANCE_KM.toFixed(1)} km circumference of the declared ` +
         `sphere, so it is not a path length.`,
+      D,
+    );
+  }
+  if (D < LONG_PATH_MIN_DISTANCE_KM) {
+    return unsupported(
+      `section 5.3 applies to paths of at least ` +
+        `${String(LONG_PATH_MIN_DISTANCE_KM)} km; this path is ` +
+        `${D.toFixed(1)} km, where sections 5.1 and 5.2 apply.`,
       D,
     );
   }

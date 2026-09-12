@@ -160,7 +160,7 @@ function QSOCard({
             {badges.map((b) => (
               <span
                 key={b}
-                className="text-xs font-mono font-bold text-signal-green bg-signal-green/10 px-1 rounded"
+                className="text-xs font-mono font-bold text-su-text bg-signal-green/10 px-1 rounded"
               >
                 {b}
               </span>

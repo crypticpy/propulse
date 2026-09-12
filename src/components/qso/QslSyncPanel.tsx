@@ -145,7 +145,7 @@ function DownloadIcon() {
 function LockIcon() {
   return (
     <svg
-      className="w-4 h-4 text-caution-amber"
+      className="w-4 h-4"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -164,10 +164,10 @@ function LockIcon() {
 
 function CredentialLockBanner() {
   return (
-    <div className="flex items-center gap-2 px-4 py-3 bg-caution-amber/10 border border-caution-amber/20 rounded-lg">
+    <div className="flex items-center gap-2 px-4 py-3 bg-caution-amber/10 border border-caution-amber/20 rounded-lg text-su-text">
       <LockIcon />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-caution-amber">Credential store is locked</p>
+        <p className="text-sm">Credential store is locked</p>
         <p className="text-xs text-su-muted mt-0.5">
           Unlock credentials in Settings to sync with QSL services.
         </p>
@@ -296,7 +296,7 @@ function LotwTab() {
         <div
           className={`px-3 py-2 rounded-lg text-xs ${
             error
-              ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
+              ? "bg-alert-red/10 border border-alert-red/20 text-su-text"
               : "bg-su-line/10 text-su-muted"
           }`}
         >
@@ -425,7 +425,7 @@ function EqslTab() {
         <div
           className={`px-3 py-2 rounded-lg text-xs ${
             error
-              ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
+              ? "bg-alert-red/10 border border-alert-red/20 text-su-text"
               : "bg-su-line/10 text-su-muted"
           }`}
         >
@@ -527,7 +527,7 @@ function QrzTab() {
         <div
           className={`px-3 py-2 rounded-lg text-xs ${
             error
-              ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
+              ? "bg-alert-red/10 border border-alert-red/20 text-su-text"
               : "bg-su-line/10 text-su-muted"
           }`}
         >

@@ -30,28 +30,28 @@ const STATUS_CONFIG: Record<DXCCStatus, StatusConfig> = {
   new_entity: {
     label: "New Entity!",
     bg: "bg-alert-red/15",
-    text: "text-alert-red",
+    text: "text-su-text",
     border: "border-alert-red/30",
     pulse: true,
   },
   new_band: {
     label: "New Band",
     bg: "bg-signal-green/15",
-    text: "text-signal-green",
+    text: "text-su-text",
     border: "border-signal-green/30",
     pulse: true,
   },
   new_mode: {
     label: "New Mode",
     bg: "bg-nebula-blue/15",
-    text: "text-nebula-blue",
+    text: "text-su-text",
     border: "border-nebula-blue/30",
     pulse: false,
   },
   worked: {
     label: "Worked",
     bg: "bg-plasma-orange/15",
-    text: "text-plasma-orange",
+    text: "text-su-text",
     border: "border-plasma-orange/30",
     pulse: false,
   },
@@ -160,7 +160,7 @@ export function DxccStatusBadge({
               inline-flex items-center
               px-1.5 py-0.5 rounded-full
               text-xs font-bold uppercase tracking-wider
-              bg-caution-amber/15 text-caution-amber border border-caution-amber/30
+              bg-caution-amber/15 text-su-text border border-caution-amber/30
               ml-1
             "
           >

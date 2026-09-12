@@ -128,7 +128,7 @@ export function QSOBulkActions() {
           type="button"
           onClick={() => setConfirmDelete(true)}
           disabled={processing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-alert-red/20 text-alert-red hover:bg-alert-red/30 border border-alert-red/30 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-alert-red/20 text-su-text hover:bg-alert-red/20 border border-alert-red/30 disabled:opacity-50"
         >
           <svg
             className="w-4 h-4"

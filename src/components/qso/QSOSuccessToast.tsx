@@ -50,7 +50,7 @@ export function QSOSuccessToast({
         height="18"
         viewBox="0 0 18 18"
         fill="none"
-        className="text-signal-green shrink-0"
+        className="text-su-text shrink-0"
         aria-hidden="true"
       >
         <circle cx="9" cy="9" r="8" stroke="currentColor" strokeWidth="1.5" />
@@ -64,7 +64,7 @@ export function QSOSuccessToast({
       </svg>
 
       <div className="text-sm">
-        <span className="text-signal-green font-medium">Logged </span>
+        <span className="text-su-text font-medium">Logged </span>
         <span className="text-su-text font-mono font-bold">{callsign}</span>
         {totalCount != null && totalCount > 0 && (
           <span className="text-su-muted ml-2">({totalCount} total)</span>

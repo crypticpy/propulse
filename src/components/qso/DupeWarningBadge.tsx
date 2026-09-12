@@ -34,7 +34,7 @@ export function DupeWarningBadge({
     <div
       className="
         flex items-center gap-2 px-3 py-2
-        bg-caution-amber/10 border border-caution-amber/20 rounded-lg
+        bg-caution-amber/10 border border-caution-amber/20 rounded-lg text-su-text
       "
       role="alert"
       aria-label={`Duplicate: already worked ${callsign} on ${band} ${mode}`}
@@ -45,7 +45,7 @@ export function DupeWarningBadge({
         height="16"
         viewBox="0 0 16 16"
         fill="none"
-        className="text-caution-amber shrink-0"
+        className="shrink-0"
         aria-hidden="true"
       >
         <path
@@ -63,7 +63,7 @@ export function DupeWarningBadge({
         <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
       </svg>
 
-      <span className="text-sm text-caution-amber">
+      <span className="text-sm">
         Already worked <span className="font-mono font-medium">{callsign}</span>
         {" on "}
         <span className="font-mono">{band}</span>{" "}
@@ -80,7 +80,7 @@ export function DupeWarningBadge({
               key={b}
               className="
                 text-xs font-mono px-1.5 py-0.5 rounded
-                bg-caution-amber/10 text-caution-amber/80
+                bg-caution-amber/10 text-su-text
               "
             >
               {b}

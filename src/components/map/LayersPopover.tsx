@@ -67,6 +67,16 @@ function formatRotateSpeed(seconds: number): string {
   return `${seconds}s/rev`;
 }
 
+/** Stable panel height in rem; conditional controls scroll within this budget. */
+function reservedSubmenuHeightRem(rowCount: number): number {
+  const panelPadRem = 1; // py-2
+  const headerRem = 1.375 + 0.375; // text-xs line + mb-1.5
+  const rowRem = 1.875; // ToggleRow min-h
+  const gapRem = 0.125; // space-y-0.5
+  const gaps = Math.max(0, rowCount - 1);
+  return panelPadRem + headerRem + rowCount * rowRem + gaps * gapRem;
+}
+
 // ─── Category Icons (16×16 viewBox) ──────────────────────────────────────────
 
 const iconClass = "w-4 h-4 shrink-0 text-su-text/80";
@@ -933,6 +943,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
     [categories],
   );
 
+  // Reserve height for the tallest item list (Activity: 15 rows) so the
+  // popover never grows on category hover and re-clamp cannot move rows
+  // under the pointer (#1139).
+  const submenuReservedHeightRem = useMemo(() => {
+    const maxRows = Math.max(0, ...categories.map((c) => c.items.length));
+    return Math.max(11.25, reservedSubmenuHeightRem(maxRows));
+  }, [categories]);
+
   // ── Enabled counts ──
   const enabledCounts = useMemo(() => {
     const counts: Record<string, { enabled: number; total: number }> = {};
@@ -952,13 +970,9 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
   }, [categories, uiPrefs.bandHeightArcs, viewMode]);
 
   // ── Position calculation, clamped to the viewport ──
-  // The popover is rendered directly under the trigger by default. Its
-  // rendered box is measured (not just requested) with a layout effect so
-  // the browser never paints the naive position first, and a ResizeObserver
-  // plus a window resize listener re-clamp it as the active category's
-  // submenu changes height or the window changes size (HW-23) — B1: this
-  // is a no-op whenever the naive position already fits, which is every
-  // caller of LayersPopover outside HamClock's cramped header.
+  // The outer height is fixed while category content scrolls, so hover cannot
+  // move rows under the pointer (#1139). Re-clamp real size changes (viewport
+  // or root text scale), including changes that do not emit window resize.
   useLayoutEffect(() => {
     if (!open) return;
     const trigger = triggerRef.current;
@@ -987,7 +1001,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       observer.disconnect();
       window.removeEventListener("resize", place);
     };
-  }, [open, activeCategory]);
+  }, [open]);
 
   // ── Open/close logic ──
   const openPopover = useCallback(() => {
@@ -1319,9 +1333,15 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             role="group"
             aria-label="Map layers"
           >
-            <div className="flex bg-[#0c0e18]/[0.96] backdrop-blur-xl border border-su-line/20 rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
+            <div
+              className="flex bg-[#0c0e18]/[0.96] backdrop-blur-xl border border-su-line/20 rounded-xl shadow-2xl shadow-black/60 overflow-hidden"
+              style={{
+                height: `${submenuReservedHeightRem}rem`,
+                maxHeight: "min(70vh, calc(100dvh - 16px))",
+              }}
+            >
               {/* ── Category column ── */}
-              <div className="w-[168px] py-1.5 border-r border-su-line/20">
+              <div className="w-[168px] shrink-0 overflow-y-auto py-1.5 border-r border-su-line/20">
                 {categories.map((cat, i) => (
                   <div key={cat.id}>
                     {i === categories.length - 1 && (
@@ -1365,7 +1385,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                   `sm:` restores the full 14.5rem once there is room. */}
               <div
                 data-layers-submenu=""
-                className="w-[min(14.5rem,calc(100vw-192px))] sm:w-[14.5rem] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5"
+                className="w-[min(14.5rem,calc(100vw-192px))] sm:w-[14.5rem] min-h-0 overflow-y-auto py-2 px-2.5"
               >
                 {/* Category header */}
                 <div className="text-xs uppercase tracking-wider text-su-text/80 font-semibold mb-1.5 px-1">

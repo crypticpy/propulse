@@ -70,7 +70,7 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }) {
   return (
     <span
       className={`
-        px-1.5 py-0.5 text-[10px] font-bold uppercase
+        px-1.5 py-0.5 text-xs font-bold uppercase
         rounded border ${c.bg} ${c.border} ${c.text}
       `}
     >
@@ -160,17 +160,17 @@ function FlaggedQSORow({
         {/* Summary badges */}
         <div className="flex items-center gap-1">
           {severityCounts.error > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-alert-red/20 text-alert-red rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-alert-red/20 text-alert-red rounded">
               {severityCounts.error}
             </span>
           )}
           {severityCounts.warning > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-caution-amber/20 text-caution-amber rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-caution-amber/20 text-caution-amber rounded">
               {severityCounts.warning}
             </span>
           )}
           {severityCounts.info > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-cosmic-cyan/20 text-cosmic-cyan rounded">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-cosmic-cyan/20 text-cosmic-cyan rounded">
               {severityCounts.info}
             </span>
           )}
@@ -190,7 +190,7 @@ function FlaggedQSORow({
       </div>
 
       {/* Edit hint */}
-      <div className="mt-2 text-[10px] text-su-muted flex items-center gap-1">
+      <div className="mt-2 text-xs text-su-muted flex items-center gap-1">
         <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Enter</kbd>
         <span>or click to edit</span>
       </div>
@@ -357,7 +357,7 @@ export function AuditQueuePanel({
       )}
 
       {/* Keyboard hint */}
-      <div className="mt-4 pt-3 border-t border-su-line/40 text-[10px] text-su-muted">
+      <div className="mt-4 pt-3 border-t border-su-line/40 text-xs text-su-muted">
         Click a QSO to open edit dialog
       </div>
     </Card>

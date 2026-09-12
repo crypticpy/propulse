@@ -954,7 +954,7 @@ export function ShackSchematicView({
         >
           +
         </button>
-        <span className="text-[10px] text-su-muted font-mono w-10 text-center">
+        <span className="text-xs text-su-muted font-mono w-10 text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button
@@ -969,7 +969,7 @@ export function ShackSchematicView({
         <button
           type="button"
           onClick={handleZoomToFit}
-          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium"
+          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-xs font-medium"
           aria-label="Zoom to fit"
         >
           Fit
@@ -991,20 +991,20 @@ export function ShackSchematicView({
             d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
           />
         </svg>
-        <span className="text-[10px] text-su-muted font-medium">
-          {chains.length} signal path{chains.length !== 1 ? "s" : ""}
+        <span className="text-xs text-su-muted font-medium">
+          {chains.length}{" "}<span className="hidden sm:inline">signal </span>path{chains.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* Band selector strip (change #3) */}
       {onSelectBand && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg px-1.5 py-1">
+        <div className="absolute top-12 left-2 right-2 z-10 mx-auto flex w-fit max-w-[calc(100%_-_1rem)] flex-wrap items-center justify-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg px-1.5 py-1">
           {BANDS.map((band) => (
             <button
               key={band}
               type="button"
               onClick={() => onSelectBand(band)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${
+              className={`px-1.5 py-0.5 rounded text-xs font-semibold transition-colors ${
                 selectedBand === band
                   ? "bg-plasma-orange text-su-on-accent"
                   : "text-su-muted hover:text-su-text hover:bg-su-line/20"
@@ -1018,7 +1018,7 @@ export function ShackSchematicView({
 
       {/* Hint badge (bottom-left) */}
       <div className="absolute bottom-2 left-2 z-10 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-su-line/40 rounded-lg">
-        <span className="text-[10px] text-su-muted">
+        <span className="text-xs text-su-muted">
           Click a signal path to edit
         </span>
       </div>

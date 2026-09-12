@@ -1,3 +1,5 @@
+@import "../components/station-ui/treatments.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,6 +31,8 @@
   /* src/lib/themes/stationTokens.test.ts).       */
   /* See docs/designs/design-system/README.md     */
   /* ============================================ */
+  --su-treatment-rest-strength: 10%;
+  --su-treatment-active-strength: 20%;
   --su-canvas: #141827;
   --su-panel: #191e2e;
   --su-input: #111624;
@@ -44,6 +48,34 @@
   --su-warning: #f5cf79;
   --su-danger: #fda4af;
   --su-purple: #b975f0;
+
+  /* Solid treatment fallbacks; tested against stationTokens, never raw user colors. */
+  --su-solid-neutral-fill: #a0abba;
+  --su-solid-neutral-ink: #1e293b;
+  --su-solid-info-fill: #85c4d0;
+  --su-solid-info-ink: #1e293b;
+  --su-solid-success-fill: #8bdbb0;
+  --su-solid-success-ink: #1e293b;
+  --su-solid-warning-fill: #f5cf79;
+  --su-solid-warning-ink: #1e293b;
+  --su-solid-danger-fill: #fda4af;
+  --su-solid-danger-ink: #1e293b;
+  --su-solid-accent-fill: #ff6b35;
+  --su-solid-accent-ink: #1e293b;
+  --su-solid-purple-fill: #b975f0;
+  --su-solid-purple-ink: #1e293b;
+  --su-fixed-dark-solid-neutral-fill: #a0abba;
+  --su-fixed-dark-solid-neutral-ink: #1e293b;
+  --su-fixed-dark-solid-info-fill: #85c4d0;
+  --su-fixed-dark-solid-info-ink: #1e293b;
+  --su-fixed-dark-solid-success-fill: #8bdbb0;
+  --su-fixed-dark-solid-success-ink: #1e293b;
+  --su-fixed-dark-solid-warning-fill: #f5cf79;
+  --su-fixed-dark-solid-warning-ink: #1e293b;
+  --su-fixed-dark-solid-danger-fill: #fda4af;
+  --su-fixed-dark-solid-danger-ink: #1e293b;
+  --su-fixed-dark-solid-purple-fill: #b975f0;
+  --su-fixed-dark-solid-purple-ink: #1e293b;
 
   /* Channel triplets for Tailwind opacity modifiers (text-su-text/70) */
   --su-canvas-rgb: 20 24 39;
@@ -107,6 +139,19 @@
   --su-warning-rgb: var(--su-fixed-dark-warning-rgb);
   --su-danger: var(--su-fixed-dark-danger);
   --su-danger-rgb: var(--su-fixed-dark-danger-rgb);
+
+  --su-solid-neutral-fill: var(--su-fixed-dark-solid-neutral-fill);
+  --su-solid-neutral-ink: var(--su-fixed-dark-solid-neutral-ink);
+  --su-solid-info-fill: var(--su-fixed-dark-solid-info-fill);
+  --su-solid-info-ink: var(--su-fixed-dark-solid-info-ink);
+  --su-solid-success-fill: var(--su-fixed-dark-solid-success-fill);
+  --su-solid-success-ink: var(--su-fixed-dark-solid-success-ink);
+  --su-solid-warning-fill: var(--su-fixed-dark-solid-warning-fill);
+  --su-solid-warning-ink: var(--su-fixed-dark-solid-warning-ink);
+  --su-solid-danger-fill: var(--su-fixed-dark-solid-danger-fill);
+  --su-solid-danger-ink: var(--su-fixed-dark-solid-danger-ink);
+  --su-solid-purple-fill: var(--su-fixed-dark-solid-purple-fill);
+  --su-solid-purple-ink: var(--su-fixed-dark-solid-purple-ink);
 
   /* `purple` (aurora-purple) is a decorative accent, not a status tone, so it
    * takes no colour-blind swap and needs no --su-fixed-dark-* indirection:
@@ -621,12 +666,40 @@
     outline-offset: 2px;
   }
 
+  /* Shared focus colors/ring geometry. Per-control offsets and explicit
+     shadows below retain their existing cascade without repeating the palette. */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  .btn:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [contenteditable="true"]:focus-visible,
+  a:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [role="option"]:focus-visible,
+  [role="listitem"]:focus-visible,
+  .glass-card:focus-visible,
+  .glass-panel:focus-visible,
+  [role="region"]:focus-visible,
+  [tabindex="0"]:focus-visible,
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible,
+  [role="switch"]:focus-visible,
+  input[type="range"]:focus-visible,
+  [role="dialog"]:focus-visible,
+  [role="alertdialog"]:focus-visible {
+    outline: none;
+    @apply ring-2 ring-cosmic-cyan ring-offset-deep-space;
+    --su-focus-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+  }
+
   /* Button-specific focus styles — outline: none overrides the global *:focus-visible outline */
   button:focus-visible,
   [role="button"]:focus-visible,
   .btn:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+    @apply ring-offset-2;
     box-shadow: 0 0 0 2px var(--color-deep-space, #0a0a1a),
                 0 0 0 4px var(--color-cyan, #44ddff),
                 0 0 12px rgba(68, 221, 255, 0.4);
@@ -637,14 +710,14 @@
   textarea:focus-visible,
   select:focus-visible,
   [contenteditable="true"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space border-cosmic-cyan;
+    @apply ring-offset-1 border-cosmic-cyan;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Link focus styles */
   a:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-sm;
+    @apply ring-offset-2 rounded-sm;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Tab and navigation item focus styles */
@@ -652,8 +725,7 @@
   [role="menuitem"]:focus-visible,
   [role="option"]:focus-visible,
   [role="listitem"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space;
+    @apply ring-offset-1;
     box-shadow: inset 0 0 0 2px rgba(68, 221, 255, 0.3);
   }
 
@@ -662,27 +734,27 @@
   .glass-panel:focus-visible,
   [role="region"]:focus-visible,
   [tabindex="0"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+    @apply ring-offset-2;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Checkbox and radio focus styles */
   input[type="checkbox"]:focus-visible,
   input[type="radio"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+    @apply ring-offset-2;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Switch/toggle focus styles */
   [role="switch"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-full;
+    @apply ring-offset-2 rounded-full;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Slider focus styles */
   input[type="range"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-lg;
+    @apply ring-offset-2 rounded-lg;
+    box-shadow: var(--su-focus-shadow);
   }
 
   /* Slider thumb focus (WebKit) */
@@ -693,8 +765,8 @@
   /* Dialog/Modal focus trap styles */
   [role="dialog"]:focus-visible,
   [role="alertdialog"]:focus-visible {
-    outline: none;
-    @apply ring-2 ring-cosmic-cyan ring-offset-4 ring-offset-deep-space;
+    @apply ring-offset-4;
+    box-shadow: var(--su-focus-shadow);
   }
 }
 

@@ -5,8 +5,24 @@
  * and best contact time predictions for Maidenhead grid squares.
  */
 
+import type { SpotSource } from "@/types/livespot";
 import type { DXSpot } from "@/types/dxcluster";
+import {
+  gridActivityGridForCoordinate,
+  gridActivityReportIdentity,
+  type GridActivityEndpoint,
+  type GridActivityResolution,
+} from "@/lib/map/gridActivityModel";
 import { gridToLatLon, gridDistance, gridBearing, isValidGrid } from "./grid";
+
+/** Same recency window the grid-activity highlight uses. */
+const GRID_ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
+
+export interface GetActivityStatsOptions {
+  endpoint?: GridActivityEndpoint;
+  now?: number;
+  windowMs?: number;
+}
 
 /**
  * DXCC Entity information
@@ -714,6 +730,80 @@ export function getDistanceBearing(
   }
 }
 
+function activitySpotTimestamp(spot: DXSpot): number {
+  const timestamp = spot.time instanceof Date
+    ? spot.time.getTime()
+    : new Date(spot.time).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isExactActivityCoordinate(
+  lat: number | undefined,
+  lon: number | undefined,
+  approximate: boolean | undefined,
+): lat is number {
+  return (
+    !approximate &&
+    lat !== undefined &&
+    lon !== undefined &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
+function exactCoordinatePair(
+  lat: number | undefined,
+  lon: number | undefined,
+  approximate: boolean | undefined,
+): { lat: number; lon: number } | null {
+  if (!isExactActivityCoordinate(lat, lon, approximate)) {
+    return null;
+  }
+  return { lat, lon: lon! };
+}
+
+function endpointGridMatchesPrefix(
+  spot: DXSpot,
+  normalizedPrefix: string,
+  endpoint: "dx" | "spotter",
+  resolution: GridActivityResolution,
+): boolean {
+  const lat = endpoint === "dx" ? spot.dxLat : spot.spotterLat;
+  const lon = endpoint === "dx" ? spot.dxLon : spot.spotterLon;
+  const approx = endpoint === "dx" ? spot.dxLocApprox : spot.spotterLocApprox;
+  const gridString = endpoint === "dx" ? spot.dxGrid : spot.spotterGrid;
+
+  const coordinates = exactCoordinatePair(lat, lon, approx);
+  if (coordinates) {
+    return gridActivityGridForCoordinate(
+      coordinates.lat,
+      coordinates.lon,
+      resolution,
+    ).startsWith(normalizedPrefix);
+  }
+  return gridString?.toUpperCase().startsWith(normalizedPrefix) ?? false;
+}
+
+function spotMatchesGridPrefix(
+  spot: DXSpot,
+  normalizedPrefix: string,
+  endpoint: GridActivityEndpoint,
+  resolution: GridActivityResolution,
+): boolean {
+  const checkDx = endpoint === "dx" || endpoint === "both";
+  const checkSpotter = endpoint === "reporter" || endpoint === "both";
+  return (
+    (checkDx &&
+      endpointGridMatchesPrefix(spot, normalizedPrefix, "dx", resolution)) ||
+    (checkSpotter &&
+      endpointGridMatchesPrefix(spot, normalizedPrefix, "spotter", resolution))
+  );
+}
+
 /**
  * Get activity statistics from DX spots for a grid prefix
  *
@@ -724,21 +814,41 @@ export function getDistanceBearing(
  * @returns Activity statistics
  */
 export function getActivityStats(
-  spots: DXSpot[],
+  spots: (DXSpot & { source?: SpotSource })[],
   gridPrefix: string,
+  options: GetActivityStatsOptions = {},
 ): ActivityStats {
   const normalizedPrefix = gridPrefix.toUpperCase();
+  const resolution: GridActivityResolution =
+    normalizedPrefix.length >= 6 ? 6 : 4;
+  const endpoint = options.endpoint ?? "dx";
+  const now = options.now ?? Date.now();
+  const windowMs = options.windowMs ?? GRID_ACTIVITY_WINDOW_MS;
+  const cutoff = now - Math.max(0, windowMs);
 
-  // Filter spots matching the grid prefix (either spotter or DX grid)
-  const matchingSpots = spots.filter((spot) => {
-    const spotterMatch =
-      spot.spotterGrid?.toUpperCase().startsWith(normalizedPrefix) ?? false;
-    const dxMatch =
-      spot.dxGrid?.toUpperCase().startsWith(normalizedPrefix) ?? false;
-    return spotterMatch || dxMatch;
+  const reports = new Map<string, (typeof spots)[number]>();
+  for (const spot of spots) {
+    const timestamp = activitySpotTimestamp(spot);
+    if (timestamp <= cutoff || timestamp > now + 60_000) continue;
+    const identity = gridActivityReportIdentity({ ...spot, source: spot.source ?? "Cluster" });
+    const previous = reports.get(identity);
+    if (!previous || activitySpotTimestamp(previous) < activitySpotTimestamp(spot)) {
+      reports.set(identity, spot);
+    }
+  }
+  const matchingSpots = [...reports.values()].filter((spot) => {
+    const timestamp = activitySpotTimestamp(spot);
+    if (timestamp <= cutoff || timestamp > now + 60_000) {
+      return false;
+    }
+    return spotMatchesGridPrefix(
+      spot,
+      normalizedPrefix,
+      endpoint,
+      resolution,
+    );
   });
 
-  // Count by band
   const byBand: Record<string, number> = {};
   for (const spot of matchingSpots) {
     if (spot.band) {
@@ -746,7 +856,6 @@ export function getActivityStats(
     }
   }
 
-  // Count by mode
   const byMode: Record<string, number> = {};
   for (const spot of matchingSpots) {
     if (spot.mode) {
@@ -754,12 +863,15 @@ export function getActivityStats(
     }
   }
 
-  // Get unique recent callsigns (up to 10, prefer DX callsigns from matching grids)
   const callsignSet = new Set<string>();
   for (const spot of matchingSpots) {
-    if (spot.dxGrid?.toUpperCase().startsWith(normalizedPrefix)) {
+    if (
+      endpointGridMatchesPrefix(spot, normalizedPrefix, "dx", resolution)
+    ) {
       callsignSet.add(spot.dx);
-    } else if (spot.spotterGrid?.toUpperCase().startsWith(normalizedPrefix)) {
+    } else if (
+      endpointGridMatchesPrefix(spot, normalizedPrefix, "spotter", resolution)
+    ) {
       callsignSet.add(spot.spotter);
     }
     if (callsignSet.size >= 10) {

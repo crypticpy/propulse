@@ -263,6 +263,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
         hover:scale-[1.02] hover:shadow-xl
         focus:outline-none focus:ring-2 focus:ring-su-line/50
       `}
+      style={{ maxWidth: "calc(100vw - 2rem)" }}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
@@ -294,7 +295,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
               {isCritical && (
                 <span
                   className={`
-                    px-1.5 py-0.5 rounded text-[10px] font-mono font-bold
+                    px-1.5 py-0.5 rounded text-xs font-mono font-bold
                     ${colors.bg} ${colors.text}
                     flex-shrink-0
                   `}
@@ -311,7 +312,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
 
             {/* Affected bands indicator (if any) */}
             {alert.affectedBands.length > 0 && (
-              <p className="text-[10px] text-su-muted mt-1 font-mono truncate">
+              <p className="text-xs text-su-muted mt-1 font-mono truncate">
                 Affects: {alert.affectedBands.slice(0, 3).join(", ")}
                 {alert.affectedBands.length > 3 &&
                   ` +${alert.affectedBands.length - 3}`}

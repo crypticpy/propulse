@@ -14,4 +14,4 @@ export {
 
 export type StationTextSize = "standard" | "large" | "extra-large";
 export type StationDensity = "comfortable" | "compact";
-export type StationTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type { StationTone } from "@/lib/themes/treatments";

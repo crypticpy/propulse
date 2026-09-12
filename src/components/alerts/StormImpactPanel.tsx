@@ -146,7 +146,7 @@ function BandStatusSection({ entries }: { entries: BandTimelineEntry[] }) {
               className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${BAND_STATUS_COLORS[entry.currentStatus]}`}
             />
             <span className="text-xs font-mono text-su-text">{entry.band}</span>
-            <span className="text-[10px] text-su-muted ml-auto">
+            <span className="text-xs text-su-muted ml-auto">
               {entry.recoveryEstimate}
             </span>
           </div>

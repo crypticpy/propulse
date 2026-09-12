@@ -134,7 +134,7 @@ function SpotMarker3D({
             }}
           >
             <div className="font-bold">{spot.dx}</div>
-            <div className="text-su-muted text-[10px]">
+            <div className="text-su-muted text-xs">
               {(spot.frequency / 1000).toFixed(3)} MHz {spot.mode}
             </div>
           </div>

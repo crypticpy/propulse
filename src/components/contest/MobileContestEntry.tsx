@@ -27,26 +27,26 @@ function ScoreStrip({
     <div className="flex items-center justify-between px-4 py-2 bg-su-line/10 border-b border-su-line/40">
       <div className="flex items-center gap-4">
         <div className="text-center">
-          <div className="text-xs text-su-muted uppercase">QSOs</div>
+          <div className="text-[10px] text-su-muted uppercase">QSOs</div>
           <div className="text-lg font-bold text-su-text font-mono">
             {qsoCount}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-su-muted uppercase">Points</div>
+          <div className="text-[10px] text-su-muted uppercase">Points</div>
           <div className="text-lg font-bold text-signal-green font-mono">
             {points}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-su-muted uppercase">Mults</div>
+          <div className="text-[10px] text-su-muted uppercase">Mults</div>
           <div className="text-lg font-bold text-plasma-orange font-mono">
             {mults}
           </div>
         </div>
       </div>
       <div className="text-right">
-        <div className="text-xs text-su-muted uppercase">Score</div>
+        <div className="text-[10px] text-su-muted uppercase">Score</div>
         <div className="text-lg font-bold text-cosmic-cyan font-mono">
           {(points * Math.max(1, mults)).toLocaleString()}
         </div>
@@ -248,7 +248,7 @@ export function MobileContestEntry() {
 
       {/* Recent QSOs */}
       <div className="border-t border-su-line/40">
-        <div className="px-3 py-1.5 text-xs text-su-muted uppercase tracking-wider font-semibold">
+        <div className="px-3 py-1.5 text-[10px] text-su-muted uppercase tracking-wider font-semibold">
           Recent
         </div>
         <RecentQsoList qsos={session.qsos} />

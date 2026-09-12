@@ -71,10 +71,19 @@ export function applyIdentitySave(
 
   if (!gridUpper) {
     // Cleared grid: drop the locator string only. Do not invent 0,0 or
-    // rewrite saved location coordinates.
+    // rewrite saved location coordinates. Also blank the saved Home's
+    // grid (keeping its lat/lon) so it doesn't keep surfacing the old
+    // locator via useActiveLocation()/saved_locations sync.
+    const clearedHome = homeInList(station);
+    const savedLocations = clearedHome
+      ? station.savedLocations.map((loc) =>
+          loc.id === clearedHome.id ? { ...loc, grid: "" } : loc,
+        )
+      : station.savedLocations;
     return {
       ...station,
       ...identity,
+      savedLocations,
       grid: "",
     };
   }
@@ -99,14 +108,23 @@ export function applyIdentitySave(
   }
 
   const home = makeHomeLocation(gridUpper, coords, options);
+  const savedLocations = [...(station.savedLocations ?? []), home];
+  // If the station has a retained active location other than the new
+  // Home, keep the legacy mirrors aligned with it instead of the Home
+  // centroid so consumers reading activeLocationId (e.g. PropSphere) and
+  // the legacy grid/lat/lon fields agree on the active location.
+  const activeLocation = station.activeLocationId
+    ? savedLocations.find((loc) => loc.id === station.activeLocationId)
+    : undefined;
+  const mirror = activeLocation ?? home;
   return {
     ...station,
     ...identity,
     homeLocationId: home.id,
-    savedLocations: [...(station.savedLocations ?? []), home],
-    grid: gridUpper,
-    lat: coords.lat,
-    lon: coords.lon,
+    savedLocations,
+    grid: mirror.grid,
+    lat: mirror.lat,
+    lon: mirror.lon,
   };
 }
 

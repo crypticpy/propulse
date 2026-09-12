@@ -22,13 +22,11 @@
  * the lower-of-two `basicMufFoEMHz` that section 3.3 asks for). Neither is
  * restated here.
  *
- * WHICH ELEVATION. Not the mode's own elevation angle. `delta_F` is equation
- * (13) evaluated at the *section 5.1* mirror height of this hop, the long
- * G/J/U formula in `geometry/reflectionHeight.ts`, which is a different height
- * from the equation (2) height the mode's reported elevation uses. See
- * `modeTypes.ts` for the evidence that the two are genuinely different in the
- * reference and why. This module takes the elevation as an argument and does
- * not choose it; `modeSet.ts` does.
+ * WHICH ELEVATION. The mode's product elevation: equation (13) evaluated at
+ * its section 5.1 mirror height, from `geometry/reflectionHeight.ts`. This is
+ * `PropagationMode.elevationRad`, not the equation (2) selection elevation.
+ * `modeTypes.ts` documents the distinction from the reference implementation.
+ * This helper accepts an angle; `modeSet.ts` chooses the product geometry.
  *
  * WHAT HAPPENS BEYOND 4000 km. Section 4's first sentence: "E-layer screening
  * of F2 modes is considered for paths up to 4 000 km (see Table 1b)." Beyond
@@ -91,9 +89,8 @@ export function screeningIncidenceAngleRad(f2ElevationRad: number): number {
  *
  * `f2ElevationRad` is the F2 mode's elevation at its section 5.1 mirror
  * height, equation (13). At vertical incidence (delta = pi/2) i is zero and fs
- * is 1.05 foE; at grazing incidence sec i grows without bound, which is the
- * physical statement that a nearly horizontal ray meets the E layer nearly
- * along it and is stopped at almost any frequency.
+ * is 1.05 foE. At zero launch elevation sec i reaches its finite spherical
+ * maximum, since R0 / (R0 + 110) remains strictly less than one.
  */
 export function screeningFrequencyMHz(
   foEMHz: number,

@@ -241,7 +241,9 @@ export interface ModeSetInputs {
 
 /** Which control point the equation (2) mode-existence height was read at. */
 export type F2MirrorHeightSource =
-  "mid_path" | "table_1c_lowest_fof2" | "no_f2_mode";
+  | "mid_path"
+  | "table_1c_lowest_fof2"
+  | "no_f2_mode";
 
 export interface ResolvedModeSet {
   readonly kind: "resolved";
@@ -289,12 +291,29 @@ interface SampledPoint {
 /**
  * The modes P.533-14 section 5.2.1 considers for one circuit at one frequency.
  *
- * Returns `unsupported` only where slice A does: beyond 9000 km, where the
+ * Returns `unsupported` for a sampled state with non-positive equation (2)
+ * height, and where slice A does: beyond 9000 km, where the
  * short-path method does not apply, and where no mode of either layer reaches
  * at all. A path whose every mode is screened is still `resolved`, with an
  * empty `supportedModes` and six labelled reasons why.
  */
-export function modeSet({
+class ModeStateOutOfDomain extends Error {}
+
+export function modeSet(inputs: ModeSetInputs): ModeSetResult {
+  try {
+    return resolveModeSet(inputs);
+  } catch (error) {
+    if (!(error instanceof ModeStateOutOfDomain)) throw error;
+    return {
+      kind: "unsupported",
+      reason: "out_of_domain",
+      detail: error.message,
+      groundDistanceKm: inputs.route.groundDistanceKm,
+    };
+  }
+}
+
+function resolveModeSet({
   route,
   frequencyMHz,
   sample,
@@ -321,6 +340,15 @@ export function modeSet({
     const hit = seen.get(key);
     if (hit !== undefined) return hit;
     const state = sample(point, label);
+    // Both selection and the section 5.1 helper require positive equation (2)
+    // geometry. Reject this sampled circuit explicitly before either helper
+    // can throw, preserving the original state rather than clipping M.
+    if (state.m3000F2 >= 1490 / 176) {
+      throw new ModeStateOutOfDomain(
+        `M(3000)F2 at ${label} (${String(state.m3000F2)}) gives a non-positive ` +
+          "equation (2) mirror height; this mode model requires M(3000)F2 < 1490/176.",
+      );
+    }
     seen.set(key, state);
     controlPoints.push({ label, point, state });
     return state;

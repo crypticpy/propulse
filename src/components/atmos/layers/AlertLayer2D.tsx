@@ -3,6 +3,7 @@
  * Color-coded by severity with click-to-popup for alert details
  */
 
+import { ATMOS_ALERT_SEVERITY_COLORS as SEVERITY_COLORS } from "@/lib/colors/palettes/weather";
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
@@ -14,15 +15,6 @@ interface AlertLayer2DProps {
 
 const SOURCE_ID = "nws-alerts";
 const LAYER_ID = "nws-alert-circles";
-
-/** Severity-to-color mapping */
-const SEVERITY_COLORS: Record<WeatherAlert["severity"], string> = {
-  Extreme: "#ff0040",
-  Severe: "#ff6600",
-  Moderate: "#ffaa00",
-  Minor: "#ffdd44",
-  Unknown: "#888888",
-};
 
 function alertsToGeoJSON(alerts: WeatherAlert[]): GeoJSON.FeatureCollection {
   return {
@@ -39,7 +31,7 @@ function alertsToGeoJSON(alerts: WeatherAlert[]): GeoJSON.FeatureCollection {
         headline: a.headline,
         severity: a.severity,
         areaDesc: a.areaDesc,
-        color: SEVERITY_COLORS[a.severity] ?? "#888888",
+        color: SEVERITY_COLORS[a.severity] ?? SEVERITY_COLORS.Unknown,
       },
     })),
   };
@@ -103,7 +95,7 @@ export function AlertLayer2D({ map }: AlertLayer2DProps) {
       ).coordinates.slice() as [number, number];
       const severity = props.severity as string;
       const color =
-        SEVERITY_COLORS[severity as WeatherAlert["severity"]] ?? "#888";
+        SEVERITY_COLORS[severity as WeatherAlert["severity"]] ?? SEVERITY_COLORS.Unknown;
 
       popupRef.current = new maplibregl.Popup({
         closeButton: true,

@@ -5,6 +5,10 @@
  */
 
 import { useAtmosStore } from "@/stores/atmosStore";
+import {
+  ATMOS_WEATHER_LEGEND_ENTRIES,
+  ATMOS_STORM_LEGEND_ENTRIES,
+} from "@/lib/colors/palettes/weather";
 
 /* ── Legend entry renderers ────────────────────────────────────────── */
 
@@ -111,12 +115,7 @@ export function WeatherLegend() {
       {layerVisibility.alerts && (
         <DotRow
           label="Alerts"
-          items={[
-            { color: "#3b82f6", text: "Minor" },
-            { color: "#eab308", text: "Moderate" },
-            { color: "#f97316", text: "Severe" },
-            { color: "#ef4444", text: "Extreme" },
-          ]}
+          items={ATMOS_WEATHER_LEGEND_ENTRIES}
         />
       )}
 
@@ -131,12 +130,7 @@ export function WeatherLegend() {
       {layerVisibility.tropical && (
         <DotRow
           label="Tropical Systems"
-          items={[
-            { color: "#3b82f6", text: "TD" },
-            { color: "#eab308", text: "TS" },
-            { color: "#f97316", text: "Cat 1-2" },
-            { color: "#ef4444", text: "Cat 3-5" },
-          ]}
+          items={ATMOS_STORM_LEGEND_ENTRIES}
         />
       )}
 

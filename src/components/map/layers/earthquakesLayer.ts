@@ -8,6 +8,7 @@
  * `MapLayerProfile` constants (#1091).
  */
 
+import { getEarthquakeMagnitudeColor as colorForMagnitude } from "@/lib/colors/palettes/weather";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { Projection } from "@/lib/map/projection";
 import type { MapLayerProfile } from "@/lib/map/mapLayerProfile";
@@ -25,13 +26,6 @@ const LABEL_STROKE_WIDTH_PX = 2; // equal on both maps
 const LABEL_STROKE_COLOR = "rgba(0,0,0,0.6)"; // equal on both maps
 const LABEL_FILL_COLOR = "#ffffff"; // equal on both maps
 const LABEL_OFFSET_PX = 2; // gap between the marker and the label baseline; equal on both maps
-
-function colorForMagnitude(magnitude: number): string {
-  if (magnitude >= 7) return "#ff2020"; // Major: red
-  if (magnitude >= 5) return "#ff8800"; // Strong: orange
-  if (magnitude >= 4) return "#ffcc00"; // Moderate: yellow
-  return "#88cc44"; // Light: green-yellow
-}
 
 export function drawEarthquakesLayer(
   ctx: CanvasRenderingContext2D,

@@ -3,6 +3,7 @@
  * Shows storm position markers (circles), forecast track lines, and name labels
  */
 
+import { getAtmosStormColor as categoryToColor } from "@/lib/colors/palettes/weather";
 import { useEffect } from "react";
 import type maplibregl from "maplibre-gl";
 import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
@@ -17,20 +18,6 @@ const POINT_LAYER = "tropical-cyclone-circles";
 const TRACK_SOURCE = "tropical-cyclone-tracks";
 const TRACK_LAYER = "tropical-cyclone-lines";
 const LABEL_LAYER = "tropical-cyclone-labels";
-
-function categoryToColor(cat: StormCategory): string {
-  switch (cat) {
-    case "TD":
-      return "#3b82f6";
-    case "TS":
-      return "#eab308";
-    case "1":
-    case "2":
-      return "#f97316";
-    default:
-      return "#ef4444";
-  }
-}
 
 function categoryToRadius(cat: StormCategory): number {
   switch (cat) {

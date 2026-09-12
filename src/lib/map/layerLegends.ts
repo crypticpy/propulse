@@ -2,14 +2,13 @@
  * Layer Legend Builder
  *
  * Builds legend specs (title + color swatches) for every currently-enabled
- * colored map layer. Colors are sourced directly from each layer
- * file's own color table (re-exported from those files) so this legend can
- * never drift out of sync with the markers it describes -- the same
+ * colored map layer. Colors are sourced from their owning palette tables
+ * so this legend stays aligned with the markers it describes -- the same
  * precedent established by IonosphereLegend / IonosphericShells.tsx.
  *
  * Pure module -- no React or three.js imports of its own. The layer files
- * imported below happen to depend on three.js/react-three-fiber, but only
- * their plain hex-string/table exports are referenced here.
+ * imported below still depend on three.js/react-three-fiber for unmigrated
+ * families; weather/seismic tables now come from a pure domain module.
  */
 
 import type { MapState, ViewMode } from "@/stores/mapStore";
@@ -31,10 +30,12 @@ import {
 } from "@/components/map/layers/BeaconNetworkOverlay3D";
 import { WSPR_BAND_COLORS } from "@/lib/map/wsprBandColors";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
-import { EQ_MAGNITUDE_COLORS } from "@/components/map/EarthquakeOverlay3D";
-import { ALERT_SEVERITY_COLORS } from "@/components/map/WeatherAlerts3D";
-import { STORM_CATEGORY_HEX } from "@/components/map/TropicalCycloneOverlay3D";
-import { RIVER_STATUS_HEX } from "@/components/map/RiverGaugeOverlay3D";
+import {
+  EQ_MAGNITUDE_COLORS,
+  WEATHER_LEGEND_ENTRIES,
+  STORM_LEGEND_ENTRIES,
+  RIVER_LEGEND_ENTRIES,
+} from "@/lib/colors/palettes/weather";
 import {
   COLOR_6M,
   COLOR_DEFAULT,
@@ -315,21 +316,11 @@ function buildEarthquakesSpec(): LayerLegendSpec {
   };
 }
 
-const WEATHER_SEVERITY_ORDER = [
-  "Extreme",
-  "Severe",
-  "Moderate",
-  "Minor",
-] as const;
-
 function buildWeatherSpec(): LayerLegendSpec {
   return {
     key: "weather",
     title: "Weather Alerts",
-    entries: WEATHER_SEVERITY_ORDER.map((severity) => ({
-      color: ALERT_SEVERITY_COLORS[severity],
-      label: severity,
-    })),
+    entries: WEATHER_LEGEND_ENTRIES.map((entry) => ({ ...entry })),
   };
 }
 
@@ -337,14 +328,7 @@ function buildTropicalSpec(): LayerLegendSpec {
   return {
     key: "tropical",
     title: "Tropical Cyclones",
-    entries: [
-      { color: STORM_CATEGORY_HEX.TD, label: "TD" },
-      { color: STORM_CATEGORY_HEX.TS, label: "TS" },
-      { color: STORM_CATEGORY_HEX["1"], label: "Cat 1–2" },
-      { color: STORM_CATEGORY_HEX["3"], label: "Cat 3" },
-      { color: STORM_CATEGORY_HEX["4"], label: "Cat 4" },
-      { color: STORM_CATEGORY_HEX["5"], label: "Cat 5" },
-    ],
+    entries: STORM_LEGEND_ENTRIES.map((entry) => ({ ...entry })),
   };
 }
 
@@ -352,13 +336,7 @@ function buildRiverGaugesSpec(): LayerLegendSpec {
   return {
     key: "riverGauges",
     title: "River Gauges",
-    entries: [
-      { color: RIVER_STATUS_HEX.normal, label: "Normal" },
-      { color: RIVER_STATUS_HEX.action, label: "Action" },
-      { color: RIVER_STATUS_HEX.minor, label: "Minor flood" },
-      { color: RIVER_STATUS_HEX.moderate, label: "Moderate flood" },
-      { color: RIVER_STATUS_HEX.major, label: "Major flood" },
-    ],
+    entries: RIVER_LEGEND_ENTRIES.map((entry) => ({ ...entry })),
   };
 }
 

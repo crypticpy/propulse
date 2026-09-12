@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "quantity": "signal_decile_deviations",
+  "description": "Lower decile (LD) and upper decile (UD) deviations from the predicted monthly median value of available receiver power of the wanted signal and interfering signals, arising from day-to-day variability.",
+  "units": "dB",
+  "provenance": {
+    "recommendation": "ITU-R P.842-5 (09/2013), Recommendation ITU-R P.842-5, Computation of reliability and compatibility of HF radio systems. In force at the time of transcription; P.533-14 section 8 cites it by name for exactly this table.",
+    "table": "Table 2, Lower decile (LD) and upper decile (UD) deviations from the predicted monthly median value of available receiver power of the wanted signal and interfering signals, arising from day-to-day variability",
+    "pages": "page 5 of R-REC-P.842-5-201309-I!!PDF-E.pdf",
+    "transcribed_on": "2026-09-12",
+    "transcribed_from": "Read row by row off the published table of Recommendation ITU-R P.842-5, downloaded from https://www.itu.int/rec/R-REC-P.842/en and converted to text. Ten frequency-ratio rows by two geomagnetic-latitude blocks by two deciles, transcribed in the published order, including the published end labels ≤ 0.80 and ≥ 5.00.",
+    "independent_check": "All 40 values were compared, value for value, against the Table2LD and Table2UD array literals of CircuitReliability.c in the pinned ITU reference build cd172be56dc04b154e5d2fa91cbaa6ecf5284305, which is an independent transcription of the same table by the recommendation's own authors. All 40 agree. That is a check on this transcription, not its source: the reference build is a parity benchmark, is never vendored and is never imported, and no value here was taken from it.",
+    "sha256_of_this_file": "recorded in signalDeciles.ts as P842_TABLE_2_SHA256 and re-derived by signalDeciles.test.ts, so an edit to this file without an edit to that constant fails the suite"
+  },
+  "rules": {
+    "row_selector": "The table's row heading is \"Transmitting frequency/predicted basic MUF\". The ratio is the operating frequency over the path's predicted basic MUF, and P.842-5 Table 1 Steps 4 and 7 both say \"Table 2 using basic MUF for the path\", so it is the path basic MUF and not a mode's own.",
+    "row_reading": "The published end labels are ≤ 0.80 and ≥ 5.00, which makes the ten labels the upper bounds of ten half-open bands: the row used is the first whose label is greater than or equal to the operating ratio, and the ≥ 5.00 row covers everything above 4.0. See signalDeciles.ts deviation 1 for the alternative readings (nearest tabulated point, or interpolation between rows) and why this one was taken.",
+    "latitude_selector": "Table 2 footnote (1): \"If any point on that part of the great circle which passes through the transmitter and the receiver and which lies between control points located 1 000 km from each end of the path, reaches a geomagnetic latitude of 60 degrees or more, the values of ≥60 degrees have to be used (see Recommendation ITU-R P.1239, Fig. 2).\" The geomagnetic latitude is the one P.533-14 section 5.2.2 defines, about the Earth-centred dipole at 78.5 degrees N, 68.2 degrees W, which is `geomagneticLatitudeDeg` in auroralLoss.ts.",
+    "short_path_footnote": "On a path shorter than 2 000 km the two 1 000 km control points cross, so the span the footnote names is empty. See signalDeciles.ts deviation 2 for what is scanned instead.",
+    "use": "P.842-5 Table 1, Step 4: DuSd is this table's UD. Step 7: DlSd is this table's LD. Both are day-to-day deviations of the wanted signal; the within-the-hour deviations DuSh = 5 and DlSh = 8 are literals of the same table and are in signalDeciles.ts, not here."
+  },
+  "frequency_ratio_row_labels": [
+    "<=0.80",
+    "1.0",
+    "1.2",
+    "1.4",
+    "1.6",
+    "1.8",
+    "2.0",
+    "3.0",
+    "4.0",
+    ">=5.00"
+  ],
+  "frequency_ratio_upper_bounds": [
+    0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 3.0, 4.0, 5.0
+  ],
+  "geomagnetic_latitude_blocks": ["below_60_deg", "at_or_above_60_deg"],
+  "deviations_db": {
+    "below_60_deg": {
+      "lower_decile": [8, 12, 13, 10, 8, 8, 8, 7, 6, 5],
+      "upper_decile": [6, 8, 12, 13, 12, 9, 9, 8, 7, 7]
+    },
+    "at_or_above_60_deg": {
+      "lower_decile": [11, 16, 17, 13, 11, 11, 11, 9, 8, 7],
+      "upper_decile": [9, 11, 12, 13, 12, 9, 9, 8, 7, 7]
+    }
+  }
+}

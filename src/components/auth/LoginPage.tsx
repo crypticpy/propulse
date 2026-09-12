@@ -11,7 +11,10 @@ import { useAuthStore } from "@/stores/authStore";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PasswordInput as SharedPasswordInput } from "@/components/ui/PasswordInput";
 import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
-import { evaluatePasswordStrength } from "@/lib/auth/passwordStrength";
+import {
+  evaluatePasswordStrength,
+  meetsAccountPasswordPolicy,
+} from "@/lib/auth/passwordStrength";
 import type { PasswordInputProps } from "@/components/ui/PasswordInput";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -118,8 +121,7 @@ export function LoginPage() {
       setConfirmError("Password must be at least 8 characters.");
       return;
     }
-    const pwStrength = evaluatePasswordStrength(password).level;
-    if (pwStrength === "weak") {
+    if (!meetsAccountPasswordPolicy(password)) {
       setConfirmError(
         "Password is too weak. Add numbers and special characters.",
       );
@@ -436,7 +438,7 @@ export function LoginPage() {
                   !password ||
                   !confirmPassword ||
                   password.length < 8 ||
-                  evaluatePasswordStrength(password).level === "weak"
+                  !meetsAccountPasswordPolicy(password)
                 }
                 className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >

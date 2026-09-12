@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluatePasswordStrength,
+  meetsAccountPasswordPolicy,
   PASSWORD_STRENGTH_PRESENTATION,
 } from "./passwordStrength";
 
@@ -104,5 +105,22 @@ describe("PASSWORD_STRENGTH_PRESENTATION", () => {
       expect(barClass).not.toMatch(/-(red|yellow|green|blue|emerald)-\d/);
       expect(textClass).not.toMatch(/-(red|yellow|green|blue|emerald)-\d/);
     }
+  });
+});
+
+describe("meetsAccountPasswordPolicy", () => {
+  it("is the old sign-up rule: 8+ chars with a digit and a special", () => {
+    expect(meetsAccountPasswordPolicy("abcdef1!")).toBe(true);
+    expect(meetsAccountPasswordPolicy("abcdefg1!")).toBe(true);
+  });
+  it("rejects what the old checklist called weak even when the meter rates it fair or better", () => {
+    expect(meetsAccountPasswordPolicy("abcde1!")).toBe(false); // 7 chars
+    expect(meetsAccountPasswordPolicy("password")).toBe(false); // no digit, no special
+    expect(meetsAccountPasswordPolicy("Password1")).toBe(false); // no special
+    expect(meetsAccountPasswordPolicy("Password!")).toBe(false); // no digit
+    expect(meetsAccountPasswordPolicy("correcthorsebatterystaple")).toBe(false);
+    expect(
+      evaluatePasswordStrength("correcthorsebatterystaple").level,
+    ).not.toBe("weak");
   });
 });

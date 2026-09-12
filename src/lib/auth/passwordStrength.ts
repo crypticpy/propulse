@@ -65,6 +65,20 @@ export function evaluatePasswordStrength(
  * original `strengthConfig`) plus `cosmic-cyan` — this repo's existing
  * "beyond good" accent (used across solar/logbook/sdr panels) — for the new
  * "very strong" tier. */
+/**
+ * The account password policy the sign-up and reset-password forms
+ * enforce: at least 8 characters with a digit and a special character.
+ * This is the old auth-form "not weak" rule kept verbatim so switching the
+ * meter to the graded scale does not loosen what an account will accept
+ * (#1093 keeps the policy out of scope). The meter shows
+ * `evaluatePasswordStrength`; the gate uses this.
+ */
+export function meetsAccountPasswordPolicy(password: string): boolean {
+  return (
+    password.length >= 8 && /\d/.test(password) && /[^a-zA-Z0-9]/.test(password)
+  );
+}
+
 export interface PasswordStrengthPresentation {
   barClass: string;
   textClass: string;

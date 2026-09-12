@@ -110,6 +110,32 @@ report it is not running and stop.
 
 ## Design and UI review
 
+### Owner delegation for color-system epic #1256
+
+For [color-system consolidation #1256](https://github.com/crypticpy/propulse/issues/1256)
+only, the owner explicitly authorized Codex to perform design reviews against
+the checked-in Claude Design specifications. Codex reviews identify the real
+reviewer, name `Delegation: color-system-1256`, and retain the current-head,
+trusted-account and approved-verdict requirements. The delegated path requires
+the PR to explicitly reference both #1256 and one of its implementation tasks
+#1257–#1264. The policy is read from the trusted base checkout; a PR cannot
+grant itself a delegation by changing its own policy file. Other epics retain
+the Fable requirement below.
+
+The owner also authorized this epic's Codex orchestrator to land its own PRs
+after review and passing checks. Vercel automatic deployments remain off:
+merge and locally verify the complete epic, then trigger its production build
+and test on Vercel. Local testing remains available as needed. For this epic,
+task completion records merged/local verification evidence; final production
+verification belongs to the epic closure. Do not require a deployment per
+slice or fabricate deployment evidence. These task-specific instructions are
+recorded in [the owner-instruction coordination comment](https://github.com/crypticpy/propulse/issues/1256#issuecomment-5648412778).
+
+This exception changes who can review and merge and when deployment happens;
+it does not waive design quality, technical checks, or truthful attribution.
+
+### Default review policy
+
 Every design and every change that touches UI is reviewed by a **Claude Fable**
 session before it merges. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and
 Composer reviews do not satisfy this; they are additional input. This section

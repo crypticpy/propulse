@@ -106,7 +106,7 @@ function GroupRow({ group }: { group: SatelliteGroupInfo }) {
             {group.label}
           </span>
         </div>
-        <p className="text-xs text-su-muted truncate">
+        <p className="text-xs text-su-muted break-words">
           {group.description}
         </p>
       </div>
@@ -222,7 +222,7 @@ export function SatelliteGroupPicker() {
           ))}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <p className="text-xs text-su-muted">
               Additional groups may increase load time. Data refreshes every 4-6
               hours.
@@ -230,7 +230,7 @@ export function SatelliteGroupPicker() {
             {hasNonDefault && (
               <button
                 onClick={resetDefaults}
-                className="text-xs text-su-muted hover:text-plasma-orange transition-colors whitespace-nowrap ml-3"
+                className="text-xs text-su-muted hover:text-plasma-orange transition-colors whitespace-nowrap"
               >
                 Reset to Default
               </button>

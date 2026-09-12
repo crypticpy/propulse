@@ -28,22 +28,95 @@ const FILES = [
 interface AllowlistEntry {
   file: string;
   match: string;
+  count: number;
   reason: string;
 }
 
 const ALLOWLIST: AllowlistEntry[] = [
   {
-    file: "src/components/satellites/SatelliteCard.tsx",
-    match: "text-[10px]",
-    reason:
-      "deferred to open #1206 / #844 — not edited in batch 30 while that PR is in flight.",
+    "file": "src/components/satellites/SatelliteCard.tsx",
+    "match": "className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${catMeta.bg} ${catMeta.color}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
   },
   {
-    file: "src/components/satellites/SatelliteDetailModal.tsx",
-    match: "text-[10px]",
-    reason:
-      "deferred to open #1206 / #844 — not edited in batch 30 while that PR is in flight.",
+    "file": "src/components/satellites/SatelliteCard.tsx",
+    "match": "className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${tleAgeBadge.className}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
   },
+  {
+    "file": "src/components/satellites/SatelliteCard.tsx",
+    "match": "<span className=\"inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30\">",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<h4 className=\"text-[10px] uppercase tracking-widest text-su-muted mb-1.5\">",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<span className=\"text-su-muted uppercase text-[10px]\">",
+    "count": 2,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<span className=\"text-su-muted uppercase text-[10px]\">{tx.type}</span>",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<span className=\"text-caution-amber/70 text-[10px]\">inv</span>",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<div className=\"text-su-muted mt-0.5 text-[10px]\">{tx.baud} baud</div>",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${catMeta.bg} ${catMeta.color}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize border ${STATUS_COLORS[description.status] ?? STATUS_COLORS.unknown}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<span className=\"inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30\">",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${AMSAT_STATUS_STYLES[amsatStatus.status].badge}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "<p className=\"text-[10px] text-su-muted mt-2\">",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  },
+  {
+    "file": "src/components/satellites/SatelliteDetailModal.tsx",
+    "match": "className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${tleAgeBadge.className}`}",
+    "count": 1,
+    "reason": "Existing deferred typography site; #1206 addresses color only. Remaining sizing belongs to #808."
+  }
 ];
 
 const SIZE_RE = /text-\[(?:length:)?(\d*\.?\d+)px\]/g;
@@ -61,6 +134,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
+    if (hasAlternateFloorSize(line)) { sites.push({ file, line: index + 1, text: line }); return; }
     for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
       re.lastIndex = 0;
       for (const match of line.matchAll(re)) {
@@ -75,7 +149,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
 
 function isAllowlisted(site: SubFloorSite): boolean {
   return ALLOWLIST.some(
-    (entry) => entry.file === site.file && site.text.includes(entry.match),
+    (entry) => entry.file === site.file && site.text.trim() === entry.match,
   );
 }
 
@@ -131,7 +205,7 @@ describe("sub-text-xs sizing stays at the floor in satellites (#808 batch 30)", 
   it("every allowlist entry still matches a real sub-floor site", () => {
     for (const entry of ALLOWLIST) {
       const stillPresent = findSubFloorSites(entry.file).some((site) =>
-        site.text.includes(entry.match),
+        site.text.trim() === entry.match,
       );
       expect(
         stillPresent,
@@ -139,4 +213,46 @@ describe("sub-text-xs sizing stays at the floor in satellites (#808 batch 30)", 
       ).toBe(true);
     }
   });
+});
+
+function hasAlternateFloorSize(line: string): boolean {
+  const values = [
+    ...line.matchAll(
+      /text-\[(?:length:)?([^\]]+)\]|fontSize:\s*["']([^"']+)["']/g,
+    ),
+  ];
+  return values.some((match) => {
+    const value = match[1] ?? match[2];
+    if (/[a-z][a-z0-9-]*\s*\(/i.test(value)) return true;
+    const size = /^(\d*\.?\d+)(px|rem|em|pt)$/.exec(value);
+    if (!size) return false;
+    const factor = { px: 1, rem: 16, em: 16, pt: 4 / 3 }[size[2]]!;
+    return Number(size[1]) * factor <= 12;
+  });
+}
+it("detects equivalent alternate and fixed-floor font sizes", () => {
+  for (const token of [
+    "text-[12px]",
+    "text-[.6rem]",
+    "text-[9pt]",
+    "text-[length:0.7em]",
+    "text-[calc(0.75rem-2px)]",
+    'fontSize: "0.6rem"',
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(true);
+  for (const token of [
+    "text-xs",
+    "text-[1rem]",
+    "text-[#abcdef]",
+    "text-[14px]",
+  ])
+    expect(hasAlternateFloorSize(token), token).toBe(false);
+});
+
+
+it("preserves the exact number of each deferred site", () => {
+  for (const entry of ALLOWLIST) {
+    expect(findSubFloorSites(entry.file).filter((site) => site.text.trim() === entry.match).length, entry.match).toBe(entry.count);
+    expect(isAllowlisted({ file: entry.file, line: 1, text: entry.match + " text-[9px]" })).toBe(false);
+  }
 });

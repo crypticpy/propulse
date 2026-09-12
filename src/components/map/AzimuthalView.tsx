@@ -2387,8 +2387,7 @@ export function AzimuthalView({
       drawCountryBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE, {
         standardMode: isStandard,
         // The disc reads the theme store but has always drawn white
-        // borders in the light theme; harmonising is a design decision,
-        // see the PR notes.
+        // borders in the light theme; harmonising is tracked in #1173.
         lightTheme: false,
       });
     }
@@ -2398,6 +2397,8 @@ export function AzimuthalView({
       const isStandard = mapStyle === "standard";
       drawStateBordersLayer(ctx, projection, AZIMUTHAL_LAYER_PROFILE, {
         standardMode: isStandard,
+        // Same drift as the country pass above; harmonising is tracked
+        // in #1173.
         lightTheme: false,
       });
     }

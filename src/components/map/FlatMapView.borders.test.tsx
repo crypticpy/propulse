@@ -173,4 +173,44 @@ describe("FlatMapView shared borders layer binding", () => {
     }
     spy.mockRestore();
   });
+
+  // #1091 PR 6: unlike the disc (drift tracked in #1173), the flat map
+  // actually reads the theme store for its border colour (`drawLabels`
+  // passes `themeId === "light"` straight through as `lightTheme`) -- pin
+  // the light-theme, standard-mode base-pass colours so a regression that
+  // stopped reading the theme, or swapped the disc's hardcoded `false` in
+  // here, would be caught.
+  it("strokes the base-pass country/state passes with the standard, light-theme colours and widths", async () => {
+    useThemeStore.getState().setTheme("light");
+
+    await mount();
+
+    const segments = groupStrokeSegments(ops);
+    const expected = [
+      {
+        label: "base-pass country, light theme",
+        lineWidth: 1.0,
+        strokeStyle: "rgba(15, 23, 42, 0.6)",
+      },
+      {
+        label: "base-pass state, light theme",
+        lineWidth: 0.7,
+        strokeStyle: "rgba(15, 23, 42, 0.5)",
+      },
+    ];
+
+    for (const exp of expected) {
+      const matches = segments.filter(
+        (s) =>
+          s.lineWidth === exp.lineWidth && s.strokeStyle === exp.strokeStyle,
+      );
+      expect(
+        matches.length,
+        `expected to find ${exp.label}`,
+      ).toBeGreaterThanOrEqual(1);
+      for (const match of matches) {
+        expect(match.beginPathCount, exp.label).toBe(1);
+      }
+    }
+  });
 });

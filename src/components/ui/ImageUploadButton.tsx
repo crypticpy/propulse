@@ -12,8 +12,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useImageUrl } from "@/hooks/useImageUrl";
 
 function readFailureMessage(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === "string" && err) return err;
+  const detail =
+    err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  if (detail)
+    return `Could not read the selected photo: ${detail}. Try another file or try again.`;
   return "Could not read the selected photo. Try another file or try again.";
 }
 
@@ -170,65 +172,65 @@ export function ImageUploadButton({
         tabIndex={-1}
       />
 
-      <div className={className}>
-        <div className="inline-flex items-center gap-2">
-        {/* Preview thumbnail (when image exists) */}
-        {imageId && imageUrl && (
-          <div className="relative group flex-shrink-0">
-            <img
-              src={imageUrl}
-              alt="Preview"
-              className={`object-cover border border-su-line/40 ${
-                cropShape === "round"
-                  ? "w-10 h-10 rounded-full"
-                  : "w-12 h-9 rounded-md"
-              }`}
-            />
-            {/* Remove overlay */}
-            <button
-              type="button"
-              onClick={() => setShowRemoveConfirm(true)}
-              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
+      <div className="min-w-0">
+        <div className={`inline-flex items-center gap-2 ${className}`}>
+          {/* Preview thumbnail (when image exists) */}
+          {imageId && imageUrl && (
+            <div className="relative group flex-shrink-0">
+              <img
+                src={imageUrl}
+                alt="Preview"
+                className={`object-cover border border-su-line/40 ${
+                  cropShape === "round"
+                    ? "w-10 h-10 rounded-full"
+                    : "w-12 h-9 rounded-md"
+                }`}
+              />
+              {/* Remove overlay */}
+              <button
+                type="button"
+                onClick={() => setShowRemoveConfirm(true)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
                          bg-void-black border border-su-line/50
                          flex items-center justify-center
                          text-alert-red hover:text-alert-red/80
                          opacity-0 group-hover:opacity-100
                          transition-opacity focus:opacity-100
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-              aria-label="Remove image"
-            >
-              <RemoveIcon />
-            </button>
-          </div>
-        )}
+                aria-label="Remove image"
+              >
+                <RemoveIcon />
+              </button>
+            </div>
+          )}
 
-        {/* Upload / Change button */}
-        {compact ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="bg-su-input hover:bg-su-panel/60 rounded-lg p-2
+          {/* Upload / Change button */}
+          {compact ? (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="bg-su-input hover:bg-su-panel/60 rounded-lg p-2
                        text-su-muted hover:text-su-text
                        transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-su-line/60"
-            aria-label={imageId ? "Change photo" : label}
-          >
-            <CameraIcon size={16} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
+              aria-label={imageId ? "Change photo" : label}
+            >
+              <CameraIcon size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
                        rounded-lg px-4 py-2 text-sm text-su-muted
                        inline-flex items-center gap-2
                        transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-su-line/60"
-          >
-            <CameraIcon size={16} />
-            <span>{imageId ? "Change" : label}</span>
-          </button>
-        )}
+            >
+              <CameraIcon size={16} />
+              <span>{imageId ? "Change" : label}</span>
+            </button>
+          )}
         </div>
 
         {readError && (

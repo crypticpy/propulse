@@ -315,6 +315,14 @@ export function ImageCropDialog({
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
+          mediaProps={{
+            onError: () => {
+              setCroppedAreaPixels(null);
+              setSaveError(
+                "Could not decode the selected photo. Cancel and choose another image.",
+              );
+            },
+          }}
           style={{
             containerStyle: {
               borderRadius: "0.5rem",
@@ -355,8 +363,9 @@ export function ImageCropDialog({
         >
           <p className="text-sm font-medium text-su-text">{saveError}</p>
           <p className="mt-1 text-xs text-su-muted">
-            Your crop is unchanged. Try Save again or cancel to keep your current
-            photo.
+            {croppedAreaPixels
+              ? "Your crop is unchanged. Try Save again or cancel to keep your current photo."
+              : "Your current photo is unchanged."}
           </p>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Area } from "react-easy-crop";
@@ -12,8 +12,10 @@ vi.mock("@/lib/db/imageStore", () => ({
 
 function MockCropper({
   onCropComplete,
+  mediaProps,
 }: {
   onCropComplete: (area: Area, pixels: Area) => void;
+  mediaProps?: React.ImgHTMLAttributes<HTMLImageElement>;
 }) {
   useEffect(() => {
     const area = { x: 0, y: 0, width: 100, height: 100 };
@@ -21,7 +23,11 @@ function MockCropper({
     const timer = window.setTimeout(() => onCropComplete(area, area), 0);
     return () => window.clearTimeout(timer);
   }, [onCropComplete]);
-  return <div data-testid="mock-cropper" />;
+  return (
+    <div data-testid="mock-cropper">
+      <img alt="Crop preview" onError={mediaProps?.onError} />
+    </div>
+  );
 }
 
 vi.mock("react-easy-crop", () => ({
@@ -68,14 +74,14 @@ describe("ImageCropDialog", () => {
     }
     vi.stubGlobal("Image", MockImage as unknown as typeof Image);
 
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-      ((contextId: string) => {
-        if (contextId === "2d") {
-          return { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
-        }
-        return null;
-      }) as typeof HTMLCanvasElement.prototype.getContext,
-    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(((
+      contextId: string,
+    ) => {
+      if (contextId === "2d") {
+        return { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+      }
+      return null;
+    }) as typeof HTMLCanvasElement.prototype.getContext);
 
     HTMLCanvasElement.prototype.toBlob = vi.fn(function toBlob(
       this: HTMLCanvasElement,
@@ -83,6 +89,27 @@ describe("ImageCropDialog", () => {
     ) {
       callback(new Blob(["jpeg"], { type: "image/jpeg" }));
     });
+  });
+
+  it("names preview decode failure and allows cancellation without replacing the photo", async () => {
+    render(<ImageCropDialog {...defaultProps} />);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+    fireEvent.error(screen.getByAltText("Crop preview"));
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /could not decode/i,
+    );
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(defaultProps.onClose).toHaveBeenCalledOnce();
+    expect(defaultProps.onComplete).not.toHaveBeenCalled();
   });
 
   it("shows a recoverable alert when save fails and keeps the dialog open", async () => {

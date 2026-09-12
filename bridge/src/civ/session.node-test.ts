@@ -1,24 +1,37 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildFrame, encodeBcdFrequency } from "./codec.js";
+import {
+  buildFrame,
+  encodeBcdFrequency,
+  encodeBcdLevel,
+  encodeBcdOffset,
+} from "./codec.js";
 import {
   ASSEMBLY_TIMEOUT_MS,
   CivSession,
   COMMAND_TIMEOUT_MS,
+  OPTIONAL_POLL_INTERVAL_CYCLES,
   type CivSessionHandlers,
   type CivTransport,
 } from "./session.js";
 import {
   CivCmd,
+  CIV_FUNC_SUB,
+  CIV_LEVEL_SUB,
+  CIV_METER_SUB,
   CIV_NG,
   CIV_OK,
   CIV_SCOPE_SUB,
+  rawSmeterToDbm,
   ScopeMode,
+  type CivAddress,
   type CivSpectrumLine,
 } from "./types.js";
+import type { RigStatus } from "../types.js";
 
 const RADIO = 0x94;
 const CONTROLLER = 0xe0;
+const ADDR: CivAddress = { radio: RADIO, controller: CONTROLLER };
 
 /** A frame from the radio back to the controller. */
 function fromRadio(command: number, data?: number[] | Buffer): Buffer {
@@ -99,6 +112,7 @@ class FakeTransport implements CivTransport {
   ready = true;
   writeError: Error | null = null;
   readonly writes: Buffer[] = [];
+  reply: ((frame: Buffer) => void) | null = null;
 
   isReady(): boolean {
     return this.ready;
@@ -107,6 +121,7 @@ class FakeTransport implements CivTransport {
   write(frame: Buffer, done: (err?: Error | null) => void): void {
     this.writes.push(Buffer.from(frame));
     done(this.writeError);
+    if (!this.writeError) this.reply?.(frame);
   }
 }
 
@@ -142,7 +157,7 @@ function harness(options: { spectrumEnabled?: boolean } = {}): Harness {
     onUnsolicitedFrequency: (hz) => events.push({ kind: "frequency", hz }),
     onUnsolicitedMode: (mode) => events.push({ kind: "mode", mode }),
   };
-  const session = new CivSession(transport, handlers);
+  const session = new CivSession(transport, handlers, ADDR);
   if (options.spectrumEnabled) session.setSpectrumEnabled(true);
   return {
     session,
@@ -665,4 +680,326 @@ test("resetParser drops a half-received frame", async () => {
   h.session.handleIncomingData(response.subarray(4));
 
   assert.deepEqual(h.events, []);
+});
+
+// ─── Polling ─────────────────────────────────────────────────────────────────
+
+interface RadioState {
+  frequencyHz: number;
+  modeByte: number;
+  ptt: boolean;
+  smeterRaw: number;
+  split: boolean;
+  ritEnabled: boolean;
+  ritOffsetHz: number;
+  xitEnabled: boolean;
+  anf: boolean;
+  qsk: boolean;
+  vox: boolean;
+  agcMode: number;
+  cwSpeed: number;
+  ifShiftRaw: number;
+  powerRaw: number;
+  swrRaw: number;
+  alcRaw: number;
+  silent: Set<string>;
+}
+
+function defaultRadio(overrides: Partial<RadioState> = {}): RadioState {
+  return {
+    frequencyHz: 14_074_000,
+    modeByte: 0x01, // USB
+    ptt: false,
+    smeterRaw: 120,
+    split: false,
+    ritEnabled: false,
+    ritOffsetHz: 0,
+    xitEnabled: false,
+    anf: false,
+    qsk: false,
+    vox: false,
+    agcMode: 2,
+    cwSpeed: 20,
+    ifShiftRaw: 128,
+    powerRaw: 0,
+    swrRaw: 0,
+    alcRaw: 0,
+    silent: new Set<string>(),
+    ...overrides,
+  };
+}
+
+function cmdSubKey(cmd: number, sub?: number): string {
+  return sub === undefined ? `${cmd}` : `${cmd}:${sub}`;
+}
+
+function meterFrame(sub: number, raw: number): Buffer {
+  return fromRadio(
+    CivCmd.METERS,
+    Buffer.concat([Buffer.from([sub]), encodeBcdLevel(raw)]),
+  );
+}
+
+function replyTo(request: Buffer, radio: RadioState): Buffer | null {
+  const cmd = request[4];
+  const sub = request.length > 6 ? request[5] : undefined;
+  if (radio.silent.has(cmdSubKey(cmd, sub))) return null;
+
+  switch (cmd) {
+    case CivCmd.READ_FREQ:
+      return fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(radio.frequencyHz));
+    case CivCmd.READ_MODE:
+      return fromRadio(CivCmd.READ_MODE, [radio.modeByte, 0x01]);
+    case CivCmd.PTT:
+      return fromRadio(CivCmd.PTT, [0x00, radio.ptt ? 0x01 : 0x00]);
+    case CivCmd.SPLIT:
+      return fromRadio(CivCmd.SPLIT, [radio.split ? 0x01 : 0x00]);
+    case CivCmd.METERS: {
+      if (sub === CIV_METER_SUB.SMETER)
+        return meterFrame(sub, radio.smeterRaw);
+      if (sub === CIV_METER_SUB.RFPOWER)
+        return meterFrame(sub, radio.powerRaw);
+      if (sub === CIV_METER_SUB.SWR) return meterFrame(sub, radio.swrRaw);
+      if (sub === CIV_METER_SUB.ALC)
+        return meterFrame(sub, radio.alcRaw);
+      return null;
+    }
+    case CivCmd.RIT_XIT: {
+      if (sub === 0x01)
+        return fromRadio(CivCmd.RIT_XIT, [
+          0x01,
+          radio.ritEnabled ? 0x01 : 0x00,
+        ]);
+      if (sub === 0x02)
+        return fromRadio(CivCmd.RIT_XIT, [
+          0x02,
+          radio.xitEnabled ? 0x01 : 0x00,
+        ]);
+      if (sub === 0x03)
+        return fromRadio(
+          CivCmd.RIT_XIT,
+          Buffer.concat([Buffer.from([0x03]), encodeBcdOffset(radio.ritOffsetHz)]),
+        );
+      return null;
+    }
+    case CivCmd.FUNCTIONS: {
+      if (sub === CIV_FUNC_SUB.ANF)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.anf ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.BKIN)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.qsk ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.VOX)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.vox ? 0x01 : 0x00]);
+      if (sub === CIV_FUNC_SUB.AGC)
+        return fromRadio(CivCmd.FUNCTIONS, [sub, radio.agcMode]);
+      return null;
+    }
+    case CivCmd.LEVELS: {
+      if (sub === CIV_LEVEL_SUB.KEYSPD)
+        return fromRadio(
+          CivCmd.LEVELS,
+          Buffer.concat([Buffer.from([sub]), encodeBcdLevel(radio.cwSpeed)]),
+        );
+      if (sub === CIV_LEVEL_SUB.IF_SHIFT)
+        return fromRadio(
+          CivCmd.LEVELS,
+          Buffer.concat([
+            Buffer.from([sub]),
+            encodeBcdLevel(radio.ifShiftRaw),
+          ]),
+        );
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+function isWrite(cmd: number, sub?: number) {
+  return (frame: Buffer) => {
+    if (frame[4] !== cmd) return false;
+    if (sub === undefined) return true;
+    return frame.length > 6 && frame[5] === sub;
+  };
+}
+
+interface PollHarness {
+  session: CivSession;
+  transport: FakeTransport;
+  radio: RadioState;
+  statuses: RigStatus[];
+  smeters: number[];
+  events: SessionEvent[];
+}
+
+function pollHarness(radio: RadioState = defaultRadio()): PollHarness {
+  const transport = new FakeTransport();
+  const statuses: RigStatus[] = [];
+  const smeters: number[] = [];
+  const events: SessionEvent[] = [];
+  const session = new CivSession(
+    transport,
+    {
+      onSpectrumLine: () => undefined,
+      onUnsolicitedFrequency: (hz) => events.push({ kind: "frequency", hz }),
+      onUnsolicitedMode: (mode) => events.push({ kind: "mode", mode }),
+      onStatus: (status) => {
+        statuses.push(status);
+      },
+      onSmeter: (dbm) => smeters.push(dbm),
+    },
+    ADDR,
+  );
+  transport.reply = (frame) => {
+    const response = replyTo(frame, radio);
+    if (response) session.handleIncomingData(response);
+  };
+  return { session, transport, radio, statuses, smeters, events };
+}
+
+test("the first poll cycle emits frequency, mode, and optional fields", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+
+  assert.equal(h.statuses.length, 1);
+  const status = h.statuses[0];
+  assert.equal(status.connected, true);
+  assert.equal(status.frequency, 14_074_000);
+  assert.equal(status.mode, "USB");
+  assert.equal(status.ptt, false);
+  assert.equal(status.split, false);
+  assert.equal(status.rit?.enabled, false);
+  assert.equal(status.rit?.offsetHz, 0);
+  assert.equal(status.xit?.enabled, false);
+  assert.equal(status.anf, false);
+  assert.equal(status.qsk, false);
+  assert.equal(status.vox, false);
+  assert.equal(status.agcMode, 2);
+  assert.equal(status.cwSpeed, 20);
+  assert.equal(status.ifShift, Math.round((128 / 255) * 2400 - 1200));
+  assert.equal(h.smeters.length, 1);
+  assert.equal(h.smeters[0], rawSmeterToDbm(120));
+  assert.equal(h.session.getLastStatus(), status);
+});
+
+test("an unchanged second poll does not re-emit status or S-meter", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 1);
+  assert.equal(h.smeters.length, 1);
+});
+
+test("an S-meter-only change emits S-meter but not status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.radio.smeterRaw = 80;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 1);
+  assert.deepEqual(h.smeters, [rawSmeterToDbm(120), rawSmeterToDbm(80)]);
+});
+
+test("a frequency change on the next poll emits a new status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.radio.frequencyHz = 7_074_000;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 2);
+  assert.equal(h.statuses[1].frequency, 7_074_000);
+  assert.equal(h.statuses[1].mode, "USB");
+});
+
+test("unsolicited frequency before the first poll does not emit status", async () => {
+  const h = pollHarness();
+  h.session.handleIncomingData(
+    fromRadio(CivCmd.READ_FREQ, encodeBcdFrequency(21_074_000)),
+  );
+  assert.deepEqual(h.events, [{ kind: "frequency", hz: 21_074_000 }]);
+  assert.equal(h.statuses.length, 0);
+  assert.equal(h.session.getLastStatus(), null);
+});
+
+test("unsolicited frequency after a poll updates lastStatus and emits status", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.session.handleIncomingData(
+    fromRadio(0x00, encodeBcdFrequency(21_074_000)),
+  );
+  assert.equal(h.statuses.length, 2);
+  assert.equal(h.statuses[1].frequency, 21_074_000);
+  assert.equal(h.session.getLastStatus()?.frequency, 21_074_000);
+});
+
+test("PTT on brings TX meters into the status snapshot", async () => {
+  const h = pollHarness(defaultRadio({ ptt: true, powerRaw: 120 }));
+  await h.session.pollNow();
+  assert.equal(h.statuses[0].ptt, true);
+  assert.ok(h.statuses[0].txMeter);
+  assert.equal(h.statuses[0].txMeter?.powerW, (120 / 241) * 100);
+  assert.ok(
+    h.transport.writes.some(isWrite(CivCmd.METERS, CIV_METER_SUB.RFPOWER)),
+  );
+  assert.ok(
+    h.transport.writes.some(isWrite(CivCmd.METERS, CIV_METER_SUB.SWR)),
+  );
+});
+
+test("optional fields are skipped on cycles that are not the interval", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.transport.writes.length = 0;
+  await h.session.pollNow();
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)),
+    false,
+  );
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.FUNCTIONS, CIV_FUNC_SUB.ANF)),
+    false,
+  );
+});
+
+test("a timed-out optional field is not polled again", async () => {
+  const h = pollHarness(
+    defaultRadio({ silent: new Set([cmdSubKey(CivCmd.RIT_XIT, 0x01)]) }),
+  );
+  await h.session.pollNow();
+  assert.ok(h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)));
+  assert.equal(h.statuses[0].rit, undefined);
+
+  for (let i = 0; i < OPTIONAL_POLL_INTERVAL_CYCLES - 2; i++) {
+    await h.session.pollNow();
+  }
+  h.transport.writes.length = 0;
+  await h.session.pollNow();
+  assert.equal(
+    h.transport.writes.some(isWrite(CivCmd.RIT_XIT, 0x01)),
+    false,
+  );
+});
+
+test("pollNow is a no-op when the transport is not ready", async () => {
+  const h = pollHarness();
+  h.transport.ready = false;
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 0);
+  assert.equal(h.transport.writes.length, 0);
+});
+
+test("startPolling runs immediately and stopPolling cancels the timer", async () => {
+  const h = pollHarness();
+  h.session.startPolling(40);
+  await delay(20);
+  assert.equal(h.statuses.length, 1);
+  h.session.stopPolling();
+  await delay(80);
+  assert.equal(h.statuses.length, 1);
+});
+
+test("resetPollState drops lastStatus so the next poll emits again", async () => {
+  const h = pollHarness();
+  await h.session.pollNow();
+  h.session.resetPollState();
+  assert.equal(h.session.getLastStatus(), null);
+  await h.session.pollNow();
+  assert.equal(h.statuses.length, 2);
 });

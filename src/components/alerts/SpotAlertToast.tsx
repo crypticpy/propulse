@@ -185,7 +185,7 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
                 {spot.callsign}
               </span>
               {priority === "critical" && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-alert-red/20 text-su-text">
+                <span className="px-1.5 py-0.5 rounded text-xs font-mono font-bold bg-alert-red/20 text-su-text">
                   NEW DXCC
                 </span>
               )}
@@ -213,7 +213,7 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
               )}
             </div>
 
-            <p className="text-[11px] text-su-muted mt-1 truncate">
+            <p className="text-xs text-su-muted mt-1 truncate">
               Rule: {rule.name}
             </p>
           </div>

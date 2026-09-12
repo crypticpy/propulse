@@ -276,7 +276,7 @@ export function AddToCalendarDropdown({
             <DownloadIcon className="w-5 h-5 flex-shrink-0" />
             <div className="min-w-0">
               <div className="truncate">Download .ics</div>
-              <div className="text-[11px] text-su-muted">
+              <div className="text-xs text-su-muted">
                 Works with all calendar apps
               </div>
             </div>
@@ -307,7 +307,7 @@ export function AddToCalendarDropdown({
             <div className="min-w-0">
               <div className="truncate">Apple Calendar</div>
               {isRecurring && (
-                <div className="text-[11px] text-su-muted">
+                <div className="text-xs text-su-muted">
                   Subscribe to feed
                 </div>
               )}

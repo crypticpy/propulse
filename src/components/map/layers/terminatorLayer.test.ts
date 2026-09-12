@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { MockInstance } from "vitest";
 import * as flatMapIllumination from "@/components/map/lib/flatMapIllumination";
+import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   drawTerminatorLayer,
   TERMINATOR_COLOR,
@@ -19,6 +20,8 @@ function createMockCtx() {
   const dashes: number[][] = [];
   const strokeStyles: string[] = [];
   const lineWidths: number[] = [];
+  const shadowBlurs: number[] = [];
+  const shadowColors: string[] = [];
   const ctx = {
     strokeStyle: "",
     lineWidth: 1,
@@ -38,6 +41,8 @@ function createMockCtx() {
     stroke: vi.fn(() => {
       strokeStyles.push(ctx.strokeStyle as string);
       lineWidths.push(ctx.lineWidth as number);
+      shadowBlurs.push(ctx.shadowBlur as number);
+      shadowColors.push(ctx.shadowColor as string);
       ops.push("stroke");
     }),
   };
@@ -47,6 +52,8 @@ function createMockCtx() {
     dashes,
     strokeStyles,
     lineWidths,
+    shadowBlurs,
+    shadowColors,
   };
 }
 
@@ -161,6 +168,39 @@ describe("drawTerminatorLayer", () => {
     expect(ops.filter((o) => o === "save").length).toBe(1);
     expect(ops.filter((o) => o === "restore").length).toBe(1);
     expect(ops[ops.length - 1]).toBe("restore");
+  });
+
+  it("strokes a single path twice (one beginPath, two strokes, then restore)", () => {
+    const { ctx, ops } = createMockCtx();
+    drawTerminatorLayer(ctx, SOME_DATE, fakeFlatProjection(), {
+      highViz: false,
+      dashed: false,
+    });
+    expect(ops.filter((o) => o === "beginPath").length).toBe(1);
+    expect(ops.slice(-3)).toEqual(["stroke", "stroke", "restore"]);
+  });
+
+  it("resets the shadow between passes: outline stroke has the drop shadow, colour stroke does not", () => {
+    const { ctx, shadowBlurs, shadowColors } = createMockCtx();
+    drawTerminatorLayer(ctx, SOME_DATE, fakeFlatProjection(), {
+      highViz: false,
+      dashed: false,
+    });
+    expect(shadowBlurs).toEqual([2, 0]);
+    expect(shadowColors[0]).toBe("rgba(0, 0, 0, 0.5)");
+  });
+
+  it("samples the great circle for the subsolar point of the given date, at the projection's sample count", () => {
+    const date = new Date("2027-01-15T03:00:00Z");
+    const sun = getSubsolarPoint(date);
+    const { ctx } = createMockCtx();
+    drawTerminatorLayer(
+      ctx,
+      date,
+      fakeFlatProjection({ wrapWidth: 1024, zoomScale: 1 }),
+      { highViz: false, dashed: false },
+    );
+    expect(coordsSpy).toHaveBeenCalledWith(sun.lat, sun.lon, 2048);
   });
 
   describe("sample count from the reference px", () => {

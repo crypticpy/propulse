@@ -41,7 +41,7 @@ export function ActiveDaysChart({
       {bars.map((bar) => (
         <div key={bar.label} className="flex items-center gap-2 h-[14px]">
           {/* Day label */}
-          <span className="w-8 text-right text-[10px] font-mono text-su-muted shrink-0">
+          <span className="w-8 text-right text-xs font-mono text-su-muted shrink-0">
             {bar.label}
           </span>
 
@@ -58,7 +58,7 @@ export function ActiveDaysChart({
           </div>
 
           {/* Count */}
-          <span className="w-8 text-right text-[10px] font-mono text-su-muted shrink-0">
+          <span className="w-8 text-right text-xs font-mono text-su-muted shrink-0">
             {bar.count}
           </span>
         </div>

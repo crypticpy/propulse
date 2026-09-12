@@ -747,10 +747,11 @@ describe("MufReport PATH conditions line (#1246)", () => {
     render(<MufReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
 
-    // Hero and physics strip use getMUFAtLocation (estimateMUF).
-    expect(
-      within(dialog).getAllByText(`${qthMuf.toFixed(1)} MHz`).length,
-    ).toBeGreaterThan(0);
+    // Scope to the hero: the comparison strip repeats the estimator value
+    // and must not hide an accidental switch of the hero to muf3000.
+    const hero = dialog.querySelector(".hcr-hero");
+    expect(hero).not.toBeNull();
+    expect(hero?.textContent).toBe(`${qthMuf.toFixed(1)}MHz`);
 
     const conditions = within(dialog).getByText(/MUF\(3000\)/);
     expect(conditions.textContent).toBe(

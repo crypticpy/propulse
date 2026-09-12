@@ -140,7 +140,7 @@ describe("LoginPage", () => {
         await screen.findByText(
           "Password is too weak. Add numbers and special characters.",
           {},
-          { timeout: 5000 },
+          { timeout: 2000 },
         ),
       ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();

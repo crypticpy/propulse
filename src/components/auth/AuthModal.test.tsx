@@ -58,9 +58,15 @@ function resetAuthState() {
  * `document.activeElement`, so a test that starts typing before that timer has
  * fired loses the rest of what it types to the auto-focused field — the
  * password ends up empty or truncated, which disables the submit button and
- * sends the submit handlers down their early-return paths. The timer is
- * scheduled once per view, so waiting for the focus to land first makes every
- * later keystroke deterministic.
+ * sends the submit handlers down their early-return paths.
+ *
+ * Waiting for the active element alone is not enough on the views that are
+ * open at dialog-open time (sign-in, reset): AccessibleDialog's frame-time
+ * focus lands on the same input first (it is the panel's first focusable under
+ * chrome="bare"), so the id check can pass while the modal's own 80ms timer is
+ * still queued and would yank focus back mid-typing. The trailing wait is a
+ * timer queued after that one, so by timer ordering it cannot resolve until
+ * the modal's focus call has run; after it, every keystroke is deterministic.
  */
 async function waitForAutoFocus(inputId: string) {
   await waitFor(
@@ -69,6 +75,9 @@ async function waitForAutoFocus(inputId: string) {
     },
     { timeout: 2000 },
   );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  });
 }
 
 beforeEach(() => {
@@ -296,7 +305,7 @@ describe("AuthModal", () => {
         await screen.findByText(
           "Password is too weak. Add numbers and special characters.",
           {},
-          { timeout: 5000 },
+          { timeout: 2000 },
         ),
       ).toBeTruthy();
       expect(signUpMock).not.toHaveBeenCalled();
@@ -360,7 +369,7 @@ describe("AuthModal", () => {
         await screen.findByText(
           "Password is too weak. Add numbers and special characters.",
           {},
-          { timeout: 5000 },
+          { timeout: 2000 },
         ),
       ).toBeTruthy();
       expect(updateUserMock).not.toHaveBeenCalled();

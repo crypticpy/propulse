@@ -40,8 +40,8 @@ export function LibraryConfirmDialog({
 }) {
   const confirmClass =
     variant === "destructive"
-      ? `min-h-[40px] rounded-lg border border-alert-red/30 bg-alert-red/20 px-4 py-2 text-sm font-medium text-alert-red transition-colors hover:bg-alert-red/30 ${FOCUS_RING}`
-      : `min-h-[40px] rounded-lg border border-caution-amber/30 bg-caution-amber/20 px-4 py-2 text-sm font-medium text-caution-amber transition-colors hover:bg-caution-amber/30 ${FOCUS_RING}`;
+      ? `min-h-[40px] rounded-lg border border-alert-red/30 bg-alert-red/20 px-4 py-2 text-sm font-medium text-su-text transition-colors hover:bg-alert-red/20 ${FOCUS_RING}`
+      : `min-h-[40px] rounded-lg border border-caution-amber/30 bg-caution-amber/20 px-4 py-2 text-sm font-medium text-su-text transition-colors hover:bg-caution-amber/20 ${FOCUS_RING}`;
   const messageId = useId();
   return (
     <AccessibleDialog

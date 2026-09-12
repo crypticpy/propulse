@@ -1013,9 +1013,9 @@ export const CATSettings = memo(function CATSettings({
           className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
             ${
               testStatus === "success"
-                ? "bg-signal-green/20 border border-signal-green/50 text-signal-green"
+                ? "bg-signal-green/20 border border-signal-green/50 text-su-text"
                 : testStatus === "error"
-                  ? "bg-alert-red/20 border border-alert-red/50 text-alert-red"
+                  ? "bg-alert-red/20 border border-alert-red/50 text-su-text"
                   : testStatus === "testing"
                     ? "bg-solar-yellow/20 border border-solar-yellow/50 text-solar-yellow"
                     : !bridgeSend

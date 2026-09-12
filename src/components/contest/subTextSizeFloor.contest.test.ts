@@ -4,10 +4,10 @@
  * Census on `origin/main` at `6b36ce97`: `src/components/contest/` holds
  * ~140 sub-floor `text-[Npx]` sites (N<12) across 25 legacy panel files.
  *
- * This batch raises user-read labels to `text-xs` in 15 files (the densest
- * and most operator-facing panels). Tabular/decorative sites that must stay
- * below the floor are allowlisted by content. Ten smaller files are deferred
- * to a follow-up batch under the ≤15-file cap.
+ * This batch raises user-read labels to `text-xs` in 14 files (the densest
+ * desktop panels). Tabular/decorative sites that must stay below the floor are
+ * allowlisted by content. Phone (`MobileContestEntry`) and remaining panels
+ * are deferred (W-D #901 / ≤15-file cap).
  *
  * Sibling to `../map/subTextSizeFloor.test.ts` — does not edit that file.
  * Reuses the same matcher grammar as the HamClock batch-2 guard.
@@ -35,7 +35,6 @@ const FILES = [
   "src/components/contest/ContestSpotsPanel.tsx",
   "src/components/contest/ContestTimer.tsx",
   "src/components/contest/ContestVoiceControls.tsx",
-  "src/components/contest/MobileContestEntry.tsx",
   "src/components/contest/MultiplierMatrix.tsx",
   "src/components/contest/NeededMultsPanel.tsx",
 ];
@@ -52,6 +51,16 @@ interface AllowlistEntry {
  * batch 4 under the ≤15-file cap. Every entry was read in context.
  */
 const ALLOWLIST: AllowlistEntry[] = [
+  {
+    file: "src/components/contest/MobileContestEntry.tsx",
+    match: "text-[10px] text-su-muted uppercase",
+    reason: "deferred — phone contest HUD (W-D #901); not in this desktop batch",
+  },
+  {
+    file: "src/components/contest/MobileContestEntry.tsx",
+    match: "px-3 py-1.5 text-[10px] text-su-muted uppercase tracking-wider font-semibold",
+    reason: "deferred — phone section header (W-D #901)",
+  },
   {
     file: "src/components/contest/BandReadinessStrip.tsx",
     match: "text-[7px] px-1 py-0.5 rounded bg-su-line/20",

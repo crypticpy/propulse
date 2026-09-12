@@ -111,7 +111,7 @@ export function TurnBeamControl({ bearing }: TurnBeamControlProps) {
             ? "Click again to confirm"
             : "Turn beam to short path (Shift-click for long path)"
       }
-      className={`h-9 rounded-md px-2 font-mono text-[10px] uppercase tracking-wide ${
+      className={`h-9 rounded-md px-2 font-mono text-xs uppercase tracking-wide ${
         rigPtt
           ? "cursor-not-allowed bg-su-line/10 text-su-muted"
           : armed

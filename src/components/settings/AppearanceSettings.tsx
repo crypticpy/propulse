@@ -80,7 +80,7 @@ export function AppearanceSettings() {
 
                 {/* Preset name */}
                 <span
-                  className={`text-[11px] font-medium leading-tight text-center ${
+                  className={`text-xs font-medium leading-tight text-center ${
                     isActive
                       ? "text-su-text"
                       : "text-su-muted group-hover:text-su-text"

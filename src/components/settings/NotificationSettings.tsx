@@ -120,7 +120,7 @@ function KpSlider({
           ${disabled ? "cursor-not-allowed [&::-webkit-slider-thumb]:cursor-not-allowed [&::-moz-range-thumb]:cursor-not-allowed" : ""}
         `}
       />
-      <div className="flex justify-between text-[10px] text-su-muted">
+      <div className="flex justify-between text-xs text-su-muted">
         <span>1 (Quiet)</span>
         <span>5 (Storm)</span>
         <span>9 (Severe)</span>
@@ -282,7 +282,7 @@ export function NotificationSettings({
                 `}
               >
                 <div>{opt.label}</div>
-                <div className="text-[10px] opacity-70 mt-0.5">{opt.desc}</div>
+                <div className="text-xs opacity-70 mt-0.5">{opt.desc}</div>
               </button>
             ))}
           </div>

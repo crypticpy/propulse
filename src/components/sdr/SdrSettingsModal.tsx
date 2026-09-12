@@ -173,7 +173,7 @@ function ColorPicker({
           <button
             type="button"
             onClick={() => onChange(defaultValue)}
-            className="text-[10px] text-su-muted hover:text-plasma-orange underline underline-offset-2 flex-shrink-0 transition-colors"
+            className="text-xs text-su-muted hover:text-plasma-orange underline underline-offset-2 flex-shrink-0 transition-colors"
           >
             Reset
           </button>
@@ -466,7 +466,7 @@ function WaterfallTab() {
                   }}
                 />
                 <span
-                  className={`text-[10px] leading-tight transition-colors ${
+                  className={`text-xs leading-tight transition-colors ${
                     isActive
                       ? "text-su-text font-medium"
                       : "text-su-muted group-hover:text-su-text"
@@ -690,13 +690,13 @@ function SliceTab() {
           >
             {/* Top row: label + badges */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-cyan-400 tracking-wider">
+              <span className="text-xs font-semibold text-cyan-400 tracking-wider">
                 Slice A
               </span>
-              <span className="text-[9px] px-1 py-0.5 rounded bg-su-line/20 text-su-muted">
+              <span className="text-xs px-1 py-0.5 rounded bg-su-line/20 text-su-muted">
                 ANT1
               </span>
-              <span className="text-[9px] px-1 py-0.5 rounded bg-signal-green/20 text-signal-green">
+              <span className="text-xs px-1 py-0.5 rounded bg-signal-green/20 text-signal-green">
                 RX
               </span>
             </div>
@@ -719,7 +719,7 @@ function SliceTab() {
               <span className="text-sm text-su-muted">000</span>
             </div>
             {/* Mode pill */}
-            <span className="inline-flex self-start px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/20 text-green-400">
+            <span className="inline-flex self-start px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400">
               USB
             </span>
           </div>

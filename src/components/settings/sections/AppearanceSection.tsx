@@ -244,7 +244,7 @@ export function AppearanceSection() {
                   />
                   <span className="text-sm font-medium">{theme.name}</span>
                 </div>
-                <p className="text-[10px] text-su-muted mt-1 leading-tight">
+                <p className="text-xs text-su-muted mt-1 leading-tight">
                   {theme.description}
                 </p>
                 {isActive && (
@@ -313,7 +313,7 @@ export function AppearanceSection() {
                 }`}
               >
                 <div className="text-sm font-medium">{skin.name}</div>
-                <p className="text-[10px] text-su-muted mt-1 leading-tight">
+                <p className="text-xs text-su-muted mt-1 leading-tight">
                   {skin.desc}
                 </p>
                 {isActive && (
@@ -385,7 +385,7 @@ export function AppearanceSection() {
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-[11px] leading-4 text-su-muted">
+            <p className="mt-1.5 text-xs leading-4 text-su-muted">
               Centered on your station. Solar indices, space weather, and DX
               activity remain global and live.
             </p>

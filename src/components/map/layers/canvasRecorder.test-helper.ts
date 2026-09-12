@@ -17,10 +17,11 @@
  * `AzimuthalView.borders.test.tsx`'s recorder, used to key stroked segments
  * by the `lineWidth`/`strokeStyle` set immediately before each pass).
  *
- * This file is only imported by the tests this PR touches
- * (`FlatMapView.borders.test.tsx`); the three duplicated copies above are
- * left as-is rather than migrated, since none of them needed a code change
- * for this PR.
+ * `FlatMapView.borders.test.tsx` (#1091 PR 6) was the first consumer;
+ * `AzimuthalView.hazards.test.tsx`, `AzimuthalView.borders.test.tsx` and
+ * `FlatMapView.lightning.test.tsx` were migrated onto this helper in #1091
+ * PR 7 (this helper was already a superset of what each needed -- no
+ * extension required).
  */
 import { vi } from "vitest";
 

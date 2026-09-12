@@ -425,7 +425,7 @@ export function FateDecodeRow({
           d.parsedCallsign &&
           !isNewEntity &&
           !d.foxCallsign && (
-            <span className="shrink-0 bg-plasma-orange/20 text-su-text text-xs px-1 rounded font-bold leading-normal">
+            <span className="shrink-0 bg-plasma-orange/20 text-su-text text-[7px] px-1 rounded font-bold leading-normal">
               NEW
             </span>
           )}

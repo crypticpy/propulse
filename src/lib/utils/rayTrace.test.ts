@@ -13,6 +13,7 @@ import {
   routeSampleAtFraction,
 } from "@/lib/propagation/geometry/route";
 import { sfiToR12 } from "./ionosphere";
+import * as rayTraceModule from "./rayTrace";
 
 /**
  * `hopGeometry` is spied on rather than replaced. `traceRayPath` picks its hop
@@ -209,6 +210,14 @@ describe("traceRayPath", () => {
     }
     expect(result.support.reason).toBe("below_horizon");
     expect(result.hops).toHaveLength(0);
+  });
+
+  it("no longer exports hopElevationAngle", () => {
+    // The deprecated helper clamped a below-horizon ray to +1 degree, which
+    // manufactured a take-off angle for a mode that does not exist. Its last
+    // consumer now reads `elevationAngleDeg` off the trace, so the export is
+    // gone rather than left as a trap for the next caller.
+    expect(Object.keys(rayTraceModule)).not.toContain("hopElevationAngle");
   });
 
   it("declares what it stands in for", () => {

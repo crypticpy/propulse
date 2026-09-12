@@ -281,7 +281,9 @@ function safeTrace(
  * replaces reported +1 degree for one, which is a number a person can act on
  * for a path that does not exist. Every string here is a statement about the
  * circuit rather than about the engine, and none of them uses the model's own
- * vocabulary.
+ * vocabulary. They are also short: `.hcr-kv dd` is `white-space: nowrap` in a
+ * two-column grid, so a long value pushes the label into its ellipsis. The
+ * `.hcr-note` sentence under the rows carries the explanation, not this cell.
  */
 function takeoffRowValue(
   hasTarget: boolean,
@@ -300,11 +302,11 @@ function takeoffRowValue(
       // someone their target on the far side of the world is the same place
       // as home would be worse than saying nothing precise.
       return rayTrace.support.reason === "coincident_endpoints"
-        ? "SAME PLACE AS HOME"
+        ? "SAME AS HOME"
         : "NO PATH";
     case "geometrically_unsupported":
       return rayTrace.support.reason === "below_horizon"
-        ? "TOO FAR FOR ONE BOUNCE"
+        ? "TOO FAR"
         : "NO PATH";
   }
 }

@@ -533,7 +533,7 @@ describe("MufReport absorption context and take-off angle (#1108)", () => {
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
 
-    expect(kvValue(dialog, "Take-off")).toBe("TOO FAR FOR ONE BOUNCE");
+    expect(kvValue(dialog, "Take-off")).toBe("TOO FAR");
     expect(
       within(dialog).getByText(
         "At this reflecting height the target is farther away than a single bounce can reach, so the ray would leave below the horizon. There is no take-off angle to report.",
@@ -564,7 +564,7 @@ describe("MufReport absorption context and take-off angle (#1108)", () => {
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("tab", { name: "HOPS" }));
 
-    expect(kvValue(dialog, "Take-off")).toBe("SAME PLACE AS HOME");
+    expect(kvValue(dialog, "Take-off")).toBe("SAME AS HOME");
     expect(
       within(dialog).getByText(
         "Home and target are the same place, so there is no path between them to trace.",

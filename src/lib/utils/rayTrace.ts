@@ -69,8 +69,6 @@ import {
 } from "@/lib/propagation/absorption/dRegion";
 
 const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
-const EARTH_RADIUS_KM = 6371;
 const TYPICAL_F2_HOP_KM = 3000;
 const MAX_HOPS = 12;
 
@@ -259,29 +257,6 @@ function isResolved(route: RouteResolution): route is ResolvedRoute {
 // estimateFoF2 in ionosphere.ts so the ray-trace engine and the ionosphere
 // model no longer disagree (the previous local (1.2 + 0.016*SFI)*sqrt(cos chi)
 // heuristic produced ~3.6 MHz at SFI 150 noon, far below observed magnitudes).
-
-/**
- * Ray take-off elevation angle for a symmetric single hop, degrees.
- *
- * @deprecated Use `hopGeometry` from `@/lib/propagation/geometry/hop`. This
- * export is kept numerically unchanged, clamp included, so that its existing
- * consumers keep the number they render today. The clamp is the defect: a hop
- * that is geometrically too long for its mirror height has a negative
- * elevation angle, meaning the mode does not exist, and returning +1 degree
- * manufactures one. `hopGeometry` returns an `unsupported` result instead, and
- * that is the path this engine uses internally.
- */
-export function hopElevationAngle(
-  hopDistanceKm: number,
-  reflectionHeightKm: number,
-): number {
-  if (hopDistanceKm <= 0) return 90;
-  const psi = hopDistanceKm / (2 * EARTH_RADIUS_KM);
-  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + reflectionHeightKm);
-  const tanElev = (Math.cos(psi) - ratio) / Math.sin(psi);
-  const elevationDeg = Math.atan(tanElev) * RAD_TO_DEG;
-  return Math.max(1, elevationDeg);
-}
 
 /**
  * Oblique MUF via the secant law with proper spherical incidence geometry:

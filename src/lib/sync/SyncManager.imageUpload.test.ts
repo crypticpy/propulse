@@ -167,6 +167,45 @@ describe("SyncManager referenced image uploads (#323)", () => {
     expect(useSyncStore.getState().status.lastSyncAt).toBe(lastSyncAt);
   });
 
+  it.each(["online", "periodic"])(
+    "clears stale pending status after a successful %s retry",
+    async (trigger) => {
+      await manager.start("owner-a");
+      mocks.upload.mockResolvedValue({ error: { message: "network" } });
+      mocks.snapshot.profileImageId = "img-retry";
+      await manager.syncNow();
+      const { useSyncStore } = await import("./syncStore");
+      const previous = useSyncStore.getState().status.lastSyncAt;
+      expect(useSyncStore.getState().status.error).toBe(
+        "Some items are still pending",
+      );
+      mocks.upload.mockResolvedValue({ error: null });
+      await vi.advanceTimersByTimeAsync(1_000);
+      if (trigger === "online") {
+        window.dispatchEvent(new Event("online"));
+      } else {
+        await vi.advanceTimersByTimeAsync(30_000);
+      }
+      await vi.waitFor(() => expect(manager.getPendingCount()).toBe(0));
+      expect(useSyncStore.getState().status.error).toBeNull();
+      expect(useSyncStore.getState().status.lastSyncAt).not.toBe(previous);
+    },
+  );
+
+  it("does not erase an unrelated sync failure when an image retry succeeds", async () => {
+    await manager.start("owner-a");
+    const { useSyncStore } = await import("./syncStore");
+    useSyncStore
+      .getState()
+      .setStatus({ state: "error", error: "Profile pull failed" });
+    mocks.snapshot.profileImageId = "img-after-pull-error";
+    manager.scheduleReferencedImageUploads();
+    await vi.waitFor(() => expect(mocks.upload).toHaveBeenCalled());
+    await vi.waitFor(() => expect(manager.getPendingCount()).toBe(0));
+    expect(useSyncStore.getState().status.state).toBe("error");
+    expect(useSyncStore.getState().status.error).toBe("Profile pull failed");
+  });
+
   it("resumes a pending upload when the browser comes back online", async () => {
     const online = vi.spyOn(manager, "isOnline").mockReturnValue(false);
     await manager.start("owner-a");

@@ -149,7 +149,9 @@ export class SyncManager {
   }
 
   /** Stop sync engine; same-owner restart may retain durable sync metadata. */
-  async stop({ preserveMetadata = false }: { preserveMetadata?: boolean } = {}): Promise<void> {
+  async stop({
+    preserveMetadata = false,
+  }: { preserveMetadata?: boolean } = {}): Promise<void> {
     // Invalidate synchronously, before any old promise can settle or a new start runs.
     ++this.generation;
     this.running = false;
@@ -338,7 +340,10 @@ export class SyncManager {
     await Promise.all(pullPromises);
   }
 
-  private async pullModule(module: SyncModule, generation: number): Promise<void> {
+  private async pullModule(
+    module: SyncModule,
+    generation: number,
+  ): Promise<void> {
     const userId = this.userId;
     if (!userId || !this.isActive(generation) || !this.isOnline()) return;
 
@@ -434,7 +439,7 @@ export class SyncManager {
       }
     }
 
-    this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
+    this.reconcileQueueStatus();
   }
 
   /** Flush write queue entries for specific tables only */
@@ -487,7 +492,7 @@ export class SyncManager {
         }
       }
 
-      this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
+      this.reconcileQueueStatus();
     } finally {
       if (this.isActive(generation)) {
         for (const t of remaining) this.flushingTables.delete(t);
@@ -607,7 +612,9 @@ export class SyncManager {
   // ─── Internal: Helpers ──────────────────────────────────────────────
 
   private isActive(generation: number): boolean {
-    return this.running && this.userId !== null && this.generation === generation;
+    return (
+      this.running && this.userId !== null && this.generation === generation
+    );
   }
 
   private getModulesForTier(tier: SyncTier): SyncModule[] {
@@ -624,6 +631,19 @@ export class SyncManager {
   private getTierForTable(table: SyncableTable): SyncTier | null {
     const module = this.getModuleForTable(table);
     return module?.tier ?? null;
+  }
+
+  /** Reconcile background completion without hiding an active pull or its error. */
+  private reconcileQueueStatus(): void {
+    const status = useSyncStore.getState().status;
+    if (
+      status.state === "syncing" ||
+      (status.error !== null && status.error !== "Some items are still pending")
+    ) {
+      this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
+      return;
+    }
+    this.applyIdleStatus();
   }
 
   /** Idle when the queue is empty; leftover writes stay visible as pending. */

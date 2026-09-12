@@ -67,7 +67,7 @@ export function RSVPButton({
       <span
         className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold ${
           hasRsvpd
-            ? "bg-signal-green/20 text-su-text"
+            ? "text-su-text"
             : "bg-su-line/20 text-su-muted"
         }`}
       >

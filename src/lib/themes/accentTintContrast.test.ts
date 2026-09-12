@@ -1771,6 +1771,7 @@ type StatusToken =
 
 interface StatusTintedSite extends TintedSite {
   token: StatusToken;
+  parentClassSnippet?: string;
 }
 
 function statusTintHex(
@@ -1796,7 +1797,17 @@ function deriveStatusAlpha(text: string, token: StatusToken): number {
 }
 
 function measuredStatusAlpha(source: string, site: StatusTintedSite): number {
-  return deriveStatusAlpha(locatedClassText(source, site), site.token);
+  const ownClasses = locatedClassText(source, site);
+  if (site.parentClassSnippet) {
+    // This badge deliberately has no status wash: it inherits its parent's.
+    // A new nested wash must fail, not be measured independently at /20.
+    expect(ownClasses).not.toMatch(new RegExp(`bg-${site.token}/`));
+    return deriveStatusAlpha(
+      extractClassNameValue(source, site.parentClassSnippet),
+      site.token,
+    );
+  }
+  return deriveStatusAlpha(ownClasses, site.token);
 }
 
 function assertStatusInkOnTintedBranches(
@@ -1886,7 +1897,8 @@ const STATUS_FIXED_SITES: StatusTintedSite[] = [
   {
     file: "src/components/nets/RSVPButton.tsx",
     what: "the RSVP count badge, RSVP'd state",
-    snippet: `? "bg-signal-green/20 text-su-text"`,
+    snippet: `? "text-su-text"`,
+    parentClassSnippet: `"bg-signal-green/15 text-su-text border-signal-green/30 hover:bg-signal-green/20"`,
     token: "signal-green",
   },
   {

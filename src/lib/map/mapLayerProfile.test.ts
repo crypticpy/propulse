@@ -98,4 +98,23 @@ describe("MapLayerProfile", () => {
     expect(FLAT_LAYER_PROFILE.nightClip.stepDeg).toBe(2);
     expect(AZIMUTHAL_LAYER_PROFILE.nightClip.stepDeg).toBe(3);
   });
+
+  // #1091 PR 7 (F3): `borders` is now required on both profiles so
+  // `traceRing` can read `profile.borders` without a null-check. The flat
+  // map's wrap-and-repeat seam never reads this group -- it carries the
+  // azimuthal disc's own values as an intentionally-inert placeholder (see
+  // the `MapLayerProfile.borders` doc comment).
+  it("FLAT_LAYER_PROFILE.borders carries the azimuthal disc's values as an inert placeholder", () => {
+    expect(FLAT_LAYER_PROFILE.borders).toEqual({
+      rimDrop: 0.99,
+      jumpBreakFraction: 0.25,
+    });
+  });
+
+  it("AZIMUTHAL_LAYER_PROFILE.borders pins the measured azimuthal-disc values", () => {
+    expect(AZIMUTHAL_LAYER_PROFILE.borders).toEqual({
+      rimDrop: 0.99,
+      jumpBreakFraction: 0.25,
+    });
+  });
 });

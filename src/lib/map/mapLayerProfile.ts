@@ -32,12 +32,14 @@ export interface MapLayerProfile {
   readonly nightClip: {
     readonly stepDeg: number;
   };
-  /** Consumed only by the azimuthal per-vertex seam strategy in
-   * bordersLayer.ts's `traceRing` (#1091 PR 6). The flat map's seam
-   * (`addWrappedRingPath`, wrap-and-repeat) never reads this group, so it is
-   * deliberately absent from FLAT_LAYER_PROFILE rather than filled with
-   * placeholder numbers a flat-map reader would never see. */
-  readonly borders?: {
+  /** Consumed by the azimuthal per-vertex seam strategy in
+   * bordersLayer.ts's `traceRing` (#1091 PR 6). Required on both profiles
+   * so `traceRing` can read `profile.borders` without a null-check; the
+   * flat map's seam (`addWrappedRingPath`, wrap-and-repeat) never reads
+   * this group, so FLAT_LAYER_PROFILE carries the azimuthal disc's own
+   * values as an intentionally-inert placeholder rather than numbers a
+   * flat-map reader would mistake for meaningful. */
+  readonly borders: {
     /** Drop a ring vertex when its normalised distance from the disc centre
      * exceeds this. */
     readonly rimDrop: number;
@@ -64,6 +66,12 @@ export const FLAT_LAYER_PROFILE: MapLayerProfile = {
   },
   nightClip: {
     stepDeg: 2,
+  },
+  // Never read by the flat map's wrap-and-repeat seam -- see the interface
+  // doc comment above.
+  borders: {
+    rimDrop: 0.99,
+    jumpBreakFraction: 0.25,
   },
 };
 

@@ -104,16 +104,22 @@ function createMockCtx() {
   };
 }
 
+// The spread-of-overrides pattern below widens `kind` to the full union
+// before the merge, so the object literal needs an `as Projection` cast
+// (discriminated union `Omit<>`/spread doesn't distribute -- see CLAUDE.md).
+// wrapWidth/wrapHeight are unused by this layer -- any numbers satisfy the
+// equirectangular branch's now-required fields (#1091 PR 7).
 function fakeProjection(overrides: Partial<Projection> = {}): Projection {
   return {
     kind: "equirectangular",
     zoomScale: 1,
-    wrapWidth: undefined,
+    wrapWidth: 1024,
+    wrapHeight: 512,
     project: () => ({ x: 10, y: 20, visible: true }),
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,
     ...overrides,
-  };
+  } as Projection;
 }
 
 function alert(overrides: Partial<WeatherAlert> = {}): WeatherAlert {

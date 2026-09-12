@@ -64,6 +64,9 @@ function createMockCtx() {
   };
 }
 
+// The spread-of-overrides pattern below widens `kind` to the full union
+// before the merge, so the object literal needs an `as Projection` cast
+// (discriminated union `Omit<>`/spread doesn't distribute -- see CLAUDE.md).
 function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
   return {
     kind: "equirectangular",
@@ -76,7 +79,7 @@ function fakeFlatProjection(overrides: Partial<Projection> = {}): Projection {
     scaleAt: () => ({ pxPerKm: 1, stretch: 1 }),
     screenPx: (px) => px,
     ...overrides,
-  };
+  } as Projection;
 }
 
 /** A ring's points are keyed by their exact [lat, lon] tuple so tests can

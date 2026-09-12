@@ -48,22 +48,16 @@ export function traceRing(
   profile: MapLayerProfile,
 ): void {
   if (projection.kind === "equirectangular") {
-    addWrappedRingPath(
-      ctx,
-      ring,
-      projection.wrapWidth ?? 0,
-      projection.wrapHeight ?? 0,
-    );
+    addWrappedRingPath(ctx, ring, projection.wrapWidth, projection.wrapHeight);
     return;
   }
 
-  // Azimuthal seam: profile.borders and projection.discRadiusPx are only
-  // ever undefined here if a caller pairs an azimuthal projection with a
-  // profile that has no borders group (a wiring bug, not a runtime state
-  // this function needs to tolerate) -- AZIMUTHAL_LAYER_PROFILE always
-  // carries both.
-  const { rimDrop, jumpBreakFraction } = profile.borders!;
-  const discRadiusPx = projection.discRadiusPx!;
+  // Azimuthal seam: `projection.kind === "azimuthal"` here (the only other
+  // member of the `Projection` union), so `discRadiusPx` is a real number
+  // by the type, no assertion needed. `profile.borders` is required on
+  // `MapLayerProfile`, so no null-check either.
+  const { rimDrop, jumpBreakFraction } = profile.borders;
+  const discRadiusPx = projection.discRadiusPx;
   const jumpThresholdSq = discRadiusPx * discRadiusPx * jumpBreakFraction;
 
   let inPath = false;
@@ -274,8 +268,7 @@ export function drawNightBoostedBordersLayer(
     subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
 
   if (projection.kind === "equirectangular") {
-    const width = projection.wrapWidth ?? 0;
-    const height = projection.wrapHeight ?? 0;
+    const { wrapWidth: width, wrapHeight: height } = projection;
     const antiPoint = projection.project(antiSubsolarLat, antiSubsolarLon);
     const lastP = terminatorPoints[terminatorPoints.length - 1];
     const firstP = terminatorPoints[0];
@@ -293,7 +286,7 @@ export function drawNightBoostedBordersLayer(
       ctx.lineTo(0, firstP.y);
     }
   } else {
-    const { x: cx, y: cy } = projection.discCenterPx!;
+    const { x: cx, y: cy } = projection.discCenterPx;
     const antiProj = projection.project(antiSubsolarLat, antiSubsolarLon);
     const antiAngle = Math.atan2(antiProj.y - cy, antiProj.x - cx);
 
@@ -306,7 +299,7 @@ export function drawNightBoostedBordersLayer(
       firstTerminator.y - cy,
       firstTerminator.x - cx,
     );
-    const bigR = projection.discRadiusPx! * 1.5;
+    const bigR = projection.discRadiusPx * 1.5;
     const steps = 36;
     // Determine sweep direction: go from endAngle to startAngle through
     // the anti-subsolar side.

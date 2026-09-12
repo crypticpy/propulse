@@ -227,9 +227,11 @@ export async function resolveMirrorHeight({
 
     // Table 1c: paths up to dmax take M alone; longer paths take T + d0/2, M
     // and R - d0/2, and the mean of the section 5.1 height across them. With
-    // d0 = D/n the offsets are the fractions 1/(2n) and 1 - 1/(2n).
+    // d0 = D/n the offsets are the fractions 1/(2n) and 1 - 1/(2n). The
+    // branch is the path length against dmax, not the hop count: equation (2)
+    // geometry can need two hops inside dmax, and Table 1c still says M.
     const controlPoints: MirrorHeightControlPoint[] =
-      hopCount === 1
+      groundDistanceKm <= dmaxKm
         ? [controlPointOf("M", midpoint)]
         : [
             controlPointOf("T + d0/2", evaluate(1 / (2 * hopCount), hopCount)),

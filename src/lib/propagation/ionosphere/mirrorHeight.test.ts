@@ -34,6 +34,40 @@ import {
  * the leaf builds a provider, and a fake provider would count nothing real.
  */
 const providerMocks = vi.hoisted(() => ({ create: vi.fn(), state: vi.fn() }));
+/**
+ * The reflection-height leaf is spied on so one test can hand the resolver a
+ * mode that equation (2) geometry would produce (two hops inside dmax) without
+ * hunting the climatology for coordinates that happen to do it.
+ */
+const leafMocks = vi.hoisted(() => ({
+  override: null as
+    | null
+    | ((
+        result: import("@/lib/propagation/geometry/reflectionHeight").F2ReflectionHeight,
+        input: Parameters<
+          typeof import("@/lib/propagation/geometry/reflectionHeight").f2ReflectionHeight
+        >[0],
+      ) => import("@/lib/propagation/geometry/reflectionHeight").F2ReflectionHeight),
+}));
+vi.mock(
+  "@/lib/propagation/geometry/reflectionHeight",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/propagation/geometry/reflectionHeight")
+      >();
+    return {
+      ...actual,
+      f2ReflectionHeight: (
+        input: Parameters<typeof actual.f2ReflectionHeight>[0],
+      ) => {
+        const result = actual.f2ReflectionHeight(input);
+        return leafMocks.override ? leafMocks.override(result, input) : result;
+      },
+    };
+  },
+);
+
 vi.mock("./provider", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./provider")>();
   return {
@@ -96,6 +130,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  leafMocks.override = null;
 });
 
 describe("resolveMirrorHeight", () => {
@@ -120,6 +155,7 @@ describe("resolveMirrorHeight", () => {
     const route = routeOf(AUSTIN, LONDON);
     expect(provenance.routeDirection).toBe("short");
     expect(provenance.groundDistanceKm).toBe(route.groundDistanceKm);
+    expect(provenance.groundDistanceKm).toBeGreaterThan(provenance.dmaxKm);
     expect(provenance.frequencyMHz).toBe(CIRCUIT.frequencyMHz);
 
     // The mode is fixed at the midpoint: section 5.2.1's lowest hop count
@@ -239,6 +275,38 @@ describe("resolveMirrorHeight", () => {
     expect(point.heightKm).toBe(provenance.heightKm);
     expect(point.m3000F2).toBe(provenance.m3000F2);
     // One point, so the provider was asked once.
+    expect(stateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("chooses the control points by distance against dmax, not by hop count: two hops inside dmax still take M alone", async () => {
+    vi.stubGlobal("fetch", servesTheAsset());
+    // Equation (2) geometry can need two hops at a low height even though the
+    // path is inside dmax (reflectionHeight.test case 7). Table 1c keys the
+    // control points on the distance, so this must be one point, M, with the
+    // two-hop mode carried through.
+    leafMocks.override = (result, input) =>
+      input.hopCount === undefined
+        ? {
+            ...result,
+            hopCount: 2,
+            hopGroundDistanceKm: input.groundDistanceKm / 2,
+          }
+        : result;
+
+    const provenance = await resolveMirrorHeight({
+      start: AUSTIN,
+      end: CHICAGO,
+      frequencyMHz: 14.1,
+      at: AT,
+    });
+
+    expect(provenance.kind).toBe("modelled");
+    if (provenance.kind !== "modelled") return;
+    const route = routeOf(AUSTIN, CHICAGO);
+    expect(route.groundDistanceKm).toBeLessThanOrEqual(provenance.dmaxKm);
+    expect(provenance.hopCount).toBe(2);
+    expect(provenance.controlPoints).toHaveLength(1);
+    expect(provenance.controlPoints[0].label).toBe("M");
     expect(stateSpy).toHaveBeenCalledTimes(1);
   });
 

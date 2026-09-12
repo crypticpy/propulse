@@ -16,7 +16,8 @@
  * of 36 dB for the same receiver, month and hour). See PROP-02 (#948, #955).
  *
  * Deciles: the reference computes an upper and a lower decile deviation for
- * every component and combines them log-normally (P.372 section 8). Both are
+ * every component and combines them log-normally (P.372-17 Part 7, section
+ * 7.1, equations (18) to (24)). Both are
  * carried here, because the combined median depends on them: sigma_T enters
  * `FamT`, and the reported total is `min(FamTu, FamTl)`, the reference's
  * worse-case median. The per-component deciles are also returned so callers can
@@ -24,8 +25,8 @@
  *
  * The sigma_Du / sigma_Dl / sigma_Fam polynomials (dud parameters 2..4) are
  * decoded but not used, exactly as in the reference: they describe the
- * variability of the deciles themselves and P.372 section 8 does not consume
- * them.
+ * variability of the deciles themselves and P.372-17 Part 7, section 7.1 does
+ * not consume them.
  *
  * Man-made and galactic noise, added for PROP-08 (#954 slice E1), are the other
  * two of the three components equation (45) of P.533-14 needs and Step 2 of
@@ -37,8 +38,8 @@
  * absence rather than borrowing the rural pair; see its own note.
  *
  * Two different totals, deliberately. The reference itself uses two:
- * `Noise.c:189` reports `FamT = min(FamTu, FamTl)` from the section 8
- * log-normal combination, but `P533/CircuitReliability.c:166` forms the
+ * `Noise.c:189` reports `FamT = min(FamTu, FamTl)` from the Part 7, section
+ * 7.1 log-normal combination, but `P533/CircuitReliability.c:166` forms the
  * signal-to-noise ratio against the plain power sum of the three medians,
  * 10*log10(10^(FaA/10) + 10^(FaM/10) + 10^(FaG/10)). The two differ by up to
  * about 1 dB. `combineNoiseP372` gives the first and `powerSumMediansP372` the
@@ -62,7 +63,7 @@ const D2R = 0.0174532925;
 const ATMOSPHERIC_MIN_MHZ = 1;
 const ATMOSPHERIC_MAX_MHZ = 30;
 
-/** Decile-to-sigma factor for a log-normal distribution (P.372 section 8). */
+/** Decile-to-sigma factor for a log-normal distribution (P.372-17 Part 7, section 7.1). */
 const DECILE_SIGMA = 1.282;
 
 /** 10/ln(10): the dB-to-neper constant the reference calls `c`. */
@@ -282,8 +283,8 @@ export function atmosphericNoiseP372(
  * This is the noise figure the reference uses for signal-to-noise ratio
  * (`P533/CircuitReliability.c:166`): `SNR = PR - (Fsum - 204 + 10*log10(BW))`
  * holds to better than 0.05 dB on all 28 analog golden circuits only with this
- * sum, not with the section 8 `FamT`. It ignores the deciles by construction;
- * use `combineNoiseP372` when the spread is what you want.
+ * sum, not with the Part 7, section 7.1 `FamT`. It ignores the deciles by
+ * construction; use `combineNoiseP372` when the spread is what you want.
  */
 export function powerSumMediansP372(
   components: readonly NoiseComponent[],
@@ -296,8 +297,8 @@ export function powerSumMediansP372(
 }
 
 /**
- * Combine noise components per ITU-R P.372 section 8, "The combination of
- * noises from several sources".
+ * Combine noise components per ITU-R P.372-17 Part 7, section 7.1, "The
+ * combination of noises from several sources".
  *
  * Each component is treated as log-normal with sigma = D/1.282. The upper and
  * lower decile cases give two candidate medians; the reference returns the

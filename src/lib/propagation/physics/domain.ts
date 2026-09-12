@@ -39,6 +39,12 @@
  *    ITU-R P.372-17 Table 1 publishes, or a figure the caller measured, or
  *    the declared absence of either. A request may not name a category
  *    P.372 does not have: see `ManMadeNoiseSetting`.
+ *  - THE POWER BUDGET, when the caller supplies one. `transmitterPowerDbKw`,
+ *    `transmitterGainDbi`, `receiverGainDbi` and `otherLossesDb` are optional,
+ *    but when present each must be finite: equations (43) and (44) form the
+ *    received power from them, and `operationalMuf.ts` throws on a non-finite
+ *    e.i.r.p. rather than answer a labelled result on its own. `otherLossesDb`
+ *    is additionally refused if negative, because it is a loss.
  *
  * WHAT THE DOMAIN IS NOT. The layers. `propulse-physics-v1` is P.533-14's
  * regular E and F2 layers and nothing else: no F1, no sporadic E, no ground
@@ -230,6 +236,7 @@ export type CircuitDomainReason =
   | "unsupported_utc_hour"
   | "unsupported_solar_index"
   | "unsupported_bandwidth"
+  | "unsupported_power_budget"
   | "unsupported_noise_environment";
 
 export interface AdmittedCircuitRequest {
@@ -342,6 +349,9 @@ export function circuitDomain(request: CircuitRequest): CircuitDomainResult {
     );
   }
 
+  const powerBudget = checkPowerBudget(request);
+  if (powerBudget !== null) return powerBudget;
+
   const noise = checkManMadeNoise(request.manMadeNoise);
   if (noise !== null) return noise;
 
@@ -372,6 +382,45 @@ function checkEndpoints(request: CircuitRequest): RefusedCircuitRequest | null {
           "finite longitude in [-360, 360] degrees.",
       );
     }
+  }
+  return null;
+}
+
+/**
+ * The four optional fields of the power budget, none of which solveCircuit's
+ * own leaves check: `operationalMuf.ts` throws `eirpDbW must be finite` and
+ * `fieldStrengthShort.ts`'s equations (43) and (44) would carry a NaN or an
+ * infinity through the whole loss budget rather than fail loudly. A request
+ * this module admits must never reach either, so the check is here instead.
+ */
+function checkPowerBudget(
+  request: CircuitRequest,
+): RefusedCircuitRequest | null {
+  const fields: readonly (readonly [string, number | undefined, string])[] = [
+    ["the transmitter power", request.transmitterPowerDbKw, "dB(1 kW)"],
+    ["the transmitter gain", request.transmitterGainDbi, "dBi"],
+    ["the receiver gain", request.receiverGainDbi, "dBi"],
+    ["the other losses", request.otherLossesDb, "dB"],
+  ];
+  for (const [name, value, unit] of fields) {
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      return refuse(
+        "unsupported_power_budget",
+        `${name} is ${String(value)} ${unit}; equations (43) and (44) of ` +
+          `P.533-14 need a finite power budget, so ${MODEL_ID} refuses the ` +
+          "request rather than letting solveCircuit fail on one it should " +
+          "never have admitted.",
+      );
+    }
+  }
+  if (request.otherLossesDb !== undefined && request.otherLossesDb < 0) {
+    return refuse(
+      "unsupported_power_budget",
+      `the other losses are ${String(request.otherLossesDb)} dB; ` +
+        "otherLossesDb is a loss added to the budget by equation (44), so it " +
+        "cannot be negative.",
+    );
   }
   return null;
 }

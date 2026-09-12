@@ -307,6 +307,56 @@ describe("the receiver", () => {
   });
 });
 
+describe("the power budget", () => {
+  it("refuses a non-finite transmitter power, transmitter gain or receiver gain", () => {
+    let detail = refusedWith(
+      { transmitterPowerDbKw: Number.NaN },
+      "unsupported_power_budget",
+    );
+    expect(detail).toContain("equations (43) and (44)");
+    detail = refusedWith(
+      { transmitterGainDbi: Number.POSITIVE_INFINITY },
+      "unsupported_power_budget",
+    );
+    expect(detail).toContain("equations (43) and (44)");
+    detail = refusedWith(
+      { receiverGainDbi: Number.NEGATIVE_INFINITY },
+      "unsupported_power_budget",
+    );
+    expect(detail).toContain("equations (43) and (44)");
+  });
+
+  it("refuses a non-finite otherLossesDb", () => {
+    const detail = refusedWith(
+      { otherLossesDb: Number.NaN },
+      "unsupported_power_budget",
+    );
+    expect(detail).toContain("equations (43) and (44)");
+  });
+
+  it("refuses a negative otherLossesDb, because it is a loss", () => {
+    const detail = refusedWith(
+      { otherLossesDb: -0.01 },
+      "unsupported_power_budget",
+    );
+    expect(detail).toContain("cannot be negative");
+  });
+
+  it("admits the valid boundary: zero loss and finite gains either side of zero", () => {
+    const result = ask({
+      transmitterPowerDbKw: -10,
+      transmitterGainDbi: -3,
+      receiverGainDbi: 0,
+      otherLossesDb: 0,
+    });
+    expect(result.kind).toBe("admitted");
+  });
+
+  it("admits a request that supplies no power budget fields at all", () => {
+    expect(ask({}).kind).toBe("admitted");
+  });
+});
+
 describe("nothing throws, whatever it is handed", () => {
   it("answers every malformed request with a label", () => {
     const hostile: readonly Partial<CircuitRequest>[] = [
@@ -316,6 +366,10 @@ describe("nothing throws, whatever it is handed", () => {
       { utcHour: Number.NaN },
       { r12: Number.POSITIVE_INFINITY },
       { bandwidthHz: Number.NaN },
+      { transmitterPowerDbKw: Number.NaN },
+      { transmitterGainDbi: Number.POSITIVE_INFINITY },
+      { receiverGainDbi: Number.NEGATIVE_INFINITY },
+      { otherLossesDb: Number.NaN },
       { transmitter: { latitudeDeg: Number.NaN, longitudeDeg: Number.NaN } },
       {
         transmitter: { latitudeDeg: 1e9, longitudeDeg: 1e9 },

@@ -90,6 +90,19 @@
  * takes the "< 60" block, which on a short auroral circuit understates the
  * lower decile by up to 4 dB. Declared, with its effect measured, in the
  * circuit parity fixture.
+ *
+ * DEVIATION 4: |Gn|, NOT Gn.
+ * `scanFootnoteSpan` tests the magnitude of the geomagnetic latitude, and the
+ * pinned reference (`CircuitReliability.c:180-186`) tests the signed value, so
+ * the reference never selects the ">= 60" block on a path whose footnote span
+ * is entirely in the southern geomagnetic hemisphere. Our reading is the
+ * correct one: the auroral zone footnote (1) describes is symmetric about the
+ * geomagnetic equator, and P.533-14's other high-latitude tests (section 5.2.1
+ * screening among them) are stated on |lat|, never on a signed one. This
+ * deviation is UNEXERCISED on the golden corpus: the most negative signed
+ * geomagnetic latitude reached anywhere on any case's footnote span is -52.93
+ * degrees, on G19, well short of the 60 degree threshold either sign of the
+ * test would need to disagree on.
  */
 
 import {
@@ -279,7 +292,8 @@ export function scanFootnoteSpan(route: ResolvedRoute): FootnoteScan {
   if (a !== 0 || b !== 0) {
     const phi = Math.atan2(b, a);
     // The maximum is at phi and the minimum half a turn away; both matter
-    // because Table 2 is indexed on |Gn|. Walk both families into the span.
+    // because Table 2 is indexed on |Gn| (deviation 4). Walk both families
+    // into the span.
     for (const base of [phi, phi + Math.PI]) {
       for (let k = -2; k <= 2; k++) {
         const theta = base + k * 2 * Math.PI;

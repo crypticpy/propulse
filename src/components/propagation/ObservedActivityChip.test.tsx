@@ -54,6 +54,7 @@ const BASE = {
   aggregationLagSeconds: 0,
   requestedHourCount: 6,
   readableHourCount: 6,
+  coveredHourCount: 1,
   unreadableSpans: [],
 };
 
@@ -88,6 +89,7 @@ function unknownWith(
     : | "no_receiver_coverage"
       | "aggregate_hour_not_readable"
       | "window_not_aggregated"
+      | "partial_receiver_coverage"
       | "aggregate_read_failed",
 ): PathActivityRecord {
   return { ...BASE, state: "unknown", reason };
@@ -208,6 +210,7 @@ describe("unknown", () => {
     ["no_receiver_coverage", /nobody was listening/i],
     ["aggregate_hour_not_readable", /gap/i],
     ["window_not_aggregated", /not aggregated yet/i],
+    ["partial_receiver_coverage", /1 of the 6 hours/i],
     ["aggregate_read_failed", /could not be read/i],
   ] as const;
 
@@ -287,6 +290,7 @@ describe("status is never colour alone (test 31)", () => {
     [unknownWith("no_receiver_coverage"), /unknown/i],
     [unknownWith("aggregate_hour_not_readable"), /unknown/i],
     [unknownWith("window_not_aggregated"), /unknown/i],
+    [unknownWith("partial_receiver_coverage"), /unknown/i],
     [unknownWith("aggregate_read_failed"), /unknown/i],
   ])("renders a word for every state", (record, word) => {
     mountWith(record as PathActivityRecord);

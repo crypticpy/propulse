@@ -72,14 +72,19 @@ function formatAge(seconds: number): string {
  * with no cause reads as a fault in the app rather than a gap in the evidence.
  * None of these mention reports: an unknown cell states no count at all.
  */
-const UNKNOWN_COPY: Record<UnknownReason, string> = {
-  no_receiver_coverage:
+const UNKNOWN_COPY: Record<
+  UnknownReason,
+  (record: PathActivityRecord) => string
+> = {
+  no_receiver_coverage: () =>
     "Nobody was listening at the far end during this window, so nothing can be said either way.",
-  aggregate_hour_not_readable:
+  partial_receiver_coverage: (record) =>
+    `Somebody was listening for ${record.coveredHourCount} of the ${record.requestedHourCount} hours in this window. The watched hours were quiet, which says nothing about the rest.`,
+  aggregate_hour_not_readable: () =>
     "The hourly aggregate has a gap over this window, so the evidence is incomplete.",
-  window_not_aggregated:
+  window_not_aggregated: () =>
     "This window is not aggregated yet. The hourly rollup writes an hour once it closes.",
-  aggregate_read_failed:
+  aggregate_read_failed: () =>
     "The aggregate could not be read just now, so the evidence is unavailable.",
 };
 
@@ -176,7 +181,7 @@ export function ObservedActivityChip({
 
       {record.state === "unknown" && (
         <p className="mt-1 text-sm text-su-text">
-          {UNKNOWN_COPY[record.reason]}
+          {UNKNOWN_COPY[record.reason](record)}
         </p>
       )}
 

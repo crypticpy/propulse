@@ -12,6 +12,7 @@ import { createElement, type ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { InvalidObservedWindowError } from "@/lib/propagation/radioEvidence/coverage";
 import {
   observedActivityIssueBucket,
   observedActivityQueryKey,
@@ -258,5 +259,25 @@ describe("observedActivityQueryKey", () => {
         modeClasses: ["phone", "cw", "digital"],
       }),
     );
+  });
+});
+
+describe("window validation", () => {
+  it("rejects a window that is not a whole number of hours", () => {
+    // At the call site, not inside the query: a caller bug that surfaced as a
+    // failed read would be filed as unknown evidence rather than as the
+    // mistake it is.
+    expect(() =>
+      renderHook(
+        () =>
+          useObservedPathActivity({
+            band: "20m",
+            txGrid: "FN31pr",
+            rxGrid: "IO91wm",
+            windowSeconds: 5400,
+          }),
+        { wrapper },
+      ),
+    ).toThrow(InvalidObservedWindowError);
   });
 });

@@ -10,7 +10,9 @@
  */
 
 export {
+  assertWholeHourWindow,
   DEFAULT_OBSERVED_WINDOW_SECONDS,
+  InvalidObservedWindowError,
   resolveCoverage,
 } from "@/lib/propagation/radioEvidence/coverage";
 export { derivePathActivity } from "@/lib/propagation/radioEvidence/activityRecord";
@@ -38,4 +40,5 @@ export type {
   ReadableBandHourRow,
   ReadableSpan,
   UnknownReason,
+  UnreadableSpan,
 } from "@/lib/propagation/radioEvidence/types";

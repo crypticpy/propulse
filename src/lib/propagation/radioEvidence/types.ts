@@ -35,6 +35,12 @@ export type UnknownReason =
   | "aggregate_hour_not_readable"
   | "no_receiver_coverage"
   /**
+   * Somebody was listening for part of the window and nobody for the rest.
+   * The watched hours were silent, which says nothing about the unwatched
+   * ones, so no count and no silence can be stated over the window.
+   */
+  | "partial_receiver_coverage"
+  /**
    * The aggregates could not be read at all (a failed request). Only a caller
    * that performs the read can state this one; the pure derivation never
    * produces it. It is still `unknown`, because a failed read is the absence
@@ -112,6 +118,8 @@ export type CoverageVerdict =
       readonly kind: "covered";
       readonly span: ReadableSpan;
       readonly coveredHourStarts: readonly string[];
+      /** True only when every hour of the aligned window had a listener. */
+      readonly windowFullyCovered: boolean;
       /** End of the newest covered hour; the anchor of a `no_reports` age. */
       readonly latestCoveredHourEnd: string;
     }
@@ -147,6 +155,12 @@ export interface PathActivityBase {
   readonly requestedHourCount: number;
   /** Of those, how many the gap-filtered view exposes. */
   readonly readableHourCount: number;
+  /**
+   * Of those, how many had a listening receiver. Silence may be stated only
+   * when this equals `requestedHourCount`: an unwatched hour could hold every
+   * report on the path.
+   */
+  readonly coveredHourCount: number;
   /**
    * The hours it does not, as intervals. Empty means the evidence spans the
    * whole window, which is the only condition under which silence is silence

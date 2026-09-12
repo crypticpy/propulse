@@ -38,6 +38,34 @@ const HOUR_MS = 3_600_000;
  */
 export const DEFAULT_OBSERVED_WINDOW_SECONDS = 6 * 3600;
 
+/** Thrown when a caller asks for a window the aggregates cannot express. */
+export class InvalidObservedWindowError extends Error {
+  constructor(windowSeconds: number) {
+    super(
+      `observed activity window must be a positive whole number of hours, got ${windowSeconds} seconds`,
+    );
+    this.name = "InvalidObservedWindowError";
+  }
+}
+
+/**
+ * Reject a window that cannot be built out of aggregation hours.
+ *
+ * 90 minutes ending at 18:00 would record a start of 16:30 while only the
+ * 17:00 hour was ever examined: the record would name a span nobody read.
+ * The grain is an hour, so the window is a whole number of them, and the
+ * caller hears about it at the boundary rather than in a quietly wrong claim.
+ */
+export function assertWholeHourWindow(windowSeconds: number): void {
+  if (
+    !Number.isFinite(windowSeconds) ||
+    windowSeconds <= 0 ||
+    windowSeconds % 3600 !== 0
+  ) {
+    throw new InvalidObservedWindowError(windowSeconds);
+  }
+}
+
 /** An hour key in one spelling; PostgREST may return either offset form. */
 export function normalizeHourStart(hourUtc: string): string {
   return new Date(
@@ -72,6 +100,7 @@ export function alignedWindow(
   issuedAt: string,
   windowSeconds: number,
 ): AlignedWindow {
+  assertWholeHourWindow(windowSeconds);
   const endAt = normalizeHourStart(issuedAt);
   return {
     startAt: new Date(Date.parse(endAt) - windowSeconds * 1000).toISOString(),
@@ -189,9 +218,11 @@ export function resolveCoverage(query: CoverageQuery): CoverageVerdict {
     query.windowSeconds,
     query.readableHours,
   );
-  if (span.candidateHourStarts.length === 0) {
-    return { kind: "unknown", span, reason: "window_not_aggregated" };
-  }
+  // `window_not_aggregated` is not reachable from here: the window is a whole
+  // number of hours (asserted above) and is aligned, so it always holds at
+  // least one candidate hour. The reason survives for the case that can still
+  // produce it, an issuance that is not on an hour boundary, which the head
+  // decides rather than the row reader.
   if (span.readableHourStarts.length === 0) {
     return { kind: "unknown", span, reason: "aggregate_hour_not_readable" };
   }
@@ -206,6 +237,11 @@ export function resolveCoverage(query: CoverageQuery): CoverageVerdict {
     kind: "covered",
     span,
     coveredHourStarts,
+    // One listening hour is not a watched window. Callers that state silence
+    // need every hour; callers that state a report need only the hour the
+    // report is in, so the distinction is reported rather than enforced here.
+    windowFullyCovered:
+      coveredHourStarts.length === span.candidateHourStarts.length,
     latestCoveredHourEnd: hourEnd(
       coveredHourStarts[coveredHourStarts.length - 1],
     ),

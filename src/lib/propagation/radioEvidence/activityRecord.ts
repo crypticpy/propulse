@@ -89,6 +89,7 @@ export function unknownActivity(
     aggregationLagSeconds: null,
     requestedHourCount: 0,
     readableHourCount: 0,
+    coveredHourCount: 0,
     unreadableSpans: [],
     state: "unknown",
     reason,
@@ -129,6 +130,8 @@ export function derivePathActivity(
         : ageSecondsBetween(inputs.issuedAt, span.latestReadableHourEnd),
     requestedHourCount: span.candidateHourStarts.length,
     readableHourCount: span.readableHourStarts.length,
+    coveredHourCount:
+      coverage.kind === "covered" ? coverage.coveredHourStarts.length : 0,
     unreadableSpans: unreadableSpans(span),
   };
   const windowComplete = span.unreadableHourStarts.length === 0;
@@ -158,6 +161,17 @@ export function derivePathActivity(
         reason: "aggregate_hour_not_readable",
       };
     }
+    if (!coverage.windowFullyCovered) {
+      // Every hour is readable and some were still unwatched. Silence over
+      // the watched hours is not silence over the window. The
+      // unwatched hours could hold every report on this path, so the record
+      // says how much of the window was watched and states no count.
+      return {
+        ...base,
+        state: "unknown",
+        reason: "partial_receiver_coverage",
+      };
+    }
     return {
       ...base,
       state: "no_reports",
@@ -173,6 +187,10 @@ export function derivePathActivity(
     };
   }
 
+  // The count is exact over the readable hours whatever the coverage was: a
+  // readable hour with no listener holds no reports, so nothing is hidden
+  // there. Readability, not coverage, is what makes a total a total, which is
+  // why `countIsLowerBound` tracks the gap and not the watch.
   const modeCounts = emptyModeCounts();
   let count = 0;
   let backfilledCount = 0;

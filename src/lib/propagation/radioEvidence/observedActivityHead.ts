@@ -86,6 +86,7 @@ const EXCLUSION_REASONS: Record<UnknownReason, string> = {
   window_not_aggregated: "window_holds_no_complete_aggregation_hour",
   aggregate_hour_not_readable: "no_readable_aggregate_hour_in_window",
   no_receiver_coverage: "no_listening_receiver_in_window",
+  partial_receiver_coverage: "receiver_coverage_incomplete_over_window",
   aggregate_read_failed: "aggregate_read_failed",
 };
 

@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignedWindow,
+  InvalidObservedWindowError,
   candidateHourStarts,
   DEFAULT_OBSERVED_WINDOW_SECONDS,
   resolveCoverage,
@@ -119,18 +120,19 @@ describe("gap handling", () => {
     expect(verdict.span.latestReadableHourEnd).toBe("2026-09-11T14:00:00.000Z");
   });
 
-  it("reports a window that holds no complete hour yet (test 5)", () => {
-    const verdict = resolveCoverage({
-      issuedAt: "2026-09-11T18:30:00Z",
-      windowSeconds: 1800,
-      readableHours: readable(WINDOW_HOURS),
-      coverageRows: [coverageRow(WINDOW_HOURS[5], "IO", 9)],
-    });
-
-    expect(verdict.kind).toBe("unknown");
-    if (verdict.kind !== "unknown") return;
-    expect(verdict.reason).toBe("window_not_aggregated");
-    expect(verdict.span.candidateHourStarts).toEqual([]);
+  it("refuses a window that cannot be built from whole hours (test 5)", () => {
+    // Formerly this returned window_not_aggregated. A window of 90 minutes is
+    // not a short answer, it is an unanswerable question: aligned to hours it
+    // would claim 16:30 while only 17:00 was ever examined. Rejecting it at
+    // the boundary beats reporting a span nobody read.
+    expect(() =>
+      resolveCoverage({
+        issuedAt: "2026-09-11T18:30:00Z",
+        windowSeconds: 5400,
+        readableHours: readable(WINDOW_HOURS),
+        coverageRows: [coverageRow(WINDOW_HOURS[5], "IO", 9)],
+      }),
+    ).toThrow(InvalidObservedWindowError);
   });
 
   it("accepts the offset spelling PostgREST returns for an hour", () => {
@@ -246,7 +248,52 @@ describe("window alignment", () => {
     expect(candidateHourStarts(ISSUED_AT, 6 * 3600)).toEqual(WINDOW_HOURS);
   });
 
-  it("still reports a window too short to hold an aggregation hour", () => {
-    expect(candidateHourStarts("2026-09-11T18:30:00Z", 1800)).toEqual([]);
+  it("rejects a window that is not a whole number of hours", () => {
+    for (const seconds of [5400, 1800, 0, -3600, 3599]) {
+      expect(() => candidateHourStarts(ISSUED_AT, seconds)).toThrow(
+        InvalidObservedWindowError,
+      );
+    }
+  });
+
+  it("accepts one hour and the six-hour default", () => {
+    expect(() => alignedWindow(ISSUED_AT, 3600)).not.toThrow();
+    expect(() => alignedWindow(ISSUED_AT, 21_600)).not.toThrow();
+    expect(candidateHourStarts(ISSUED_AT, 3600)).toEqual([WINDOW_HOURS[5]]);
+    expect(DEFAULT_OBSERVED_WINDOW_SECONDS % 3600).toBe(0);
+  });
+
+  it("names the window in the error it throws", () => {
+    expect(() => alignedWindow(ISSUED_AT, 5400)).toThrow(/5400/);
+  });
+});
+
+describe("coverage must hold for every hour, not for one", () => {
+  it("refuses to call one listening hour a covered window", () => {
+    // A receiver present at 15:00 says nothing about 12:00 or 17:00. Reading
+    // the window as covered turns five unwatched hours into observed silence,
+    // which is the closure claim wearing a zero.
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS),
+      coverageRows: [coverageRow(WINDOW_HOURS[3], "JN", 4)],
+    });
+
+    expect(verdict.kind).toBe("covered");
+    if (verdict.kind !== "covered") return;
+    expect(verdict.coveredHourStarts).toEqual([WINDOW_HOURS[3]]);
+    expect(verdict.windowFullyCovered).toBe(false);
+  });
+
+  it("calls a window covered when every hour had a listener", () => {
+    const verdict = resolveCoverage({
+      issuedAt: ISSUED_AT,
+      windowSeconds: DEFAULT_OBSERVED_WINDOW_SECONDS,
+      readableHours: readable(WINDOW_HOURS),
+      coverageRows: WINDOW_HOURS.map((hour) => coverageRow(hour, "JN", 2)),
+    });
+
+    expect(verdict.kind === "covered" && verdict.windowFullyCovered).toBe(true);
   });
 });

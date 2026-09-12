@@ -148,16 +148,16 @@ describe("contract structural", () => {
   });
 
   it("parses a covered-silence projection as a zero, not a gap", () => {
+    // Every hour watched, because a zero over the window may only be stated
+    // when the whole window was listened to.
     const silent = record({
       pairRows: [],
-      coverageRows: [
-        {
-          hour_utc: WINDOW_HOURS[5],
-          mode_class: "cw",
-          tx_field: "JN",
-          unique_rx: 3,
-        },
-      ],
+      coverageRows: WINDOW_HOURS.map((hour_utc) => ({
+        hour_utc,
+        mode_class: "cw",
+        tx_field: "JN",
+        unique_rx: 3,
+      })),
     });
     const { head, evidenceSource } = projectObservedActivityHead(
       silent,
@@ -403,6 +403,45 @@ describe("provenance names the record's own reason", () => {
 
     const { evidenceSource } = projectObservedActivityHead(tooShort, IDENTITY);
 
+    expect(evidenceSource.exclusionReason).not.toBe(
+      "no_readable_aggregate_hour_in_window",
+    );
+  });
+});
+
+describe("partial receiver coverage cannot publish a zero", () => {
+  it("projects missing_input when only some hours had a listener", () => {
+    const patchy = record({
+      pairRows: [],
+      coverageRows: [
+        {
+          hour_utc: WINDOW_HOURS[3],
+          mode_class: "digital",
+          tx_field: "JN",
+          unique_rx: 4,
+        },
+      ],
+    });
+
+    expect(patchy.state).toBe("unknown");
+
+    const { head } = projectObservedActivityHead(patchy, IDENTITY);
+
+    expect(head.state.availability).toBe("missing_input");
+    expect(
+      head.state.availability === "missing_input" && head.state.reason,
+    ).toBe("partial_receiver_coverage");
+  });
+
+  it("names partial coverage in provenance rather than a gap", () => {
+    const patchy = unknownActivity(
+      { band: "20m", txField: "FN", rxField: "IO", issuedAt: ISSUED_AT },
+      "partial_receiver_coverage",
+    );
+
+    const { evidenceSource } = projectObservedActivityHead(patchy, IDENTITY);
+
+    expect(evidenceSource.exclusionReason).toMatch(/coverage|listen/);
     expect(evidenceSource.exclusionReason).not.toBe(
       "no_readable_aggregate_hour_in_window",
     );

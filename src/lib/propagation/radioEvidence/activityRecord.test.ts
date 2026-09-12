@@ -9,7 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 import { derivePathActivity } from "@/lib/propagation/radioEvidence/activityRecord";
-import { DEFAULT_OBSERVED_WINDOW_SECONDS } from "@/lib/propagation/radioEvidence/coverage";
+import {
+  DEFAULT_OBSERVED_WINDOW_SECONDS,
+  InvalidObservedWindowError,
+} from "@/lib/propagation/radioEvidence/coverage";
 import type {
   ModeClass,
   PathActivityPairRow,
@@ -21,14 +24,10 @@ import type {
 
 const ISSUED_AT = "2026-09-11T18:00:00Z";
 
-const WINDOW_HOURS = [
-  "2026-09-11T12:00:00.000Z",
-  "2026-09-11T13:00:00.000Z",
-  "2026-09-11T14:00:00.000Z",
-  "2026-09-11T15:00:00.000Z",
-  "2026-09-11T16:00:00.000Z",
-  "2026-09-11T17:00:00.000Z",
-];
+/** The six aligned hours of the default window ending at 18:00Z. */
+const WINDOW_HOURS = Array.from({ length: 6 }, (_unused, index) =>
+  new Date(Date.UTC(2026, 8, 11, 12 + index)).toISOString(),
+);
 
 function readable(
   hours: readonly string[] = WINDOW_HOURS,
@@ -57,6 +56,14 @@ function listeningAt(
   mode_class: ModeClass = "digital",
 ): PathCoverageRow {
   return { hour_utc, mode_class, tx_field: "JN", unique_rx: 5 };
+}
+
+/**
+ * A listener present for every hour of the window, which is what stating
+ * silence requires: one watched hour leaves five unwatched ones.
+ */
+function watchedWindow(mode_class: ModeClass = "digital"): PathCoverageRow[] {
+  return WINDOW_HOURS.map((hour) => listeningAt(hour, mode_class));
 }
 
 /** A coverage row derived from a pair row, as the real query would return. */
@@ -98,17 +105,16 @@ describe("unknown-vs-closed", () => {
   });
 
   it("reports zero with a coverage age when somebody was listening (test 7)", () => {
-    const record = derive({
-      pairRows: [],
-      coverageRows: [listeningAt(WINDOW_HOURS[3])],
-    });
+    const record = derive({ pairRows: [], coverageRows: watchedWindow() });
 
     expect(record.state).toBe("no_reports");
     if (record.state !== "no_reports") return;
     expect(record.count).toBe(0);
-    expect(record.latestCoveredHourEnd).toBe("2026-09-11T16:00:00.000Z");
+    expect(record.latestCoveredHourEnd).toBe("2026-09-11T18:00:00.000Z");
     expect(record.ageKind).toBe("coverage");
-    expect(record.ageSeconds).toBe(7200);
+    expect(record.ageSeconds).toBe(0);
+    // Silence is only stateable because every window hour had a listener.
+    expect(record.coveredHourCount).toBe(6);
   });
 
   it("offers no closed-like verdict anywhere in the union (test 8)", () => {
@@ -153,20 +159,11 @@ describe("age", () => {
   });
 
   it("does not assume the rows arrive in order (test 10)", () => {
-    const ordered = derive({
-      pairRows: [
-        pairRow({ hour_utc: WINDOW_HOURS[0] }),
-        pairRow({ hour_utc: WINDOW_HOURS[2] }),
-        pairRow({ hour_utc: WINDOW_HOURS[4] }),
-      ],
-    });
-    const shuffled = derive({
-      pairRows: [
-        pairRow({ hour_utc: WINDOW_HOURS[4] }),
-        pairRow({ hour_utc: WINDOW_HOURS[0] }),
-        pairRow({ hour_utc: WINDOW_HOURS[2] }),
-      ],
-    });
+    const rows = [0, 2, 4].map((index) =>
+      pairRow({ hour_utc: WINDOW_HOURS[index] }),
+    );
+    const ordered = derive({ pairRows: rows });
+    const shuffled = derive({ pairRows: [rows[2], rows[0], rows[1]] });
 
     expect(shuffled).toEqual(ordered);
   });
@@ -177,7 +174,7 @@ describe("age", () => {
     });
     const silent = derive({
       pairRows: [],
-      coverageRows: [listeningAt(WINDOW_HOURS[5], "cw")],
+      coverageRows: watchedWindow("cw"),
     });
 
     expect(heard.state === "verified_open" && heard.ageKind).toBe("report");
@@ -206,13 +203,7 @@ describe("age", () => {
 });
 
 describe("an incomplete window is not coverage", () => {
-  const gapped = [
-    WINDOW_HOURS[0],
-    WINDOW_HOURS[1],
-    WINDOW_HOURS[2],
-    WINDOW_HOURS[4],
-    WINDOW_HOURS[5],
-  ];
+  const gapped = WINDOW_HOURS.filter((_hour, index) => index !== 3);
 
   it("refuses no_reports while any window hour is unreadable", () => {
     // Silence over five of six hours is not silence over the window. The
@@ -248,26 +239,15 @@ describe("an incomplete window is not coverage", () => {
     expect(record.count).toBe(9);
     expect(record.countIsLowerBound).toBe(true);
     expect(record.unreadableSpans).toHaveLength(1);
-  });
 
-  it("states an exact count when every window hour is readable", () => {
-    const record = derive({
+    // The same rows over a wholly readable window make a total, not a floor.
+    const whole = derive({
       pairRows: [pairRow({ hour_utc: WINDOW_HOURS[4], spot_count: 9 })],
     });
-
-    expect(record.state === "verified_open" && record.countIsLowerBound).toBe(
+    expect(whole.state === "verified_open" && whole.countIsLowerBound).toBe(
       false,
     );
-    expect(record.unreadableSpans).toEqual([]);
-  });
-
-  it("still reports silence over a wholly readable window", () => {
-    const record = derive({
-      pairRows: [],
-      coverageRows: [listeningAt(WINDOW_HOURS[4])],
-    });
-
-    expect(record.state).toBe("no_reports");
+    expect(whole.unreadableSpans).toEqual([]);
   });
 });
 
@@ -458,11 +438,14 @@ describe("the record answers over whole hours", () => {
     const record = derive({
       issuedAt: "2026-09-11T18:05:00Z",
       pairRows: [],
-      coverageRows: [listeningAt(WINDOW_HOURS[5])],
+      coverageRows: watchedWindow(),
     });
 
     expect(record.state).toBe("no_reports");
     expect(record.windowEndAt).toBe("2026-09-11T18:00:00.000Z");
+    // Coverage runs to the end of the aligned window, so the coverage age is
+    // the aggregation lag: five minutes of this hour are not in yet.
+    expect(record.state === "no_reports" && record.ageSeconds).toBe(300);
   });
 
   it("states the window it answered when issuance is on the hour", () => {
@@ -477,5 +460,37 @@ describe("the record answers over whole hours", () => {
     expect(record.band).toBe("20m");
     expect(record.txField).toBe("FN");
     expect(record.rxField).toBe("IO");
+  });
+});
+
+describe("silence is only silence where somebody listened", () => {
+  it("refuses no_reports when one hour of six had a listener", () => {
+    const record = derive({
+      pairRows: [],
+      coverageRows: [listeningAt(WINDOW_HOURS[3])],
+    });
+
+    expect(record.state).not.toBe("no_reports");
+    expect(record.state).toBe("unknown");
+    if (record.state !== "unknown") return;
+    expect(record.reason).toBe("partial_receiver_coverage");
+    expect("count" in record).toBe(false);
+    expect(record.coveredHourCount).toBe(1);
+    expect(record.requestedHourCount).toBe(6);
+  });
+
+  it("keeps verified_open on one covered hour, because a report is evidence", () => {
+    const record = derive({
+      pairRows: [pairRow({ hour_utc: WINDOW_HOURS[3], spot_count: 3 })],
+    });
+
+    expect(record.state).toBe("verified_open");
+    expect(record.coveredHourCount).toBe(1);
+  });
+
+  it("rejects a window that is not a whole number of hours", () => {
+    expect(() => derive({ windowSeconds: 5400 })).toThrow(
+      InvalidObservedWindowError,
+    );
   });
 });

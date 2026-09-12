@@ -27,7 +27,10 @@ import {
   derivePathActivity,
   unknownActivity,
 } from "@/lib/propagation/radioEvidence/activityRecord";
-import { DEFAULT_OBSERVED_WINDOW_SECONDS } from "@/lib/propagation/radioEvidence/coverage";
+import {
+  assertWholeHourWindow,
+  DEFAULT_OBSERVED_WINDOW_SECONDS,
+} from "@/lib/propagation/radioEvidence/coverage";
 import {
   MODE_CLASSES,
   type ModeClass,
@@ -125,7 +128,7 @@ export interface ObservedPathActivityInput {
   txGrid: string | null | undefined;
   /** Target's grid square (the receiving end). */
   rxGrid: string | null | undefined;
-  /** Lookback length; defaults to six hours. */
+  /** Lookback length in whole hours; defaults to six. */
   windowSeconds?: number;
   /** Mode classes that qualify; defaults to all three. */
   modeClasses?: readonly ModeClass[];
@@ -153,6 +156,10 @@ export function useObservedPathActivity(
   const txField = fieldOf(input.txGrid);
   const rxField = fieldOf(input.rxGrid);
   const windowSeconds = input.windowSeconds ?? DEFAULT_OBSERVED_WINDOW_SECONDS;
+  // At the call site rather than inside the query: a window the aggregates
+  // cannot express is a caller bug, and letting it surface as a failed read
+  // would file it as missing evidence.
+  assertWholeHourWindow(windowSeconds);
   const modeClasses = input.modeClasses;
   const enabled =
     (input.enabled ?? true) && txField !== null && rxField !== null;

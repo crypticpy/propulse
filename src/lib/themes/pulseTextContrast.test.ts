@@ -191,7 +191,7 @@ const AUDITED_SITES: AuditedSite[] = [
   {
     file: "src/components/dx/DXSpotList/DXSpotList.tsx",
     what: "alert-match-count badge",
-    anchor: "bg-alert-red/20 text-alert-red border border-alert-red/30",
+    anchor: "bg-alert-red/20 text-su-text border border-alert-red/30",
   },
   {
     file: "src/components/contest/ContestCalendar.tsx",

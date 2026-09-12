@@ -98,7 +98,7 @@ export function Header({
                 <h1 className="font-orbitron text-lg md:text-xl font-black text-gradient-orange tracking-wider">
                   PROPULSE
                 </h1>
-                <p className="text-[10px] text-su-muted uppercase tracking-wider -mt-1">
+                <p className="text-xs text-su-muted uppercase tracking-wider -mt-1">
                   The ionosphere, visualized
                 </p>
               </div>
@@ -440,7 +440,7 @@ function AuthHeaderButton() {
         <HeaderRankBadge />
       </Suspense>
       {subscriptionTier === "pro" && (
-        <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
+        <span className="text-xs font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
           PRO
         </span>
       )}

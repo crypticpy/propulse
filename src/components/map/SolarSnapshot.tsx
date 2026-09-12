@@ -379,7 +379,7 @@ export function SolarSnapshot({
       <div className="flex items-center justify-between gap-2 mb-1">
         {/* Condition label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-su-muted uppercase">
+          <span className="text-xs text-su-muted uppercase">
             Conditions
           </span>
           <span className="text-sm font-semibold" style={{ color: scoreColor }}>
@@ -430,7 +430,7 @@ export function SolarSnapshot({
       {/* Greyline status indicator */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-su-muted uppercase">Greyline</span>
+          <span className="text-xs text-su-muted uppercase">Greyline</span>
           <span
             className="text-xs font-semibold px-1.5 py-0.5 rounded"
             style={{
@@ -443,7 +443,7 @@ export function SolarSnapshot({
         </div>
         {greylineStatus.minutesToNextEvent !== null && (
           <span
-            className="text-[10px] text-su-muted font-mono"
+            className="text-xs text-su-muted font-mono"
             title={
               greylineStatus.nextEventTime
                 ? `Next: ${greylineStatus.nextEventTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !use24h })}`
@@ -471,7 +471,7 @@ export function SolarSnapshot({
             <>
               {/* Best band + mode + SNR */}
               <div className="flex items-baseline gap-2">
-                <span className="text-[10px] text-su-muted uppercase">
+                <span className="text-xs text-su-muted uppercase">
                   Best for path
                 </span>
                 <span className="text-xl font-bold font-mono text-su-text leading-none">
@@ -498,7 +498,7 @@ export function SolarSnapshot({
 
               {/* Band score indicator */}
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-su-muted uppercase">
+                <span className="text-xs text-su-muted uppercase">
                   Band Score
                 </span>
                 <span
@@ -507,7 +507,7 @@ export function SolarSnapshot({
                 >
                   {optimal.score}
                 </span>
-                <span className="text-[10px] text-su-muted">/ 100</span>
+                <span className="text-xs text-su-muted">/ 100</span>
               </div>
             </>
           ) : (

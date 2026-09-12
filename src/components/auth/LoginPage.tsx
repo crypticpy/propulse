@@ -437,7 +437,7 @@ export function LoginPage() {
 
           {/* Footer */}
           <div className="px-6 pb-6 pt-2">
-            <p className="text-[11px] text-su-muted text-center">
+            <p className="text-xs text-su-muted text-center">
               Invite-only beta
             </p>
           </div>

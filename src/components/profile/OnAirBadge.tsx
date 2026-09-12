@@ -91,7 +91,7 @@ export function OnAirBadge({ status, size = "sm" }: OnAirBadgeProps) {
       {/* Label (md only) */}
       {size === "md" && (
         <span
-          className={`text-[10px] font-semibold uppercase tracking-wider ${config.text}`}
+          className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}
         >
           {config.label}
         </span>

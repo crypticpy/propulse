@@ -162,7 +162,7 @@ export function ResearchParticipationSettings() {
                   type="button"
                   onClick={withdraw}
                   disabled={research.savingConsent}
-                  className="flex-1 px-3 py-2 rounded-md text-sm font-medium bg-alert-red/20 text-alert-red border border-alert-red/30 disabled:opacity-50"
+                  className="flex-1 px-3 py-2 rounded-md text-sm font-medium bg-alert-red/20 text-su-text border border-alert-red/30 disabled:opacity-50"
                 >
                   Confirm Withdrawal
                 </button>

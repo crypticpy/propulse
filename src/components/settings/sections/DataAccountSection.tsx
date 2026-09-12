@@ -629,7 +629,7 @@ export function DataAccountSection() {
             onClick={handleClearData}
             disabled={isClearing}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                       bg-alert-red/20 text-alert-red hover:bg-alert-red/30
+                       bg-alert-red/20 text-su-text hover:bg-alert-red/20
                        border border-alert-red/30 transition-colors
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -684,11 +684,11 @@ export function DataAccountSection() {
         <div
           className={`p-4 rounded-lg border ${
             backupStatus.type === "success"
-              ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+              ? "bg-signal-green/10 border-signal-green/30 text-su-text"
               : backupStatus.type === "error"
-                ? "bg-alert-red/10 border-alert-red/30 text-alert-red"
+                ? "bg-alert-red/10 border-alert-red/30 text-su-text"
                 : backupStatus.type === "warning"
-                  ? "bg-caution-amber/10 border-caution-amber/30 text-caution-amber"
+                  ? "bg-caution-amber/10 border-caution-amber/30 text-su-text"
                   : "bg-su-line/10 border-su-line/40 text-su-muted"
           }`}
         >

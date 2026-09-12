@@ -31,7 +31,7 @@ export function SkinSwitcher({
           key={skin}
           type="button"
           onClick={() => onSkinChange(skin)}
-          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+          className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
             activeSkin === skin
               ? "bg-plasma-orange/15 text-su-text"
               : "text-su-muted hover:text-su-text"

@@ -263,7 +263,7 @@ function LotwTab() {
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm text-su-text font-medium">Export for TQSL</p>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             {selectedIds.size > 0
               ? `Generate ADIF for ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Generate ADIF for all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -284,7 +284,7 @@ function LotwTab() {
           <p className="text-sm text-su-text font-medium">
             Download Confirmations
           </p>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             Fetch QSL confirmations and update local log
           </p>
         </div>
@@ -394,7 +394,7 @@ function EqslTab() {
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm text-su-text font-medium">Upload to eQSL</p>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             {selectedIds.size > 0
               ? `Upload ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Upload all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -413,7 +413,7 @@ function EqslTab() {
         <DownloadIcon />
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm text-su-text font-medium">Download Inbox</p>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             Check eQSL inbox for new confirmations
           </p>
         </div>
@@ -507,7 +507,7 @@ function QrzTab() {
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm text-su-text font-medium">Upload to QRZ.com</p>
-          <p className="text-[11px] text-su-muted">
+          <p className="text-xs text-su-muted">
             {selectedIds.size > 0
               ? `Upload ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Upload all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}

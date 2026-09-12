@@ -235,7 +235,7 @@ function PresetRow({
             {preset.isBuiltIn && (
               <span
                 className="
-                  text-[10px] font-medium uppercase tracking-wider
+                  text-xs font-medium uppercase tracking-wider
                   px-1.5 py-0.5 rounded
                   bg-su-input/50 text-su-muted
                   flex-shrink-0

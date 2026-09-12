@@ -40,25 +40,25 @@ export function ContestScoreShare() {
           <div className="text-lg font-bold text-su-text font-mono tabular-nums">
             {scoreSummary.score.toLocaleString()}
           </div>
-          <div className="text-[10px] text-su-muted uppercase">Score</div>
+          <div className="text-xs text-su-muted uppercase">Score</div>
         </div>
         <div className="text-center">
           <div className="text-lg font-bold text-cosmic-cyan font-mono tabular-nums">
             {scoreSummary.qsoCount}
           </div>
-          <div className="text-[10px] text-su-muted uppercase">QSOs</div>
+          <div className="text-xs text-su-muted uppercase">QSOs</div>
         </div>
         <div className="text-center">
           <div className="text-lg font-bold text-plasma-orange font-mono tabular-nums">
             {scoreSummary.multipliers}
           </div>
-          <div className="text-[10px] text-su-muted uppercase">Mults</div>
+          <div className="text-xs text-su-muted uppercase">Mults</div>
         </div>
         <div className="text-center">
           <div className="text-lg font-bold text-signal-green font-mono tabular-nums">
             {scoreSummary.currentRate}/hr
           </div>
-          <div className="text-[10px] text-su-muted uppercase">Rate</div>
+          <div className="text-xs text-su-muted uppercase">Rate</div>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export function ContestScoreShare() {
             .map(([band, count]) => (
               <span
                 key={band}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-su-line/10 text-[10px] font-mono"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-su-line/10 text-xs font-mono"
               >
                 <span className="text-su-muted">{band}</span>
                 <span className="text-su-text font-semibold">{count}</span>

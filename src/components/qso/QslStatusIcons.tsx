@@ -84,7 +84,7 @@ function QslBadge({
   size: "sm" | "md";
 }) {
   const sizeClasses =
-    size === "sm" ? "w-4 h-4 text-[9px]" : "w-5 h-5 text-[10px]";
+    size === "sm" ? "w-4 h-4 text-xs" : "w-5 h-5 text-xs";
 
   if (service.confirmed) {
     // Green filled: confirmed

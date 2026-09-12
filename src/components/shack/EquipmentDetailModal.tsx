@@ -77,7 +77,7 @@ function FieldCell({ field }: { field: EquipmentDetailField }) {
 
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
+      <dt className="text-xs font-medium uppercase tracking-wider text-su-muted">
         {field.label}
       </dt>
       <dd
@@ -97,7 +97,7 @@ function GroupSection({ group }: { group: EquipmentDetailGroup }) {
 
   return (
     <div className="px-5 py-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 border-b border-su-line/20">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 border-b border-su-line/20">
         {group.heading}
       </h3>
       <dl className={`grid ${cols} gap-x-6 gap-y-2.5`}>
@@ -251,7 +251,7 @@ export function EquipmentDetailModal({
               {badges.map((badge) => (
                 <span
                   key={badge.label}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs
                              font-semibold uppercase tracking-wider"
                   style={{
                     backgroundColor: `${badge.color ?? accentHex}18`,

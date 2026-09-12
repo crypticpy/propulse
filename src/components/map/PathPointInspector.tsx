@@ -132,7 +132,7 @@ export function PathPointInspector({
       {showHover && hovered && hoverPosition && (
         <div
           role="tooltip"
-          className="pointer-events-none z-[75] max-w-[260px] rounded-md border border-su-line/50 bg-su-canvas/95 px-2.5 py-1.5 text-[11px] text-su-text shadow-lg"
+          className="pointer-events-none z-[75] max-w-[260px] rounded-md border border-su-line/50 bg-su-canvas/95 px-2.5 py-1.5 text-xs text-su-text shadow-lg"
           style={{
             position: frame.position,
             left: hoverPosition.x,

@@ -288,13 +288,14 @@ export default function BasemapCategory() {
 
       <div className="mt-3 border-t border-su-line/40 pt-3">
         {/*
-          Same fixed-pixel submenu column as the quality-button grid below
-          (tracked by #849). "Image quality" and "Effective: <label>" are
-          both `text-xs`; at the xl scale their combined width no longer
-          fits the column, and this row's only implicit clip guard is the
-          panel's `overflow-y-auto` (which computes `overflow-x: auto` per
-          spec once one axis is non-visible). `flex-wrap` lets the
-          effective-quality value drop to its own line instead.
+          Same rem-sized submenu column as the quality-button grid below
+          (the panel follows Settings → Text Size; see #849). "Image quality"
+          and "Effective: <label>" are both `text-xs`; at the xl scale their
+          combined width no longer fits the column, and this row's only
+          implicit clip guard is the panel's `overflow-y-auto` (which
+          computes `overflow-x: auto` per spec once one axis is non-visible).
+          `flex-wrap` lets the effective-quality value drop to its own line
+          instead.
         */}
         <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
           <span className="text-xs uppercase tracking-wider text-su-text/80">

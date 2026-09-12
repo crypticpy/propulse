@@ -20,7 +20,7 @@ const OfflineBanner: FC<OfflineBannerProps> = ({ pendingCount }) => {
       aria-live="polite"
       className="fixed top-0 left-0 right-0 z-50 bg-caution-amber/20 border-b border-caution-amber/30 px-4 py-2 transition-opacity duration-300"
     >
-      <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 text-sm text-caution-amber">
+      <div className="mx-auto flex max-w-5xl items-center justify-center gap-2 text-sm text-su-text">
         {/* Warning icon */}
         <svg
           xmlns="http://www.w3.org/2000/svg"

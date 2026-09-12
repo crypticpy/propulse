@@ -31,17 +31,16 @@ Object.defineProperty(globalThis, "localStorage", {
 });
 
 /**
- * jsdom does not implement scrollIntoView. AllChainsView (and others) call
- * it from a timeout; leftover timers then throw after the test. A real
- * no-op survives restoreAllMocks. Node-environment files have no Element.
+ * jsdom does not implement `Element.scrollIntoView`. Builder tests that
+ * expand a chain fire AllChainsView's 100ms scroll timer after the case
+ * finishes; the missing method becomes an unhandled exception and fails
+ * pre-push even when every assertion passed.
  */
 if (
   typeof Element !== "undefined" &&
   typeof Element.prototype.scrollIntoView !== "function"
 ) {
-  Element.prototype.scrollIntoView = function scrollIntoView() {
-    /* jsdom stub */
-  };
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
 /**

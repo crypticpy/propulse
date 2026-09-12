@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 import re
 
@@ -26,8 +27,8 @@ GATES = {
 ACCURACY_PREREQUISITES = GATES - {"G-ACCURACY", "G-RUNTIME"}
 # Frozen sections of protocol 0.1.0 (sha256 of canonical JSON), checked last so the semantic
 # checks above name a violation precisely: any edit to these sections is a new protocol
-# revision, not a validator-passing change. Coverage rows and gates stay order-free and are
-# pinned by their own identity checks.
+# revision, not a validator-passing change. Record inventories are pinned separately below
+# so that they stay order-free.
 FROZEN_SECTION_SHA256 = {
     "measurement": "ea8bea66f1561e775115cf5504aaa8415f0729f9e2fd8314542ed23ec4df41de",
     "replay": "774e3458a4f4fa2a11e54c471afd9e09d2cd2746dac05011f93cff6bd62e59bb",
@@ -36,11 +37,66 @@ FROZEN_SECTION_SHA256 = {
     "numerics": "9fd68dc8b9e1b9f9117ec463dafaa14e382d603ee9600839966904d421352b62",
     "runtime_profiles": "c7b866630256fcfbba0b720ac29bb6899764491b7b8e1e6782fd1e1c6a199a2a",
 }
+# Record inventories (gates, coverage rows, comparators) stay order-free: they are pinned by
+# sha256 of a canonical form with records and their list fields sorted by canonical JSON.
+# Reordering remains legal; changing an owner, prerequisite, preregistration requirement,
+# readiness status or comparator arm is a protocol revision, not a validator-passing edit.
+FROZEN_RECORD_SHA256 = {
+    "gates": "00e72a9c6cb52ed9f1bf5116f46edd9bdfaa5a0ff713c978d3971f3984d1f1f5",
+    "coverage_rows": "f4feeef9a3db8e334ea5d8d5508c0d5d5a20b0b07c29a6f322d5aa9232c274ab",
+    "comparators": "9e4252a027a141d6a1818f3728b9eb728dc3b67ee2f5b4f3fcf77179b4a8eea5",
+}
+# The fixture manifest is pinned the same way, so a manifest supplied with --manifest cannot
+# drop or repurpose the required regression records either.
+FROZEN_FIXTURE_SHA256 = {
+    "fixtures": "b6ad92d6526f4b4ef5c2d73a90978ab338ccfae25185f18eb310a1f46033586c",
+    "labels": "228ee2c1e19386b022e67c3470f7255f6bcb19bb622900964f19e2a7957f87ef",
+}
+# ID -> (kernel, PSD role, expected sign of the minimum eigenvalue). Binds each required
+# fixture to its role so the geodesic counterexample cannot be replaced by a second
+# chordal fixture while both frozen IDs remain present.
+REQUIRED_FIXTURES = {
+    "M12-geodesic-invalid": ("geodesic_se_counterexample", False, -1),
+    "M12-chordal-valid": (KERNEL, True, 1),
+}
+REQUIRED_LABEL_KINDS = {"observed_snr", "censored_upper_bound", "unknown"}
 
 
 def section_sha256(section):
     return hashlib.sha256(json.dumps(section, sort_keys=True,
                                      separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def canonical_records(rows):
+    """Order-free canonical form: records and their list fields sorted canonically."""
+    def key(value):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), default=repr)
+
+    def normalize(value):
+        if isinstance(value, dict):
+            return {name: normalize(item) for name, item in value.items()}
+        if isinstance(value, list):
+            return sorted((normalize(item) for item in value), key=key)
+        return value
+
+    require(isinstance(rows, list), "record inventory must be a list")
+    return sorted((normalize(row) for row in rows), key=key)
+
+
+def records_sha256(rows):
+    return section_sha256(canonical_records(rows))
+
+
+def finite_number(value):
+    """JSON numbers must be representable as finite floats; a 400-digit integer is not."""
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
+
+
 EVENT_METRICS = {
     "circuit_support": "support_classification_error", "snr2500": "weighted_mae_db",
     "network_detection": "brier_and_log_loss", "observed_activity": "coverage_and_count_integrity",
@@ -59,6 +115,9 @@ def require(condition, message):
         raise Invalid(message)
 
 
+MAX_FINITE_DOUBLE_DIGITS = len(str(int(sys.float_info.max)))  # 309
+
+
 def load_json(path):
     def pairs(items):
         result = {}
@@ -75,8 +134,22 @@ def load_json(path):
         require(math.isfinite(number), "nonfinite JSON number")
         return number
 
+    def finite_int(value):
+        # Reject by digit count before int() runs: CPython's int/str
+        # conversion limit (4300 digits by default) would otherwise raise a
+        # bare ValueError that is not a structured failure. Any integer with
+        # more digits than the largest finite double cannot be finite anyway.
+        require(len(value.lstrip("-")) <= MAX_FINITE_DOUBLE_DIGITS,
+                "number outside the finite double range")
+        # The digit count only bounds the magnitude coarsely: a 309-digit
+        # integer can still exceed sys.float_info.max. Check the parsed value.
+        number = int(value)
+        require(finite_number(number), "number outside the finite double range")
+        return number
+
     return json.loads(Path(path).read_text(), object_pairs_hook=pairs,
-                      parse_constant=invalid_constant, parse_float=finite_float)
+                      parse_constant=invalid_constant, parse_float=finite_float,
+                      parse_int=finite_int)
 
 
 def schema_check(value, schema, path="$", *, check_schema=True):
@@ -91,13 +164,15 @@ def schema_check(value, schema, path="$", *, check_schema=True):
     if check_schema:
         require(isinstance(schema, dict), f"{path}: invalid schema")
         require(not set(schema) - supported, f"{path}: unsupported schema keyword")
+    require(type(value) not in (int, float) or finite_number(value),
+            f"{path}: number outside the finite double range")
     kinds = schema.get("type", [])
     if isinstance(kinds, str):
         kinds = [kinds]
     matches = {
         "object": isinstance(value, dict), "array": isinstance(value, list),
         "string": isinstance(value, str), "boolean": type(value) is bool,
-        "number": type(value) in (int, float) and math.isfinite(value),
+        "number": finite_number(value),
         "null": value is None,
     }
     require(all(kind in matches for kind in kinds), f"{path}: unsupported type")
@@ -126,7 +201,7 @@ def schema_check(value, schema, path="$", *, check_schema=True):
     if isinstance(value, str):
         require(len(value.strip()) >= schema.get("minLength", 0), f"{path}: empty string")
     if type(value) in (int, float):
-        require(math.isfinite(value), f"{path}: nonfinite number")
+        require(finite_number(value), f"{path}: nonfinite number")
         if "minimum" in schema:
             require(value >= schema["minimum"], f"{path}: below minimum")
         if "exclusiveMinimum" in schema:
@@ -263,16 +338,13 @@ def validate_protocol(protocol):
                           "null_relative_amplitude": 1e-8, "refinement_db": 0.1,
                           "refinement_phase_deg": 1}.items():
         value = numerics.get(key)
-        require(type(value) in (int, float) and math.isfinite(value) and value == expected,
+        require(finite_number(value) and value == expected,
                 f"numerics.{key}: frozen tolerance changed")
     require(numerics.get("tail_rule") == "independent_remaining_tail_bound_required",
             "convergence needs independent tail bound")
     profiles = records(protocol.get("runtime_profiles"), "runtime_profiles")
     require({p["id"] for p in profiles} == {"existing_24x11_catalog", "all_band_fullwave", "moving_target_burst"},
             "runtime profiles must distinguish workloads")
-    for section, digest in FROZEN_SECTION_SHA256.items():
-        require(section_sha256(protocol[section]) == digest,
-                f"{section}: frozen contract text changed; bump the protocol revision")
     for profile in profiles:
         require(profile.get("status") == "BLOCKED", "runtime has no measured qualification")
         nonempty(profile.get("prerequisite"), profile["id"] + ".prerequisite")
@@ -281,17 +353,24 @@ def validate_protocol(protocol):
                                   "worker_mib": 128, "main_thread_task_ms": 50,
                                   "ensemble_p95_ms": 3000}.items():
                 require(profile.get(key) == expected, "catalog runtime target changed")
+    # Checked last so every semantic check above still names its violation precisely.
+    for section, digest in FROZEN_SECTION_SHA256.items():
+        require(section_sha256(protocol[section]) == digest,
+                f"{section}: frozen contract text changed; bump the protocol revision")
+    for section, digest in FROZEN_RECORD_SHA256.items():
+        require(records_sha256(protocol[section]) == digest,
+                f"{section}: frozen contract text changed; bump the protocol revision")
 
 
 def covariance(points, times, ell_km, tau_seconds, sigma=1.0, radius_km=6371.0):
     """Small analytic chordal fixture matrix, not the assimilation implementation."""
     require(len(points) == len(times) and bool(points), "points/times mismatch")
     for number in (ell_km, tau_seconds, radius_km):
-        require(math.isfinite(number) and number > 0, "positive kernel scale required")
-    require(math.isfinite(sigma) and sigma >= 0, "invalid sigma")
+        require(finite_number(number) and number > 0, "positive kernel scale required")
+    require(finite_number(sigma) and sigma >= 0, "invalid sigma")
     vectors = []
     for (lat, lon), time in zip(points, times):
-        require(all(math.isfinite(x) for x in (lat, lon, time)) and
+        require(all(finite_number(x) for x in (lat, lon, time)) and
                 -90 <= lat <= 90 and -180 <= lon <= 180, "invalid coordinate/time")
         phi, theta = math.radians(lat), math.radians(lon)
         vectors.append((math.cos(phi) * math.cos(theta),
@@ -343,14 +422,17 @@ def utc_time(value):
 def validate_manifest(manifest, schema):
     schema_check(manifest, schema)
     records(manifest["fixtures"], "fixtures")
-    require({f["id"] for f in manifest["fixtures"]} == {"M12-geodesic-invalid", "M12-chordal-valid"},
+    require({f["id"] for f in manifest["fixtures"]} == set(REQUIRED_FIXTURES),
             "required independent PSD fixtures missing")
     for fixture in manifest["fixtures"]:
         require(fixture["longitudes_deg"] == [0, 90, 180, 270], "fixture requires four equatorial points")
         require(fixture["tolerance"] <= 1e-12, "fixture tolerance cannot mask invalid covariance")
         radius, ell, sigma = (fixture[k] for k in ("radius_km", "ell_km", "sigma"))
         if fixture["kernel"] == KERNEL:
-            matrix = covariance([(0, 0), (0, 90), (0, 180), (0, -90)], [0]*4, ell, 1, sigma, radius)
+            # Consume the validated manifest longitudes on the principal branch; the frozen
+            # [0, 90, 180, 270] fixture keeps its geometry, with 270 deg read as -90 deg.
+            points = [(0, ((lon + 180) % 360) - 180) for lon in fixture["longitudes_deg"]]
+            matrix = covariance(points, [0]*len(points), ell, 1, sigma, radius)
         else:
             matrix = [[sigma**2 * math.exp(-(radius * math.radians(min(abs(x-y), 360-abs(x-y))))**2 /
                        (2*ell**2)) for y in fixture["longitudes_deg"]] for x in fixture["longitudes_deg"]]
@@ -359,7 +441,14 @@ def validate_manifest(manifest, schema):
                 fixture["id"] + ": independent eigenvalue mismatch")
         require((minimum >= -fixture["tolerance"]) == fixture["expected_psd"], "PSD expectation mismatch")
         require(fixture["expected_psd"] == (fixture["kernel"] == KERNEL), "invalid kernel cannot qualify")
-    for label in records(manifest["labels"], "labels"):
+        kernel, psd_role, sign = REQUIRED_FIXTURES[fixture["id"]]
+        require(fixture["kernel"] == kernel and fixture["expected_psd"] is psd_role and
+                math.copysign(1, fixture["expected_min_eigenvalue"]) == sign,
+                fixture["id"] + ": required kernel/PSD role changed")
+    labels = records(manifest["labels"], "labels")
+    require({label["label_kind"] for label in labels} == REQUIRED_LABEL_KINDS,
+            "required label-kind inventory missing")
+    for label in labels:
         kind = label["label_kind"]
         if kind == "observed_snr":
             require(type(label["snr_db"]) in (int, float) and label["bound_db"] is None and
@@ -373,6 +462,11 @@ def validate_manifest(manifest, schema):
         require(utc_time(label["issued_at"]) <= utc_time(label["valid_at"]) <=
                 utc_time(label["available_at"]) <= utc_time(label["captured_at"]),
                 "label timestamps must follow issue/valid/available/captured order")
+    # Checked last, like the protocol pins: a supplied --manifest cannot drop or repurpose
+    # the required regression records either.
+    for section, digest in FROZEN_FIXTURE_SHA256.items():
+        require(records_sha256(manifest[section]) == digest,
+                f"{section}: frozen contract text changed; bump the protocol revision")
 
 
 def validate_bundle(protocol, manifest, schema):
@@ -392,7 +486,8 @@ def main():
     try:
         result = validate_bundle(load_json(args.protocol), load_json(args.manifest),
                                  load_json(HERE / "fixture-manifest.schema.json"))
-    except (Invalid, OSError, json.JSONDecodeError, TypeError, KeyError) as error:
+    except (Invalid, OSError, json.JSONDecodeError, TypeError, KeyError,
+            OverflowError) as error:
         print(json.dumps({"consistency": "FAIL", "qualification": "BLOCKED", "error": str(error)}))
         return 1
     print(json.dumps(result, sort_keys=True))

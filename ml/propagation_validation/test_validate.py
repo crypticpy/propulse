@@ -1,7 +1,11 @@
 """Independent analytic regressions and invalid-manifest mutation checks."""
 import copy
+import json
+import re
 import math
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -242,6 +246,142 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(self.check()["consistency"], "PASS")
 
 
+    def test_required_fixture_ids_stay_bound_to_kernel_and_psd_role(self):
+        # Keeping both frozen IDs while making both records chordal must not pass.
+        chordal = copy.deepcopy(self.manifest["fixtures"][1])
+        for field in ("kernel", "expected_min_eigenvalue", "expected_psd"):
+            self.manifest["fixtures"][0][field] = chordal[field]
+        with self.assertRaisesRegex(Invalid, "required kernel/PSD role changed"):
+            self.check()
+
+    def test_required_label_kind_inventory_cannot_shrink(self):
+        self.manifest["labels"] = [self.manifest["labels"][0]]
+        with self.assertRaisesRegex(Invalid, "required label-kind inventory missing"):
+            self.check()
+
+    def test_gate_prerequisites_are_frozen(self):
+        for gate in self.protocol["gates"]:
+            if gate["id"] != "G-ACCURACY":
+                gate["prerequisites"] = ["anything"]
+        with self.assertRaisesRegex(Invalid, "gates: frozen contract text changed"):
+            self.check()
+
+    def test_coverage_row_preregistration_and_status_are_frozen(self):
+        for row in self.protocol["coverage_rows"]:
+            row["owner"] = "nobody"
+            row["preregistration"]["owner"] = "nobody"
+            row["preregistration"]["required"] = "nothing"
+            if row["status"] == "data_limited":
+                row["status"] = "experimental"
+        with self.assertRaisesRegex(Invalid, "coverage_rows: frozen contract text changed"):
+            self.check()
+
+    def test_comparator_inventory_is_frozen(self):
+        self.protocol["comparators"] = [{"id": "fake", "status": "candidate",
+                                         "domain": "anything"}]
+        with self.assertRaisesRegex(Invalid, "comparators: frozen contract text changed"):
+            self.check()
+
+    def test_manifest_records_are_frozen_beyond_the_semantic_checks(self):
+        for section, field, value in (("fixtures", "tolerance", 1e-13),
+                                      ("labels", "tx_id", "swapped-tx")):
+            with self.subTest(section=section):
+                manifest = copy.deepcopy(self.manifest)
+                manifest[section][0][field] = value
+                with self.assertRaisesRegex(Invalid, section + ": frozen contract text changed"):
+                    validate_bundle(self.protocol, manifest, self.schema)
+
+    def test_frozen_record_pins_stay_order_independent(self):
+        self.protocol["gates"].reverse()
+        self.protocol["comparators"].reverse()
+        self.manifest["fixtures"].reverse()
+        self.manifest["labels"].reverse()
+        self.assertEqual(self.check()["consistency"], "PASS")
+
+
+class CommandLineTests(unittest.TestCase):
+    """The pins and numeric guards must also hold for files supplied on the command line."""
+
+    def run_cli(self, manifest):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(json.dumps(manifest))
+            completed = subprocess.run(
+                [sys.executable, str(HERE / "validate.py"), "--manifest", str(path)],
+                capture_output=True, text=True, check=False)
+        report = json.loads(completed.stdout)
+        self.assertEqual(report["qualification"], "BLOCKED")
+        return completed.returncode, report
+
+    def test_cli_accepts_the_frozen_manifest(self):
+        code, report = self.run_cli(load_json(HERE / "fixture-manifest.json"))
+        self.assertEqual((code, report["consistency"]), (0, "PASS"))
+
+    def test_cli_rejects_a_four_hundred_digit_integer(self):
+        manifest = load_json(HERE / "fixture-manifest.json")
+        huge = int("9" * 400)
+        self.assertGreater(len(str(huge)), 399)
+        manifest["fixtures"][0]["ell_km"] = huge
+        code, report = self.run_cli(manifest)
+        self.assertEqual((code, report["consistency"]), (1, "FAIL"))
+        self.assertIn("finite double range", report["error"])
+
+    def test_cli_rejects_an_integer_beyond_the_interpreter_digit_limit(self):
+        # 5000 digits is past CPython's default 4300-digit int/str limit, so
+        # json.loads raises a bare ValueError unless parse_int rejects first.
+        # Written as raw text: json.dumps would hit the same limit here.
+        text = (HERE / "fixture-manifest.json").read_text()
+        match = re.search(r'"ell_km":\s*[-0-9.eE+]+', text)
+        self.assertIsNotNone(match)
+        text = text[:match.start()] + '"ell_km": ' + "9" * 5000 + text[match.end():]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(text)
+            completed = subprocess.run(
+                [sys.executable, str(HERE / "validate.py"), "--manifest", str(path)],
+                capture_output=True, text=True, check=False)
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual((report["consistency"], report["qualification"]), ("FAIL", "BLOCKED"))
+        self.assertIn("finite double range", report["error"])
+
+    def test_cli_rejects_a_309_digit_integer_above_the_float_maximum(self):
+        # Same digit count as sys.float_info.max, but larger: the digit-count
+        # pre-check passes and only the value check can reject it.
+        huge = int(sys.float_info.max) + 10**300
+        self.assertEqual(len(str(huge)), len(str(int(sys.float_info.max))))
+        text = (HERE / "fixture-manifest.json").read_text()
+        match = re.search(r'"ell_km":\s*[-0-9.eE+]+', text)
+        self.assertIsNotNone(match)
+        text = text[:match.start()] + '"ell_km": ' + str(huge) + text[match.end():]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(text)
+            completed = subprocess.run(
+                [sys.executable, str(HERE / "validate.py"), "--manifest", str(path)],
+                capture_output=True, text=True, check=False)
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual((report["consistency"], report["qualification"]), ("FAIL", "BLOCKED"))
+        self.assertIn("finite double range", report["error"])
+
+    def test_cli_rejects_a_manifest_that_drops_the_geodesic_counterexample(self):
+        manifest = load_json(HERE / "fixture-manifest.json")
+        chordal = copy.deepcopy(manifest["fixtures"][1])
+        for field in ("kernel", "expected_min_eigenvalue", "expected_psd"):
+            manifest["fixtures"][0][field] = chordal[field]
+        code, report = self.run_cli(manifest)
+        self.assertEqual((code, report["consistency"]), (1, "FAIL"))
+        self.assertIn("required kernel/PSD role changed", report["error"])
+
+    def test_cli_rejects_a_manifest_that_drops_label_kinds(self):
+        manifest = load_json(HERE / "fixture-manifest.json")
+        manifest["labels"] = [manifest["labels"][0]]
+        code, report = self.run_cli(manifest)
+        self.assertEqual((code, report["consistency"]), (1, "FAIL"))
+        self.assertIn("required label-kind inventory missing", report["error"])
+
+
 class CovarianceTests(unittest.TestCase):
     def test_geodesic_four_point_negative_eigenpair(self):
         radius, ell = 6371.0, 15000.0
@@ -272,6 +412,16 @@ class CovarianceTests(unittest.TestCase):
         self.assertAlmostEqual(matrix[0][1], math.exp(-1), places=14)
         self.assertGreaterEqual(min(symmetric_eigenvalues(matrix)), -1e-12)
         self.assertEqual(covariance([(0, 0)], [0], 1, 1, sigma=0), [[0.0]])
+
+    def test_chordal_branch_normalizes_manifest_longitudes(self):
+        longitudes = load_json(HERE / "fixture-manifest.json")["fixtures"][1]["longitudes_deg"]
+        normalized = [((lon + 180) % 360) - 180 for lon in longitudes]
+        self.assertEqual(normalized, [0, 90, -180, -90])
+        matrix = covariance([(0, lon) for lon in normalized], [0]*4, 15000, 1)
+        reference = covariance([(0, 0), (0, 90), (0, 180), (0, -90)], [0]*4, 15000, 1)
+        for row, wanted in zip(matrix, reference):
+            for actual, expected in zip(row, wanted):
+                self.assertAlmostEqual(actual, expected, places=14)
 
     def test_invalid_scales_coordinates_rejected(self):
         for ell in (0, -1, float("inf"), float("nan")):

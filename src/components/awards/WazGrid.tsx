@@ -3,12 +3,24 @@
  *
  * Displays all 40 CQ zones as cells with color-coded status:
  * - confirmed = signal-green
- * - worked_unconfirmed = caution-yellow
+ * - worked_unconfirmed = caution-amber
  * - needed = gray
  */
 
 import { useState, useMemo } from "react";
 import type { WazZone, SlotStatus } from "@/lib/awards/types";
+import {
+  statusBg,
+  statusText,
+  statusLabel,
+  STATUS_OPTIONS,
+  legendSwatchConfirmed,
+  legendSwatchWorked,
+  legendSwatchNeeded,
+  progressFillConfirmed,
+  progressFillWorked,
+  SlotDetailPanel,
+} from "@/components/awards/shared";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -19,139 +31,6 @@ interface WazGridProps {
   confirmedCount: number;
   neededCount: number;
 }
-
-// ─── Status Styling ────────────────────────────────────────────────────────
-
-function statusBg(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "bg-signal-green/20 border-signal-green/50";
-    case "worked_unconfirmed":
-      return "bg-caution-yellow/20 border-caution-yellow/50";
-    case "needed":
-      return "bg-su-panel/40 border-su-line/40";
-  }
-}
-
-function statusText(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "text-signal-green";
-    case "worked_unconfirmed":
-      return "text-caution-yellow";
-    case "needed":
-      return "text-su-muted";
-  }
-}
-
-function statusLabel(status: SlotStatus): string {
-  switch (status) {
-    case "confirmed":
-      return "Confirmed";
-    case "worked_unconfirmed":
-      return "Worked";
-    case "needed":
-      return "Needed";
-  }
-}
-
-// ─── Zone Detail Modal ─────────────────────────────────────────────────────
-
-interface ZoneDetailProps {
-  slot: WazZone;
-  onClose: () => void;
-}
-
-function ZoneDetail({ slot, onClose }: ZoneDetailProps) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Details for CQ Zone ${slot.zone}`}
-    >
-      <div
-        className="bg-void-black border border-su-line/40 rounded-xl p-5 w-full max-w-sm mx-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-su-text">
-              CQ Zone {slot.zone}
-            </h3>
-          </div>
-          <span
-            className={`px-2 py-0.5 rounded text-xs font-medium ${statusBg(slot.status)} ${statusText(slot.status)} border`}
-          >
-            {statusLabel(slot.status)}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <span className="text-su-muted">QSOs</span>
-            <p className="text-su-text">{slot.qsoCount}</p>
-          </div>
-          <div>
-            <span className="text-su-muted">Status</span>
-            <p className={statusText(slot.status)}>
-              {statusLabel(slot.status)}
-            </p>
-          </div>
-        </div>
-
-        {slot.bands.length > 0 && (
-          <div className="mt-3">
-            <span className="text-su-muted text-sm">Bands</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {slot.bands.map((b) => (
-                <span
-                  key={b}
-                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
-                >
-                  {b}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {slot.modes.length > 0 && (
-          <div className="mt-3">
-            <span className="text-su-muted text-sm">Modes</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {slot.modes.map((m) => (
-                <span
-                  key={m}
-                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
-                >
-                  {m}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-4 w-full py-2 rounded-lg bg-su-panel text-su-muted hover:bg-su-input transition-colors text-sm"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Filter Options ────────────────────────────────────────────────────────
-
-const STATUS_OPTIONS: Array<{ label: string; value: SlotStatus | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Confirmed", value: "confirmed" },
-  { label: "Worked", value: "worked_unconfirmed" },
-  { label: "Needed", value: "needed" },
-];
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
@@ -181,14 +60,14 @@ export function WazGrid({
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-signal-green/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchConfirmed}`} />
           <span className="text-su-muted">
             Confirmed:{" "}
             <span className="text-su-text font-medium">{confirmedCount}</span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-caution-yellow/60" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchWorked}`} />
           <span className="text-su-muted">
             Worked:{" "}
             <span className="text-su-text font-medium">
@@ -197,7 +76,7 @@ export function WazGrid({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-su-input" />
+          <span className={`w-3 h-3 rounded-sm ${legendSwatchNeeded}`} />
           <span className="text-su-muted">
             Needed:{" "}
             <span className="text-su-text font-medium">{neededCount}</span>
@@ -212,11 +91,11 @@ export function WazGrid({
       <div className="w-full h-2 rounded-full bg-su-panel overflow-hidden">
         <div className="h-full flex">
           <div
-            className="bg-signal-green transition-all duration-500"
+            className={`${progressFillConfirmed} transition-all duration-500`}
             style={{ width: `${confirmedPct}%` }}
           />
           <div
-            className="bg-caution-yellow transition-all duration-500"
+            className={`${progressFillWorked} transition-all duration-500`}
             style={{ width: `${progressPct - confirmedPct}%` }}
           />
         </div>
@@ -275,7 +154,22 @@ export function WazGrid({
 
       {/* Detail modal */}
       {selectedSlot && (
-        <ZoneDetail slot={selectedSlot} onClose={() => setSelectedSlot(null)} />
+        <SlotDetailPanel
+          title={`CQ Zone ${selectedSlot.zone}`}
+          status={selectedSlot.status}
+          fields={[
+            { label: "QSOs", value: selectedSlot.qsoCount },
+            {
+              label: "Status",
+              value: statusLabel(selectedSlot.status),
+              tone: "status",
+            },
+          ]}
+          bands={selectedSlot.bands}
+          modes={selectedSlot.modes}
+          ariaLabel={`Details for CQ Zone ${selectedSlot.zone}`}
+          onClose={() => setSelectedSlot(null)}
+        />
       )}
     </div>
   );

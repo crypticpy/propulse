@@ -27,6 +27,8 @@ import {
 import {
   latLonAltToVector3,
   latLonToSurface,
+  ORBIT_LINE_OPACITY,
+  ORBIT_LINE_WIDTH,
   shouldRenderIssDefaultTrack,
 } from "@/lib/map/satelliteGeometry";
 
@@ -704,9 +706,9 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           key={`past-${idx}`}
           points={segment}
           color="#4488FF"
-          lineWidth={1.5}
+          lineWidth={ORBIT_LINE_WIDTH.unselected}
           transparent
-          opacity={0.15}
+          opacity={ORBIT_LINE_OPACITY.past}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
@@ -718,9 +720,9 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           key={`future-${idx}`}
           points={segment}
           color="#4488FF"
-          lineWidth={1.5}
+          lineWidth={ORBIT_LINE_WIDTH.unselected}
           transparent
-          opacity={0.4}
+          opacity={ORBIT_LINE_OPACITY.future}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}

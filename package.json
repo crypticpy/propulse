@@ -10,7 +10,7 @@
     "dev:session": "node scripts/dev-session.mjs",
     "test:dev-session": "node --test scripts/dev-session.test.mjs",
     "test:review-cap": "node --test scripts/review-cap.test.mjs",
-    "test:hamclock:browser": "node scripts/check-hamclock-display.mjs",
+    "test:pr-contract-ui-hunk": "node --test scripts/pr-contract-ui-hunk.test.mjs",
     "build": "tsc -b && vite build",
     "test": "npm run test:station-postgres-harness && vitest run",
     "test:station-postgres-harness": "node --test scripts/lib/station-postgres-harness.test.mjs",

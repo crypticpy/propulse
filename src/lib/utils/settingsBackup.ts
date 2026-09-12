@@ -9,6 +9,7 @@
 import { useProfileStore, type SavedTarget } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShackStore } from "@/stores/shackStore";
+import { useAuthStore } from "@/stores/authStore";
 import {
   useMapStore,
   type PanelStates,
@@ -18,6 +19,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { useWatchStore, type WatchItem } from "@/stores/watchStore";
 import { usePinStore } from "@/stores/pinStore";
 import { useAlertsStore } from "@/stores/alertsStore";
+import type { GearDeletionTable } from "@/lib/sync/shackDeletionIntent";
 import type { MapPin } from "@/types/pin";
 import type { UserStation, UserPreferences } from "@/types/user";
 import type {
@@ -55,6 +57,20 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   "uiInteraction",
   "forecastDisplay",
 ]);
+
+/** Signed-in user id at import time, for owner-scoped tombstone intents (#326). */
+function currentOwnerId(): string {
+  return useAuthStore.getState().user?.id ?? "";
+}
+
+/** Ids present in `before` but absent from `after`, by `id` field. */
+function droppedIds(
+  before: ReadonlyArray<{ id: string }>,
+  after: ReadonlyArray<{ id: string }>,
+): string[] {
+  const afterIds = new Set(after.map((item) => item.id));
+  return before.filter((item) => !afterIds.has(item.id)).map((item) => item.id);
+}
 
 function sanitizeObject<T extends Record<string, unknown>>(
   obj: T,
@@ -395,11 +411,55 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           customRadios !== undefined ||
           activeRadioId !== undefined
         ) {
+          const currentShack = useShackStore.getState();
+          // A backup import replaces radios/customRadios wholesale; any id
+          // dropped by that replacement must be tombstoned the same as a
+          // local remove* action, or the next sync pull will resurrect it
+          // on other devices (#326). Resurrecting gear that was already
+          // tombstoned elsewhere because the backup itself still contains
+          // it is the reverse problem and is out of scope for this PR.
+          const droppedRadioIds =
+            radios !== undefined
+              ? droppedIds(
+                  currentShack.radios,
+                  radios as ReadonlyArray<{ id: string }>,
+                )
+              : [];
+          const droppedCustomRadioIds =
+            customRadios !== undefined
+              ? droppedIds(
+                  currentShack.customRadios,
+                  customRadios as ReadonlyArray<{ id: string }>,
+                )
+              : [];
           useShackStore.setState({
             ...(radios !== undefined ? { radios } : {}),
             ...(customRadios !== undefined ? { customRadios } : {}),
             ...(activeRadioId !== undefined ? { activeRadioId } : {}),
           } as never);
+
+          // Cascade the drops through the same referential cleanup a local
+          // remove* action runs (dangling chain nodes/feedline runs left
+          // pointing at dropped radios), and tombstone the dropped ids
+          // themselves — the server hasn't tombstoned them, so
+          // applyGearRemoval (which only enqueues dependent intents) would
+          // leave them active remotely and let a later pull resurrect them.
+          // removeGearWithTombstones also enqueues the primary ids (#326).
+          const ownerId = currentOwnerId();
+          if (droppedRadioIds.length > 0) {
+            useShackStore
+              .getState()
+              .removeGearWithTombstones("user_radios", droppedRadioIds, ownerId);
+          }
+          if (droppedCustomRadioIds.length > 0) {
+            useShackStore
+              .getState()
+              .removeGearWithTombstones(
+                "custom_radios",
+                droppedCustomRadioIds,
+                ownerId,
+              );
+          }
         }
 
         // Route license to profile store
@@ -410,12 +470,50 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
       // Import shack equipment
       if (backup.shackEquipment) {
+        const currentShack = useShackStore.getState();
+        const nextAntennas = backup.shackEquipment.antennas ?? [];
+        const nextFeedlines = backup.shackEquipment.feedlines ?? [];
+        const nextInlineComponents = backup.shackEquipment.inlineComponents ?? [];
+        const nextAccessories = backup.shackEquipment.accessories ?? [];
+        const nextStationPresets = backup.shackEquipment.stationPresets ?? [];
+
+        // This wholesale replace bypasses the store's remove* actions, so
+        // any id dropped here must be tombstoned by hand — otherwise a
+        // sync pull re-adds it on other devices. Restoring a backup that
+        // itself still contains gear already tombstoned elsewhere
+        // (resurrection via import) is the reverse problem and is out of
+        // scope for this PR (#326 follow-up).
+        const droppedAntennaIds = droppedIds(currentShack.antennas, nextAntennas);
+        const droppedFeedlineIds = droppedIds(
+          currentShack.feedlines,
+          nextFeedlines,
+        );
+        const droppedInlineIds = droppedIds(
+          currentShack.inlineComponents,
+          nextInlineComponents,
+        );
+        const droppedAccessoryIds = droppedIds(
+          currentShack.accessories,
+          nextAccessories,
+        );
+        const droppedPresetIds = droppedIds(
+          currentShack.stationPresets,
+          nextStationPresets,
+        );
+        const droppedChainIds =
+          backup.shackEquipment.stationChains !== undefined
+            ? droppedIds(
+                currentShack.stationChains,
+                backup.shackEquipment.stationChains,
+              )
+            : [];
+
         useShackStore.setState({
-          antennas: backup.shackEquipment.antennas ?? [],
-          feedlines: backup.shackEquipment.feedlines ?? [],
-          inlineComponents: backup.shackEquipment.inlineComponents ?? [],
-          accessories: backup.shackEquipment.accessories ?? [],
-          stationPresets: backup.shackEquipment.stationPresets ?? [],
+          antennas: nextAntennas,
+          feedlines: nextFeedlines,
+          inlineComponents: nextInlineComponents,
+          accessories: nextAccessories,
+          stationPresets: nextStationPresets,
           activePresetId: backup.shackEquipment.activePresetId ?? null,
           // Station chains — gracefully handle old backups that lack these fields
           ...(backup.shackEquipment.stationChains !== undefined
@@ -425,6 +523,32 @@ export function importSettings(backup: SettingsBackup): ImportResult {
             ? { activeChainId: backup.shackEquipment.activeChainId }
             : {}),
         });
+
+        // Cascade the drops through the same referential cleanup a local
+        // remove* action runs, and tombstone the dropped ids themselves —
+        // the server hasn't tombstoned them, so leaving that to
+        // applyGearRemoval (dependent intents only) would let a later pull
+        // resurrect them (#326). This matters most for a legacy backup that
+        // omits `stationChains` (the block above then retains the current
+        // chains as-is): without this, any retained chain node or feedline
+        // run referencing one of the just-dropped antennas/feedlines/
+        // accessories/inline components would be pushed dangling.
+        const ownerId = currentOwnerId();
+        const cascades: Array<[GearDeletionTable, string[]]> = [
+          ["antennas", droppedAntennaIds],
+          ["feedlines", droppedFeedlineIds],
+          ["inline_components", droppedInlineIds],
+          ["accessories", droppedAccessoryIds],
+          ["station_presets", droppedPresetIds],
+          ["station_chains", droppedChainIds],
+        ];
+        for (const [table, ids] of cascades) {
+          if (ids.length > 0) {
+            useShackStore
+              .getState()
+              .removeGearWithTombstones(table, ids, ownerId);
+          }
+        }
       }
 
       if (backup.userPreferences.savedTargets) {
